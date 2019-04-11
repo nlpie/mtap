@@ -1,0 +1,40 @@
+# Copyright 2019 Regents of the University of Minnesota.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+type: google.api.Service
+config_version: 3
+
+http:
+  rules:
+    - selector: nlpnewt.api.v1.Events.OpenEvent
+      post: "/v1/events/{event_id}"
+      body: "*"
+    - selector: nlpnewt.api.v1.Events.CloseEvent
+      delete: "/v1/events/{event_id}"
+    - selector: nlpnewt.api.v1.Events.GetAllMetadata
+      get: "/v1/events/{event_id}/metadata"
+    - selector: nlpnewt.api.v1.Events.AddMetadata
+      post: "/v1/events/{event_id}/metadata/{key}"
+      body: "*"
+    - selector: nlpnewt.api.v1.Events.AddDocument
+      post: "/v1/events/{event_id}/documents/{document_name}"
+      body: "*"
+    - selector: nlpnewt.api.v1.Events.GetAllDocumentNames
+      get: "/v1/events/{event_id}/documents"
+    - selector: nlpnewt.api.v1.Events.GetDocumentText
+      get: "/v1/events/{event_id}/documents/{document_name}"
+    - selector: nlpnewt.api.v1.Events.AddLabels
+      post: "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}"
+      body: "*"
+    - selector: nlpnewt.api.v1.Events.GetLabels
+      get: "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}"

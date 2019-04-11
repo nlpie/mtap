@@ -1,0 +1,74 @@
+/*
+ * Copyright 2019 Regents of the University of Minnesota
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+
+package nlpnewt.api.v1;
+
+option java_package = "edu.umn.nlpnewt.api.v1";
+
+message CreatedIndex {
+  string document_name = 1;
+  string index_name = 2;
+}
+
+message ProcessRequest {
+  string processor_name = 1;
+  string event_id = 2;
+  google.protobuf.Struct params = 3;
+}
+
+message ProcessResponse {
+  map<string, google.protobuf.Duration> timing_info = 1;
+  google.protobuf.Struct result = 2;
+  repeated CreatedIndex created_indices = 3;
+}
+
+message GetInfoRequest {
+  string processor_name = 1;
+}
+
+message GetInfoResponse {
+  string name = 1;
+}
+
+message TimerStats {
+  google.protobuf.Duration mean = 1;
+  google.protobuf.Duration std = 2;
+  google.protobuf.Duration max = 3;
+  google.protobuf.Duration min = 4;
+  google.protobuf.Duration sum = 5;
+}
+
+message GetStatsRequest {
+  string processor_name = 1;
+}
+
+message GetStatsResponse {
+  int32 processed = 1;
+  int32 failures = 2;
+  map<string, TimerStats> timing_stats = 3;
+}
+
+service Processor {
+  rpc Process (ProcessRequest) returns (ProcessResponse) {
+  }
+  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
+  }
+  rpc GetStats (GetStatsRequest) returns (GetStatsResponse) {
+  }
+}

@@ -1,0 +1,14 @@
+discovery: consul
+consul:
+  host: localhost
+  port: 8500
+  scheme: http
+  dns_ip: 127.0.0.1
+  dns_port: 8600
+gateway:
+  port: 8080
+  refresh_interval: 10
+  events: null  # localhost:9090
+  processors: []
+#    - Identifier: nlpnewt-example-processor-python
+#      Endpoint: localhost:9091

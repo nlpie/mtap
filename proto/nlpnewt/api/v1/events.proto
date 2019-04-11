@@ -1,0 +1,138 @@
+/*
+ * Copyright 2019 Regents of the University of Minnesota
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+import "google/protobuf/any.proto";
+import "nlpnewt/api/v1/labels.proto";
+
+package nlpnewt.api.v1;
+
+option java_package = "edu.umn.nlpnewt.api.v1";
+
+message OpenEventRequest {
+  string event_id = 1;
+  bool only_create_new = 2;
+}
+
+message OpenEventResponse {
+  bool created = 1;
+}
+
+message CloseEventRequest {
+  string event_id = 1;
+}
+
+message CloseEventResponse {
+  bool deleted = 1;
+}
+
+message GetAllMetadataRequest {
+  string event_id = 1;
+}
+
+message GetAllMetadataResponse {
+  map<string, string> metadata = 1;
+}
+
+message AddMetadataRequest {
+  string event_id = 1;
+  string key = 2;
+  string value = 3;
+}
+
+message AddMetadataResponse {
+}
+
+message AddDocumentRequest {
+  string event_id = 1;
+  string document_name = 2;
+  string text = 3;
+}
+
+message AddDocumentResponse {
+  bool already_exists = 1;
+}
+
+message GetAllDocumentNamesRequest {
+  string event_id = 1;
+}
+
+message GetAllDocumentNamesResponse {
+  repeated string document_names = 1;
+}
+
+message GetDocumentTextRequest {
+  string event_id = 1;
+  string document_name = 2;
+}
+
+message GetDocumentTextResponse {
+  string text = 1;
+}
+
+message AddLabelsRequest {
+  string event_id = 1;
+  string document_name = 2;
+  string index_name = 3;
+  oneof labels {
+    JsonLabels json_labels = 4;
+    google.protobuf.Any other_labels = 5;
+  }
+}
+
+message AddLabelsResponse {
+}
+
+message GetLabelsRequest {
+  string event_id = 1;
+  string document_name = 2;
+  string index_name = 3;
+}
+
+message GetLabelsResponse {
+  oneof labels {
+    JsonLabels json_labels = 1;
+    google.protobuf.Any other_labels = 5;
+  }
+}
+
+service Events {
+  rpc OpenEvent (OpenEventRequest) returns (OpenEventResponse) {
+  }
+
+  rpc CloseEvent (CloseEventRequest) returns (CloseEventResponse) {
+  }
+
+  rpc GetAllMetadata (GetAllMetadataRequest) returns (GetAllMetadataResponse) {
+  }
+
+  rpc AddMetadata (AddMetadataRequest) returns (AddMetadataResponse) {
+  }
+
+  rpc AddDocument (AddDocumentRequest) returns (AddDocumentResponse) {
+  }
+
+  rpc GetAllDocumentNames (GetAllDocumentNamesRequest) returns (GetAllDocumentNamesResponse) {
+  }
+
+  rpc GetDocumentText (GetDocumentTextRequest) returns (GetDocumentTextResponse) {
+  }
+
+  rpc AddLabels (AddLabelsRequest) returns (AddLabelsResponse) {
+  }
+
+  rpc GetLabels (GetLabelsRequest) returns (GetLabelsResponse) {
+  }
+}
