@@ -18,8 +18,6 @@ package edu.umn.nlpnewt;
 import grpc.health.v1.HealthOuterClass.HealthCheckResponse.ServingStatus;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-
 /**
  * Abstract base class for a processor of {@link Event} objects.
  * <p>
@@ -47,7 +45,7 @@ public abstract class AbstractEventProcessor {
   /**
    * Method where the subclass implementation does its processing on the event.
    *
-   * @param event event object to process.
+   * @param event  event object to process.
    * @param params processing parameters.
    * @param result result map
    */
@@ -60,6 +58,8 @@ public abstract class AbstractEventProcessor {
   /**
    * Called when the processor service is going to stop serving so the processor can free
    * any resources associated with the processor.
+   *
+   * @throws Exception any exception that the subclass processor throws while shutting down.
    */
   public void shutdown() throws Exception {
     // this method left purposefully empty

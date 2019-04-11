@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota
+ * Copyright 2019 Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.umn.nlpnewt;
-
-import org.jetbrains.annotations.NotNull;
-
 /**
- * An interface for starting timers in a processing context.
+ * Internal NLP-Newt code. The classes in this directory are not meant to be used externally and
+ * can change at any time without warning.
  */
-public interface TimingInfo {
-  /**
-   * Starts a timer keyed by {@code key}.
-   *
-   * @param key The key to store the time under.
-   *
-   * @return A timer object that will automatically store the time elapsed in the processing
-   * context.
-   */
-  @NotNull Timer start(String key);
-}
+@Internal
+package edu.umn.nlpnewt.internal;
+
+import edu.umn.nlpnewt.Internal;

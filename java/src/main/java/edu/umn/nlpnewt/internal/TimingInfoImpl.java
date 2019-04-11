@@ -19,6 +19,7 @@ import com.google.common.base.Stopwatch;
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.Timer;
 import edu.umn.nlpnewt.TimingInfo;
+import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -49,19 +50,26 @@ final class TimingInfoImpl implements TimingInfo, AutoCloseable {
   }
 
   @Override
-  public Timer start(String key) {
+  public @NotNull Timer start(String key) {
     if (!active) {
       throw new IllegalStateException("Attempted to start a timer outside of a processing context.");
     }
 
     Stopwatch stopwatch = Stopwatch.createStarted();
 
-    return () -> {
-
-      if (!active) {
-        throw new IllegalStateException("Attempted to stop a timer outside of a processing context.");
+    return new Timer() {
+      @Override
+      public void stop() {
+        if (!active) {
+          throw new IllegalStateException("Attempted to stop a timer outside of a processing context.");
+        }
+        times.put(identifier + ":" + key, stopwatch.elapsed());
       }
-      times.put(identifier + ":" + key, stopwatch.elapsed());
+
+      @Override
+      public void close() {
+        stop();
+      }
     };
   }
 

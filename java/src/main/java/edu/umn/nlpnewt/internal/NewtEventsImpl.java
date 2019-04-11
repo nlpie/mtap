@@ -193,11 +193,6 @@ final class NewtEventsImpl implements NewtEvents {
 
   @Override
   public void close() {
-    shutdown();
-  }
-
-  @Override
-  public void shutdown() {
     channel.shutdown();
   }
 }

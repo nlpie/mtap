@@ -324,14 +324,25 @@ public final class ProcessorServerOptions {
     return this;
   }
 
-  public static class ProcessorOptionHandler extends OneArgumentOptionHandler<Class<? extends AbstractEventProcessor>> {
+  /**
+   * An args4j option handler that will parse a fully qualified class name into a
+   * {@link AbstractEventProcessor} class.
+   */
+  public static class ProcessorOptionHandler
+      extends OneArgumentOptionHandler<Class<? extends AbstractEventProcessor>> {
 
-    public ProcessorOptionHandler(CmdLineParser parser, OptionDef option, Setter<? super Class<? extends AbstractEventProcessor>> setter) {
+    public ProcessorOptionHandler(
+        CmdLineParser parser,
+        OptionDef option,
+        Setter<? super Class<? extends AbstractEventProcessor>> setter
+    ) {
       super(parser, option, setter);
     }
 
     @Override
-    protected Class<? extends AbstractEventProcessor> parse(String argument) throws NumberFormatException, CmdLineException {
+    protected Class<? extends AbstractEventProcessor> parse(
+        String argument
+    ) throws NumberFormatException, CmdLineException {
       try {
         return Class.forName(argument).asSubclass(AbstractEventProcessor.class);
       } catch (ClassNotFoundException e) {

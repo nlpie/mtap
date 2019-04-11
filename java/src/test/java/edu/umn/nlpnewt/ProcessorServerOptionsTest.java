@@ -28,7 +28,7 @@ class ProcessorServerOptionsTest {
   public static class TestProcessor extends AbstractDocumentProcessor {
 
     @Override
-    protected void process(@NotNull Document document, @NotNull JsonObject params, JsonObject.@NotNull Builder result) {
+    protected void process(@NotNull Document document, @NotNull AbstractJsonObject params, AbstractJsonObject.@NotNull Builder result) {
 
     }
   }

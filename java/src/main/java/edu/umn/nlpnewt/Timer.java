@@ -15,6 +15,30 @@
  */
 package edu.umn.nlpnewt;
 
-public interface Timer {
-    void stop();
+import java.io.Closeable;
+
+/**
+ * A timer that is used to time some piece of work in a processing context and automatically add
+ * the time to the processing response.
+ * <p>
+ * It is closeable so that the timer can be used via the try-with-resources block:
+ * <pre>
+ *   {@code
+ *   try (Timer timer = Newt.timingInfo().start("process_step_1")) {
+ *     // do process step one.
+ *   }
+ *   }
+ * </pre>
+ */
+public interface Timer extends Closeable {
+  /**
+   * Stops the timer, recording the time elapsed. Alias for {@link #close()}.
+   */
+  void stop();
+
+  /**
+   * Stops the timer, recording the time elapsed.
+   */
+  @Override
+  void close();
 }

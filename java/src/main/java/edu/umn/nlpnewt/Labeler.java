@@ -17,13 +17,48 @@ package edu.umn.nlpnewt;
 
 import org.jetbrains.annotations.NotNull;
 
-public interface Labeler<T extends Label> extends AutoCloseable {
+import java.io.Closeable;
+import java.io.IOException;
+
+/**
+ * An interface that is used to add labels to a document.
+ * <p>
+ * Usage:
+ * <pre>
+ *     {@code
+ *     try (Labeler<GenericLabel> labeler = document.getLabeler("sentences", true)) {
+ *        labeler.add(GenericLabel.newBuilder(0, 22).build());
+ *        labeler.add(GenericLabel.newBuilder(33, 55).build());
+ *        labeler.add(GenericLabel.newBuilder(56, 88).build());
+ *     }
+ *     }
+ * </pre>
+ * @param <T> The type of label.
+ */
+public interface Labeler<T extends Label> extends Closeable {
+  /**
+   * Adds the label to this labeler, it will be uploaded to the server when this labeler is closed
+   * or {@link #done()} is called.
+   *
+   * @param label The label to add.
+   */
   void add(T label);
 
+  /**
+   * Closes this labeler, uploading any labels that have been added to the events service.
+   */
   void done();
 
+  /**
+   * The type of label that should be added to this labeler.
+   *
+   * @return Class of the label type.
+   */
   @NotNull Class<T> getLabelType();
 
+  /**
+   * Closes the labeler sending any labels to the server.
+   */
   @Override
   void close();
 }
