@@ -86,15 +86,13 @@ public interface Document {
    * <p>
    * Example:
    * <pre>
-   *     {@code
-   *     try (Labeler<GenericLabel> labeler = document.getLabeler("pos_tags")) {
-   *        labeler.add(GenericLabel.builder(0, 4).setProperty("tag", "NOUN").build());
-   *        labeler.add(GenericLabel.builder(5, 9).setProperty("tag", "VERB").build());
-   *        labeler.add(GenericLabel.builder(10, 12).setProperty("tag", "ADP").build());
-   *        labeler.add(GenericLabel.builder(13, 16).setProperty("tag", "DET").build());
-   *        labeler.add(GenericLabel.builder(17, 22).setProperty("tag", "NOUN").build());
-   *     }
-   *   </pre>
+   * try (Labeler&lt;GenericLabel&gt; labeler = document.getLabeler("pos_tags")) {
+   *   labeler.add(GenericLabel.newBuilder(0, 4).setProperty("tag", "NOUN").build());
+   *   labeler.add(GenericLabel.newBuilder(5, 9).setProperty("tag", "VERB").build());
+   *   labeler.add(GenericLabel.newBuilder(10, 12).setProperty("tag", "ADP").build());
+   *   labeler.add(GenericLabel.newBuilder(13, 16).setProperty("tag", "DET").build());
+   *   labeler.add(GenericLabel.newBuilder(17, 22).setProperty("tag", "NOUN").build());
+   * </pre>
    *
    * @param labelIndexName The index name to store the labels under.
    *
@@ -113,16 +111,18 @@ public interface Document {
    * <pre>
    *     {@code
    *     try (Labeler<GenericLabel> labeler = document.getLabeler("sentences", true)) {
-   *        labeler.add(GenericLabel.builder(0, 22).build());
-   *        labeler.add(GenericLabel.builder(33, 55).build());
-   *        labeler.add(GenericLabel.builder(56, 88).build());
+   *        labeler.add(GenericLabel.newBuilder(0, 22).build());
+   *        labeler.add(GenericLabel.newBuilder(33, 55).build());
+   *        labeler.add(GenericLabel.newBuilder(56, 88).build());
+   *     }
    *     }
    * </pre>
    *
-   * @param labelIndexName
-   * @param isDistinct
+   * @param labelIndexName The index name.
+   * @param isDistinct     {@code true} if the labels are distinct (non-overlapping), {@code false}
+   *                       otherwise.
    *
-   * @return
+   * @return Labeler object.
    */
   @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName, boolean isDistinct);
 
@@ -134,9 +134,10 @@ public interface Document {
    * <pre>
    *     {@code
    *     try (Labeler<GenericLabel> labeler = document.getLabeler("sentences", Sentence.ADAPTER)) {
-   *        labeler.add(GenericLabel.builder(0, 22).build());
-   *        labeler.add(GenericLabel.builder(33, 55).build());
-   *        labeler.add(GenericLabel.builder(56, 88).build());
+   *        labeler.add(GenericLabel.newBuilder(0, 22).build());
+   *        labeler.add(GenericLabel.newBuilder(33, 55).build());
+   *        labeler.add(GenericLabel.newBuilder(56, 88).build());
+   *     }
    *     }
    * </pre>
    *
@@ -157,7 +158,7 @@ public interface Document {
   /**
    * The list of the names of all label indices that have been added to this document locally.
    *
-   * @return An unmodifiable list via of index names that have been added to this document.
+   * @return An unmodifiable list of index names that have been added to this document.
    */
   @NotNull List<@NotNull String> getCreatedIndices();
 

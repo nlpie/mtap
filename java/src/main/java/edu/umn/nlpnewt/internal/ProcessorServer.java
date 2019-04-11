@@ -187,10 +187,10 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
         timingInfo.activate(identifier);
         String eventID = request.getEventId();
 
-        JsonObject.Builder resultBuilder = new JsonObject.Builder();
+        JsonObject.Builder resultBuilder = JsonObject.newBuilder();
         try (Event event = documents.openEvent(eventID)) {
-          JsonObject.Builder builder = new JsonObject.Builder();
-          Structs.copyStructToJsonObjectBuilder(request.getParams(), builder);
+          JsonObject.Builder builder = JsonObject.newBuilder();
+          AbstractJsonObject.copyStructToJsonObjectBuilder(request.getParams(), builder);
           JsonObject params = builder.build();
           Timer timer = timingInfo.start("process_method");
           processor.process(event, params, resultBuilder);
@@ -205,8 +205,8 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
           }
         }
 
-        JsonObject resultObject = resultBuilder.build();
-        Structs.copyJsonObjectToStruct(resultObject, responseBuilder.getResultBuilder());
+        AbstractJsonObject resultObject = resultBuilder.build();
+        AbstractJsonObject.copyJsonObjectToStruct(resultObject, responseBuilder.getResultBuilder());
 
         Set<Map.Entry<String, Duration>> entries = timingInfo.getTimes().entrySet();
         for (Map.Entry<String, Duration> entry : entries) {

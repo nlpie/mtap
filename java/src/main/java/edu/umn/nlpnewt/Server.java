@@ -17,12 +17,35 @@ package edu.umn.nlpnewt;
 
 import java.io.IOException;
 
+/**
+ * A generic server.
+ */
 public interface Server {
+  /**
+   * Starts the server, begins hosting.
+   *
+   * @throws IOException If there is some failure doing the set-up for the server, i.e. the port
+   *                     cannot be bound, etc.
+   */
   void start() throws IOException;
 
+  /**
+   * Tells the server to stop receiving requests and to shut down.
+   */
   void stop();
 
+  /**
+   * Waits until the server has shutdown.
+   *
+   * @throws InterruptedException If the thread is interrupted while waiting for the shutdown to
+   *                              finish.
+   */
   void blockUntilShutdown() throws InterruptedException;
 
+  /**
+   * Gets the port that the server is bound to.
+   *
+   * @return The integer port.
+   */
   int getPort();
 }

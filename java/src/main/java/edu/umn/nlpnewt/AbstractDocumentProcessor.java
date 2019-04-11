@@ -13,13 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package edu.umn.nlpnewt;
 
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Abstract base class for an operation that performs processing on documents.
+ * Abstract base class for a processor of {@link Document} objects.
  * <p>
  * Example:
  * <pre>

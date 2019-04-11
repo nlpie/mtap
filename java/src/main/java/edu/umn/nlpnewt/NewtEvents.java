@@ -20,13 +20,36 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.Closeable;
 
+/**
+ * A client to an events service.
+ * <p>
+ * Usage:
+ * <pre>
+ *   {@code
+ *   try (NewtEvents events = newt.events("localhost:9090")) {
+ *     // interact with events service.
+ *   }
+ *   }
+ * </pre>
+ * <p>
+ * Implements {@link Closeable} and will close the connection to the events service when closed.
+ */
 public interface NewtEvents extends Closeable {
+  /**
+   * Opens the event, creating it if it does not already exist.
+   *
+   * @param eventID The string unique event identifier.
+   *
+   * @return An object that can be used to interact with the Event.
+   */
   @NotNull Event openEvent(@Nullable String eventID);
 
+  /**
+   * Opens the event, creating it or failing if it already exists.
+   *
+   * @param eventID The string unique event identifier.
+   *
+   * @return An object that can be used to interact with the Event.
+   */
   @NotNull Event createEvent(@Nullable String eventID);
-
-  void shutdown();
-
-  @Override
-  void close();
 }

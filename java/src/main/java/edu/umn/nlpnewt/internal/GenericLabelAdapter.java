@@ -57,7 +57,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
     List<GenericLabel> labels = new ArrayList<>();
     for (Struct struct : jsonLabels.getLabelsList()) {
       JsonObject.Builder builder = new JsonObject.Builder();
-      Structs.copyStructToJsonObjectBuilder(struct, builder);
+      JsonObject.copyStructToJsonObjectBuilder(struct, builder);
       labels.add(new GenericLabel(builder.build()));
     }
 
@@ -79,7 +79,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
     Labels.JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
     jsonLabelsBuilder.setIsDistinct(isDistinct);
     for (GenericLabel label : labels) {
-      Structs.copyJsonObjectToStruct(label, jsonLabelsBuilder.addLabelsBuilder());
+      AbstractJsonObject.copyJsonObjectToStruct(label, jsonLabelsBuilder.addLabelsBuilder());
     }
   }
 }

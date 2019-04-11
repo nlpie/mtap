@@ -89,15 +89,15 @@ public class DocumentsProcessorTest {
 
     @Override
     protected void process(@NotNull Document document,
-                           @NotNull JsonObject params,
-                           JsonObject.@NotNull Builder result) {
+                           @NotNull AbstractJsonObject params,
+                           AbstractJsonObject.@NotNull Builder result) {
       Boolean doWork = params.getBooleanValue("do_work");
       if (doWork != null && doWork) {
         try (Labeler<GenericLabel> labeler = document.getLabeler("foo")) {
-          labeler.add(GenericLabel.create(0, 5));
+          labeler.add(GenericLabel.createSpan(0, 5));
         }
         try (Labeler<GenericLabel> labeler = document.getLabeler("bar", true)) {
-          labeler.add(GenericLabel.create(0, 5));
+          labeler.add(GenericLabel.createSpan(0, 5));
         }
         result.setProperty("answer", 42);
       }

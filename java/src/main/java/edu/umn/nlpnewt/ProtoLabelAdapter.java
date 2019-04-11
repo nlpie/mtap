@@ -20,14 +20,49 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
+/**
+ * Performs adaptation of label objects so that they can be uploaded to an events service.
+ *
+ * @param <L> Label type
+ */
 @ExperimentalApi
 public interface ProtoLabelAdapter<L extends Label> {
+
+  /**
+   * The class of the type of label that will be adapted.
+   *
+   * @return Class object.
+   */
   @NotNull Class<L> getLabelType();
 
-  @NotNull LabelIndex<L> createIndexFromResponse(@NotNull EventsOuterClass.GetLabelsResponse response);
+  /**
+   * Creates a label index from a response message from the events service.
+   *
+   * @param response The response message from the events service.
+   *
+   * @return A label index containing all of the labels in the response.
+   */
+  @NotNull LabelIndex<L> createIndexFromResponse(
+      @NotNull EventsOuterClass.GetLabelsResponse response
+  );
 
+  /**
+   * Creates a label index from the list of labels.
+   *
+   * @param labels The list of labels.
+   *
+   * @return A label index containing all of the labels in the list.
+   */
   LabelIndex<L> createLabelIndex(List<@NotNull L> labels);
 
-  void addToMessage(@NotNull List<@NotNull L> labels,
-                    @NotNull EventsOuterClass.AddLabelsRequest.Builder builder);
+  /**
+   * Adds the labels to an add labels request message.
+   *
+   * @param labels  The labels to add to the message.
+   * @param builder The builder to add the labels to.
+   */
+  void addToMessage(
+      @NotNull List<@NotNull L> labels,
+      @NotNull EventsOuterClass.AddLabelsRequest.Builder builder
+  );
 }

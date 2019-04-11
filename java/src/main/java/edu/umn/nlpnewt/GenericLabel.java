@@ -24,6 +24,8 @@ import java.util.Map;
  * A generalized, dynamic label on text which can contain arbitrary key-value items. Convention is
  * to use snake_case key identifiers.
  * <p>
+ * {@inheritDoc}
+ * <p>
  * This class can be subclassed for convenience:
  * <pre>
  *   {@code
@@ -37,7 +39,7 @@ import java.util.Map;
  *     }
  *
  *     public static PosTag create(int startIndex, int endIndex, String tag) {
- *       GenericLabel label = GenericLabel.builder(startIndex, endIndex)
+ *       GenericLabel label = GenericLabel.newBuilder(startIndex, endIndex)
  *           .setProperty("tag", tag)
  *           .build();
  *       return new PosTag(label);
@@ -46,18 +48,53 @@ import java.util.Map;
  *   }
  * </pre>
  */
-public class GenericLabel extends JsonObject implements Label {
+public class GenericLabel extends AbstractJsonObject implements Label {
 
+  /**
+   * Reserved property key for {@link #getStartIndex()}.
+   */
   public static final String START_INDEX_KEY = "start_index";
 
+  /**
+   * Reserved property key for {@link #getEndIndex()}.
+   */
   public static final String END_INDEX_KEY = "end_index";
 
-  protected GenericLabel(Map<@NotNull String, @Nullable Object> backingMap) {
+  private GenericLabel(Map<@NotNull String, @Nullable Object> backingMap) {
     super(backingMap);
   }
 
-  public GenericLabel(JsonObject jsonObject) {
-    super(jsonObject);
+  /**
+   * Creates a generic label by copying {@code jsonObject}.
+   *
+   * @param abstractJsonObject The json object to copy.
+   */
+  public GenericLabel(AbstractJsonObject abstractJsonObject) {
+    super(abstractJsonObject);
+  }
+
+  /**
+   * Creates a generic label that indicates a span of text.
+   *
+   * @param startIndex The start index of the span.
+   * @param endIndex   The exclusive end index.
+   *
+   * @return Immutable finalized generic label that indicates the span.
+   */
+  public static GenericLabel createSpan(int startIndex, int endIndex) {
+    return new Builder(startIndex, endIndex).build();
+  }
+
+  /**
+   * Creates a newBuilder that can be used to create a generic label.
+   *
+   * @param startIndex The start index of the label.
+   * @param endIndex   The end index of the label.
+   *
+   * @return Builder object that can be used to add other properties to the label.
+   */
+  public static Builder newBuilder(int startIndex, int endIndex) {
+    return new Builder(startIndex, endIndex);
   }
 
   @Override
@@ -70,23 +107,33 @@ public class GenericLabel extends JsonObject implements Label {
     return getNumberValue(END_INDEX_KEY).intValue();
   }
 
-  public static GenericLabel create(int startIndex, int endIndex) {
-    return new Builder(startIndex, endIndex).build();
-  }
+  /**
+   * A newBuilder for generic label objects. Provides all the functionality of the json object newBuilder.
+   */
+  public static class Builder extends AbstractJsonObject.AbstractBuilder<Builder> {
 
-  public static Builder builder(int startIndex, int endIndex) {
-    return new Builder(startIndex, endIndex);
-  }
-
-  public static class Builder extends JsonObject.AbstractBuilder<Builder, GenericLabel> {
     private final int startIndex;
+
     private final int endIndex;
 
+    /**
+     * Default constructor. The {@code startIndex} and {@code endIndex} are required properties
+     * of generic labels.
+     *
+     * @param startIndex The inclusive start index of the label.
+     * @param endIndex   The exclusive end index of the label.
+     */
     public Builder(int startIndex, int endIndex) {
       this.startIndex = startIndex;
       this.endIndex = endIndex;
     }
 
+    /**
+     * Builds a generic label from the properties that have been added to this newBuilder.
+     *
+     * @return Immutable finalized generic label that contains properties that have been added to
+     * this newBuilder.
+     */
     public GenericLabel build() {
       Label.checkIndexRange(startIndex, endIndex);
       setProperty(START_INDEX_KEY, startIndex);

@@ -26,6 +26,10 @@ import java.util.Map;
  * <p>
  * The Event object functions as a map from string document names to {@link Document} objects that
  * can be used to access document data from the events server.
+ * <p>
+ * This is a closeable object because the events service keeps reference counts of the number of
+ * clients actively using an event. When the event is closed, the reference count is decremented,
+ * and if the reference count hits 0 the events service will deallocate the event.
  */
 public interface Event extends Map<@NotNull String, @NotNull Document>, Closeable {
   /**
@@ -44,18 +48,18 @@ public interface Event extends Map<@NotNull String, @NotNull Document>, Closeabl
   @NotNull Map<@NotNull String, @NotNull String> getMetadata();
 
   /**
-   * Adds a document keyed by {@code documentName} and {@code text}.
+   * Adds a document keyed by {@code documentName} and containing {@code text}.
    *
    * @param documentName The key to store the document under.
    * @param text The text of the document.
-   * @return
+   * @return A document object that can be used to interact with the documents service.
    */
   @NotNull Document addDocument(@NotNull String documentName, @NotNull String text);
 
   /**
+   * Returns the indices that have been created on all documents on this event.
    *
-   *
-   * @return
+   * @return A map of document names to a list of documents that have been created on that index.
    */
   @NotNull Map<@NotNull String, @NotNull List<@NotNull String>> getCreatedIndices();
 }

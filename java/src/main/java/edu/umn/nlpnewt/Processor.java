@@ -30,6 +30,8 @@ public @interface Processor {
    * The processor name. This will be the default name that the processor identifies under with
    * service discovery. It should be a valid dns path component, i.e. only consisting of
    * alphanumeric characters and dashes.
+   *
+   * @return String processor name.
    */
   String value();
 }
