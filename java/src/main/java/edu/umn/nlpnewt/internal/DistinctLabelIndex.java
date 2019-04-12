@@ -20,9 +20,9 @@ import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.Label;
 import edu.umn.nlpnewt.LabelIndex;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Internal implementation of distinct (non-overlapping) label indices.
@@ -45,19 +45,39 @@ final class DistinctLabelIndex<T extends Label> extends AbstractLabelIndex<T> {
   }
 
   @Override
-  public int indexOf(Object o) {
-    // TODO: This needs to be replaced with a binary search implementation.
-    return super.indexOf(o);
-  }
-
-  @Override
-  public boolean contains(Object o) {
-    // TODO: This needs to replaced with a binary search implementation.
-    return super.contains(o);
-  }
-
-  @Override
   public boolean isDistinct() {
     return true;
   }
+
+  int coveringIndex(Label label) {
+    return coveringIndex(label, 0, size());
+  }
+
+  int coveringIndexFrom(Label label, int fromIndex) {
+    return coveringIndex(label, fromIndex, size());
+  }
+
+  int coveringIndexTo(Label label, int toIndex) {
+    return coveringIndex(label, 0, toIndex);
+  }
+
+  int coveringIndex(Label label, int fromIndex, int toIndex) {
+    if (labels.isEmpty()) {
+      return -1;
+    }
+
+    int index = Collections.binarySearch(labels.subList(fromIndex, toIndex), label,
+        Comparator.comparingInt(Label::getStartIndex));
+
+    if (index < 0) {
+      index = -1 * (index + 1) - 1;
+    }
+
+    if (index >= 0 && index < labels.size() && labels.get(index).covers(label)) {
+      return index;
+    } else {
+      return -1;
+    }
+  }
+
 }

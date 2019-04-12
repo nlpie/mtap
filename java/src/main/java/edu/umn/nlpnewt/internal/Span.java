@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota
+ * Copyright 2019 Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,34 +18,29 @@ package edu.umn.nlpnewt.internal;
 
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.Label;
-import edu.umn.nlpnewt.LabelIndex;
 
-import java.util.AbstractList;
-import java.util.List;
-import java.util.RandomAccess;
-
-/**
- * An ordered collection of labels on text.
- *
- * @param <L> The type of label in the index.
- */
 @Internal
-abstract class AbstractLabelIndex<L extends Label>
-    extends AbstractList<L>
-    implements LabelIndex<L>, RandomAccess {
-  protected final List<L> labels;
+class Span implements Label {
 
-  AbstractLabelIndex(List<L> labels) {
-    this.labels = labels;
+  private final int startIndex;
+  private final int endIndex;
+
+  Span(int startIndex, int endIndex) {
+    this.startIndex = startIndex;
+    this.endIndex = endIndex;
+  }
+
+  static Span of(int startIndex, int endIndex) {
+    return new Span(startIndex, endIndex);
   }
 
   @Override
-  public L get(int index) {
-    return labels.get(index);
+  public int getStartIndex() {
+    return startIndex;
   }
 
   @Override
-  public int size() {
-    return labels.size();
+  public int getEndIndex() {
+    return endIndex;
   }
 }
