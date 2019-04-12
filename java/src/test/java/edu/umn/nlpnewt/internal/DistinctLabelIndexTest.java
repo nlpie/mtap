@@ -103,4 +103,9 @@ class DistinctLabelIndexTest {
   void lowerStartEndEquals() {
     assertEquals(2, tested.lowerStart(10, 1, 3));
   }
+
+  @Test
+  void lowerStartInside() {
+
+  }
 }

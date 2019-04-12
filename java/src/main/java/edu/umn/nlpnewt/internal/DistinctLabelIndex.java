@@ -332,12 +332,17 @@ final class DistinctLabelIndex<L extends Label>
 
     abstract int getLastIndex();
 
+    abstract LabelIndex<L> updateEnds(int newLeft, int newRight);
+
     @Override
     public boolean isEmpty() {
       return size == 0;
     }
 
-
+    @Override
+    public @Nullable L firstAtLocation(int startIndex, int endIndex) {
+      return null;
+    }
   }
 
 }
