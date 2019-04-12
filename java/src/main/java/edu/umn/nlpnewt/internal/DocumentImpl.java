@@ -140,7 +140,7 @@ final class DocumentImpl implements Document {
       if (!done) {
         done = true;
 
-        labels.sort(Label.POSITION_COMPARATOR);
+        labels.sort((Comparator<Label>) Label::compareLocation);
 
         labelIndexMap.put(labelIndexName, labelAdapter.createLabelIndex(labels));
 

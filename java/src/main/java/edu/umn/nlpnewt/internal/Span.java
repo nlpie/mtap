@@ -34,6 +34,10 @@ class Span implements Label {
     return new Span(startIndex, endIndex);
   }
 
+  static Span of(int index) {
+    return new Span(index, index);
+  }
+
   @Override
   public int getStartIndex() {
     return startIndex;

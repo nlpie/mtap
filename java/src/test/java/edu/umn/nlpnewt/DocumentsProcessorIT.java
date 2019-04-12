@@ -30,7 +30,7 @@ import java.net.InetSocketAddress;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DocumentsProcessorTest {
+public class DocumentsProcessorIT {
 
   @Test
   void documentProcessor() throws IOException {
@@ -68,13 +68,13 @@ public class DocumentsProcessorTest {
         assertEquals(42.0, response.getResult().getFieldsOrThrow("answer").getNumberValue());
         LabelIndex<GenericLabel> labelIndex = document.getLabelIndex("foo");
         assertFalse(labelIndex.isDistinct());
-        GenericLabel genericLabel = labelIndex.get(0);
+        GenericLabel genericLabel = labelIndex.first();
         assertEquals(0, genericLabel.getStartIndex());
         assertEquals(5, genericLabel.getEndIndex());
 
         LabelIndex<GenericLabel> bar = document.getLabelIndex("bar");
         assertTrue(bar.isDistinct());
-        genericLabel = bar.get(0);
+        genericLabel = bar.first();
         assertEquals(0, genericLabel.getStartIndex());
         assertEquals(5, genericLabel.getEndIndex());
       }
@@ -89,8 +89,8 @@ public class DocumentsProcessorTest {
 
     @Override
     protected void process(@NotNull Document document,
-                           @NotNull AbstractJsonObject params,
-                           AbstractJsonObject.@NotNull Builder result) {
+                           @NotNull JsonObject params,
+                           JsonObject.@NotNull Builder result) {
       Boolean doWork = params.getBooleanValue("do_work");
       if (doWork != null && doWork) {
         try (Labeler<GenericLabel> labeler = document.getLabeler("foo")) {

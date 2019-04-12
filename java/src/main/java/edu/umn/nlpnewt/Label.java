@@ -26,12 +26,6 @@ import java.util.Comparator;
 public interface Label {
 
   /**
-   * A comparator that looks at the positions of the labels, first by their start index, then by
-   * their end index.
-   */
-  Comparator<Label> POSITION_COMPARATOR = new ByPosition();
-
-  /**
    * A precondition check that checks whether the indices are valid for a label. Can be used by
    * implementing classes for validation of labels.
    *
@@ -133,15 +127,13 @@ public interface Label {
     return coveredText(document.getText());
   }
 
-  /**
-   * The comparator that does positional comparison, first by start index, then by end index.
-   */
-  class ByPosition implements Comparator<Label> {
-    @Override
-    public int compare(Label o1, Label o2) {
-      int compare = Integer.compare(o1.getStartIndex(), o2.getStartIndex());
-      if (compare != 0) return compare;
-      return Integer.compare(o1.getEndIndex(), o2.getEndIndex());
-    }
+  default int compareLocation(@NotNull Label other) {
+    int compare = Integer.compare(getStartIndex(), other.getStartIndex());
+    if (compare != 0) return compare;
+    return Integer.compare(getEndIndex(), other.getEndIndex());
+  }
+
+  default int compareStart(@NotNull Label other) {
+    return Integer.compare(getStartIndex(), other.getStartIndex());
   }
 }
