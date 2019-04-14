@@ -26,13 +26,13 @@ import java.util.*;
 @Internal
 final class EventImpl extends AbstractMap<@NotNull String, @NotNull Document> implements Event {
 
-  private final NewtEventsImpl client;
+  private final EventsClient client;
 
   private final String eventID;
 
   private transient List<Document> documents;
 
-  EventImpl(NewtEventsImpl client, String eventID) {
+  EventImpl(EventsClient client, String eventID) {
     this.client = client;
     this.eventID = eventID;
     this.documents = new ArrayList<>();
@@ -114,7 +114,7 @@ final class EventImpl extends AbstractMap<@NotNull String, @NotNull Document> im
 
     return new AbstractSet<Entry<String, Document>>() {
       @Override
-      public Iterator<Entry<String, Document>> iterator() {
+      public @NotNull Iterator<Entry<String, Document>> iterator() {
         Iterator<String> it = allDocuments.iterator();
         return new AbstractIterator<Entry<String, Document>>() {
           @Override

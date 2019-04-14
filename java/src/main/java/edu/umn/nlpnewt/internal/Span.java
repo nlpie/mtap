@@ -19,6 +19,8 @@ package edu.umn.nlpnewt.internal;
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.Label;
 
+import java.util.Objects;
+
 @Internal
 class Span implements Label {
 
@@ -46,5 +48,27 @@ class Span implements Label {
   @Override
   public int getEndIndex() {
     return endIndex;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Span span = (Span) o;
+    return startIndex == span.startIndex &&
+        endIndex == span.endIndex;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(startIndex, endIndex);
+  }
+
+  @Override
+  public String toString() {
+    return "Span{" +
+        "startIndex=" + startIndex +
+        ", endIndex=" + endIndex +
+        '}';
   }
 }

@@ -16,18 +16,43 @@
 
 package edu.umn.nlpnewt.internal;
 
+import edu.umn.nlpnewt.GenericLabel;
+import edu.umn.nlpnewt.Label;
+import edu.umn.nlpnewt.LabelIndex;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.util.*;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class DistinctLabelIndexTest {
-  DistinctLabelIndex<Span> tested = new DistinctLabelIndex<Span>(
+  DistinctLabelIndex<Span> tested = new DistinctLabelIndex<>(
       Span.of(0, 3),
       Span.of(3, 5),
       Span.of(6, 10),
       Span.of(11, 15),
       Span.of(16, 20)
   );
+
+  DistinctLabelIndex<?> empty = new DistinctLabelIndex<>();
+
+  @Test
+  void createSorts() {
+    LabelIndex<Span> created = DistinctLabelIndex.create(Arrays.asList(
+        Span.of(6, 10),
+        Span.of(3, 5),
+        Span.of(11, 15),
+        Span.of(16, 20),
+        Span.of(0, 3)
+    ));
+    assertEquals(tested.asList(), created.asList());
+  }
+
+  @Test
+  void isDistinct() {
+    assertTrue(tested.isDistinct());
+  }
 
   @Test
   void higherIndexTwoEqual() {
@@ -106,6 +131,442 @@ class DistinctLabelIndexTest {
 
   @Test
   void lowerStartInside() {
+    assertEquals(2, tested.lowerStart(7, 1, 4));
+  }
 
+  @Test
+  void lowerStartBeforeFirst() {
+    assertEquals(-1, tested.lowerStart(2, 1, 4));
+  }
+
+  @Test
+  void lowerStartAfterEnd() {
+    assertEquals(3, tested.lowerStart(21, 1, 4));
+  }
+
+  @Test
+  void covering() {
+    LabelIndex<Span> covering = tested.covering(Span.of(6, 10));
+
+    assertEquals(1, covering.size());
+
+    Iterator<@NotNull Span> it = covering.iterator();
+    assertEquals(it.next(), Span.of(6, 10));
+    assertFalse(it.hasNext());
+  }
+
+  @Test
+  void coveringIndices() {
+    LabelIndex<Span> covering = tested.covering(6, 10);
+
+    assertEquals(1, covering.size());
+
+    Iterator<@NotNull Span> it = covering.iterator();
+    assertEquals(it.next(), Span.of(6, 10));
+    assertFalse(it.hasNext());
+  }
+
+  @Test
+  void coveringOfEmpty() {
+    LabelIndex<?> covering = empty.covering(Span.of(4, 10));
+
+    assertEquals(0, covering.size());
+  }
+
+  @Test
+  void testCoveringEmptyResult() {
+    LabelIndex<Span> covering = tested.covering(Span.of(4, 10));
+
+    assertEquals(0, covering.size());
+
+    Iterator<@NotNull Span> it = covering.iterator();
+    assertFalse(it.hasNext());
+  }
+
+  @Test
+  void emptyInside() {
+    LabelIndex<?> inside = empty.inside(10, 20);
+
+    assertEquals(0, inside.size());
+  }
+
+  @Test
+  void inside() {
+    LabelIndex<Span> inside = tested.inside(1, 16);
+    assertEquals(3, inside.size());
+  }
+
+  @Test
+  void insideBefore() {
+    LabelIndex<Span> inside = tested.inside(0, 2);
+
+    assertEquals(0, inside.size());
+
+    assertFalse(inside.iterator().hasNext());
+  }
+
+  @Test
+  void insideAfter() {
+    LabelIndex<Span> inside = tested.inside(21, 25);
+
+    assertEquals(0, inside.size());
+
+    assertFalse(inside.iterator().hasNext());
+  }
+
+  @Test
+  void insideEqualBounds() {
+    LabelIndex<Span> inside = tested.inside(6, 10);
+
+    assertEquals(1, inside.size());
+    Iterator<@NotNull Span> it = inside.iterator();
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(6, 10), it.next());
+  }
+
+  @Test
+  void beginsInsideOverlap() {
+    LabelIndex<Span> beginsInside = tested.beginsInside(1, 7);
+
+    assertEquals(Arrays.asList(Span.of(3, 5), Span.of(6, 10)), beginsInside.asList());
+  }
+
+  @Test
+  void beginsInsideTouching() {
+    LabelIndex<Span> beginsInside = tested.beginsInside(0, 6);
+
+    assertEquals(Arrays.asList(Span.of(0, 3), Span.of(3, 5)), beginsInside.asList());
+  }
+
+  @Test
+  void ascendingStartIndex() {
+    LabelIndex<Span> ascendingStartIndex = tested.ascendingStartIndex();
+
+    assertSame(tested, ascendingStartIndex);
+  }
+
+  @Test
+  void descendingStartIndex() {
+    LabelIndex<Span> descendingStartIndex = tested.descendingStartIndex();
+
+    assertEquals(Arrays.asList(
+        Span.of(16, 20),
+        Span.of(11, 15),
+        Span.of(6, 10),
+        Span.of(3, 5),
+        Span.of(0, 3)
+    ), descendingStartIndex.asList());
+  }
+
+  @Test
+  void ascendingEndIndex() {
+    LabelIndex<Span> ascendingEndIndex = tested.ascendingEndIndex();
+
+    assertSame(tested, ascendingEndIndex);
+  }
+
+  @Test
+  void descendingEndIndex() {
+    LabelIndex<Span> descendingEndIndex = tested.descendingEndIndex();
+    assertSame(tested, descendingEndIndex);
+  }
+
+  @Test
+  void before() {
+    LabelIndex<Span> before = tested.before(10);
+
+    assertEquals(Arrays.asList(
+        Span.of(0, 3),
+        Span.of(3, 5),
+        Span.of(6, 10)
+    ), before.asList());
+  }
+
+  @Test
+  void beforeLabel() {
+    LabelIndex<Span> before = tested.before(Span.of(10, 13));
+
+    assertEquals(Arrays.asList(
+        Span.of(0, 3),
+        Span.of(3, 5),
+        Span.of(6, 10)
+    ), before.asList());
+  }
+
+  @Test
+  void beforeBeginning() {
+    LabelIndex<Span> before = tested.before(0);
+
+    assertEquals(0, before.size());
+  }
+
+  @Test
+  void beforeBeginningLabel() {
+    LabelIndex<Span> before = tested.before(Span.of(0, 3));
+    assertEquals(0, before.size());
+  }
+
+  @Test
+  void beforeEnd() {
+    LabelIndex<Span> before = tested.before(20);
+    assertEquals(tested.asList(), before.asList());
+  }
+
+  @Test
+  void beforeEndLabel() {
+    LabelIndex<Span> before = tested.before(Span.of(20, 25));
+    assertEquals(tested.asList(), before.asList());
+  }
+
+  @Test
+  void after() {
+    LabelIndex<Span> after = tested.after(4);
+
+    assertEquals(Arrays.asList(
+        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+    ), after.asList());
+  }
+
+  @Test
+  void afterLabel() {
+    LabelIndex<Span> after = tested.after(Span.of(0, 4));
+    assertEquals(Arrays.asList(
+        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+    ), after.asList());
+  }
+
+  @Test
+  void afterBegin() {
+    LabelIndex<Span> after = tested.after(0);
+
+    assertEquals(5, after.size());
+    assertEquals(tested.asList(), after.asList());
+  }
+
+  @Test
+  void afterEnd() {
+    LabelIndex<Span> after = tested.after(19);
+    assertEquals(0, after.size());
+  }
+
+  @Test
+  void afterEmpty() {
+    LabelIndex<?> after = empty.after(0);
+
+    assertEquals(0, after.size());
+  }
+
+  @Test
+  void firstEmpty() {
+    DistinctLabelIndex<Label> labels = new DistinctLabelIndex<>();
+    assertNull(labels.first());
+  }
+
+  @Test
+  void first() {
+    assertEquals(Span.of(0, 3), tested.first());
+  }
+
+  @Test
+  void lastEmpty() {
+    DistinctLabelIndex<Label> labels = new DistinctLabelIndex<>();
+    assertNull(labels.last());
+  }
+
+  @Test
+  void last() {
+    assertEquals(Span.of(16, 20), tested.last());
+  }
+
+  @Test
+  void containsNull() {
+    assertFalse(tested.contains(null));
+  }
+
+  @Test
+  void containsNotLabel() {
+    assertFalse(tested.contains("blub"));
+  }
+
+  @Test
+  void containsFalse() {
+    assertFalse(tested.contains(Span.of(7, 10)));
+  }
+
+  @Test
+  void containsDifferentLabel() {
+    GenericLabel genericLabel = GenericLabel.newBuilder(11, 15).setProperty("blah", 1)
+        .build();
+    assertFalse(tested.contains(genericLabel));
+  }
+
+  @Test
+  void contains() {
+    assertTrue(tested.contains(Span.of(11, 15)));
+  }
+
+  @Test
+  void emptyContains() {
+    assertFalse(empty.contains(Span.of(3, 5)));
+  }
+
+  @Test
+  void iterator() {
+    Iterator<Span> it = tested.iterator();
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(0, 3), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(3, 5), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(6, 10), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(11, 15), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(16, 20), it.next());
+    assertFalse(it.hasNext());
+    assertThrows(NoSuchElementException.class, it::next);
+  }
+
+  @Test
+  void containsSpanTrue() {
+    assertTrue(tested.containsSpan(Span.of(3, 5)));
+  }
+
+  @Test
+  void containsSpanFalse() {
+    assertFalse(tested.containsSpan(Span.of(7, 14)));
+  }
+
+  @Test
+  void containsSpanFalseEqualBegin() {
+    assertFalse(tested.containsSpan(3, 4));
+  }
+
+  @Test
+  void emptyContainsSpan() {
+    assertFalse(empty.containsSpan(Span.of(3, 4)));
+  }
+
+  @Test
+  void getOne() {
+    Collection<@NotNull Span> atLocation = tested.atLocation(3, 5);
+
+    assertEquals(1, atLocation.size());
+
+    Iterator<@NotNull Span> it = atLocation.iterator();
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(3, 5), it.next());
+  }
+
+  @Test
+  void getNone() {
+    Collection<@NotNull Span> atLocation = tested.atLocation(0, 5);
+    assertEquals(0, atLocation.size());
+    assertFalse(atLocation.iterator().hasNext());
+  }
+
+  @Test
+  void emptyGet() {
+    Collection<?> atLocation = empty.atLocation(0, 3);
+    assertEquals(0, atLocation.size());
+    assertFalse(atLocation.iterator().hasNext());
+  }
+
+  @Test
+  void backwardFrom() {
+    LabelIndex<Span> backwardFrom = tested.backwardFrom(10);
+
+    assertEquals(Arrays.asList(
+        Span.of(6, 10),
+        Span.of(3, 5),
+        Span.of(0, 3)
+    ), backwardFrom.asList());
+  }
+
+  @Test
+  void asList() {
+    List<Span> asList = tested.asList();
+
+    assertEquals(Arrays.asList(
+        Span.of(0, 3),
+        Span.of(3, 5),
+        Span.of(6, 10),
+        Span.of(11, 15),
+        Span.of(16, 20)),
+        asList);
+  }
+
+  @Test
+  void emptyAsList() {
+    List<?> asList = empty.asList();
+    assertEquals(Collections.emptyList(), asList);
+  }
+
+  @Test
+  void asListIndexOf() {
+    List<?> asList = tested.asList();
+    assertEquals(2, asList.indexOf(Span.of(6, 10)));
+  }
+
+  @Test
+  void asListIndexOfNone() {
+    List<Span> asList = tested.asList();
+    assertEquals(-1, asList.indexOf(Span.of(6, 11)));
+  }
+
+  @Test
+  void asListIndexOfNotLabel() {
+    List<Span> asList = tested.asList();
+    assertEquals(-1, asList.indexOf("foo"));
+  }
+
+  @Test
+  void emptyAsListIndexOf() {
+    List<?> asList = empty.asList();
+    assertEquals(-1, asList.indexOf(Span.of(6, 10)));
+  }
+
+  @Test
+  void asListLastIndexOf() {
+    List<Span> asList = tested.asList();
+    assertEquals(1, asList.lastIndexOf(Span.of(3, 5)));
+  }
+
+  @Test
+  void emptyAsListLastIndexOf() {
+    List<?> asList = empty.asList();
+    assertEquals(-1, asList.lastIndexOf(Span.of(3, 5)));
+  }
+
+  @Test
+  void asListContains() {
+    assertTrue(tested.asList().contains(Span.of(11, 15)));
+  }
+
+  @Test
+  void emptyAsListContains() {
+    assertFalse(empty.asList().contains(Span.of(3, 5)));
+  }
+
+  @Test
+  void asListContainsNull() {
+    assertFalse(tested.asList().contains(null));
+  }
+
+  @Test
+  void asListContainsNotLabel() {
+    assertFalse(tested.asList().contains("blub"));
+  }
+
+  @Test
+  void asListContainsFalse() {
+    assertFalse(tested.asList().contains(Span.of(7, 10)));
+  }
+
+  @Test
+  void asListContainsDifferentLabel() {
+    GenericLabel genericLabel = GenericLabel.newBuilder(11, 15).setProperty("blah", 1)
+        .build();
+    assertFalse(tested.asList().contains(genericLabel));
   }
 }

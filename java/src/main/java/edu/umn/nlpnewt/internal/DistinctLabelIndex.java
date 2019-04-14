@@ -33,8 +33,7 @@ import java.util.*;
  * @param <L> label type
  */
 @Internal
-final class DistinctLabelIndex<L extends Label>
-    extends AbstractCollection<L> implements LabelIndex<L> {
+final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
   private final List<L> labels;
 
@@ -42,6 +41,7 @@ final class DistinctLabelIndex<L extends Label>
     this.labels = labels;
   }
 
+  @SafeVarargs
   DistinctLabelIndex(L... labels) {
     this.labels = Arrays.asList(labels);
   }
@@ -58,107 +58,115 @@ final class DistinctLabelIndex<L extends Label>
   }
 
   @Override
-  public @NotNull LabelIndex<L> covering(int startIndex, int endIndex) {
-    return null;
-  }
-
-  @Override
   public @NotNull LabelIndex<L> covering(@NotNull Label label) {
-    return null;
+    int index = coveringIndex(label, null, null);
+    return new AscendingView(index, index);
   }
 
   @Override
   public @NotNull LabelIndex<L> inside(int startIndex, int endIndex) {
-    return null;
-  }
-
-  @Override
-  public @NotNull LabelIndex<L> inside(@NotNull Label label) {
-    return null;
+    return ascendingViewFromBounds(startIndex, endIndex);
   }
 
   @Override
   public @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex) {
-    return null;
-  }
-
-  @Override
-  public @NotNull LabelIndex<L> beginsInside(@NotNull Label label) {
-    return null;
+    int left = higherIndex(startIndex, null, null);
+    int right = lowerStart(endIndex - 1, null, null);
+    return new AscendingView(left, right);
   }
 
   @Override
   public @NotNull LabelIndex<L> ascendingStartIndex() {
-    return null;
+    return this;
   }
 
   @Override
   public @NotNull LabelIndex<L> descendingStartIndex() {
-    return null;
+    return new DescendingView(0, size() - 1);
   }
 
   @Override
   public @NotNull LabelIndex<L> ascendingEndIndex() {
-    return null;
+    return this;
   }
 
   @Override
   public @NotNull LabelIndex<L> descendingEndIndex() {
-    return null;
+    return this;
   }
 
   @Nullable
   @Override
   public L first() {
-    return null;
+    if (labels.isEmpty()) {
+      return null;
+    }
+    return labels.get(0);
   }
 
   @Nullable
   @Override
   public L last() {
-    return null;
-  }
-
-  @Override
-  public boolean containsSpan(int startIndex, int endIndex) {
-    return false;
+    if (labels.isEmpty()) {
+      return null;
+    }
+    return labels.get(labels.size() - 1);
   }
 
   @Override
   public boolean containsSpan(@NotNull Label label) {
-    return false;
-  }
-
-  @Override
-  public @NotNull Collection<L> atLocation(int startIndex, int endIndex) {
-    return null;
+    return containsLocation(label, null, null);
   }
 
   @Override
   public @NotNull Collection<L> atLocation(@NotNull Label label) {
-    return null;
-  }
-
-  @Nullable
-  @Override
-  public L firstAtLocation(int startIndex, int endIndex) {
-    return null;
-  }
-
-  @Nullable
-  @Override
-  public L firstAtLocation(@NotNull Label label) {
-    return null;
+    return atLocation(label, null, null);
   }
 
   @Override
   public @NotNull List<L> asList() {
-    return null;
+    return new AbstractList<L>() {
+      @Override
+      public L get(int index) {
+        return labels.get(index);
+      }
+
+      @Override
+      public int size() {
+        return labels.size();
+      }
+
+      @Override
+      public int indexOf(Object o) {
+        if (!(o instanceof Label)) {
+          return -1;
+        }
+        return DistinctLabelIndex.this.indexOf((Label) o, null, null);
+      }
+
+      @Override
+      public int lastIndexOf(Object o) {
+        return indexOf(o);
+      }
+
+      @Override
+      public boolean contains(Object o) {
+        return indexOf(o) != -1;
+      }
+    };
   }
 
   @Override
   public Iterator<L> iterator() {
-    return null;
+    return labels.iterator();
+  }
+
+  @Override
+  public boolean contains(Object o) {
+    if (!(o instanceof Label)) {
+      return false;
+    }
+    return indexOf((Label) o, null, null) != -1;
   }
 
   @Override
@@ -312,7 +320,7 @@ final class DistinctLabelIndex<L extends Label>
     return i + fromIndex;
   }
 
-  abstract class View implements LabelIndex<L> {
+  abstract class View extends AbstractLabelIndex<L> {
     private final int size;
     private final int left;
     private final int right;
@@ -328,6 +336,14 @@ final class DistinctLabelIndex<L extends Label>
       size = this.right - this.left + 1;
     }
 
+    int getLeft() {
+      return left;
+    }
+
+    int getRight() {
+      return right;
+    }
+
     abstract int getFirstIndex();
 
     abstract int getLastIndex();
@@ -335,13 +351,272 @@ final class DistinctLabelIndex<L extends Label>
     abstract LabelIndex<L> updateEnds(int newLeft, int newRight);
 
     @Override
-    public boolean isEmpty() {
-      return size == 0;
+    public boolean isDistinct() {
+      return true;
     }
 
     @Override
-    public @Nullable L firstAtLocation(int startIndex, int endIndex) {
+    public int size() {
+      return size;
+    }
+
+    @Override
+    public @NotNull Collection<@NotNull L> atLocation(@NotNull Label label) {
+      return DistinctLabelIndex.this.atLocation(label, left, right + 1);
+    }
+
+    @Override
+    public boolean contains(Object o) {
+      if (!(o instanceof Label)) {
+        return false;
+      }
+      return indexOf((Label) o, left, right + 1) != -1;
+    }
+
+    @Override
+    public boolean containsSpan(@NotNull Label label) {
+      return containsLocation(label, left, right + 1);
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> inside(int startIndex, int endIndex) {
+      return updateBounds(startIndex, endIndex);
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex) {
+      return updateEnds(higherIndex(startIndex, left, right + 1),
+          lowerStart(endIndex - 1, left, right + 1));
+    }
+
+    @Override
+    public @Nullable L first() {
+      int firstIndex = getFirstIndex();
+      if (0 <= firstIndex && firstIndex < labels.size() && left <= firstIndex && firstIndex <= right) {
+        return labels.get(firstIndex);
+      }
       return null;
+    }
+
+    @Override
+    public @Nullable L last() {
+      int lastIndex = getLastIndex();
+      if (0 <= lastIndex && lastIndex < labels.size() && left <= lastIndex && lastIndex <= right) {
+        return labels.get(lastIndex);
+      }
+      return null;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> covering(@NotNull Label label) {
+      int index = coveringIndex(label, left, right + 1);
+      if (index != -1) {
+        return updateEnds(index, index);
+      } else {
+        return updateEnds(0, -1);
+      }
+    }
+
+    LabelIndex<L> updateBounds(Integer minTextIndex, Integer maxTextIndex) {
+      int newLeft = 0;
+      if (minTextIndex != null) {
+        newLeft = higherIndex(minTextIndex, left, right + 1);
+      }
+      int newRight = Integer.MAX_VALUE;
+      if (maxTextIndex != null) {
+        newRight = lowerIndex(maxTextIndex, left, right + 1);
+      }
+
+      if (newLeft == -1) {
+        return updateEnds(0, -1);
+      }
+
+      return updateEnds(Math.max(left, newLeft), Math.min(right, newRight));
+    }
+  }
+
+  AscendingView ascendingViewFromBounds(int minTextIndex, int maxTextIndex) {
+    int left = higherIndex(minTextIndex, null, null);
+    int right = lowerIndex(maxTextIndex, null, null);
+    return new AscendingView(left, right);
+  }
+
+  class AscendingView extends View {
+
+    AscendingView(Integer left, Integer right) {
+      super(left, right);
+    }
+
+    @Override
+    int getFirstIndex() {
+      return getLeft();
+    }
+
+    @Override
+    int getLastIndex() {
+      return getRight();
+    }
+
+    @Override
+    LabelIndex<L> updateEnds(int newLeft, int newRight) {
+      if (newLeft == -1) {
+        return new AscendingView(0, -1);
+      }
+      return new AscendingView(newLeft, newRight);
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingStartIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingStartIndex() {
+      return new DescendingView(getLeft(), getRight());
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingEndIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingEndIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull List<L> asList() {
+      return new AscendingListView();
+    }
+
+    @Override
+    public Iterator<L> iterator() {
+      return asList().iterator();
+    }
+
+    class AscendingListView extends AbstractList<L> implements RandomAccess {
+      @Override
+      public L get(int index) {
+        if (index < 0 || index >= size()) {
+          throw new IndexOutOfBoundsException("Index " + index + " is not in bounds [" + 0 + ", " + size() + ")");
+        }
+        return labels.get(getFirstIndex() + index);
+      }
+
+      @Override
+      public boolean contains(Object o) {
+        return AscendingView.this.contains(o);
+      }
+
+      @Override
+      public int indexOf(Object o) {
+        if (!(o instanceof Label)) {
+          return -1;
+        }
+        int index = DistinctLabelIndex.this.indexOf((Label) o, getLeft(), getRight() + 1);
+        if (index == -1) return -1;
+        return index - getLeft();
+      }
+
+      @Override
+      public int lastIndexOf(Object o) {
+        return indexOf(o);
+      }
+
+      @Override
+      public int size() {
+        return AscendingView.this.size();
+      }
+    }
+  }
+
+  class DescendingView extends View {
+    DescendingView(int left, int right) {
+      super(left, right);
+    }
+
+    @Override
+    int getFirstIndex() {
+      return getRight();
+    }
+
+    @Override
+    int getLastIndex() {
+      return getLeft();
+    }
+
+    @Override
+    LabelIndex<L> updateEnds(int newLeft, int newRight) {
+      if (newLeft == -1) {
+        return new DescendingView(0, -1);
+      }
+      return new DescendingView(newLeft, newRight);
+    }
+
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingStartIndex() {
+      return new AscendingView(getLeft(), getRight());
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingStartIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingEndIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingEndIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull List<@NotNull L> asList() {
+      return new DescendingListView();
+    }
+
+    @Override
+    public @NotNull Iterator<@NotNull L> iterator() {
+      return asList().iterator();
+    }
+
+    class DescendingListView extends AbstractList<L> implements RandomAccess {
+      @Override
+      public L get(int index) {
+        if (index < 0 || index >= size()) {
+          throw new IndexOutOfBoundsException("Index " + index + " is not in bounds [" + 0 + ", " + size() + ")");
+        }
+        return labels.get(getRight() - index);
+      }
+
+      public boolean contains(Object o) {
+        return DescendingView.this.contains(o);
+      }
+
+      @Override
+      public int indexOf(Object o) {
+        if (!(o instanceof Label)) {
+          return -1;
+        }
+        int index = DistinctLabelIndex.this.indexOf((Label) o, getLeft(), getRight() + 1);
+        if (index == -1) return -1;
+        return getRight() - index;
+      }
+
+      @Override
+      public int lastIndexOf(Object o) {
+        return indexOf(o);
+      }
+
+      @Override
+      public int size() {
+        return DescendingView.this.size();
+      }
     }
   }
 

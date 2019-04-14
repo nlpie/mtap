@@ -32,8 +32,8 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * Returns whether or not the index is distinct.
    * <p>
    * Index distinctness is based on whether the labels in the index can overlap or cannot overlap.
-   * In the case of distinct, non-overlapping labels significant enhancements can be made to the
-   * process of searching for labels.
+   * In the case of distinct, non-overlapping labels optimization can be made to the
+   * process of searching for labels, as well as iteration over and size computation of sub-indices.
    *
    * @return Returns {@code true} if the index is distinct, {@code false} if the index is not
    * distinct.
@@ -154,28 +154,32 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
   // ----------
 
   /**
-   * This label index sorted according to ascending start index.
+   * This label index sorted according to ascending start index then by the current sort
+   * direction for end index.
    *
    * @return A sorted view of this label index.
    */
   @NotNull LabelIndex<L> ascendingStartIndex();
 
   /**
-   * This label index sorted according to descending start index.
+   * This label index sorted according to descending start index then by the current sort
+   * direction for end index.
    *
    * @return A sorted view of this label index.
    */
   @NotNull LabelIndex<L> descendingStartIndex();
 
   /**
-   * This label index sorted according to ascending end index.
+   * This label index sorted according to the current sort direction for start index then
+   * by ascending end index.
    *
    * @return A sorted view of this label index.
    */
   @NotNull LabelIndex<L> ascendingEndIndex();
 
   /**
-   * This label index sorted according to descending end index.
+   * This label index sorted according to the current direction for start index then
+   * by descending end index.
    *
    * @return A sorted view of this label index.
    */
