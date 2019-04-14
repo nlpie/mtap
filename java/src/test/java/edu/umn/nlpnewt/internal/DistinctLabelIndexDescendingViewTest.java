@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class DistinctLabelIndexDescendingViewTest {
   LabelIndex<Span> descending = new DistinctLabelIndex<>(
@@ -238,6 +237,14 @@ public class DistinctLabelIndexDescendingViewTest {
   }
 
   @Test
+  void ascending() {
+    LabelIndex<Span> ascendingStartIndex = descending.ascending();
+    assertEquals(Arrays.asList(
+        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+    ), ascendingStartIndex.asList());
+  }
+
+  @Test
   void ascendingStartIndex() {
     LabelIndex<Span> ascendingStartIndex = descending.ascendingStartIndex();
     assertEquals(Arrays.asList(
@@ -261,6 +268,22 @@ public class DistinctLabelIndexDescendingViewTest {
   void descendingEndIndex() {
     LabelIndex<Span> descendingEndIndex = descending.descendingEndIndex();
     assertSame(descending, descendingEndIndex);
+  }
+
+  @Test
+  void forwardFrom() {
+    LabelIndex<Span> forwardFrom = descending.forwardFrom(6);
+    assertEquals(Arrays.asList(
+        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+    ), forwardFrom.asList());
+  }
+
+  @Test
+  void forwardFromLabel() {
+    LabelIndex<Span> forwardFrom = descending.forwardFrom(Span.of(5, 6));
+    assertEquals(Arrays.asList(
+        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+    ), forwardFrom.asList());
   }
 
   @Test

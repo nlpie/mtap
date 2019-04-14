@@ -193,7 +193,17 @@ class DistinctLabelIndexTest {
   @Test
   void inside() {
     LabelIndex<Span> inside = tested.inside(1, 16);
-    assertEquals(3, inside.size());
+    assertEquals(Arrays.asList(
+        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15)
+    ), inside.asList());
+  }
+
+  @Test
+  void insideLabel() {
+    LabelIndex<Span> inside = tested.inside(Span.of(1, 16));
+    assertEquals(Arrays.asList(
+        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15)
+    ), inside.asList());
   }
 
   @Test
@@ -448,7 +458,7 @@ class DistinctLabelIndexTest {
   }
 
   @Test
-  void getOne() {
+  void atLocation() {
     Collection<@NotNull Span> atLocation = tested.atLocation(3, 5);
 
     assertEquals(1, atLocation.size());
@@ -459,23 +469,57 @@ class DistinctLabelIndexTest {
   }
 
   @Test
-  void getNone() {
+  void atLocationNone() {
     Collection<@NotNull Span> atLocation = tested.atLocation(0, 5);
     assertEquals(0, atLocation.size());
     assertFalse(atLocation.iterator().hasNext());
   }
 
   @Test
-  void emptyGet() {
+  void emptyAtLocation() {
     Collection<?> atLocation = empty.atLocation(0, 3);
     assertEquals(0, atLocation.size());
     assertFalse(atLocation.iterator().hasNext());
   }
 
   @Test
+  void firstAtLocationNone() {
+    Span span = tested.firstAtLocation(0, 5);
+    assertNull(span);
+  }
+
+  @Test
+  void firstAtLocation() {
+    Span firstAtLocation = tested.firstAtLocation(3, 5);
+    assertEquals(Span.of(3, 5), firstAtLocation);
+  }
+
+  @Test
+  void firstAtLocationLabel() {
+    Span span = tested.firstAtLocation(Span.of(3, 5));
+    assertEquals(Span.of(3, 5), span);
+  }
+
+  @Test
+  void firstAtLocationLabelNone() {
+    Span first = tested.firstAtLocation(Span.of(0, 5));
+    assertNull(first);
+  }
+
+  @Test
   void backwardFrom() {
     LabelIndex<Span> backwardFrom = tested.backwardFrom(10);
 
+    assertEquals(Arrays.asList(
+        Span.of(6, 10),
+        Span.of(3, 5),
+        Span.of(0, 3)
+    ), backwardFrom.asList());
+  }
+
+  @Test
+  void backwardFromLabel() {
+    LabelIndex<Span> backwardFrom = tested.backwardFrom(Span.of(10, 15));
     assertEquals(Arrays.asList(
         Span.of(6, 10),
         Span.of(3, 5),
