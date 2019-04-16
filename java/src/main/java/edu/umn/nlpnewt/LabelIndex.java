@@ -298,18 +298,18 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * @param startIndex The start index of the span to search for.
    * @param endIndex   The end index of the span to search for.
    *
-   * @return A collection, maybe empty, of all the labels with that span.
+   * @return A list, maybe empty, of all the labels with that span.
    */
-  @NotNull Collection<@NotNull L> atLocation(int startIndex, int endIndex);
+  @NotNull List<@NotNull L> atLocation(int startIndex, int endIndex);
 
   /**
    * The collection of all labels in this index that match the span of {@code label}.
    *
    * @param label The label that specifies the span to look for.
    *
-   * @return A collection, maybe empty, of all the labels with that span.
+   * @return A list, maybe empty, of all the labels with that span.
    */
-  @NotNull Collection<@NotNull L> atLocation(@NotNull Label label);
+  @NotNull List<@NotNull L> atLocation(@NotNull Label label);
 
   /**
    * The first label added to the label index that starts at {@code startIndex} and ends at

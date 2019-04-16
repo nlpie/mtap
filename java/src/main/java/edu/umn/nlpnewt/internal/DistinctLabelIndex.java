@@ -119,7 +119,7 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
   }
 
   @Override
-  public @NotNull Collection<L> atLocation(@NotNull Label label) {
+  public @NotNull List<@NotNull L> atLocation(@NotNull Label label) {
     return atLocation(label, null, null);
   }
 
@@ -199,7 +199,7 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
   }
 
-  Collection<L> atLocation(Label label, Integer fromIndex, Integer toIndex) {
+  List<L> atLocation(Label label, Integer fromIndex, Integer toIndex) {
     if (fromIndex == null) {
       fromIndex = 0;
     }
@@ -361,7 +361,7 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    public @NotNull Collection<@NotNull L> atLocation(@NotNull Label label) {
+    public @NotNull List<@NotNull L> atLocation(@NotNull Label label) {
       return DistinctLabelIndex.this.atLocation(label, left, right + 1);
     }
 

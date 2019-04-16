@@ -7,14 +7,14 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.AbstractCollection;
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 
 @Internal
 abstract class AbstractLabelIndex<L extends Label>
     extends AbstractCollection<@NotNull L> implements LabelIndex<L> {
   @Override
-  public @NotNull Collection<@NotNull L> atLocation(int startIndex, int endIndex) {
+  public @NotNull List<@NotNull L> atLocation(int startIndex, int endIndex) {
     return atLocation(Span.of(startIndex, endIndex));
   }
 
