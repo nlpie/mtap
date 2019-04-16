@@ -187,6 +187,67 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     return Collections.binarySearch(subList, label, Label::compareLocation) >= 0;
   }
 
+  int ceilingIndex(int startIndex, int endIndex, Integer fromIndex, Integer toIndex) {
+    return ceilingIndex(Span.of(startIndex, endIndex), fromIndex, toIndex);
+  }
+
+  int ceilingIndex(Label label, Integer fromIndex, Integer toIndex) {
+    if (fromIndex == null) fromIndex = 0;
+    if (toIndex == null) toIndex = labels.size();
+
+    List<L> subList = labels.subList(fromIndex, toIndex);
+    int index = Collections.binarySearch(subList, label, Label::compareLocation);
+
+    if (index < 0) {
+      int insert = -1 * (index + 1);
+      if (insert == toIndex) return -1;
+      return fromIndex + insert;
+    }
+
+    while (index > fromIndex && subList.get(index - 1).locationEquals(label)) {
+      index--;
+    }
+
+    return fromIndex + index;
+  }
+
+  int floorStartAndEnd(int start, int end, Integer fromIndex, Integer toIndex) {
+    if (fromIndex == null) fromIndex = 0;
+    if (toIndex == null) toIndex = labels.size();
+
+    int index = floorIndex(start, end, fromIndex, toIndex);
+
+    while (index >= fromIndex && labels.get(index).getEndIndex() > end) {
+      index--;
+    }
+    return index;
+  }
+
+  int floorIndex(int start, int end, Integer fromIndex, Integer toIndex) {
+    return floorIndex(Span.of(start, end), fromIndex, toIndex);
+  }
+
+  // Greatest index with a location less than or equal to the provided location
+  // or -1 if there is no such index.
+  int floorIndex(Label label, Integer fromIndex, Integer toIndex) {
+    if (fromIndex == null) fromIndex = 0;
+    if (toIndex == null) toIndex = labels.size();
+
+    List<L> subList = labels.subList(fromIndex, toIndex);
+    int index = Collections.binarySearch(subList, label, Label::compareLocation);
+
+    if (index < 0) {
+      int insert = -1 * (index + 1);
+      if (insert == fromIndex) return -1;
+      return fromIndex + insert - 1;
+    }
+
+    while (index < subList.size() - 1 && subList.get(index).locationEquals(label)) {
+      index++;
+    }
+    return fromIndex + index;
+  }
+
   boolean beginsEqual(int firstIndex, int secondIndex) {
     return firstIndex >= 0 && firstIndex < size() && secondIndex >= 0 && secondIndex < size()
         && labels.get(firstIndex).getStartIndex() == labels.get(secondIndex).getStartIndex();
@@ -194,12 +255,12 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
   abstract class View extends AbstractLabelIndex<L> {
 
-    private final int minStart;
-    private final int maxStart;
-    private final int minEnd;
-    private final int maxEnd;
-    private final int left;
-    private final int right;
+    final int minStart;
+    final int maxStart;
+    final int minEnd;
+    final int maxEnd;
+    final int left;
+    final int right;
 
     private int size = -1;
 
@@ -210,6 +271,11 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       this.maxEnd = maxEnd;
       this.left = left;
       this.right = right;
+    }
+
+    @Override
+    public boolean isDistinct() {
+      return false;
     }
 
     abstract int getFirstIndex();
@@ -332,6 +398,16 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       );
     }
 
+    @Override
+    public @NotNull List<@NotNull L> asList() {
+      return new ViewList();
+    }
+
+    @Override
+    public @NotNull Iterator<@NotNull L> iterator() {
+      return new ViewIterator(0);
+    }
+
     int nextIndexAscending(int index) {
       while (index < right) {
         int result = endsInView(++index);
@@ -408,7 +484,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       return tmp;
     }
 
-    class ViewList extends AbstractList<L> {
+    class ViewList extends AbstractList<@NotNull L> {
       @Override
       public L get(int index) {
         int ptr = getFirstIndex();
@@ -423,9 +499,252 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
       @Override
       public int size() {
-        return 0;
+        return View.this.size();
+      }
+
+      @Override
+      public boolean contains(Object o) {
+        return View.this.contains(o);
+      }
+
+      @Override
+      public @NotNull ListIterator<@NotNull L> listIterator() {
+        return new ViewIterator(0);
+      }
+
+      @Override
+      public @NotNull ListIterator<@NotNull L> listIterator(int index) {
+        return new ViewIterator(index);
+      }
+
+      @Override
+      public @NotNull Iterator<@NotNull L> iterator() {
+        return new ViewIterator(0);
+      }
+
+      @Override
+      public @NotNull List<@NotNull L> subList(int fromIndex, int toIndex) {
+        ViewIterator it = new ViewIterator(fromIndex);
+        int globalFrom = it.cursor;
+        int globalTo = globalFrom;
+        while (it.hasNext() && it.nextIndex() < toIndex) {
+          globalTo = it.cursor;
+          it.next();
+        }
+        if (it.localIndex != toIndex) {
+          throw new IndexOutOfBoundsException("toIndex: " + toIndex + " is not in bounds.");
+        }
+
+        return updateEnds(globalFrom, globalTo).asList();
+      }
+    }
+
+    class ViewIterator implements ListIterator<@NotNull L> {
+      int cursor = getFirstIndex();
+      int localIndex = 0;
+
+      ViewIterator(int index) {
+        while (localIndex < index) {
+          if (!hasNext()) {
+            throw new IndexOutOfBoundsException("index: " + index + " is not in bounds.");
+          }
+          next();
+        }
+      }
+
+      @Override
+      public boolean hasNext() {
+        return cursor != -1;
+      }
+
+      @Override
+      public @NotNull L next() {
+        if (!hasNext()) {
+          throw new IndexOutOfBoundsException("index: " + localIndex + " is not in bounds.");
+        }
+
+        int current = cursor;
+        cursor = View.this.nextIndex(cursor);
+        localIndex++;
+        return labels.get(current);
+      }
+
+      @Override
+      public boolean hasPrevious() {
+        return prevIndex(cursor) != -1;
+      }
+
+      @Override
+      public @NotNull L previous() {
+        if (!hasPrevious()) {
+          throw new IndexOutOfBoundsException("index: " + (localIndex - 1) + " is not in bounds.");
+        }
+
+        cursor = prevIndex(cursor);
+        localIndex--;
+        return labels.get(cursor);
+      }
+
+      @Override
+      public int nextIndex() {
+        return localIndex;
+      }
+
+      @Override
+      public int previousIndex() {
+        return localIndex--;
+      }
+
+      @Override
+      public void remove() {
+        throw new UnsupportedOperationException("Remove not supported.");
+      }
+
+      @Override
+      public void set(@NotNull L l) {
+        throw new UnsupportedOperationException("Set not supported.");
+      }
+
+      @Override
+      public void add(@NotNull L l) {
+        throw new UnsupportedOperationException("Add not supported.");
       }
     }
   }
 
+  class AscendingView extends View {
+    private final int firstIndex;
+    private final int lastIndex;
+
+    AscendingView(int minStart, int maxStart, int minEnd, int maxEnd, int left, int right) {
+      super(minStart, maxStart, minEnd, maxEnd, left, right);
+      firstIndex = nextIndex(left - 1);
+      lastIndex = prevIndex(right + 1);
+    }
+
+    @Override
+    int getFirstIndex() {
+      return firstIndex;
+    }
+
+    @Override
+    int getLastIndex() {
+      return lastIndex;
+    }
+
+    @Override
+    View innerUpdateBounds(int newMinStart, int newMaxStart, int newMinEnd, int newMaxEnd) {
+      return new AscendingView(
+          newMinStart,
+          newMaxStart,
+          newMinEnd,
+          newMaxEnd,
+          ceilingIndex(newMinStart, newMinEnd, left, right + 1),
+          floorStartAndEnd(newMaxStart, newMaxEnd, left, right + 1));
+    }
+
+    @Override
+    View updateEnds(int left, int right) {
+      return new AscendingView(minStart, maxStart, minEnd, maxEnd, left, right);
+    }
+
+    @Override
+    int nextIndex(int index) {
+      return nextIndexAscending(index);
+    }
+
+    @Override
+    int prevIndex(int index) {
+      return nextIndexDescending(index);
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingStartIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingStartIndex() {
+      return new DescendingView(minStart, maxStart, minEnd, maxEnd, left, right);
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingEndIndex() {
+      return this;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingEndIndex() {
+      return null;
+    }
+  }
+
+  class DescendingView extends View {
+    private final int firstIndex;
+    private final int lastIndex;
+
+    DescendingView(int minStart, int maxStart, int minEnd, int maxEnd, int left, int right) {
+      super(minStart, maxStart, minEnd, maxEnd, left, right);
+      firstIndex = nextIndex(right + 1);
+      lastIndex = prevIndex(left - 1);
+    }
+
+    @Override
+    int getFirstIndex() {
+      return firstIndex;
+    }
+
+    @Override
+    int getLastIndex() {
+      return lastIndex;
+    }
+
+    @Override
+    View innerUpdateBounds(int newMinStart, int newMaxStart, int newMinEnd, int newMaxEnd) {
+      return null;
+    }
+
+    @Override
+    View updateEnds(int left, int right) {
+      return null;
+    }
+
+    @Override
+    int nextIndex(int index) {
+      return 0;
+    }
+
+    @Override
+    int prevIndex(int index) {
+      return 0;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingStartIndex() {
+      return null;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingStartIndex() {
+      return null;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> ascendingEndIndex() {
+      return null;
+    }
+
+    @Override
+    public @NotNull LabelIndex<L> descendingEndIndex() {
+      return null;
+    }
+  }
+
+  class AscendingReversingView extends View {
+
+  }
+
+  class DescendingReversingView extends View {
+
+  }
 }

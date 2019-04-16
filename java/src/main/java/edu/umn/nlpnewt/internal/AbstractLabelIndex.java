@@ -12,7 +12,7 @@ import java.util.Iterator;
 
 @Internal
 abstract class AbstractLabelIndex<L extends Label>
-    extends AbstractCollection<L> implements LabelIndex<L> {
+    extends AbstractCollection<@NotNull L> implements LabelIndex<L> {
   @Override
   public @NotNull Collection<@NotNull L> atLocation(int startIndex, int endIndex) {
     return atLocation(Span.of(startIndex, endIndex));
