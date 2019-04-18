@@ -616,18 +616,21 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
         if (fromIndex < 0) {
           throw new IndexOutOfBoundsException();
         }
+        if (fromIndex == toIndex) {
+          return updateEnds(-1, -1).asList();
+        }
         ViewIterator it = new ViewIterator(fromIndex);
         int globalFrom = it.cursor;
         int globalTo = globalFrom;
         while (it.hasNext() && it.nextIndex() < toIndex) {
-          globalTo = it.cursor + 1;
+          globalTo = it.cursor;
           it.next();
         }
         if (it.localIndex != toIndex) {
           throw new IndexOutOfBoundsException("toIndex: " + toIndex + " is not in bounds.");
         }
 
-        return updateEnds(globalFrom, globalTo - 1).asList();
+        return updateEnds(Math.min(globalFrom, globalTo), Math.max(globalFrom, globalTo)).asList();
       }
     }
 
