@@ -530,7 +530,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
       if (atBeginning || !beginsEqual(tmp, index)) {
         tmp = nextIndexAscending(nextBreakAscending(index));
-        if (index != -1) {
+        if (tmp != -1) {
           tmp = nextBreakAscending(tmp);
         }
       }
@@ -606,31 +606,6 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       @Override
       public @NotNull Iterator<@NotNull L> iterator() {
         return new ViewIterator(0);
-      }
-
-      @Override
-      public @NotNull List<@NotNull L> subList(int fromIndex, int toIndex) {
-        if (fromIndex > toIndex) {
-          throw new IllegalArgumentException();
-        }
-        if (fromIndex < 0) {
-          throw new IndexOutOfBoundsException();
-        }
-        if (fromIndex == toIndex) {
-          return updateEnds(-1, -1).asList();
-        }
-        ViewIterator it = new ViewIterator(fromIndex);
-        int globalFrom = it.cursor;
-        int globalTo = globalFrom;
-        while (it.hasNext() && it.nextIndex() < toIndex) {
-          globalTo = it.cursor;
-          it.next();
-        }
-        if (it.localIndex != toIndex) {
-          throw new IndexOutOfBoundsException("toIndex: " + toIndex + " is not in bounds.");
-        }
-
-        return updateEnds(Math.min(globalFrom, globalTo), Math.max(globalFrom, globalTo)).asList();
       }
     }
 
@@ -896,8 +871,8 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
         firstIndex = -1;
         lastIndex = -1;
       } else {
-        firstIndex = nextBreakAscending(left);
-        lastIndex = nextBreakDescending(right);
+        firstIndex = nextIndex(left - 1);
+        lastIndex = prevIndex(right + 1);
       }
     }
 
@@ -914,7 +889,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     @Override
     View innerUpdateBounds(int newMinStart, int newMaxStart, int newMinEnd, int newMaxEnd) {
       return new AscendingReversingView(newMinStart, newMaxStart, newMinEnd, newMaxEnd,
-          ceilingIndex(newMaxStart, newMinEnd, left, right + 1),
+          ceilingIndex(newMinStart, newMinEnd, left, right + 1),
           floorStartAndEnd(newMaxStart, newMaxEnd, left, right + 1));
     }
 
