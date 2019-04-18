@@ -6,13 +6,9 @@ import edu.umn.nlpnewt.LabelIndex;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 public class StandardLabelIndexAscendingViewTest {
   LabelIndex<Span> ascending = new StandardLabelIndex<>(Arrays.asList(
@@ -725,5 +721,190 @@ public class StandardLabelIndexAscendingViewTest {
   void asListContainsFalse() {
     List<@NotNull Span> asList = ascending.asList();
     assertFalse(asList.contains(Span.of(0, 30)));
+  }
+
+  @Test
+  void emptyAsListContains() {
+    List<@NotNull Span> asList = empty.asList();
+    assertFalse(asList.contains(Span.of(2, 6)));
+  }
+
+  @Test
+  void asListGet() {
+    List<@NotNull Span> asList = ascending.asList();
+    assertEquals(Span.of(6, 8), asList.get(2));
+  }
+
+  @Test
+  void asListGetFirst() {
+    List<@NotNull Span> asList = ascending.asList();
+    assertEquals(Span.of(2, 6), asList.get(0));
+  }
+
+  @Test
+  void asListGetLast() {
+    List<@NotNull Span> asList = ascending.asList();
+    assertEquals(Span.of(9, 13), asList.get(5));
+  }
+
+  @Test
+  void asListGetBefore() {
+    List<@NotNull Span> asList = ascending.asList();
+    assertThrows(IndexOutOfBoundsException.class, () -> asList.get(-1));
+  }
+
+  @Test
+  void asListGetAfter() {
+    List<@NotNull Span> asList = ascending.asList();
+    assertThrows(IndexOutOfBoundsException.class, () -> asList.get(6));
+  }
+
+  @Test
+  void emptyAsListGet() {
+    List<@NotNull Span> asList = empty.asList();
+    assertThrows(IndexOutOfBoundsException.class, () -> asList.get(0));
+  }
+
+  @Test
+  void asListSubList() {
+    List<@NotNull Span> sublist = ascending.asList().subList(0, 6);
+    assertEquals(Arrays.asList(
+        Span.of(2, 6),
+        Span.of(6, 7),
+        Span.of(6, 8),
+        Span.of(9, 10),
+        Span.of(9, 13),
+        Span.of(9, 13)
+    ), sublist);
+  }
+
+  @Test
+  void asListSubListBounds() {
+    assertThrows(IndexOutOfBoundsException.class, () -> ascending.asList().subList(-1, 6));
+    assertThrows(IndexOutOfBoundsException.class, () -> ascending.asList().subList(0, 7));
+    assertThrows(IllegalArgumentException.class, () -> ascending.asList().subList(5, 4));
+  }
+
+  @Test
+  void asListEmptySubList() {
+    List<@NotNull Span> subList = ascending.asList().subList(3, 3);
+    assertEquals(Collections.emptyList(), subList);
+  }
+
+  @Test
+  void emptyAsListSublist() {
+    List<@NotNull Span> subList = empty.asList().subList(0, 0);
+    assertEquals(Collections.emptyList(), subList);
+  }
+
+  @Test
+  void asListIterator() {
+    Iterator<@NotNull Span> it = ascending.asList().iterator();
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(2, 6), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(6, 7), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(6, 8), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(9, 10), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(9, 13), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(9, 13), it.next());
+    assertFalse(it.hasNext());
+    assertThrows(NoSuchElementException.class, it::next);
+  }
+
+  @Test
+  void emptyAsListIterator() {
+    Iterator<@NotNull Span> it = empty.asList().iterator();
+    assertFalse(it.hasNext());
+    assertThrows(NoSuchElementException.class, it::next);
+  }
+
+  @Test
+  void asListListIteratorOutOfBounds() {
+    List<@NotNull Span> asList = ascending.asList();
+    assertThrows(IndexOutOfBoundsException.class, () -> asList.listIterator(7));
+    assertThrows(IndexOutOfBoundsException.class, () -> asList.listIterator(-1));
+  }
+
+  @Test
+  void asListListIterator() {
+    ListIterator<@NotNull Span> it = ascending.asList().listIterator();
+    assertTrue(it.hasNext());
+    assertEquals(0, it.nextIndex());
+    assertEquals(Span.of(2, 6), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(1, it.nextIndex());
+    assertEquals(Span.of(6, 7), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(2, it.nextIndex());
+    assertEquals(Span.of(6, 8), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(3, it.nextIndex());
+    assertEquals(Span.of(9, 10), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(4, it.nextIndex());
+    assertEquals(Span.of(9, 13), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(5, it.nextIndex());
+    assertEquals(Span.of(9, 13), it.next());
+    assertFalse(it.hasNext());
+    assertThrows(NoSuchElementException.class, it::next);
+
+    assertTrue(it.hasPrevious());
+    assertEquals(5, it.previousIndex());
+    assertEquals(Span.of(9, 13), it.previous());
+
+    assertTrue(it.hasPrevious());
+    assertEquals(4, it.previousIndex());
+    assertEquals(Span.of(9, 13), it.previous());
+
+    assertTrue(it.hasPrevious());
+    assertEquals(3, it.previousIndex());
+    assertEquals(Span.of(9, 10), it.previous());
+
+    assertTrue(it.hasPrevious());
+    assertEquals(2, it.previousIndex());
+    assertEquals(Span.of(6, 8), it.previous());
+
+    assertTrue(it.hasPrevious());
+    assertEquals(1, it.previousIndex());
+    assertEquals(Span.of(6, 7), it.previous());
+
+    assertTrue(it.hasPrevious());
+    assertEquals(0, it.previousIndex());
+    assertEquals(Span.of(2, 6), it.previous());
+
+    assertFalse(it.hasPrevious());
+    assertThrows(NoSuchElementException.class, it::previous);
+  }
+
+  @Test
+  void iterator() {
+    Iterator<@NotNull Span> it = ascending.iterator();
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(2, 6), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(6, 7), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(6, 8), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(9, 10), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(9, 13), it.next());
+    assertTrue(it.hasNext());
+    assertEquals(Span.of(9, 13), it.next());
+    assertFalse(it.hasNext());
+    assertThrows(NoSuchElementException.class, it::next);
+  }
+
+  @Test
+  void emptyIterator() {
+    Iterator<@NotNull Span> it = empty.iterator();
+    assertFalse(it.hasNext());
+    assertThrows(NoSuchElementException.class, it::next);
   }
 }

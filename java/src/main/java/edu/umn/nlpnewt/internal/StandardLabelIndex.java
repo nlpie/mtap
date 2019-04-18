@@ -570,12 +570,15 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     class ViewList extends AbstractList<@NotNull L> {
       @Override
       public L get(int index) {
+        if (index < 0) {
+          throw new IndexOutOfBoundsException("Index less than 0.");
+        }
         int ptr = getFirstIndex();
         for (int i = 0; i < index; i++) {
-          ptr = nextIndex(ptr);
           if (ptr == getLastIndex()) {
             throw new IndexOutOfBoundsException("index: " + index + " is not in bounds.");
           }
+          ptr = nextIndex(ptr);
         }
         return labels.get(ptr);
       }
@@ -607,18 +610,24 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
       @Override
       public @NotNull List<@NotNull L> subList(int fromIndex, int toIndex) {
+        if (fromIndex > toIndex) {
+          throw new IllegalArgumentException();
+        }
+        if (fromIndex < 0) {
+          throw new IndexOutOfBoundsException();
+        }
         ViewIterator it = new ViewIterator(fromIndex);
         int globalFrom = it.cursor;
         int globalTo = globalFrom;
         while (it.hasNext() && it.nextIndex() < toIndex) {
-          globalTo = it.cursor;
+          globalTo = it.cursor + 1;
           it.next();
         }
         if (it.localIndex != toIndex) {
           throw new IndexOutOfBoundsException("toIndex: " + toIndex + " is not in bounds.");
         }
 
-        return updateEnds(globalFrom, globalTo).asList();
+        return updateEnds(globalFrom, globalTo - 1).asList();
       }
     }
 
@@ -627,6 +636,10 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       int localIndex = 0;
 
       ViewIterator(int index) {
+        if (index < 0) {
+          throw new IndexOutOfBoundsException("Index less than 0");
+        }
+
         if (index == size()) {
           cursor = -1;
           localIndex = size();
@@ -648,7 +661,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       @Override
       public @NotNull L next() {
         if (!hasNext()) {
-          throw new IndexOutOfBoundsException("index: " + localIndex + " is not in bounds.");
+          throw new NoSuchElementException("index: " + localIndex + " is not in bounds.");
         }
 
         int current = cursor;
@@ -665,7 +678,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       @Override
       public @NotNull L previous() {
         if (!hasPrevious()) {
-          throw new IndexOutOfBoundsException("index: " + (localIndex - 1) + " is not in bounds.");
+          throw new NoSuchElementException("index: " + (localIndex - 1) + " is not in bounds.");
         }
 
         if (cursor == -1) {
