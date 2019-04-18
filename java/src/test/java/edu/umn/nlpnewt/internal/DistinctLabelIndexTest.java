@@ -249,15 +249,8 @@ class DistinctLabelIndexTest {
   }
 
   @Test
-  void ascendingStartIndex() {
-    LabelIndex<Span> ascendingStartIndex = tested.ascendingStartIndex();
-
-    assertSame(tested, ascendingStartIndex);
-  }
-
-  @Test
-  void descendingStartIndex() {
-    LabelIndex<Span> descendingStartIndex = tested.descendingStartIndex();
+  void descending() {
+    LabelIndex<Span> descending = tested.descending();
 
     assertEquals(Arrays.asList(
         Span.of(16, 20),
@@ -265,20 +258,13 @@ class DistinctLabelIndexTest {
         Span.of(6, 10),
         Span.of(3, 5),
         Span.of(0, 3)
-    ), descendingStartIndex.asList());
+    ), descending.asList());
   }
 
   @Test
-  void ascendingEndIndex() {
-    LabelIndex<Span> ascendingEndIndex = tested.ascendingEndIndex();
-
-    assertSame(tested, ascendingEndIndex);
-  }
-
-  @Test
-  void descendingEndIndex() {
-    LabelIndex<Span> descendingEndIndex = tested.descendingEndIndex();
-    assertSame(tested, descendingEndIndex);
+  void ascending() {
+    LabelIndex<Span> ascending = tested.ascending();
+    assertSame(tested, ascending);
   }
 
   @Test

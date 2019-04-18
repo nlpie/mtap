@@ -67,24 +67,15 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
   }
 
   @Override
-  public @NotNull LabelIndex<L> ascendingStartIndex() {
+  public @NotNull LabelIndex<L> ascending() {
     return this;
   }
 
   @Override
-  public @NotNull LabelIndex<L> descendingStartIndex() {
-    return createAscendingView(null, null, null, null, null, null).descendingStartIndex();
+  public @NotNull LabelIndex<L> descending() {
+    return createAscendingView(null, null, null, null, null, null).descending();
   }
 
-  @Override
-  public @NotNull LabelIndex<L> ascendingEndIndex() {
-    return this;
-  }
-
-  @Override
-  public @NotNull LabelIndex<L> descendingEndIndex() {
-    return createAscendingView(null, null, null, null, null, null).descendingEndIndex();
-  }
 
   @Nullable
   @Override
@@ -305,11 +296,6 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     return fromIndex + index;
   }
 
-  boolean beginsEqual(int firstIndex, int secondIndex) {
-    return firstIndex >= 0 && firstIndex < size() && secondIndex >= 0 && secondIndex < size()
-        && labels.get(firstIndex).getStartIndex() == labels.get(secondIndex).getStartIndex();
-  }
-
   AscendingView createAscendingView(
       Integer minStart,
       Integer maxStart,
@@ -395,8 +381,6 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
     abstract View innerUpdateBounds(int newMinStart, int newMaxStart, int newMinEnd, int newMaxEnd);
 
-    abstract View updateEnds(int left, int right);
-
     abstract int nextIndex(int index);
 
     abstract int prevIndex(int index);
@@ -417,10 +401,12 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       int size = this.size;
       if (size == -1) {
         size = 0;
-        int i = getFirstIndex();
-        while (i != -1) {
-          size++;
-          i = nextIndex(i);
+        if (getLastIndex() != -1) {
+          int i = getFirstIndex();
+          while (i != -1) {
+            size++;
+            i = nextIndex(i);
+          }
         }
         this.size = size;
       }
@@ -505,66 +491,6 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
         if (endsInView(--index)) return index;
       }
       return -1;
-    }
-
-    int nextBreakAscending(int index) {
-      int tmp = index;
-      do {
-        index = tmp;
-        tmp = nextIndexAscending(index);
-        if (tmp == -1) {
-          break;
-        }
-      } while (beginsEqual(tmp, index));
-      return index;
-    }
-
-    int nextAscendingReversing(int index) {
-      int tmp = index;
-      boolean atBeginning = false;
-      if (index == left) {
-        atBeginning = true;
-      } else {
-        tmp = nextIndexDescending(index);
-      }
-
-      if (atBeginning || !beginsEqual(tmp, index)) {
-        tmp = nextIndexAscending(nextBreakAscending(index));
-        if (tmp != -1) {
-          tmp = nextBreakAscending(tmp);
-        }
-      }
-      return tmp;
-    }
-
-    int nextBreakDescending(int index) {
-      int tmp = index;
-      do {
-        index = tmp;
-        tmp = nextIndexDescending(index);
-        if (tmp == -1) {
-          break;
-        }
-      } while (beginsEqual(tmp, index));
-      return index;
-    }
-
-    int nextDescendingReversing(int index) {
-      int tmp = index;
-      boolean atEnd = false;
-      if (index >= right) {
-        atEnd = true;
-      } else {
-        tmp = nextIndexAscending(index);
-      }
-
-      if (atEnd || !beginsEqual(tmp, index)) {
-        tmp = nextIndexDescending(nextBreakDescending(index));
-        if (tmp != -1) {
-          tmp = nextBreakDescending(tmp);
-        }
-      }
-      return tmp;
     }
 
     class ViewList extends AbstractList<@NotNull L> {
@@ -732,11 +658,6 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    View updateEnds(int left, int right) {
-      return new AscendingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
     int nextIndex(int index) {
       return nextIndexAscending(index);
     }
@@ -746,24 +667,15 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
       return nextIndexDescending(index);
     }
 
+
     @Override
-    public @NotNull LabelIndex<L> ascendingStartIndex() {
+    public @NotNull LabelIndex<L> ascending() {
       return this;
     }
 
     @Override
-    public @NotNull LabelIndex<L> descendingStartIndex() {
-      return new DescendingReversingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingEndIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingEndIndex() {
-      return new AscendingReversingView(minStart, maxStart, minEnd, maxEnd, left, right);
+    public @NotNull LabelIndex<L> descending() {
+      return new DescendingView(minStart, maxStart, minEnd, maxEnd, left, right);
     }
   }
 
@@ -805,11 +717,6 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    View updateEnds(int left, int right) {
-      return new DescendingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
     int nextIndex(int index) {
       return nextIndexDescending(index);
     }
@@ -820,193 +727,13 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    public @NotNull LabelIndex<L> ascendingStartIndex() {
-      return new AscendingReversingView(
-          minStart,
-          maxStart,
-          minEnd,
-          maxEnd,
-          left,
-          right
-      );
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingStartIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingEndIndex() {
-      return new DescendingReversingView(
-          minStart,
-          maxStart,
-          minEnd,
-          maxEnd,
-          left,
-          right
-      );
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingEndIndex() {
-      return this;
-    }
-  }
-
-  class AscendingReversingView extends View {
-    private final int firstIndex;
-    private final int lastIndex;
-
-    AscendingReversingView(
-        int minStart,
-        int maxStart,
-        int minEnd,
-        int maxEnd,
-        int left,
-        int right
-    ) {
-      super(minStart, maxStart, minEnd, maxEnd, left, right);
-      if (right < left) {
-        firstIndex = -1;
-        lastIndex = -1;
-      } else {
-        firstIndex = nextIndex(left - 1);
-        lastIndex = prevIndex(right + 1);
-      }
-    }
-
-    @Override
-    int getFirstIndex() {
-      return firstIndex;
-    }
-
-    @Override
-    int getLastIndex() {
-      return lastIndex;
-    }
-
-    @Override
-    View innerUpdateBounds(int newMinStart, int newMaxStart, int newMinEnd, int newMaxEnd) {
-      return new AscendingReversingView(newMinStart, newMaxStart, newMinEnd, newMaxEnd,
-          ceilingIndex(newMinStart, newMinEnd, left, right + 1),
-          floorStartAndEnd(newMaxStart, newMaxEnd, left, right + 1));
-    }
-
-    @Override
-    View updateEnds(int left, int right) {
-      return new AscendingReversingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
-    int nextIndex(int index) {
-      return nextAscendingReversing(index);
-    }
-
-    @Override
-    int prevIndex(int index) {
-      return nextDescendingReversing(index);
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingStartIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingStartIndex() {
-      return new DescendingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingEndIndex() {
+    public @NotNull LabelIndex<L> ascending() {
       return new AscendingView(minStart, maxStart, minEnd, maxEnd, left, right);
     }
 
     @Override
-    public @NotNull LabelIndex<L> descendingEndIndex() {
+    public @NotNull LabelIndex<L> descending() {
       return this;
-    }
-  }
-
-  class DescendingReversingView extends View {
-
-    private final int firstIndex;
-    private final int lastIndex;
-
-    DescendingReversingView(
-        int minStart,
-        int maxStart,
-        int minEnd,
-        int maxEnd,
-        int left,
-        int right
-    ) {
-      super(minStart, maxStart, minEnd, maxEnd, left, right);
-      if (right < left) {
-        firstIndex = -1;
-        lastIndex = -1;
-      } else {
-        firstIndex = nextBreakDescending(right);
-        lastIndex = nextBreakAscending(right);
-      }
-    }
-
-    @Override
-    int getFirstIndex() {
-      return firstIndex;
-    }
-
-    @Override
-    int getLastIndex() {
-      return lastIndex;
-    }
-
-    @Override
-    View innerUpdateBounds(int newMinStart, int newMaxStart, int newMinEnd, int newMaxEnd) {
-      return new DescendingReversingView(
-          newMinStart,
-          newMaxStart,
-          newMinEnd,
-          newMaxEnd,
-          ceilingIndex(newMinStart, newMinEnd, left, right + 1),
-          floorStartAndEnd(newMaxStart, newMaxEnd, left, right + 1)
-      );
-    }
-
-    @Override
-    View updateEnds(int left, int right) {
-      return new DescendingReversingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
-    int nextIndex(int index) {
-      return nextDescendingReversing(index);
-    }
-
-    @Override
-    int prevIndex(int index) {
-      return nextAscendingReversing(index);
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingStartIndex() {
-      return new AscendingView(minStart, maxStart, minEnd, maxEnd, left, right);
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingStartIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingEndIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingEndIndex() {
-      return new DescendingView(minStart, maxStart, minEnd, maxEnd, left, right);
     }
   }
 }

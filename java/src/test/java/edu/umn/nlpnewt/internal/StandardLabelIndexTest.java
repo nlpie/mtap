@@ -236,74 +236,6 @@ class StandardLabelIndexTest {
   }
 
   @Test
-  void ascendingBegin() {
-    LabelIndex<Span> ascendingStartIndex = tested.ascendingStartIndex();
-    assertSame(tested, ascendingStartIndex);
-  }
-
-  @Test
-  void emptyAscendingBegin() {
-    LabelIndex<?> ascendingStartIndex = empty.ascendingStartIndex();
-    assertSame(empty, ascendingStartIndex);
-  }
-
-  @Test
-  void descendingBegin() {
-    LabelIndex<Span> descendingStartIndex = tested.descendingStartIndex();
-    assertEquals(Arrays.asList(
-        Span.of(9, 10),
-        Span.of(9, 13),
-        Span.of(9, 13),
-        Span.of(6, 7),
-        Span.of(6, 8),
-        Span.of(2, 6),
-        Span.of(0, 5),
-        Span.of(0, 7)
-    ), descendingStartIndex.asList());
-  }
-
-  @Test
-  void emptyDescendingBegin() {
-    LabelIndex<?> descendingStartIndex = empty.descendingStartIndex();
-    assertEquals(empty.asList(), descendingStartIndex.asList());
-  }
-
-  @Test
-  void ascendingEnd() {
-    LabelIndex<Span> ascendingEndIndex = tested.ascendingEndIndex();
-    assertSame(tested, ascendingEndIndex);
-  }
-
-  @Test
-  void emptyAscendingEnd() {
-    LabelIndex<?> ascendingEndIndex = empty.ascendingEndIndex();
-    assertEquals(empty.asList(), ascendingEndIndex.asList());
-  }
-
-  @Test
-  void descendingEnd() {
-    LabelIndex<Span> descendingEndIndex = tested.descendingEndIndex();
-    assertEquals(Arrays.asList(
-        Span.of(0, 7),
-        Span.of(0, 5),
-        Span.of(2, 6),
-        Span.of(6, 8),
-        Span.of(6, 7),
-        Span.of(9, 13),
-        Span.of(9, 13),
-        Span.of(9, 10)
-    ), descendingEndIndex.asList());
-  }
-
-  @Test
-  void emptyDescendingEnd() {
-    LabelIndex<?> descendingEndIndex = empty.descendingEndIndex();
-    assertEquals(0, empty.size());
-    assertEquals(0, descendingEndIndex.size());
-    assertEquals(empty.asList(), descendingEndIndex.asList());
-  }
-
-  @Test
   void ascending() {
     LabelIndex<Span> ascending = tested.ascending();
     assertSame(tested, ascending);
@@ -547,6 +479,54 @@ class StandardLabelIndexTest {
   }
 
   @Test
+  void asListIndexOfPushForward() {
+    List<Label> labels = Arrays.asList(
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build(),
+        Span.of(3, 5)
+    );
+    StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
+    assertEquals(14, index.asList().indexOf(GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+  }
+
+  @Test
+  void asListIndexOfNotFound() {
+    List<Label> labels = Arrays.asList(
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5)
+    );
+    StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
+    assertEquals(-1, index.asList().indexOf(GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+
+  }
+
+  @Test
   void asListIndexOfMany() {
     List<Span> spans = Arrays.asList(
         Span.of(0, 3),
@@ -723,6 +703,30 @@ class StandardLabelIndexTest {
   }
 
   @Test
+  void asListLastIndexOfBackUp() {
+    List<Label> labels = Arrays.asList(
+        Span.of(3, 5),
+        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build(),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5)
+    );
+    StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
+    assertEquals(1, index.asList().lastIndexOf(GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+  }
+
+  @Test
   void asListLastIndexOfNone() {
     assertEquals(-1, tested.asList().lastIndexOf(Span.of(0, 30)));
   }
@@ -735,6 +739,30 @@ class StandardLabelIndexTest {
   @Test
   void asListLastIndexOfNotLabel() {
     assertEquals(-1, tested.asList().lastIndexOf("blah"));
+  }
+
+  @Test
+  void asListLastIndexOfNotFound() {
+    List<Label> labels = Arrays.asList(
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5),
+        Span.of(3, 5)
+    );
+    StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
+    assertEquals(-1, index.asList().lastIndexOf(
+        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
   }
 
   @Test

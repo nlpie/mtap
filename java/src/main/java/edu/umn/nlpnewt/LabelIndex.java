@@ -154,54 +154,19 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
   // ----------
 
   /**
-   * This label index sorted according to ascending start index then by the current sort
-   * direction for end index.
-   *
-   * @return A sorted view of this label index.
-   */
-  @NotNull LabelIndex<L> ascendingStartIndex();
-
-  /**
-   * This label index sorted according to descending start index then by the current sort
-   * direction for end index.
-   *
-   * @return A sorted view of this label index.
-   */
-  @NotNull LabelIndex<L> descendingStartIndex();
-
-  /**
-   * This label index sorted according to the current sort direction for start index then
-   * by ascending end index.
-   *
-   * @return A sorted view of this label index.
-   */
-  @NotNull LabelIndex<L> ascendingEndIndex();
-
-  /**
-   * This label index sorted according to the current direction for start index then
-   * by descending end index.
-   *
-   * @return A sorted view of this label index.
-   */
-  @NotNull LabelIndex<L> descendingEndIndex();
-
-  /**
    * This label index sorted according to ascending start and end index.
    *
    * @return A sorted view of this label index.
    */
-  default @NotNull LabelIndex<L> ascending() {
-    return ascendingStartIndex().ascendingEndIndex();
-  }
+  @NotNull LabelIndex<L> ascending();
 
   /**
    * This label index sorted according to descending start and end index.
    *
    * @return A sorted view of this label index.
    */
-  default @NotNull LabelIndex<L> descending() {
-    return descendingStartIndex().descendingEndIndex();
-  }
+  @NotNull LabelIndex<L> descending();
+
 
   // ------------------------
   //  Ordering and filtering
@@ -215,7 +180,7 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * @return A sorted view of this label index forward from the index.
    */
   default @NotNull LabelIndex<L> forwardFrom(int index) {
-    return after(index).ascendingStartIndex().ascendingEndIndex();
+    return after(index).ascending();
   }
 
   /**
@@ -226,7 +191,7 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * @return A sorted view of this label index forward from the label.
    */
   default @NotNull LabelIndex<L> forwardFrom(@NotNull Label label) {
-    return after(label).ascendingStartIndex().ascendingEndIndex();
+    return after(label).ascending();
   }
 
   /**
@@ -237,7 +202,7 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * @return A sorted view of this label index backward from the index.
    */
   default @NotNull LabelIndex<L> backwardFrom(int index) {
-    return before(index).descendingStartIndex().descendingEndIndex();
+    return before(index).descending();
   }
 
   /**
@@ -248,7 +213,7 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * @return A sorted view of this label index backward from the label.
    */
   default @NotNull LabelIndex<L> backwardFrom(@NotNull Label label) {
-    return before(label).descendingStartIndex().descendingEndIndex();
+    return before(label).descending();
   }
 
   // ---------

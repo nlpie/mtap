@@ -76,23 +76,13 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
   }
 
   @Override
-  public @NotNull LabelIndex<L> ascendingStartIndex() {
+  public @NotNull LabelIndex<L> ascending() {
     return this;
   }
 
   @Override
-  public @NotNull LabelIndex<L> descendingStartIndex() {
-    return new DescendingView(0, size() - 1);
-  }
-
-  @Override
-  public @NotNull LabelIndex<L> ascendingEndIndex() {
-    return this;
-  }
-
-  @Override
-  public @NotNull LabelIndex<L> descendingEndIndex() {
-    return this;
+  public @NotNull LabelIndex<L> descending() {
+    return new DescendingView(0, labels.size() - 1);
   }
 
   @Nullable
@@ -466,23 +456,13 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    public @NotNull LabelIndex<L> ascendingStartIndex() {
+    public @NotNull LabelIndex<L> ascending() {
       return this;
     }
 
     @Override
-    public @NotNull LabelIndex<L> descendingStartIndex() {
+    public @NotNull LabelIndex<L> descending() {
       return new DescendingView(getLeft(), getRight());
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingEndIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingEndIndex() {
-      return this;
     }
 
     @Override
@@ -556,22 +536,12 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
 
 
     @Override
-    public @NotNull LabelIndex<L> ascendingStartIndex() {
+    public @NotNull LabelIndex<L> ascending() {
       return new AscendingView(getLeft(), getRight());
     }
 
     @Override
-    public @NotNull LabelIndex<L> descendingStartIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> ascendingEndIndex() {
-      return this;
-    }
-
-    @Override
-    public @NotNull LabelIndex<L> descendingEndIndex() {
+    public @NotNull LabelIndex<L> descending() {
       return this;
     }
 

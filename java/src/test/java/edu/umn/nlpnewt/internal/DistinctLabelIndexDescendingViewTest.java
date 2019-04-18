@@ -238,36 +238,22 @@ public class DistinctLabelIndexDescendingViewTest {
 
   @Test
   void ascending() {
-    LabelIndex<Span> ascendingStartIndex = descending.ascending();
+    LabelIndex<Span> newAscending = descending.ascending();
     assertEquals(Arrays.asList(
         Span.of(3, 5), Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
-    ), ascendingStartIndex.asList());
+    ), newAscending.asList());
   }
 
   @Test
-  void ascendingStartIndex() {
-    LabelIndex<Span> ascendingStartIndex = descending.ascendingStartIndex();
-    assertEquals(Arrays.asList(
-        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
-    ), ascendingStartIndex.asList());
-  }
-
-  @Test
-  void descendingStartIndex() {
-    LabelIndex<Span> descendingStartIndex = descending.descendingStartIndex();
-    assertSame(descending, descendingStartIndex);
-  }
-
-  @Test
-  void ascendingEndIndex() {
-    LabelIndex<Span> ascendingEndIndex = descending.ascendingEndIndex();
-    assertSame(descending, ascendingEndIndex);
+  void emptyAscending() {
+    LabelIndex<Span> ascending = emptyDescending.ascending();
+    assertEquals(Collections.emptyList(), ascending.asList());
   }
 
   @Test
   void descendingEndIndex() {
-    LabelIndex<Span> descendingEndIndex = descending.descendingEndIndex();
-    assertSame(descending, descendingEndIndex);
+    LabelIndex<Span> newDescending = descending.descending();
+    assertSame(descending, newDescending);
   }
 
   @Test
