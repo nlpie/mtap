@@ -107,6 +107,10 @@ public interface Document {
    * Returns a labeler for {@link GenericLabel} objects stored on {@code labelIndexName} with
    * distinctness specified by {@code isDistinct}.
    * <p>
+   * The technical definition of distinctness is that there is an ordering of the labels in
+   * the index in which the zipped start indices and end indices is non-decreasing, and there
+   * are no labels of length 0.
+   * <p>
    * Example:
    * <pre>
    *     {@code

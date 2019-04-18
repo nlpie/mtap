@@ -26,12 +26,6 @@ import java.util.Comparator;
 public interface Label {
 
   /**
-   * A comparator that looks at the positions of the labels, first by their start index, then by
-   * their end index.
-   */
-  Comparator<Label> POSITION_COMPARATOR = new ByPosition();
-
-  /**
    * A precondition check that checks whether the indices are valid for a label. Can be used by
    * implementing classes for validation of labels.
    *
@@ -62,13 +56,63 @@ public interface Label {
   int getEndIndex();
 
   /**
+   * Whether the span of text covered by this label is the same as the span of text covered by the
+   * other label.
+   *
+   * @param other The other label to check for location equivalence.
+   *
+   * @return {@code true} if the other label's location equals the location of this label,
+   * {@code false} otherwise.
+   */
+  default boolean locationEquals(@NotNull Label other) {
+    return getStartIndex() == other.getStartIndex() && getEndIndex() == other.getEndIndex();
+  }
+
+  /**
+   * Whether the span of text covered by this label includes the span of text starting at
+   * {@code startIndex} and ending at {@code endIndex}.
+   *
+   * @param startIndex The start index of the text.
+   * @param endIndex   The end index of the text.
+   * @return {@code true} if the span is covered by this label, {@code false} otherwise.
+   */
+  default boolean covers(int startIndex, int endIndex) {
+    return getStartIndex() <= startIndex && endIndex <= getEndIndex();
+  }
+
+  /**
+   * Whether the span of text covered by this label includes the span of text covered by the
+   * other label.
+   *
+   * @param other The other label to check.
+   *
+   * @return {@code true} if the other label's location is inside the location of this label,
+   * {@code false} otherwise.
+   */
+  default boolean covers(@NotNull Label other) {
+    return covers(other.getStartIndex(), other.getEndIndex());
+  }
+
+  /**
+   * Whether this label is inside the span starting with {@code startIndex} and ending with
+   * {@code endIndex}.
+   *
+   * @param startIndex The start index inclusive of the span.
+   * @param endIndex The end index exclusive of the span.
+   * @return {@code true} if this label is inside the span.
+   */
+  default boolean isInside(int startIndex, int endIndex) {
+    return startIndex <= getStartIndex() && getEndIndex() <= endIndex;
+  }
+
+  /**
    * Returns the text that is covered by the label from {@code string}.
    *
    * @param string The string to retrieve covered text.
    *
    * @return A {@link CharSequence} view of the covered text in the string.
    */
-  default @NotNull CharSequence getCoveredText(@NotNull String string) {
+  default @NotNull CharSequence coveredText(@NotNull String string) {
     return string.subSequence(getStartIndex(), getEndIndex());
   }
 
@@ -79,19 +123,17 @@ public interface Label {
    *
    * @return A {@link CharSequence} view of the covered text in the string.
    */
-  default @NotNull CharSequence getCoveredText(@NotNull Document document) {
-    return getCoveredText(document.getText());
+  default @NotNull CharSequence coveredText(@NotNull Document document) {
+    return coveredText(document.getText());
   }
 
-  /**
-   * The comparator that does positional comparison, first by start index, then by end index.
-   */
-  class ByPosition implements Comparator<Label> {
-    @Override
-    public int compare(Label o1, Label o2) {
-      int compare = Integer.compare(o1.getStartIndex(), o2.getStartIndex());
-      if (compare != 0) return compare;
-      return Integer.compare(o1.getEndIndex(), o2.getEndIndex());
-    }
+  default int compareLocation(@NotNull Label other) {
+    int compare = Integer.compare(getStartIndex(), other.getStartIndex());
+    if (compare != 0) return compare;
+    return Integer.compare(getEndIndex(), other.getEndIndex());
+  }
+
+  default int compareStart(@NotNull Label other) {
+    return Integer.compare(getStartIndex(), other.getStartIndex());
   }
 }

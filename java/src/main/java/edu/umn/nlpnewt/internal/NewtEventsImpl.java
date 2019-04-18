@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Internal
-final class NewtEventsImpl implements NewtEvents {
+final class NewtEventsImpl implements EventsClient {
 
   private final EventsGrpc.EventsBlockingStub stub;
   private final ManagedChannel channel;
@@ -86,6 +86,7 @@ final class NewtEventsImpl implements NewtEvents {
     return new EventImpl(this, eventID);
   }
 
+  @Override
   public void closeEvent(@NotNull String eventID) {
     CloseEventRequest request = CloseEventRequest.newBuilder()
         .setEventId(eventID)
@@ -94,6 +95,7 @@ final class NewtEventsImpl implements NewtEvents {
     stub.closeEvent(request);
   }
 
+  @Override
   @NotNull
   public Map<String, String> getAllMetadata(@NotNull String eventID) {
     GetAllMetadataRequest request = GetAllMetadataRequest.newBuilder()
@@ -103,6 +105,7 @@ final class NewtEventsImpl implements NewtEvents {
     return response.getMetadataMap();
   }
 
+  @Override
   public void addMetadata(@NotNull String eventID, @NotNull String key, @NotNull String value) {
     AddMetadataRequest req = AddMetadataRequest.newBuilder()
         .setEventId(eventID)
@@ -113,6 +116,7 @@ final class NewtEventsImpl implements NewtEvents {
     stub.addMetadata(req);
   }
 
+  @Override
   @NotNull
   public Collection<String> getAllDocuments(@NotNull String eventID) {
     GetAllDocumentNamesRequest request = GetAllDocumentNamesRequest
@@ -123,6 +127,7 @@ final class NewtEventsImpl implements NewtEvents {
     return response.getDocumentNamesList();
   }
 
+  @Override
   public void addDocument(@NotNull String eventID,
                           @NotNull String documentName,
                           @NotNull String text) {
@@ -135,6 +140,7 @@ final class NewtEventsImpl implements NewtEvents {
     stub.addDocument(request);
   }
 
+  @Override
   @NotNull
   public String getDocumentText(@NotNull String eventID, @NotNull String documentName) {
     GetDocumentTextRequest request = GetDocumentTextRequest.newBuilder()
@@ -145,6 +151,7 @@ final class NewtEventsImpl implements NewtEvents {
     return response.getText();
   }
 
+  @Override
   public <L extends Label> void addLabels(@NotNull String eventID,
                                           @NotNull String documentName,
                                           @NotNull String indexName,
@@ -161,6 +168,7 @@ final class NewtEventsImpl implements NewtEvents {
     stub.addLabels(request);
   }
 
+  @Override
   public <L extends Label> @NotNull LabelIndex<L> getLabels(@NotNull String eventID,
                                                             @NotNull String documentName,
                                                             @NotNull String indexName,
@@ -174,6 +182,7 @@ final class NewtEventsImpl implements NewtEvents {
     return adapter.createIndexFromResponse(response);
   }
 
+  @Override
   public @NotNull LabelIndex<GenericLabel> getLabels(@NotNull String eventID,
                                                      @NotNull String documentName,
                                                      @NotNull String indexName) {

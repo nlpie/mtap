@@ -29,7 +29,7 @@ import java.util.*;
 @Internal
 final class DocumentImpl implements Document {
 
-  private final NewtEventsImpl client;
+  private final EventsClient client;
 
   private final Event event;
 
@@ -43,7 +43,7 @@ final class DocumentImpl implements Document {
 
   private String text = null;
 
-  DocumentImpl(NewtEventsImpl client, Event event, String documentName) {
+  DocumentImpl(EventsClient client, Event event, String documentName) {
     this.client = client;
     this.event = event;
     this.documentName = documentName;
@@ -140,7 +140,7 @@ final class DocumentImpl implements Document {
       if (!done) {
         done = true;
 
-        labels.sort(Label.POSITION_COMPARATOR);
+        labels.sort((Comparator<Label>) Label::compareLocation);
 
         labelIndexMap.put(labelIndexName, labelAdapter.createLabelIndex(labels));
 
@@ -159,5 +159,4 @@ final class DocumentImpl implements Document {
       done();
     }
   }
-
 }

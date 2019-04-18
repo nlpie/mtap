@@ -110,6 +110,9 @@ public final class Newt {
 
   /**
    * Creates a distinct (not capable of handling overlapping labels) label index.
+   * <p>
+   * The technical definition of distinctness is that all labels should be able to be
+   * ordered such that start indices and end indices are strictly increasing.
    *
    * @param labels Label objects to use to create the label index.
    * @param <L>    The label type.
