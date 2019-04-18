@@ -14,7 +14,9 @@
 """Public API and access points for the nlpnewt Framework."""
 
 import abc as _abc
+import collections as _collections
 import typing as _typing
+import sys as _sys
 
 from pkg_resources import get_distribution, DistributionNotFound
 
@@ -447,9 +449,9 @@ class Label(_abc.ABC):
 _L = _typing.TypeVar('_L', bound=Label)
 
 
-class LabelIndex(_abc.ABC, _typing.Generic[_L]):
-    """A container of labels. Either contains dict objects for standard labels or custom adapter
-    labels.
+class LabelIndex(_collections.abc.Sequence[_L], _typing.Generic[_L]):
+    """An immutable sequence of labels ordered by their location in text. By default sorts by
+    ascending :func:`Label.start_index` and then by ascending :func:`Label.end_index`.
 
     See Also
     ========
@@ -463,25 +465,53 @@ class LabelIndex(_abc.ABC, _typing.Generic[_L]):
     def distinct(self):
         raise NotImplementedError
 
-    def __getitem__(self, idx: int) -> _L:
+    @_abc.abstractmethod
+    def __getitem__(self, idx: _typing.Union[int, slice, Label]) -> _typing.Union[_L, 'LabelIndex'[_L]]:
         """Returns the label at the specified index.
 
         Parameters
         ----------
-        idx : int
-            The index of the label to return.
+        idx : int or slice or label
+            The index of the label to return or a slice of indices to return as a new label index,
+            or a label to indicate to indicate a location.
 
         Returns
         -------
-        Label
-            Label of the type in this label index.
+        Label or LabelIndex
+            Label if a single index, LabelIndex if a slice of indices or a location.
+            If location is a LabelIndex of all of the labels with that location.
 
         Examples
         --------
-        >>> sentence = sentences_index[0]
+        At index:
+        >>> sentences = distinct_label_index(label(0, 10),
+        >>>                                  label(11, 40),
+        >>>                                  label(41, 60),
+        >>>                                  label(61, 90))
+        >>> sentence = sentences[0]
+        >>> print(sentence)
+        GenericLabel{start_index = 0, end_index = 10}
+
+        With location:
+        >>> index = standard_label_index(label(0, 3, x=1),
+        >>>                              label(0, 3, x=2),
+        >>>                              label(1, 2, x=3))
+        >>> index[label(0, 3)]
+        LabelIndex[GenericLabel{0, 3, x=1}, GenericLabel{0, 3, x=2}]
+
+        Slice:
+        >>> sentences = distinct_label_index(label(0, 10),
+        >>>                                  label(11, 40),
+        >>>                                  label(41, 60),
+        >>>                                  label(61, 90))
+        >>> sentences[:2]
+        LabelIndex[GenericLabel{0, 10}, GenericLabel{11, 40}]
+        >>> last_two_sentences = [-2:]
+        LabelIndex[GenericLabel{41, 60}, GenericLabel{61, 90}]
         """
         raise NotImplementedError
 
+    @_abc.abstractmethod
     def __len__(self) -> int:
         """The number of labels in this label index.
 
@@ -498,8 +528,25 @@ class LabelIndex(_abc.ABC, _typing.Generic[_L]):
         """
         raise NotImplementedError
 
+    @_abc.abstractmethod
+    def __contains__(self, item: _typing.Any):
+        """Checks if the item is a label in this label index.
+
+        Parameters
+        ----------
+        item: Any
+
+        Returns
+        -------
+        bool
+            True if the item is a label and it is in this label index. False if it is not.
+
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
     def __iter__(self) -> _typing.Iterator[_L]:
-        """An iterator of the label objects.
+        """An iterator of the label objects in this index.
 
         Returns
         -------
@@ -518,6 +565,212 @@ class LabelIndex(_abc.ABC, _typing.Generic[_L]):
         >>>     pass
         """
         raise NotImplementedError
+
+    @_abc.abstractmethod
+    def __reversed__(self) -> 'LabelIndex'[_L]:
+        """The labels in this label index in reverse order.
+
+        Returns
+        -------
+        LabelIndex[_L]
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
+    def index(self, x: _typing.Any, start: int = ..., end: int = ...) -> int:
+        """The index of the first occurrence of `x` in the label index at or after `start`
+        and before `end`.
+
+        Parameters
+        ----------
+        x: Any
+        start: int, optional
+            Inclusive start index.
+        end: int, optional
+            Exclusive end index.
+
+        Returns
+        -------
+        index: int
+
+        Raises
+        ------
+        ValueError
+            If x is not found in this label index.
+
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
+    def count(self, x: _typing.Any) -> int:
+        """The number of times `x` occurs in the label index.
+
+        Parameters
+        ----------
+        x: Any
+
+        Returns
+        -------
+        count: int
+
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
+    def covering(self,
+                 x: _typing.Union[Label, int],
+                 end: _typing.Optional[int] = None) -> 'LabelIndex'[_L]:
+        """A label index containing all labels that cover / contain the specified span of text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose location specifies the entire span of text, or the start index of
+            the span of text.
+        end: int, optional
+            The exclusive end index of the span of text if it has not been specified by a label.
+
+        Returns
+        -------
+        LabelIndex
+
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
+    def inside(self,
+               x: _typing.Union[Label, int],
+               end: _typing.Optional[int] = None) -> 'LabelIndex'[_L]:
+        """A label index containing all labels that are inside the specified span of text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose location specifies the entire span of text, or the start index of
+            the span of text.
+        end: int, optional
+            The exclusive end index of the span of text if it has not been specified by a label.
+
+        Returns
+        -------
+        LabelIndex
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
+    def beginning_inside(self,
+                         x: _typing.Union[Label, int],
+                         end: _typing.Optional[int] = None) -> 'LabelIndex'[_L]:
+        """A label index containing all labels whose begin index is inside the specified span of
+        text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose location specifies the entire span of text, or the start index of
+            the span of text.
+        end: int, optional
+            The exclusive end index of the span of text if it has not been specified by a label.
+
+        Returns
+        -------
+        LabelIndex
+        """
+        raise NotImplementedError
+
+    def before(self, x: _typing.Union[Label, int]) -> 'LabelIndex'[_L]:
+        """A label index containing all labels that are before a label's location in text or
+        an index in text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose begin indicates a text index to use, or the text index itself.
+
+        Returns
+        -------
+        LabelIndex
+        """
+        try:
+            index = x.start_index
+        except AttributeError:
+            index = x
+        return self.inside(0, index)
+
+    def after(self, x: _typing.Union[Label, int]) -> 'LabelIndex'[_L]:
+        """A label index containing all labels that are after a label's location in text
+        or an index in text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose end indicates a text index to use, or the text index itself.
+
+
+        Returns
+        -------
+        LabelIndex
+        """
+        try:
+            index = x.end_index
+        except AttributeError:
+            index = x
+        return self.inside(index, _sys.maxsize)
+
+    @_abc.abstractmethod
+    def ascending(self) -> 'LabelIndex'[_L]:
+        """This label index sorted according to ascending start and end index.
+
+        Returns
+        -------
+        LabelIndex
+        """
+        raise NotImplementedError
+
+    @_abc.abstractmethod
+    def descending(self) -> 'LabelIndex'[_L]:
+        """This label index sorted according to descending start index and ascending end index.
+
+        Returns
+        -------
+        LabelIndex
+        """
+        raise NotImplementedError
+
+
+def distinct_label_index(*labels: _L) -> LabelIndex[_L]:
+    """Creates a distinct label index from the labels.
+
+    Parameters
+    ----------
+    labels: *Label
+        Zero or more labels to create a label index from.
+
+    Returns
+    -------
+    LabelIndex
+
+    """
+    from . import _labels
+    return _labels.create_distinct_index(labels)
+
+
+def standard_label_index(*labels: _L) -> LabelIndex[_L]:
+    """Creates a standard label index from the labels.
+
+    Parameters
+    ----------
+    labels: *Label
+        Zero or more labels to create a standard label index from.
+
+    Returns
+    -------
+    LabelIndex
+
+    """
+
+    from . import _labels
+    return _labels.create_standard_index(labels)
 
 
 class Labeler(_abc.ABC, _typing.Generic[_L]):
@@ -580,7 +833,7 @@ class GenericLabel(Label):
 
     """
 
-    def __init__(self, start_index, end_index, **kwargs):
+    def __init__(self, start_index: int, end_index: int, **kwargs):
         self.__dict__['fields'] = dict(kwargs)
         self.fields['start_index'] = start_index
         self.fields['end_index'] = end_index
@@ -620,6 +873,26 @@ class GenericLabel(Label):
 
         """
         self.__dict__['_fields'][key] = value
+
+
+def label(start_index, end_index, **kwargs) -> GenericLabel:
+    """Creates a generic label.
+
+    Parameters
+    ----------
+    start_index : int, required
+        The index of the first character in text to be included in the label.
+    end_index : int, required
+        The index after the last character in text to be included in the label.
+    kwargs : dynamic
+        Any other fields that should be added to the label.
+
+    Returns
+    -------
+    GenericLabel
+
+    """
+    return GenericLabel(start_index, end_index, **kwargs)
 
 
 class ProtoLabelAdapter(_abc.ABC):

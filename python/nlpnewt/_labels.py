@@ -19,11 +19,17 @@ import nlpnewt
 from nlpnewt import _utils
 
 
+def sort_key(label):
+    return label.start_index, label.end_index
+
+
 def create_distinct_index(labels):
+    labels = sorted(labels, key=sort_key)
     return _DistinctLabelIndexBase(labels)
 
 
 def create_standard_index(labels):
+    labels = sorted(labels, key=sort_key)
     return _StandardLabelIndexBase(labels)
 
 

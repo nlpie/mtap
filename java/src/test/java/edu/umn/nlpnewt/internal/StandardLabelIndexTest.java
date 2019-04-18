@@ -211,7 +211,7 @@ class StandardLabelIndexTest {
 
   @Test
   void beginsInside() {
-    LabelIndex<Span> beginsInside = tested.beginsInside(Span.of(1, 10));
+    LabelIndex<Span> beginsInside = tested.beginningInside(Span.of(1, 10));
     assertEquals(Arrays.asList(
         Span.of(2, 6),
         Span.of(6, 7),
@@ -225,13 +225,13 @@ class StandardLabelIndexTest {
 
   @Test
   void beginsInsideEmpty() {
-    LabelIndex<Span> beginsInside = tested.beginsInside(3, 5);
+    LabelIndex<Span> beginsInside = tested.beginningInside(3, 5);
     assertEquals(Collections.emptyList(), beginsInside.asList());
   }
 
   @Test
   void emptyBeginsInside() {
-    LabelIndex<?> beginsInside = empty.beginsInside(0, 5);
+    LabelIndex<?> beginsInside = empty.beginningInside(0, 5);
     assertEquals(Collections.emptyList(), beginsInside.asList());
   }
 
