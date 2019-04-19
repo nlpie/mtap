@@ -19,6 +19,7 @@ import grpc
 import pytest
 
 import nlpnewt
+import nlpnewt.constants
 from nlpnewt.api.v1 import health_pb2, health_pb2_grpc, events_pb2_grpc
 
 
@@ -48,7 +49,7 @@ def doc_service():
         try:
             with grpc.insecure_channel('localhost:50051') as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service=nlpnewt.events_service_name())
+                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME())
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
                     yield events_pb2_grpc.EventsStub(channel)

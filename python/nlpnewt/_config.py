@@ -17,7 +17,7 @@ import os
 import threading
 from pathlib import Path
 
-import nlpnewt
+from . import base
 
 
 def _collapse(d, path, v):
@@ -70,7 +70,7 @@ def load_default_config(config_path=None):
     return _DEFAULT_CONFIG
 
 
-class _Config(dict, nlpnewt.Config):
+class _Config(dict, base.Config):
     _lock = threading.RLock()
     _global_instance = None
     _context = threading.local()

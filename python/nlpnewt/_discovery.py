@@ -15,7 +15,7 @@
 
 import abc
 
-import nlpnewt
+from nlpnewt import constants
 
 
 class Discovery(abc.ABC):
@@ -51,7 +51,7 @@ class ConsulDiscovery(Discovery):
         self.dns = config['consul.dns_ip'] + ":" + str(config['consul.dns_port'])
 
     def register_events_service(self, address, port, version):
-        name = nlpnewt.events_service_name()
+        name = constants.EVENTS_SERVICE_NAME
         self.c.agent.service.register(name,
                                       port=port,
                                       check={
@@ -71,7 +71,7 @@ class ConsulDiscovery(Discovery):
         """Delegates discovery to grpc's dns name resolution.
 
         """
-        name = nlpnewt.events_service_name()
+        name = constants.EVENTS_SERVICE_NAME
         _, services = self.c.health.service(name, tag='v1')
         port = services[0]['Service']['Port']
         return f"dns://{self.dns}/{version}.{name}.service.consul:{port}"
@@ -85,7 +85,7 @@ class ConsulDiscovery(Discovery):
                                           'interval': "10s",
                                           'status': 'passing'
                                       },
-                                      tags=[nlpnewt.processing_service_tag()])
+                                      tags=[constants.PROCESSING_SERVICE_TAG])
 
         def deregister():
             self.c.agent.service.deregister(service_id=processor_id)
@@ -93,7 +93,7 @@ class ConsulDiscovery(Discovery):
         return deregister
 
     def discover_processor_service(self, processor_name, version):
-        tag = nlpnewt.processing_service_tag()
+        tag = constants.PROCESSING_SERVICE_TAG
         _, services = self.c.health.service(processor_name, tag=tag)
         port = services[0]['Service']['Port']
         return f"dns://{self.dns}/{tag}.{processor_name}.service.consul:{port}"

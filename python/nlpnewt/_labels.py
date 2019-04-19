@@ -13,73 +13,18 @@
 # limitations under the License.
 """Internal labels functionality."""
 
-from abc import ABCMeta
-
-import nlpnewt
-from nlpnewt import _utils
+from . import _utils, base, constants
+from ._distinct_label_index import create_distinct_index
 
 
-def sort_key(label):
-    return label.start_index, label.end_index
 
-
-def create_distinct_index(labels):
-    labels = sorted(labels, key=sort_key)
-    return _DistinctLabelIndexBase(labels)
-
-
-def create_standard_index(labels):
-    labels = sorted(labels, key=sort_key)
-    return _StandardLabelIndexBase(labels)
-
-
-class _LabelIndexBase(nlpnewt.LabelIndex, metaclass=ABCMeta):
-    def __init__(self, labels):
-        self._labels = labels
-        self._begins = None
-        self._ends = None
-
-    @property
-    def begins(self):
-        if self._begins is None:
-            self._begins = [label.begin for label in self._labels]
-        return self._begins
-
-    def __getitem__(self, item):
-        return self._labels[item]
-
-    def __len__(self):
-        return len(self._labels)
-
-    def __iter__(self):
-        return iter(self._labels)
-
-
-class _DistinctLabelIndexBase(_LabelIndexBase):
-    def __init__(self, labels):
-        super(_DistinctLabelIndexBase, self).__init__(labels)
-
-    @property
-    def distinct(self):
-        return True
-
-
-class _StandardLabelIndexBase(_LabelIndexBase):
-    def __init__(self, labels):
-        super(_StandardLabelIndexBase, self).__init__(labels)
-
-    @property
-    def distinct(self):
-        return False
-
-
-class _GenericLabelAdapter(nlpnewt.ProtoLabelAdapter):
+class _GenericLabelAdapter(base.ProtoLabelAdapter):
 
     def __init__(self, distinct):
         self.distinct = distinct
 
     def create_label(self, *args, **kwargs):
-        return nlpnewt.GenericLabel(*args, **kwargs)
+        return base.GenericLabel(*args, **kwargs)
 
     def create_index_from_response(self, response):
         json_labels = response.json_labels
@@ -87,7 +32,7 @@ class _GenericLabelAdapter(nlpnewt.ProtoLabelAdapter):
         for label in json_labels.labels:
             d = {}
             _utils.copy_struct_to_dict(label, d)
-            generic_label = nlpnewt.GenericLabel(**d)
+            generic_label = base.GenericLabel(**d)
             labels.append(generic_label)
 
         return (create_distinct_index(labels)
@@ -101,4 +46,18 @@ class _GenericLabelAdapter(nlpnewt.ProtoLabelAdapter):
 
 
 generic_adapter = _GenericLabelAdapter(False)
+
 distinct_generic_adapter = _GenericLabelAdapter(True)
+
+_label_adapters = {
+    constants.DISTINCT_GENERIC_LABEL_ID: distinct_generic_adapter,
+    constants.GENERIC_LABEL_ID: generic_adapter
+}
+
+
+def get_label_adapter(label_type_id):
+    return _label_adapters[label_type_id]
+
+
+def register_proto_label_adapter(label_type_id, label_adapter):
+    _label_adapters[label_type_id] = label_adapter

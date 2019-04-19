@@ -19,8 +19,9 @@ from concurrent import futures
 
 import grpc
 
-import nlpnewt
-from nlpnewt.api.v1 import health_pb2, health_pb2_grpc, events_pb2, events_pb2_grpc
+from . import base
+from . import constants
+from .api.v1 import health_pb2, health_pb2_grpc, events_pb2, events_pb2_grpc
 
 
 class _Event:
@@ -179,13 +180,13 @@ class _EventsServicer(events_pb2_grpc.EventsServicer, health_pb2_grpc.HealthServ
         return response
 
     def Check(self, request, context=None):
-        if request.service == '' or request.service == nlpnewt.events_service_name():
+        if request.service == '' or request.service == constants.PROCESSING_SERVICE_TAG:
             return health_pb2.HealthCheckResponse(status='SERVING')
         else:
             return health_pb2.HealthCheckResponse(status='NOT_SERVING')
 
 
-class _EventsServer(nlpnewt.Server):
+class _EventsServer(base.Server):
     def __init__(self, config, thread_pool, address, port):
         server = grpc.server(thread_pool)
         servicer = _EventsServicer()
@@ -216,7 +217,7 @@ class _EventsServer(nlpnewt.Server):
 
 
 def create_server(config, address, port, workers):
-    prefix = nlpnewt.events_service_name() + "-"
+    prefix = constants.EVENTS_SERVICE_NAME + "-"
     return _EventsServer(config,
                          futures.ThreadPoolExecutor(max_workers=workers,
                                                     thread_name_prefix=prefix),

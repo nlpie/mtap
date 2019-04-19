@@ -16,12 +16,13 @@
 import re
 
 import nlpnewt
+import nlpnewt.base
 
 the = re.compile('the', flags=re.I)
 
 
 @nlpnewt.processor('nlpnewt-example-processor-python')
-class ExampleProcessor(nlpnewt.DocumentProcessor):
+class ExampleProcessor(nlpnewt.base.DocumentProcessor):
     """Does some labeling of the counts of the letter 'a' and 'b' in a document, and all of the
     times the word 'the' occurs.
     """

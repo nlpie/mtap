@@ -21,13 +21,14 @@ import grpc
 import pytest
 
 import nlpnewt
-from nlpnewt import Document
+import nlpnewt.base
+from nlpnewt.base import Document
 from nlpnewt.api.v1 import health_pb2_grpc, health_pb2, processing_pb2_grpc, events_pb2, \
     processing_pb2
 
 
 @nlpnewt.processor('nlpnewt-test-processor')
-class TestProcessor(nlpnewt.DocumentProcessor):
+class TestProcessor(nlpnewt.base.DocumentProcessor):
     def process_document(self, document: Document, params: _typing.Dict[str, str]):
         text = document.text
 
