@@ -343,6 +343,19 @@ class Document(abc.ABC):
         ...
 
 
+class Location(NamedTuple):
+    """A location in text.
+
+    Used to perform comparison of labels based on their locations.
+
+    """
+    start_index: int
+    end_index: int
+
+    def covers(self, other):
+        return self.start_index <= other.start_index and self.end_index >= other.end_index
+
+
 class Label(abc.ABC):
     """An abstract base class for a label of attributes on text.
 
@@ -369,6 +382,20 @@ class Label(abc.ABC):
     @abc.abstractmethod
     def end_index(self, value: int):
         ...
+
+    @property
+    def location(self) -> Location:
+        """Returns a tuple of (start_index, end_index).
+
+        Used to perform sorting and comparison first based on start_index, then based on end_index.
+
+        Returns
+        -------
+        Location
+            The location of this label in text.
+
+        """
+        return Location(self.start_index, self.end_index)
 
     def get_covered_text(self, text: str):
         """Retrieves the slice of text from `start_index` to `end_index`.
@@ -417,20 +444,19 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abc.abstractmethod
-    def __getitem__(self, idx: Union[int, slice, Label]) -> Union[L, 'LabelIndex[L]']:
-        """Returns the label at the specified index.
+    def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
+        """Returns the label at the specified index/slice.
 
         Parameters
         ----------
-        idx : int or slice or Label
+        idx : int or slice
             The index of the label to return or a slice of indices to return as a new label index,
             or a label to indicate to indicate a location.
 
         Returns
         -------
         L or LabelIndex
-            Label if a single index, LabelIndex if a slice of indices or a location.
-            If location is a LabelIndex of all of the labels with that location.
+            Label if a single index, LabelIndex if a slice of indices.
 
         Examples
         --------
@@ -445,13 +471,6 @@ class LabelIndex(Sequence[L], Generic[L]):
         GenericLabel{start_index = 0, end_index = 10}
 
 
-        With location:
-
-        >>> index = standard_label_index(label(0, 3, x=1),
-        >>>                              label(0, 3, x=2),
-        >>>                              label(1, 2, x=3))
-        >>> index[label(0, 3)]
-        LabelIndex[GenericLabel{0, 3, x=1}, GenericLabel{0, 3, x=2}]
 
         Slice:
 
@@ -463,6 +482,25 @@ class LabelIndex(Sequence[L], Generic[L]):
         LabelIndex[GenericLabel{0, 10}, GenericLabel{11, 40}]
         >>> last_two_sentences = [-2:]
         LabelIndex[GenericLabel{41, 60}, GenericLabel{61, 90}]
+
+        """
+        ...
+
+    def at(self, label: Union[Label, Location], default) -> Union[L, 'LabelIndex[L]']:
+        """Returns the label or labels at the specified label or location.
+
+        >>> concepts = standard_label_index(label(0, 10, x=1),
+        >>>                                 label(0, 10, x=2),
+        >>>                                 label(6, 20, x=3))
+        >>>
+        >>> term = label(0, 10)
+        >>> concepts.at(term)
+        LabelIndex[GenericLabel{0, 10, x=1}, GenericLabel{0, 10, x=2}]
+
+        Returns
+        -------
+        L or LabelIndex
+
 
         """
         ...

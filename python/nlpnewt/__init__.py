@@ -17,8 +17,15 @@ import typing
 
 from pkg_resources import get_distribution, DistributionNotFound
 
-from . import base, _config, _discovery, _distinct_label_index, _events_client, _events_service, \
-    _labels, _processing, _utils
+from . import base
+from . import _config
+from . import _discovery
+from . import _distinct_label_index
+from . import _events_client
+from . import _events_service
+from . import _labels
+from . import _processing
+from . import _utils
 
 try:
     __version__ = get_distribution(__name__).version
@@ -26,6 +33,7 @@ except DistributionNotFound:
     __version__ = "development0"
 
 __all__ = [
+    '__version__',
     'config',
     'events',
     'distinct_label_index',
@@ -225,7 +233,6 @@ def processor(name: str):
     """
 
     def decorator(func):
-        from nlpnewt import _processing
         _processing.register_processor(name, func)
         return func
 

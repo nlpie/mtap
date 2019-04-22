@@ -17,7 +17,6 @@ from . import _utils, base, constants
 from ._distinct_label_index import create_distinct_index
 
 
-
 class _GenericLabelAdapter(base.ProtoLabelAdapter):
 
     def __init__(self, distinct):
