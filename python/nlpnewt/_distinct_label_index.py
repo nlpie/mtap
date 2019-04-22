@@ -13,10 +13,10 @@
 # limitations under the License.
 """Internal implementation of a distinct label index."""
 import abc
-import typing
+from typing import TypeVar, Union, Any, Iterator, Optional
 
-from nlpnewt.base import Label, LabelIndex
 from . import base
+from .base import Label, LabelIndex
 
 
 def _covering_index(labels, label, from_index=..., to_index=...):
@@ -73,7 +73,7 @@ def _lower_start(labels, label, from_index=..., to_index=...):
     pass
 
 
-L = typing.TypeVar('L', bound=base.Label)
+L = TypeVar('L', bound=Label)
 
 
 class _DistinctLabelIndex(LabelIndex):
@@ -85,40 +85,53 @@ class _DistinctLabelIndex(LabelIndex):
     def distinct(self):
         return True
 
-    def __getitem__(self, idx: typing.Union[int, slice, Label]) -> typing.Union[L, LabelIndex[L]]:
-        pass
+    def __getitem__(self, key: Union[int, slice, Label]) -> Union[L, LabelIndex[L]]:
+        if isinstance(key, int):
+            return self.labels[key]
+        elif isinstance(key, slice):
+            if key.step is not None and key.step is not 1:
+                raise ValueError("Only step values of 1 are supported.")
+            return _AscendingView(self.labels, key.start, key.stop - 1)
+
 
     def __len__(self) -> int:
         pass
 
-    def __contains__(self, item: typing.Any):
+    def __contains__(self, item: Any):
         pass
 
-    def __iter__(self) -> typing.Iterator[L]:
+    def __iter__(self) -> Iterator[L]:
         pass
 
     def __reversed__(self) -> LabelIndex[L]:
         pass
 
-    def index(self, x: typing.Any, start: int = ..., end: int = ...) -> int:
-        pass
+    def index(self, x: Any, start: int = ..., end: int = ...) -> int:
+        if start is ...:
+            start = 0
+        if end is ...:
+            end = len(self.labels)
+        if not isinstance(x, Label):
+            raise ValueError("Not found")
 
-    def count(self, x: typing.Any) -> int:
+        return _index_of(self.labels, x, start, end)
+
+    def count(self, x: Any) -> int:
         pass
 
     def covering(self,
-                 x: typing.Union[Label, int],
-                 end: typing.Optional[int] = None) -> LabelIndex[L]:
+                 x: Union[Label, int],
+                 end: Optional[int] = None) -> LabelIndex[L]:
         pass
 
     def inside(self,
-               x: typing.Union[Label, int],
-               end: typing.Optional[int] = None) -> LabelIndex[L]:
+               x: Union[Label, int],
+               end: Optional[int] = None) -> LabelIndex[L]:
         pass
 
     def beginning_inside(self,
-                         x: typing.Union[Label, int],
-                         end: typing.Optional[int] = None) -> LabelIndex[L]:
+                         x: Union[Label, int],
+                         end: Optional[int] = None) -> LabelIndex[L]:
         pass
 
     def ascending(self) -> LabelIndex[L]:
@@ -129,10 +142,10 @@ class _DistinctLabelIndex(LabelIndex):
 
 
 class _View(base.LabelIndex, metaclass=abc.ABCMeta):
-    def __init__(self, labels, left, right):
+    def __init__(self, labels, left=None, right=None):
         self.labels = labels
-        self.left = left
-        self.right = right
+        self.left = left or 0
+        self.right = right if right is not None else len(labels)
 
     @property
     @abc.abstractmethod
@@ -150,6 +163,9 @@ class _View(base.LabelIndex, metaclass=abc.ABCMeta):
 
 
 class _AscendingView(_View):
+    def __init__(self, labels, left, right):
+        super().__init__(labels, left, right)
+
     pass
 
 

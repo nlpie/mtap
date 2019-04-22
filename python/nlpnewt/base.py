@@ -790,6 +790,14 @@ class GenericLabel(Label):
         """
         self.__dict__['_fields'][key] = value
 
+    def __eq__(self, other):
+        if not isinstance(other, GenericLabel):
+            return False
+        return self.fields == other.fields
+
+    def __hash__(self):
+        return hash(self.fields)
+
 
 class ProtoLabelAdapter(abc.ABC):
     """Responsible for serialization and deserialization of non-standard label types.
