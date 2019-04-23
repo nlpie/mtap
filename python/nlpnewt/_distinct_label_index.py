@@ -229,7 +229,6 @@ class _DescendingView(_View):
     pass
 
 
-
 def create_distinct_index(labels):
     labels = sorted(labels, key=lambda x: x.location)
     return _DistinctLabelIndex(labels)

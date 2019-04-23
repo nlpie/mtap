@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Abstract base classes for nlpnewt functionality."""
-import abc
+from abc import ABC, abstractmethod, ABCMeta
 import datetime
 import sys
 from typing import TypeVar, ContextManager, MutableMapping, AnyStr, Any, Mapping, Sequence, \
@@ -21,7 +21,7 @@ from typing import TypeVar, ContextManager, MutableMapping, AnyStr, Any, Mapping
 L = TypeVar('L', bound='Label')
 
 
-class Config(ContextManager, MutableMapping[AnyStr, Any], metaclass=abc.ABCMeta):
+class Config(ContextManager, MutableMapping[AnyStr, Any], metaclass=ABCMeta):
     """The nlpnewt configuration dictionary.
 
     By default configuration is loaded from one of a number of locations in the following priority:
@@ -46,7 +46,7 @@ class Config(ContextManager, MutableMapping[AnyStr, Any], metaclass=abc.ABCMeta)
 
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def update_from_yaml(self, path):
         """Updates the configuration by loading and collapsing all of the structures in a yaml file.
 
@@ -59,12 +59,12 @@ class Config(ContextManager, MutableMapping[AnyStr, Any], metaclass=abc.ABCMeta)
         ...
 
 
-class Events(ContextManager, metaclass=abc.ABCMeta):
+class Events(ContextManager, metaclass=ABCMeta):
     """The object created by :func:`events` to interact with all of the events.
 
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def open_event(self, event_id: str = None) -> 'Event':
         """Opens or creates an event on the events service and returns an Event object that can be
         used to access and manipulate data.
@@ -82,7 +82,7 @@ class Events(ContextManager, metaclass=abc.ABCMeta):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def create_event(self, event_id: str = None) -> 'Event':
         """Creates an event on the events service, failing if an event already exists with the
         specified ID, returns an :obj:`Event` object that can be used to access and manipulate data.
@@ -105,14 +105,14 @@ class Events(ContextManager, metaclass=abc.ABCMeta):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def close(self):
         """Closes the connection to the events service.
         """
         ...
 
 
-class Event(Mapping[str, 'Document'], ContextManager, metaclass=abc.ABCMeta):
+class Event(Mapping[str, 'Document'], ContextManager, metaclass=ABCMeta):
     """The object created by :func:`~Events.open_event` or :func:`~Events.create_event` to interact
     with a specific event on the events service.
 
@@ -150,7 +150,7 @@ class Event(Mapping[str, 'Document'], ContextManager, metaclass=abc.ABCMeta):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def event_id(self) -> str:
         """Returns the globally unique identifier for this event.
 
@@ -162,7 +162,7 @@ class Event(Mapping[str, 'Document'], ContextManager, metaclass=abc.ABCMeta):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def metadata(self) -> MutableMapping[str, str]:
         """Returns an object that can be used to query and add metadata to the object.
 
@@ -175,7 +175,7 @@ class Event(Mapping[str, 'Document'], ContextManager, metaclass=abc.ABCMeta):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def created_indices(self) -> Mapping[AnyStr, Sequence[AnyStr]]:
         """Returns a map of label indices that have been added to any document on this event.
 
@@ -187,14 +187,14 @@ class Event(Mapping[str, 'Document'], ContextManager, metaclass=abc.ABCMeta):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def close(self) -> None:
         """Closes this event. Lets the event service know that we are done with the event,
         allowing to clean up the event if everyone is done with it.
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def add_document(self, document_name: str, text: str) -> 'Document':
         """Adds a document to the event keyed by the document_name and
         containing the specified text.
@@ -216,7 +216,7 @@ class Event(Mapping[str, 'Document'], ContextManager, metaclass=abc.ABCMeta):
         ...
 
 
-class Document(abc.ABC):
+class Document(ABC):
     """An object returned by :func:`~Event.__getitem__` or :func:`~Event.add_document`
     for accessing document data.
 
@@ -232,7 +232,7 @@ class Document(abc.ABC):
     """
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def event(self) -> Event:
         """Returns the parent event of this document.
 
@@ -245,7 +245,7 @@ class Document(abc.ABC):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def document_name(self) -> AnyStr:
         """The event-unique identifier.
 
@@ -256,7 +256,7 @@ class Document(abc.ABC):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def text(self) -> str:
         """Returns the document text, fetching if it is not cached locally.
 
@@ -269,7 +269,7 @@ class Document(abc.ABC):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def created_indices(self) -> Sequence[AnyStr]:
         """Returns the newly created label indices on this document using a labeler.
 
@@ -280,7 +280,7 @@ class Document(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_label_index(self,
                         label_index_name: str,
                         *,
@@ -305,7 +305,7 @@ class Document(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_labeler(self,
                     label_index_name: str,
                     *,
@@ -356,30 +356,30 @@ class Location(NamedTuple):
         return self.start_index <= other.start_index and self.end_index >= other.end_index
 
 
-class Label(abc.ABC):
+class Label(ABC):
     """An abstract base class for a label of attributes on text.
 
     """
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def start_index(self) -> int:
         """The index of the first character of the text covered by this label"""
         ...
 
     @start_index.setter
-    @abc.abstractmethod
+    @abstractmethod
     def start_index(self, value: int):
         ...
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def end_index(self) -> int:
         """The index after the last character of the text covered by this label."""
         ...
 
     @end_index.setter
-    @abc.abstractmethod
+    @abstractmethod
     def end_index(self, value: int):
         ...
 
@@ -439,11 +439,11 @@ class LabelIndex(Sequence[L], Generic[L]):
     """
 
     @property
-    @abc.abstractmethod
+    @abstractmethod
     def distinct(self):
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
         """Returns the label at the specified index/slice.
 
@@ -486,6 +486,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
+    @abstractmethod
     def at(self, label: Union[Label, Location], default) -> Union[L, 'LabelIndex[L]']:
         """Returns the label or labels at the specified label or location.
 
@@ -505,7 +506,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def __len__(self) -> int:
         """The number of labels in this label index.
 
@@ -522,8 +523,8 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
-    def __contains__(self, item: Any):
+    @abstractmethod
+    def __contains__(self, item: Any) -> bool:
         """Checks if the item is a label in this label index.
 
         Parameters
@@ -536,9 +537,9 @@ class LabelIndex(Sequence[L], Generic[L]):
             True if the item is a label and it is in this label index. False if it is not.
 
         """
-        ...
+        super(LabelIndex, self).__contains__(item)
 
-    @abc.abstractmethod
+    @abstractmethod
     def __iter__(self) -> Iterator[L]:
         """An iterator of the label objects in this index.
 
@@ -560,7 +561,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def __reversed__(self) -> 'LabelIndex[L]':
         """The labels in this label index in reverse order.
 
@@ -570,7 +571,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def index(self, x: Any, start: int = ..., end: int = ...) -> int:
         """The index of the first occurrence of `x` in the label index at or after `start`
         and before `end`.
@@ -595,7 +596,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def count(self, x: Any) -> int:
         """The number of times `x` occurs in the label index.
 
@@ -610,7 +611,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def covering(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         """A label index containing all labels that cover / contain the specified span of text.
 
@@ -629,7 +630,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         """A label index containing all labels that are inside the specified span of text.
 
@@ -647,7 +648,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def beginning_inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         """A label index containing all labels whose begin index is inside the specified span of
         text.
@@ -705,7 +706,7 @@ class LabelIndex(Sequence[L], Generic[L]):
             index = x
         return self.inside(index, sys.maxsize)
 
-    @abc.abstractmethod
+    @abstractmethod
     def ascending(self) -> 'LabelIndex[L]':
         """This label index sorted according to ascending start and end index.
 
@@ -715,7 +716,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def descending(self) -> 'LabelIndex[L]':
         """This label index sorted according to descending start index and ascending end index.
 
@@ -726,7 +727,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
 
-class Labeler(abc.ABC, Generic[L]):
+class Labeler(ABC, Generic[L]):
     """Object provided by :func:`~Document.get_labeler` which is responsible for adding labels to a
     label index on a document.
 
@@ -735,7 +736,7 @@ class Labeler(abc.ABC, Generic[L]):
     GenericLabel : The default Label type used if another registered label type is not specified.
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def __call__(self, *args, **kwargs) -> L:
         """Calls the constructor for the label type adding it to the list of labels to be uploaded.
 
@@ -837,7 +838,7 @@ class GenericLabel(Label):
         return hash(self.fields)
 
 
-class ProtoLabelAdapter(abc.ABC):
+class ProtoLabelAdapter(ABC):
     """Responsible for serialization and deserialization of non-standard label types.
 
     See Also
@@ -846,20 +847,20 @@ class ProtoLabelAdapter(abc.ABC):
 
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def create_label(self, *args, **kwargs):
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def create_index_from_response(self, response):
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def add_to_message(self, labels, request):
         ...
 
 
-class Processor(metaclass=abc.ABCMeta):
+class Processor(metaclass=ABCMeta):
     """Abstract base class for an event processor.
     """
 
@@ -875,7 +876,7 @@ class Processor(metaclass=abc.ABCMeta):
         """
         return "SERVING"
 
-    @abc.abstractmethod
+    @abstractmethod
     def process(self, event: Event, params: Dict[str, str]) -> Optional[Dict[str, str]]:
         """Performs processing on an event.
 
@@ -902,7 +903,7 @@ class Processor(metaclass=abc.ABCMeta):
         pass
 
 
-class DocumentProcessor(Processor, metaclass=abc.ABCMeta):
+class DocumentProcessor(Processor, metaclass=ABCMeta):
     """Abstract base class for a document processor, a :obj:`Processor` which automatically
     retrieves a :obj:`Document` from the event using the processing parameter 'document_name'.
     """
@@ -912,7 +913,7 @@ class DocumentProcessor(Processor, metaclass=abc.ABCMeta):
         document = event[params['document_name']]
         return self.process_document(document, params)
 
-    @abc.abstractmethod
+    @abstractmethod
     def process_document(self,
                          document: Document,
                          params: Dict[str, str]) -> Optional[Dict[str, str]]:
@@ -937,12 +938,12 @@ class DocumentProcessor(Processor, metaclass=abc.ABCMeta):
         ...
 
 
-class Server(abc.ABC):
+class Server(ABC):
     """A server that hosts an events or processing service.
 
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def start(self, *, register: bool):
         """Starts the service and registers it with the service discovery framework.
 
@@ -953,7 +954,7 @@ class Server(abc.ABC):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def stop(self, *, grace: float = None):
         """De-registers (if registered with service discovery) the service and immediately stops
         accepting requests, completely stopping the service after a specified `grace` time.
@@ -1047,12 +1048,12 @@ class AggregateTimingInfo(NamedTuple):
         print("")
 
 
-class Pipeline(metaclass=abc.ABCMeta):
+class Pipeline(metaclass=ABCMeta):
     """An active, connected, pipeline ready to process events and documents.
 
     """
 
-    @abc.abstractmethod
+    @abstractmethod
     def add_processor(self, name: str, address: str = None, *, identifier: str = None,
                       params: Dict[str, str] = None):
         """Adds a processor in serial to the pipeline.
@@ -1073,7 +1074,7 @@ class Pipeline(metaclass=abc.ABCMeta):
         """
         ...
 
-    @abc.abstractmethod
+    @abstractmethod
     def add_local_processor(self, processor: Processor, identifier: str, events: Events,
                             *, params=None):
         """Adds a processor to the pipeline which will run locally (in the same process as the
