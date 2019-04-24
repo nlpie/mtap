@@ -24,13 +24,13 @@ from .base import Label, L, Location, LabelIndex
 class _SortedLabels:
     def __init__(self, labels: List[Label]):
         self.labels = labels
-        self._locations = None
 
     @property
     def locations(self) -> List[Location]:
-        if self._locations is None:
+        try:
+            return self._locations
+        except AttributeError:
             self._locations = [label.location for label in self.labels]
-        return self._locations
 
     def index(self,
               label: Label,
@@ -228,7 +228,9 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
 
     @property
     def indices(self) -> List[int]:
-        if self._indices is None:
+        try:
+            return self._indices
+        except AttributeError:
             def it():
                 i = self.first_index
                 while True:
@@ -239,7 +241,6 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
                         break
 
             self._indices = [i for i in it()]
-        return self._indices
 
     def __getitem__(self, idx) -> Label:
         return self.l.labels[self.indices[idx]]
