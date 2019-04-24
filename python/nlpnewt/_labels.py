@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Internal labels functionality."""
+from typing import Union, Optional, Any, Iterator
 
+from nlpnewt.base import Label, L, Location
 from . import _utils, base, constants
 from ._distinct_label_index import create_distinct_index
+from .base import LabelIndex
 
 
 class _GenericLabelAdapter(base.ProtoLabelAdapter):
@@ -60,3 +63,47 @@ def get_label_adapter(label_type_id):
 
 def register_proto_label_adapter(label_type_id, label_adapter):
     _label_adapters[label_type_id] = label_adapter
+
+
+class _Empty(LabelIndex):
+    def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
+        raise IndexError
+
+    def at(self, label: Union[Label, Location], default) -> Union[L, 'LabelIndex[L]']:
+        return self
+
+    def __len__(self) -> int:
+        return 0
+
+    def __contains__(self, item: Any) -> bool:
+        return False
+
+    def __iter__(self) -> Iterator[L]:
+        return iter([])
+
+    def __reversed__(self) -> 'LabelIndex[L]':
+        return self
+
+    def index(self, x: Any, start: int = ..., end: int = ...) -> int:
+        raise ValueError
+
+    def count(self, x: Any) -> int:
+        return 0
+
+    def covering(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+        return self
+
+    def inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+        return self
+
+    def beginning_inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+        return self
+
+    def ascending(self) -> 'LabelIndex[L]':
+        return self
+
+    def descending(self) -> 'LabelIndex[L]':
+        return self
+
+
+EMPTY_INDEX = _Empty()

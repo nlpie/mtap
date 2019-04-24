@@ -14,9 +14,8 @@
 """Internal implementation of a standard non-distinct label index."""
 from abc import ABC, abstractmethod
 from bisect import bisect_left, bisect_right
-from enum import Enum
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, Type, NamedTuple
+from typing import Union, Optional, Any, Iterator, NamedTuple
 
 from .base import Label, L, Location, LabelIndex
 
@@ -25,10 +24,6 @@ class _LabelIndex(LabelIndex):
     def __init__(self, labels):
         self.labels = labels
         self.locations = [label.location for label in labels]
-
-    @property
-    def distinct(self):
-        return False
 
     def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
         pass
@@ -80,7 +75,7 @@ def _index(index: _LabelIndex,
 
     i = bisect_left(index.locations, label.location, from_index, to_index)
 
-    if i != len(index) and index[i] == label:
+    if i != to_index and index[i] == label:
         return i
     raise ValueError
 
@@ -96,7 +91,7 @@ def _location_index(index: _LabelIndex,
 
     i = bisect_left(index.locations, location, from_index, to_index)
 
-    if i != len(index) and index.locations[i].location == location:
+    if i != to_index and index.locations[i].location == location:
         return i
     raise ValueError
 
@@ -148,6 +143,15 @@ def _index_ge(index: _LabelIndex,
 
     return bisect_left(index.locations, location, from_index, to_index)
 
+
+def _covering(index: LabelIndex,
+              x: Union[Label, int],
+              end: Optional[int] = None,
+              from_index: int = 0,
+              to_index: int = ...):
+    pass
+
+
 class _Bounds(NamedTuple):
     left: int
     right: int
@@ -184,6 +188,24 @@ class _Direction(ABC):
                 return index
         raise StopIteration
 
+    def update_bounds(self,
+                      min_start=0,
+                      max_start=float('inf'),
+                      min_end=0,
+                      max_end=float('inf')):
+        bounds = self.bounds
+        min_start = max(bounds.min_start, min_start)
+        max_start = min(bounds.max_start, max_start)
+        min_end = max(bounds.min_end, min_end)
+        max_end = max(bounds.max_end, max_end)
+        left = _index_lt(self.label_index, Location(min_start, min_end), bounds.left, bounds.right + 1)
+
+        if right < left:
+            raise ValueError
+
+        bounds = _Bounds(left, right, min_start, max_start, min_end, max_end)
+        return self.__class__(self.label_index, bounds)
+
     @property
     @abstractmethod
     def first_index(self) -> int:
@@ -202,9 +224,12 @@ class _Direction(ABC):
     def prev_index(self, index: int) -> int:
         ...
 
+    @abstractmethod
+    def ascending(self) -> bool:
+        ...
+
 
 class _Ascending(_Direction):
-
     @property
     def first_index(self) -> int:
         return self.bounds.left
@@ -226,7 +251,7 @@ class _Descending(_Direction):
 
 class _View(LabelIndex):
     def __init__(self, direction: _Direction):
-        self._direction = direction
+        self._d = direction  # internal directional delegate
 
     @property
     def distinct(self):
@@ -238,16 +263,23 @@ class _View(LabelIndex):
     def at(self, label: Union[Label, Location], default) -> Union[L, 'LabelIndex[L]']:
         pass
 
+    def __contains__(self, item: Any) -> bool:
+        try:
+            self.index(item)
+            return True
+        except ValueError:
+            return False
+
     def __len__(self) -> int:
         length = self._len
         if length is None:
             length = 0
-            if self._direction.last_index is not None:
-                i = self._direction.first_index
+            if self._d.last_index is not None:
+                i = self._d.first_index
                 while True:
                     try:
                         length += 1
-                        i = self._direction.next_index(i)
+                        i = self._d.next_index(i)
                     except StopIteration:
                         break
             self._len = length
@@ -260,13 +292,39 @@ class _View(LabelIndex):
         pass
 
     def index(self, x: Any, start: int = ..., end: int = ...) -> int:
-        pass
+        d = self._d
+        if not isinstance(x, Label) or not d.bounds.contains(x):
+            raise ValueError
+        return _index(d.label_index, x, d.bounds.left, d.bounds.right + 1)
 
     def count(self, x: Any) -> int:
-        pass
+        d = self._d
+        try:
+            i = self.index(x)
+        except ValueError:
+            return 0
+        count = 1
+        while i < d.bounds.right:
+            i += 1
+            label = d.label_index[i]
+            if d.bounds.contains(label) and label == x:
+                count += 1
+        return count
 
     def covering(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
-        pass
+        if end is None:
+            if isinstance(x, Label):
+                x = x.location
+            if not isinstance(x, Location):
+                raise TypeError
+            start = x.start_index
+            end = x.end_index
+        else:
+            if not isinstance(x, int):
+                raise TypeError
+            if not isinstance(end, int):
+                raise TypeError
+            start = x
 
     def inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         pass
@@ -275,10 +333,18 @@ class _View(LabelIndex):
         pass
 
     def ascending(self) -> 'LabelIndex[L]':
-        pass
+        d = self._d
+        if not d.ascending:
+            return _View(_Ascending(d.label_index, d.bounds))
+        else:
+            return self
 
     def descending(self) -> 'LabelIndex[L]':
-        pass
+        d = self._d
+        if d.ascending:
+            return _View(_Descending(d.label_index, d.bounds))
+        else:
+            return self
 
 
 def create_standard_label_index(labels):

@@ -348,9 +348,16 @@ class Location(NamedTuple):
 
     Used to perform comparison of labels based on their locations.
 
+    Attributes
+    ==========
+    start_index: int or float
+        The start index inclusive of the location in text.
+    end_index: int or float
+        The end index exclusive of the location in text.
+
     """
-    start_index: int
-    end_index: int
+    start_index: float
+    end_index: float
 
     def covers(self, other):
         return self.start_index <= other.start_index and self.end_index >= other.end_index
@@ -437,12 +444,6 @@ class LabelIndex(Sequence[L], Generic[L]):
     Document.get_labeler : Method for adding new label indexes to documents.
     Labeler : Object for adding new label indices to documents.
     """
-
-    @property
-    @abstractmethod
-    def distinct(self):
-        ...
-
     @abstractmethod
     def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
         """Returns the label at the specified index/slice.
