@@ -17,7 +17,7 @@ from bisect import bisect_left, bisect_right
 from operator import attrgetter
 from typing import Union, Optional, Any, Iterator, NamedTuple, Generic, List
 
-from ._labels import EMPTY_INDEX
+from ._empty_label_index import INSTANCE as EMPTY_INDEX
 from .base import Label, L, Location, LabelIndex
 
 
@@ -31,6 +31,7 @@ class _SortedLabels:
             return self._locations
         except AttributeError:
             self._locations = [label.location for label in self.labels]
+            return self._locations
 
     def index(self,
               label: Label,
@@ -119,7 +120,7 @@ class _SortedLabels:
 
     def view_delegate(self, start=0, end=...):
         if end is ...:
-            end = len(self.locations)
+            end = len(self.locations) - 1
         bounds = _Bounds(start, end)
         return _Ascending(self, bounds)
 
@@ -202,6 +203,9 @@ class _LabelIndex(LabelIndex):
         bounds = _Bounds(0, len(l.labels))
         return _View(_Descending(l, bounds))
 
+    def __repr__(self):
+        return f"LabelIndex({self._l.labels})"
+
 
 class _Bounds(NamedTuple):
     left: int
@@ -224,7 +228,6 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
     def __init__(self, labels: _SortedLabels, bounds: _Bounds):
         self.l = labels
         self.bounds = bounds
-        self._indices = None
 
     @property
     def indices(self) -> List[int]:
@@ -241,6 +244,7 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
                         break
 
             self._indices = [i for i in it()]
+            return self._indices
 
     def __getitem__(self, idx) -> Label:
         return self.l.labels[self.indices[idx]]
@@ -255,20 +259,6 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
     def end_in_bounds(self, index: int) -> bool:
         return self.bounds.min_end <= self.l.locations[index].end_index <= self.bounds.max_end
 
-    def next_index_ascending(self, index: int) -> int:
-        while index < self.bounds.right:
-            index += 1
-            if self.end_in_bounds(index):
-                return index
-        raise StopIteration
-
-    def next_index_descending(self, index: int) -> int:
-        while index > self.bounds.left:
-            index -= 1
-            if self.end_in_bounds(index):
-                return index
-        raise StopIteration
-
     def update_bounds(self,
                       *,
                       min_start=0,
@@ -280,10 +270,16 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
         max_start = min(bounds.max_start, max_start)
         min_end = max(bounds.min_end, min_end)
         max_end = max(bounds.max_end, max_end)
-        left = self.l.index_lt(Location(min_start, min_end),
-                               bounds.left, bounds.right + 1) + 1
-        right = self.l.index_gt(Location(max_start, max_end),
-                                left, bounds.right + 1) - 1
+        try:
+            left = self.l.index_lt(Location(min_start, min_end),
+                                   bounds.left, bounds.right + 1) + 1
+        except ValueError:
+            left = bounds.left
+        try:
+            right = self.l.index_gt(Location(max_start, max_end),
+                                    left, bounds.right + 1) - 1
+        except ValueError:
+            right = bounds.right
 
         while right >= left:
             if self.l.labels[right].end_index <= max_end:
@@ -320,11 +316,6 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def last_index(self) -> int:
-        ...
-
-    @property
-    @abstractmethod
     def ascending(self) -> bool:
         ...
 
@@ -340,18 +331,18 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
 class _Ascending(_ViewDelegate):
     @property
     def first_index(self) -> int:
-        return self.bounds.left
-
-    @property
-    def last_index(self) -> int:
-        return self.bounds.right
+        return self.bounds.left - 1
 
     @property
     def ascending(self) -> bool:
         return True
 
     def next_index(self, index: int) -> int:
-        return self.next_index_ascending(index)
+        while index < self.bounds.right:
+            index += 1
+            if self.end_in_bounds(index):
+                return index
+        raise StopIteration
 
     def reversed(self):
         return _Descending(self.l, self.bounds)
@@ -360,18 +351,18 @@ class _Ascending(_ViewDelegate):
 class _Descending(_ViewDelegate):
     @property
     def first_index(self) -> int:
-        return self.bounds.right
-
-    @property
-    def last_index(self) -> int:
-        return self.bounds.left
+        return self.bounds.right + 1
 
     @property
     def ascending(self) -> bool:
         return True
 
     def next_index(self, index: int) -> int:
-        return self.next_index_descending(index)
+        while index > self.bounds.left:
+            index -= 1
+            if self.end_in_bounds(index):
+                return index
+        raise StopIteration
 
     def reversed(self):
         return _Descending(self.l, self.bounds)
@@ -502,6 +493,10 @@ class _View(LabelIndex):
             return _View(_Descending(d.l, d.bounds))
         else:
             return self
+
+    def __repr__(self):
+        return f"LabelIndex({list(self)})"
+
 
 
 def create_standard_label_index(labels):

@@ -23,6 +23,8 @@ from . import base
 from . import constants
 from .api.v1 import health_pb2, health_pb2_grpc, events_pb2, events_pb2_grpc
 
+LOGGER = logging.getLogger(__name__)
+
 
 class _Event:
     def __init__(self):
@@ -180,7 +182,7 @@ class _EventsServicer(events_pb2_grpc.EventsServicer, health_pb2_grpc.HealthServ
         return response
 
     def Check(self, request, context=None):
-        if request.service == '' or request.service == constants.PROCESSING_SERVICE_TAG:
+        if request.service == '' or request.service == constants.EVENTS_SERVICE_NAME:
             return health_pb2.HealthCheckResponse(status='SERVING')
         else:
             return health_pb2.HealthCheckResponse(status='NOT_SERVING')
@@ -197,8 +199,12 @@ class _EventsServer(base.Server):
         self._address = address
         self._config = config
 
+    @property
+    def port(self) -> int:
+        return self._port
+
     def start(self, *, register):
-        logging.info("Starting events server on address: {}:{}", self._address, self._port)
+        LOGGER.info("Starting events server on address: %s:%d", self._address, self._port)
         self._server.start()
         if register:
             from nlpnewt._discovery import Discovery

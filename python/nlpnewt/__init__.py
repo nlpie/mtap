@@ -17,14 +17,17 @@ import typing
 
 from pkg_resources import get_distribution, DistributionNotFound
 
-from . import base
 from . import _config
 from . import _discovery
 from . import _events_client
 from . import _events_service
-from . import _labels
 from . import _processing
 from . import _utils
+from . import base
+from ._labels import GenericLabel
+from ._labels import distinct_label_index
+from ._labels import proto_label_adapter
+from ._labels import standard_label_index
 
 try:
     __version__ = get_distribution(__name__).version
@@ -37,7 +40,7 @@ __all__ = [
     'events',
     'distinct_label_index',
     'standard_label_index',
-    'label',
+    'GenericLabel',
     'proto_label_adapter',
     'processor',
     'stopwatch',
@@ -90,95 +93,6 @@ def events(target=None) -> base.Events:
 
 
 L = typing.TypeVar('L', bound=base.Label)
-
-
-def distinct_label_index(*labels: L) -> base.LabelIndex[L]:
-    """Creates a distinct label index from the labels.
-
-    Parameters
-    ----------
-    labels: *Label
-        Zero or more labels to create a label index from.
-
-    Returns
-    -------
-    nlpnewt.base.LabelIndex
-
-    """
-    return _labels.create_distinct_label_index(labels)
-
-
-def standard_label_index(*labels: L) -> base.LabelIndex[L]:
-    """Creates a standard label index from the labels.
-
-    Parameters
-    ----------
-    labels: *Label
-        Zero or more labels to create a standard label index from.
-
-    Returns
-    -------
-    nlpnewt.base.LabelIndex
-
-    """
-    return _labels.create_standard_label_index(labels)
-
-
-def label(start_index, end_index, **kwargs) -> base.GenericLabel:
-    """Creates a generic label.
-
-    Parameters
-    ----------
-    start_index : int, required
-        The index of the first character in text to be included in the label.
-    end_index : int, required
-        The index after the last character in text to be included in the label.
-    kwargs : dynamic
-        Any other fields that should be added to the label.
-
-    Returns
-    -------
-    nlpnewt.base.GenericLabel
-
-    """
-    return base.GenericLabel(start_index, end_index, **kwargs)
-
-
-def proto_label_adapter(label_type_id: str):
-    """Registers a :obj:`ProtoLabelAdapter` for a specific identifier.
-
-    When that id is referenced in the document :func:`~Document.get_labeler`
-    and  :func:`~Document.get_label_index`.
-
-    Parameters
-    ----------
-    label_type_id: hashable
-        This can be anything as long as it is hashable, good choices are strings or the label types
-        themselves if they are concrete classes.
-
-    Returns
-    -------
-    decorator
-        Decorator object which invokes the callable to create the label adapter.
-
-    Examples
-    --------
-    >>> @nlpnewt.proto_label_adapter("example.Sentence")
-    >>> class SentenceAdapter(nlpnewt.ProtoLabelAdapter):
-    >>>    # ... implementation of the ProtoLabelAdapter for sentences.
-
-    >>> with document.get_labeler("sentences", "example.Sentence") as labeler
-    >>>     # add labels
-
-    >>> label_index = document.get_label_index("sentences", "example.Sentence")
-    >>>     # do something with labels
-    """
-
-    def decorator(func: typing.Callable[[], base.ProtoLabelAdapter]):
-        _labels.register_proto_label_adapter(label_type_id, func())
-        return func
-
-    return decorator
 
 
 def processor(name: str):

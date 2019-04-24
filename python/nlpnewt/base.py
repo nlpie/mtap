@@ -20,6 +20,23 @@ from typing import TypeVar, ContextManager, MutableMapping, AnyStr, Any, Mapping
 
 L = TypeVar('L', bound='Label')
 
+__all__ = (['Config',
+            'Events',
+            'Event',
+            'Document',
+            'Location',
+            'Label',
+            'LabelIndex',
+            'Labeler',
+            'ProtoLabelAdapter',
+            'Processor',
+            'DocumentProcessor',
+            'Server',
+            'ProcessingResult',
+            'TimerStats',
+            'AggregateTimingInfo',
+            'Pipeline'])
+
 
 class Config(ContextManager, MutableMapping[AnyStr, Any], metaclass=ABCMeta):
     """The nlpnewt configuration dictionary.
@@ -747,6 +764,17 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
+    def __eq__(self, other):
+        if not isinstance(other, LabelIndex):
+            return False
+        for s, o in zip(self, other):
+            if s != o:
+                return False
+        return True
+
+    def __hash__(self):
+        return hash([l for l in self])
+
 
 class Labeler(ABC, Generic[L]):
     """Object provided by :func:`~Document.get_labeler` which is responsible for adding labels to a
@@ -779,91 +807,6 @@ class Labeler(ABC, Generic[L]):
         GenericLabel(start_index=0, end_index=25, some_field='some_value', x=3)
         """
         ...
-
-
-class GenericLabel(Label):
-    """Default implementation of the Label class which uses a dictionary to store attributes.
-
-    Will be suitable for the majority of use cases for labels.
-
-    Attributes
-    ----------
-    start_index
-    end_index
-    *: Any
-        Other attributes dynamically set on the label.
-
-    Parameters
-    ----------
-    start_index : int, required
-        The index of the first character in text to be included in the label.
-    end_index : int, required
-        The index after the last character in text to be included in the label.
-    kwargs : dynamic
-        Any other fields that should be added to the label.
-
-
-    Examples
-    --------
-    >>> pos_tag = pos_tag_labeler(0, 5)
-    >>> pos_tag.tag = 'NNS'
-    >>> pos_tag.tag
-    'NNS'
-
-    >>> pos_tag2 = pos_tag_labeler(6, 10, tag='VB')
-    >>> pos_tag2.tag
-    'VB'
-
-    """
-
-    def __init__(self, start_index: int, end_index: int, **kwargs):
-        self.__dict__['fields'] = dict(kwargs)
-        self.fields['start_index'] = start_index
-        self.fields['end_index'] = end_index
-
-    @property
-    def start_index(self):
-        return self.fields['start_index']
-
-    @start_index.setter
-    def start_index(self, value):
-        self.fields['start_index'] = value
-
-    @property
-    def end_index(self):
-        return self.fields['end_index']
-
-    @end_index.setter
-    def end_index(self, value):
-        self.fields['end_index'] = value
-
-    def __getattr__(self, item):
-        fields = self.__dict__['fields']
-        if item == 'fields':
-            return fields
-        else:
-            return fields[item]
-
-    def __setattr__(self, key, value):
-        """Sets the value of a field on the label.
-
-        Parameters
-        ----------
-        key: str
-            Name of the string.
-        value: json serialization compliant
-            Some kind of value, must be able to be serialized to json.
-
-        """
-        self.__dict__['_fields'][key] = value
-
-    def __eq__(self, other):
-        if not isinstance(other, GenericLabel):
-            return False
-        return self.fields == other.fields
-
-    def __hash__(self):
-        return hash(self.fields)
 
 
 class ProtoLabelAdapter(ABC):
@@ -969,7 +912,23 @@ class DocumentProcessor(Processor, metaclass=ABCMeta):
 class Server(ABC):
     """A server that hosts an events or processing service.
 
+    Attributes
+    ----------
+    port
+
     """
+
+    @property
+    @abstractmethod
+    def port(self) -> int:
+        """Returns the port that the server is listening on.
+
+        Returns
+        -------
+        int
+
+        """
+        ...
 
     @abstractmethod
     def start(self, *, register: bool):

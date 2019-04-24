@@ -175,6 +175,10 @@ class _ProcessorServer(base.Server):
         self._address = address
         self._runner = runner
 
+    @property
+    def port(self) -> int:
+        return self._port
+
     def start(self, *, register: bool):
         _logger.info("Starting processor server identifier: %s address: %s port: %d",
                      self._runner.component_id, self._address, self._port)

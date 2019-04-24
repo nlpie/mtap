@@ -14,11 +14,10 @@
 """Internal utilities."""
 
 import datetime
-import logging
+import math
 import typing
 from concurrent.futures.thread import ThreadPoolExecutor
 
-import math
 from google.protobuf import struct_pb2
 
 from . import base

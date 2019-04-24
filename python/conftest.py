@@ -42,14 +42,14 @@ def doc_service():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
-    server = nlpnewt.events_server('localhost', 50051, workers=5)
+    server = nlpnewt.events_server('localhost', 0, workers=5)
     server.start(register=False)
 
     for i in range(10):
         try:
-            with grpc.insecure_channel('localhost:50051') as channel:
+            with grpc.insecure_channel(f'localhost:{server.port}') as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME())
+                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME)
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
                     yield events_pb2_grpc.EventsStub(channel)
@@ -57,6 +57,7 @@ def doc_service():
             event.wait()
             return
         except Exception as e:
+            logging.error(e)
             logger.warning(f"Failed to connect try {i}/10. Retrying in .05 seconds.")
             time.sleep(.05)
 

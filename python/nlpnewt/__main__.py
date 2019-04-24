@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 
 import nlpnewt
 
@@ -76,6 +77,7 @@ def run_processor_service(args):
 
 
 def main(args=None):
+    logging.basicConfig(level=logging.DEBUG)
     import argparse as argparse
     parser = argparse.ArgumentParser(description='Starts a nlpnewt grpc server.',
                                      allow_abbrev=False)
@@ -124,4 +126,5 @@ def main(args=None):
     args.func(args)
 
 
-main()
+if __name__ == "__main__":
+    main()

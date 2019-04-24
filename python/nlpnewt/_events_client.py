@@ -23,10 +23,10 @@ from typing import Iterator
 
 import grpc
 
-from nlpnewt import _labels
+from . import _discovery
 from . import base
 from . import constants
-from . import _discovery
+from . import _labels
 from .api.v1 import events_pb2_grpc, events_pb2
 
 
