@@ -14,10 +14,10 @@
 """Internal labels functionality."""
 from typing import Union, Optional, Any, Iterator
 
-from nlpnewt.base import Label, L, Location
+from .base import Label, L, Location, LabelIndex
 from . import _utils, base, constants
-from ._distinct_label_index import create_distinct_index
-from .base import LabelIndex
+from ._distinct_label_index import create_distinct_label_index
+from ._standard_label_index import create_standard_label_index
 
 
 class _GenericLabelAdapter(base.ProtoLabelAdapter):
@@ -37,9 +37,9 @@ class _GenericLabelAdapter(base.ProtoLabelAdapter):
             generic_label = base.GenericLabel(**d)
             labels.append(generic_label)
 
-        return (create_distinct_index(labels)
+        return (create_distinct_label_index(labels)
                 if self.distinct
-                else create_standard_index(labels))
+                else create_standard_label_index(labels))
 
     def add_to_message(self, labels, request):
         json_labels = request.json_labels
@@ -69,8 +69,10 @@ class _Empty(LabelIndex):
     def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
         raise IndexError
 
-    def at(self, label: Union[Label, Location], default) -> Union[L, 'LabelIndex[L]']:
-        return self
+    def at(self, label: Union[Label, Location], default=...) -> Union[L, 'LabelIndex[L]']:
+        if default is not ...:
+            return default
+        raise ValueError
 
     def __len__(self) -> int:
         return 0

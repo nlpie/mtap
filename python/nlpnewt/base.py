@@ -119,6 +119,12 @@ class Event(Mapping[str, 'Document'], ContextManager, metaclass=ABCMeta):
     The Event object functions as a map from string document names to :obj:`Document` objects that
     can be used to access document data from the events server.
 
+    Attributes
+    ----------
+    event_id
+    metadata
+    created_indices
+
     Examples
     --------
     >>> with events.open_event('id') as event:
@@ -228,6 +234,13 @@ class Document(ABC):
     Both label indices, once added, and the document text are immutable. This is to enable
     parallelization and distribution of processing, and to prevent changes to upstream data that
     has already been used in the creation of downstream data.
+
+    Attributes
+    ==========
+    event
+    document_name
+    text
+    created_indices
 
     """
 
@@ -354,7 +367,6 @@ class Location(NamedTuple):
         The start index inclusive of the location in text.
     end_index: int or float
         The end index exclusive of the location in text.
-
     """
     start_index: float
     end_index: float
@@ -365,6 +377,12 @@ class Location(NamedTuple):
 
 class Label(ABC):
     """An abstract base class for a label of attributes on text.
+
+    Attributes
+    ----------
+    start_index
+    end_index
+    location
 
     """
 
@@ -434,10 +452,6 @@ class LabelIndex(Sequence[L], Generic[L]):
     """An immutable sequence of labels ordered by their location in text. By default sorts by
     ascending :func:`Label.start_index` and then by ascending :func:`Label.end_index`.
 
-    Parameters
-    ==========
-    L
-
     See Also
     ========
     Document.get_label_index : Method for getting existing label indices.
@@ -488,9 +502,20 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def at(self, label: Union[Label, Location], default) -> Union[L, 'LabelIndex[L]']:
+    def at(self, label: Union[Label, Location], default=...) -> Union[L, 'LabelIndex[L]']:
         """Returns the label or labels at the specified label or location.
 
+        Returns
+        -------
+        L or LabelIndex
+
+        Raises
+        ------
+        ValueError
+            If a default is not supplied and the index does not contain any labels at the location.
+
+        Examples
+        --------
         >>> concepts = standard_label_index(label(0, 10, x=1),
         >>>                                 label(0, 10, x=2),
         >>>                                 label(6, 20, x=3))
@@ -498,11 +523,6 @@ class LabelIndex(Sequence[L], Generic[L]):
         >>> term = label(0, 10)
         >>> concepts.at(term)
         LabelIndex[GenericLabel{0, 10, x=1}, GenericLabel{0, 10, x=2}]
-
-        Returns
-        -------
-        L or LabelIndex
-
 
         """
         ...
@@ -538,7 +558,7 @@ class LabelIndex(Sequence[L], Generic[L]):
             True if the item is a label and it is in this label index. False if it is not.
 
         """
-        super(LabelIndex, self).__contains__(item)
+        ...
 
     @abstractmethod
     def __iter__(self) -> Iterator[L]:
@@ -765,6 +785,13 @@ class GenericLabel(Label):
     """Default implementation of the Label class which uses a dictionary to store attributes.
 
     Will be suitable for the majority of use cases for labels.
+
+    Attributes
+    ----------
+    start_index
+    end_index
+    *: Any
+        Other attributes dynamically set on the label.
 
     Parameters
     ----------
@@ -1163,6 +1190,8 @@ class Pipeline(metaclass=ABCMeta):
 
         Returns
         -------
+        AggregateTimingInfo
+            The timing stats for the pipeline specfically.
 
         """
         ...

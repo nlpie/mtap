@@ -20,7 +20,6 @@ from pkg_resources import get_distribution, DistributionNotFound
 from . import base
 from . import _config
 from . import _discovery
-from . import _distinct_label_index
 from . import _events_client
 from . import _events_service
 from . import _labels
@@ -106,7 +105,7 @@ def distinct_label_index(*labels: L) -> base.LabelIndex[L]:
     nlpnewt.base.LabelIndex
 
     """
-    return _distinct_label_index.create_distinct_index(labels)
+    return _labels.create_distinct_label_index(labels)
 
 
 def standard_label_index(*labels: L) -> base.LabelIndex[L]:
@@ -122,7 +121,7 @@ def standard_label_index(*labels: L) -> base.LabelIndex[L]:
     nlpnewt.base.LabelIndex
 
     """
-    return _labels.create_standard_index(labels)
+    return _labels.create_standard_label_index(labels)
 
 
 def label(start_index, end_index, **kwargs) -> base.GenericLabel:
