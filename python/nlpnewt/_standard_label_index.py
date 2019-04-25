@@ -15,7 +15,7 @@
 from abc import abstractmethod, ABCMeta
 from bisect import bisect_left, bisect_right
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, NamedTuple, Generic, List
+from typing import Union, Optional, Any, Iterator, NamedTuple, Generic, List, Tuple
 
 from ._empty_label_index import INSTANCE as EMPTY_INDEX
 from .base import Label, L, Location, LabelIndex
@@ -137,9 +137,10 @@ class _LabelIndex(LabelIndex):
         if isinstance(idx, int):
             return self._l.labels[idx]
         elif isinstance(idx, slice):
-            if idx.step != 1:
+            if idx.step is not None and idx.step != 1:
                 raise IndexError("Step values other than 1 are not supported.")
-            bounds = _Bounds(idx.start, idx.stop - 1)
+            start, end = _check_indices(self._l.labels, idx.start, idx.stop)
+            bounds = _Bounds(start, end - 1)
             return _View(_Ascending(self._l, bounds))
         else:
             raise TypeError("Index must be int or slice.")
@@ -402,6 +403,24 @@ def _location(x):
     if not isinstance(x, Location):
         raise TypeError
     return x
+
+
+def _check_indices(arr: List, start: int, end: int = ...) -> Union[int, Tuple[int, int]]:
+    if start is None:
+        start = 0
+    if start < 0:
+        start = len(arr) - 1 + start
+    if end is None:
+        end = len(arr)
+    if end is not ...:
+        if end < 0:
+            end = len(arr) + end
+        if end < start:
+            raise IndexError("end: {} < start: {}".format(end, start))
+    if end is not None:
+        return start, end
+    else:
+        return start
 
 
 class _View(LabelIndex):

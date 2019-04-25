@@ -16,6 +16,7 @@ import pytest
 
 from nlpnewt import GenericLabel
 from nlpnewt._standard_label_index import _LabelIndex, _SortedLabels, create_standard_label_index
+from nlpnewt.base import Location
 
 tested = _LabelIndex(_SortedLabels([
     GenericLabel(0, 5, i=0),
@@ -25,7 +26,7 @@ tested = _LabelIndex(_SortedLabels([
     GenericLabel(6, 8, i=4),
     GenericLabel(9, 10, i=5),
     GenericLabel(9, 13, i=6),
-    GenericLabel(9, 13, i=7)
+    GenericLabel(9, 13, i=7),
 ]))
 
 empty = create_standard_label_index([])
@@ -44,6 +45,97 @@ def test_create_sort():
     ])
 
     assert sorted == tested
+
+
+def test_getitem():
+    assert tested[3] == GenericLabel(6, 7, i=3)
+
+
+def test_getitem_first():
+    assert tested[0] == GenericLabel(0, 5, i=0)
+
+
+def test_getitem_last():
+    assert tested[7] == GenericLabel(9, 13, i=7)
+
+
+def test_getitem_negative():
+    assert tested[-4] == GenericLabel(6, 8, i=4)
+
+
+def test_getitem_last_negative():
+    assert tested[-1] == GenericLabel(9, 13, i=7)
+
+
+def test_getitem_slice():
+    assert tested[2:4] == [
+        GenericLabel(2, 6, i=2),
+        GenericLabel(6, 7, i=3),
+    ]
+
+
+def test_getitem_slice_end():
+    assert tested[4:8] == [
+        GenericLabel(6, 8, i=4),
+        GenericLabel(9, 10, i=5),
+        GenericLabel(9, 13, i=6),
+        GenericLabel(9, 13, i=7),
+    ]
+
+
+def test_getitem_slice_open_left():
+    assert tested[:4] == [
+        GenericLabel(0, 5, i=0),
+        GenericLabel(0, 7, i=1),
+        GenericLabel(2, 6, i=2),
+        GenericLabel(6, 7, i=3),
+    ]
+
+
+def test_getitem_slice_open_right():
+    assert tested[4:] == [
+        GenericLabel(6, 8, i=4),
+        GenericLabel(9, 10, i=5),
+        GenericLabel(9, 13, i=6),
+        GenericLabel(9, 13, i=7),
+    ]
+
+
+def test_getitem_slice_neg_right():
+    assert tested[4:-1] == [
+        GenericLabel(6, 8, i=4),
+        GenericLabel(9, 10, i=5),
+        GenericLabel(9, 13, i=6),
+    ]
+
+
+def test_getitem_slice_neg_left():
+    assert tested[-3:-1] == [
+        GenericLabel(6, 8, i=4),
+        GenericLabel(9, 10, i=5),
+        GenericLabel(9, 13, i=6),
+    ]
+
+
+def test_getitem_not_idx_slice():
+    with pytest.raises(TypeError):
+        tested['foo']
+
+
+def tested_getitem_slice_step_not_one():
+    with pytest.raises(IndexError):
+        tested[1:3:2]
+
+
+def test_at():
+    assert tested.at(GenericLabel(2, 6)) == GenericLabel(2, 6, i=2)
+
+
+def test_at_location():
+    assert tested.at(Location(2, 6)) == GenericLabel(2, 6, i=2)
+
+
+def test_at_location_multiple():
 
 
 def test_len():
@@ -273,3 +365,5 @@ def test_after():
         GenericLabel(9, 13, i=6),
         GenericLabel(9, 13, i=7)
     ]
+
+

@@ -519,12 +519,12 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def at(self, label: Union[Label, Location], default=...) -> Union[L, 'LabelIndex[L]']:
-        """Returns the label or labels at the specified label or location.
+    def at(self, label: Union[Label, Location], default=...) -> 'LabelIndex[L]':
+        """Returns the labels at the specified label or location.
 
         Returns
         -------
-        L or LabelIndex
+        LabelIndex
 
         Raises
         ------
@@ -539,7 +539,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         >>>
         >>> term = label(0, 10)
         >>> concepts.at(term)
-        LabelIndex[GenericLabel{0, 10, x=1}, GenericLabel{0, 10, x=2}]
+        standard_label_index([GenericLabel(0, 10, x=1), GenericLabel(0, 10, x=2)])
 
         """
         ...
