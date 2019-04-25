@@ -12,11 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Internal implementation of a standard non-distinct label index."""
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from bisect import bisect_left, bisect_right
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, List, Tuple, TypeVar, \
-    Iterable
+from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence
 
 from .base import Label, Location, LabelIndex
 
@@ -44,134 +43,158 @@ def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
 def internal_label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
     if len(labels) == 0:
         return EMPTY[distinct]
-    return _LabelIndex(distinct, _View(labels))
+    return _LabelIndex(distinct, _Ascending(labels))
 
 
 class _View(metaclass=ABCMeta):
-    def __init__(self, labels, indices: Iterable[int] = ..., locations: List[Location] = ...):
+    def __init__(self, labels, indices: Sequence[int] = ...):
         self._labels = labels
-        if indices is ...:
-            indices = range(len(labels))
-        self._indices = indices
-        if locations is ...:
-            locations = [labels[i].location for i in indices]
-        self._locations = locations
+        self._indices = range(len(labels)) if indices is ... else indices
 
-    def create_indices_and_locations(self):
-        return self._indices
-
-    def __getitem__(self, idx) -> Union[Label, '_View']:
-        if isinstance(idx, int):
-            return self._labels[self._indices[idx]]
-        elif isinstance(idx, slice):
-            return _View(self._labels, self._indices[idx])
-
-    def __iter__(self) -> Iterator[Label]:
-        for idx in self._indices:
-            yield self._labels[idx]
+    @property
+    def locations(self):
+        try:
+            locations = self._locations
+        except AttributeError:
+            locations = [self._labels[i].location for i in self._indices]
+            self._locations = locations
+        return locations
 
     def __len__(self):
         return len(self._indices)
-
-    def index_location(self,
-                       location: Location,
-                       from_index: int = 0,
-                       to_index: int = ...) -> int:
-        if to_index is ...:
-            to_index = len(self._locations)
-        i = bisect_left(self._locations, location, from_index, to_index)
-
-        if i != to_index and self._locations[i] == location:
-            return i
-        raise ValueError
-
-    def last_index_location(self,
-                            location: Location,
-                            from_index: int = 0,
-                            to_index: int = ...):
-        if to_index is ...:
-            to_index = len(self._locations)
-        i = bisect_right(self._locations, location, from_index, to_index)
-
-        if i != to_index and self._locations[i] == location:
-            return i
-        raise ValueError
-
-    def index_lt(self,
-                 location: Location,
-                 from_index: int = 0,
-                 to_index: int = ...) -> int:
-        if to_index is ...:
-            to_index = len(self._locations)
-
-        i = bisect_left(self._locations, location, from_index, to_index)
-        if i > from_index:
-            return i - 1
-        raise ValueError
-
-    def index_le(self,
-                 location: Location,
-                 from_index: int = 0,
-                 to_index: int = ...) -> int:
-        if to_index is ...:
-            to_index = len(self._locations)
-
-        i = bisect_right(self._locations, location, from_index, to_index)
-        if i > from_index:
-            return i - 1
-        raise ValueError
-
-    def index_gt(self,
-                 location: Location,
-                 from_index: int = 0,
-                 to_index: int = ...) -> int:
-        if isinstance(location, Label):
-            location = location.location
-        if to_index is ...:
-            to_index = len(self._locations)
-
-        i = bisect_right(self._locations, location, from_index, to_index)
-        if i != to_index:
-            return self._indices[i]
-        raise ValueError
-
-    def index_ge(self,
-                 location: Location,
-                 from_index: int = 0,
-                 to_index: int = ...) -> int:
-        if isinstance(location, Label):
-            location = location.location
-        if to_index is ...:
-            to_index = len(self._locations)
-
-        i = bisect_left(self._locations, location, from_index, to_index)
-        if i != to_index:
-            return self._indices[i]
-        raise ValueError
-
-    def filter(self,
-               min_start: float = 0,
-               max_start: float = float('inf'),
-               min_end: float = 0,
-               max_end: float = float('inf')) -> Iterator[int]:
-        left = self.index_lt(Location(min_start, min_end)) + 1
-
-        if left == len(self):
-            raise ValueError
-
-        for i in self._indices[left:]:
-            label = self._labels[i]
-            if label.start_index > max_start:
-                break
-            if min_end <= label.end_index <= max_end:
-                yield i
 
     def bound(self,
               min_start: float = 0,
               max_start: float = float('inf'),
               min_end: float = 0,
               max_end: float = float('inf')) -> '_View':
-        return _View(self._labels, [i for i in self.filter(min_start, max_start, min_end, max_end)])
+        filtered_indices = list(self._filter(min_start, max_start, min_end, max_end))
+        if len(filtered_indices) == 0:
+            raise ValueError
+        return self.__class__(self._labels, filtered_indices)
+
+    def _filter(self,
+                min_start: float = 0,
+                max_start: float = float('inf'),
+                min_end: float = 0,
+                max_end: float = float('inf')) -> Iterator[int]:
+        try:
+            left = self._index_lt(Location(min_start, min_end)) + 1
+        except ValueError:
+            left = 0
+
+        for i in range(left, len(self._indices)):
+            location = self.locations[i]
+            if location.start_index > max_start:
+                break
+            if min_end <= location.end_index <= max_end:
+                yield self._indices[i]
+
+    def _first_index_location(self,
+                              location: Location,
+                              from_index: int = 0,
+                              to_index: int = ...) -> int:
+        if to_index is ...:
+            to_index = len(self.locations)
+        i = bisect_left(self.locations, location, from_index, to_index)
+
+        if i != to_index and self.locations[i] == location:
+            return i
+        raise ValueError
+
+    def _last_index_location(self,
+                             location: Location,
+                             from_index: int = 0,
+                             to_index: int = ...):
+        if to_index is ...:
+            to_index = len(self.locations)
+        i = bisect_right(self.locations, location, from_index, to_index)
+
+        if i != to_index and self.locations[i] == location:
+            return i
+        raise ValueError
+
+    def _index_lt(self,
+                  location: Location,
+                  from_index: int = 0,
+                  to_index: int = ...) -> int:
+        if to_index is ...:
+            to_index = len(self.locations)
+
+        i = bisect_left(self.locations, location, from_index, to_index)
+        if i > from_index:
+            return i - 1
+        raise ValueError
+
+    @abstractmethod
+    def __getitem__(self, idx) -> Union[Label, '_View']:
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[Label]:
+        ...
+
+    @abstractmethod
+    def reversed(self):
+        ...
+
+    @abstractmethod
+    def index_location(self,
+                       location: Location,
+                       from_index: int = 0,
+                       to_index: int = ...) -> int:
+        ...
+
+
+class _Ascending(_View):
+    def __getitem__(self, idx) -> Union[Label, '_View']:
+        if isinstance(idx, int):
+            return self._labels[self._indices[idx]]
+        elif isinstance(idx, slice):
+            return _Ascending(self._labels, self._indices[idx])
+
+    def __iter__(self) -> Iterator[Label]:
+        for idx in self._indices:
+            yield self._labels[idx]
+
+    def reversed(self):
+        return _Descending(self._labels, self._indices)
+
+    def index_location(self,
+                       location: Location,
+                       from_index: int = 0,
+                       to_index: int = ...) -> int:
+        return self._first_index_location(location, from_index, to_index)
+
+
+class _Descending(_View):
+    def _reverse_index(self, i: int = None):
+        if i is None:
+            return None
+        return len(self._indices) - 1 - i
+
+    def __getitem__(self, idx) -> Union[Label, '_View']:
+        if isinstance(idx, int):
+            return self._labels[self._indices[self._reverse_index(idx)]]
+        elif isinstance(idx, slice):
+            idx = slice(self._reverse_index(idx.stop), self._reverse_index(idx.start), idx.step)
+            return _Descending(self._labels, self._indices[idx])
+
+    def __iter__(self) -> Iterator[Label]:
+        i = self._reverse_index(0)
+        while i > self._reverse_index(len(self._indices)):
+            yield self._labels[i]
+            i -= 1
+
+    def reversed(self):
+        return _Ascending(self._labels, self._indices)
+
+    def index_location(self,
+                       location: Location,
+                       from_index: int = 0,
+                       to_index: int = ...) -> int:
+        index_location = self._last_index_location(location, from_index, to_index)
+        return self._reverse_index(index_location)
 
 
 def _start_and_end(x: Union[Label, int], end: Optional[int] = None) -> Location:
@@ -198,32 +221,32 @@ def _location(x):
     return x
 
 
-def _check_indices(arr: List, start: int, end: int = ...) -> Union[int, Tuple[int, int]]:
-    if start is None:
-        start = 0
-    if start < 0:
-        start = len(arr) - 1 + start
-    if end is None:
-        end = len(arr)
-    if end is not ...:
-        if end < 0:
-            end = len(arr) + end
-        if end < start:
-            raise IndexError("end: {} < start: {}".format(end, start))
-    if end is not None:
-        return start, end
-    else:
-        return start
-
-
 class _LabelIndex(LabelIndex[L]):
-    def __init__(self, distinct: bool, view: _View):
+    def __init__(self, distinct: bool,
+                 view: _View,
+                 ascending: bool = True,
+                 reversed: '_LabelIndex[L]' = None):
         self._distinct = distinct
         self._view = view
+        self._ascending = ascending
+        if reversed is not None:
+            self.__reversed = reversed
 
     @property
     def distinct(self) -> bool:
         return self._distinct
+
+    @property
+    def _reversed(self) -> '_LabelIndex[L]':
+        try:
+            reversed_label_index = self.__reversed
+        except AttributeError:
+            reversed_label_index = _LabelIndex(distinct=self.distinct,
+                                               view=self._view.reversed(),
+                                               ascending=False,
+                                               reversed=self)
+            self.__reversed = reversed_label_index
+        return reversed_label_index
 
     def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
         if isinstance(idx, int):
@@ -233,14 +256,12 @@ class _LabelIndex(LabelIndex[L]):
         else:
             raise TypeError("Index must be int or slice.")
 
-    def at(self, label: Union[Label, Location]) -> Union[L, 'LabelIndex[L]']:
+    def at(self, label: Union[Label, Location]) -> 'LabelIndex[L]':
         location = _location(label)
-        try:
-            updated_view = self._view.bound(min_start=location.start_index, max_start=location.start_index,
-                                 min_end=location.end_index, max_end=location.end_index)
-        except ValueError:
-            return EMPTY[self.distinct]
-        return _LabelIndex(self.distinct, updated_view)
+        return self._bounded_or_empty(min_start=location.start_index,
+                                      max_start=location.start_index,
+                                      min_end=location.end_index,
+                                      max_end=location.end_index)
 
     def __contains__(self, item: Any) -> bool:
         try:
@@ -255,16 +276,16 @@ class _LabelIndex(LabelIndex[L]):
     def __iter__(self) -> Iterator[L]:
         return iter(self._view)
 
-    def __reversed__(self) -> 'LabelIndex[L]':
-        return self._view.reversed()
+    def __reversed__(self) -> 'Iterator[L]':
+        return iter(self._reversed)
 
     def index(self, x: Any, start: int = ..., end: int = ...) -> int:
         if not isinstance(x, Label):
             raise ValueError
-        try:
-            i = self._view.index_location(x.location)
-        except ValueError:
-            return 0
+        for i in range(self._view.index_location(x.location), len(self._view)):
+            if self._view[i] == x:
+                return i
+        raise ValueError
 
     def count(self, x: Any) -> int:
         if not isinstance(x, Label):
@@ -273,8 +294,8 @@ class _LabelIndex(LabelIndex[L]):
             i = self._view.index_location(x.location)
         except ValueError:
             return 0
-        count = 1
-        for label in self._view[i + 1:]:
+        count = 0
+        for label in self._view[i:]:
             if not label.location == x.location:
                 break
             if label == x:
@@ -283,36 +304,27 @@ class _LabelIndex(LabelIndex[L]):
 
     def covering(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
-        d = self._view
-        try:
-            return _LabelIndex(self.distinct, self._view.bound(max_start=start, min_end=end))
-        except ValueError:
-            return EMPTY[self.distinct]
+        return self._bounded_or_empty(max_start=start, min_end=end)
 
     def inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
-        try:
-            return _LabelIndex(self.distinct, self._view.bound(min_start=start,
-                                                               max_start=end - 1,
-                                                               min_end=start,
-                                                               max_end=end))
-        except ValueError:
-            return EMPTY[self.distinct]
+        return self._bounded_or_empty(start, end - 1, start, end)
 
     def beginning_inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
-        try:
-            new_delegate = self._view.update_bounds(min_start=start, max_start=end - 1)
-            return _LabelIndex(self.distinct, new_delegate)
-        except ValueError:
-            return EMPTY[self.distinct]
+        return self._bounded_or_empty(min_start=start, max_start=end - 1)
 
     def ascending(self) -> 'LabelIndex[L]':
-        return _LabelIndex(self.distinct, self._view.ascending())
+        if self._ascending:
+            return self
+        else:
+            return self._reversed
 
     def descending(self) -> 'LabelIndex[L]':
-        d = self._view
-        return _LabelIndex(self.distinct, self._view.descending())
+        if not self._ascending:
+            return self
+        else:
+            return self._reversed
 
     def __repr__(self):
         return ("label_index(["
@@ -326,6 +338,18 @@ class _LabelIndex(LabelIndex[L]):
             if s != o:
                 return False
         return True
+
+    def _bounded_or_empty(self,
+                          min_start: float = 0,
+                          max_start: float = float('inf'),
+                          min_end: float = 0,
+                          max_end: float = float('inf')):
+        try:
+            bounded_view = self._view.bound(min_start=min_start, max_start=max_start,
+                                            min_end=min_end, max_end=max_end)
+        except ValueError:
+            return EMPTY[self.distinct]
+        return _LabelIndex(self.distinct, bounded_view)
 
 
 class _Empty(LabelIndex):
@@ -384,7 +408,7 @@ class _Empty(LabelIndex):
         return True
 
     def __repr__(self):
-        return ("label_index([], distinct={})".format(self.distinct))
+        return "label_index([], distinct={})".format(self.distinct)
 
 
 EMPTY = {

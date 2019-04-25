@@ -539,11 +539,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex
-
-        Raises
-        ------
-        ValueError
-            If a default is not supplied and the index does not contain any labels at the location.
+            A view of this label index.
 
         Examples
         --------
@@ -614,12 +610,13 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def __reversed__(self) -> 'LabelIndex[L]':
+    def __reversed__(self) -> 'Iterator[L]':
         """The labels in this label index in reverse order.
 
         Returns
         -------
-        LabelIndex[L]
+        Iterator[L]
+            An iterator of the elements in reverse order.
         """
         ...
 
@@ -659,6 +656,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         count: int
+            The total number of times that the parameter occurs, or 0 if it doesn't occur.
 
         """
         ...
@@ -678,6 +676,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
 
         """
         ...
@@ -697,6 +696,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
         """
         ...
 
@@ -716,6 +716,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
         """
         ...
 
@@ -731,6 +732,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
         """
         try:
             index = x.start_index
@@ -751,6 +753,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
         """
         try:
             index = x.end_index
@@ -765,6 +768,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
         """
         ...
 
@@ -775,6 +779,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         Returns
         -------
         LabelIndex[L]
+            A view of this label index.
         """
         ...
 
