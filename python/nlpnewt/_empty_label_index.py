@@ -61,5 +61,13 @@ class _Empty(LabelIndex):
     def descending(self) -> 'LabelIndex[L]':
         return self
 
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        for s, o in zip(self, other):
+            if s != o:
+                return False
+        return True
+
 
 INSTANCE = _Empty()

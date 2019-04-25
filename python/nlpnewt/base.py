@@ -764,17 +764,6 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    def __eq__(self, other):
-        if not isinstance(other, LabelIndex):
-            return False
-        for s, o in zip(self, other):
-            if s != o:
-                return False
-        return True
-
-    def __hash__(self):
-        return hash([l for l in self])
-
 
 class Labeler(ABC, Generic[L]):
     """Object provided by :func:`~Document.get_labeler` which is responsible for adding labels to a

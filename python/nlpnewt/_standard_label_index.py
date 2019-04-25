@@ -21,6 +21,10 @@ from ._empty_label_index import INSTANCE as EMPTY_INDEX
 from .base import Label, L, Location, LabelIndex
 
 
+def _create_repr(index):
+    return "standard_label_index([" + ", ".join(repr(l) for l in index) + "])"
+
+
 class _SortedLabels:
     def __init__(self, labels: List[Label]):
         self.labels = labels
@@ -200,11 +204,19 @@ class _LabelIndex(LabelIndex):
 
     def descending(self) -> 'LabelIndex[L]':
         l = self._l
-        bounds = _Bounds(0, len(l.labels))
+        bounds = _Bounds(0, len(l.labels) - 1)
         return _View(_Descending(l, bounds))
 
     def __repr__(self):
-        return f"LabelIndex({self._l.labels})"
+        return _create_repr(self)
+
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        for s, o in zip(self, other):
+            if s != o:
+                return False
+        return True
 
 
 class _Bounds(NamedTuple):
@@ -269,7 +281,7 @@ class _ViewDelegate(Generic[L], metaclass=ABCMeta):
         min_start = max(bounds.min_start, min_start)
         max_start = min(bounds.max_start, max_start)
         min_end = max(bounds.min_end, min_end)
-        max_end = max(bounds.max_end, max_end)
+        max_end = min(bounds.max_end, max_end)
         try:
             left = self.l.index_lt(Location(min_start, min_end),
                                    bounds.left, bounds.right + 1) + 1
@@ -495,8 +507,15 @@ class _View(LabelIndex):
             return self
 
     def __repr__(self):
-        return f"LabelIndex({list(self)})"
+        return _create_repr(self)
 
+    def __eq__(self, other):
+        if len(self) != len(other):
+            return False
+        for s, o in zip(self, other):
+            if s != o:
+                return False
+        return True
 
 
 def create_standard_label_index(labels):

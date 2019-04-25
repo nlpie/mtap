@@ -151,7 +151,13 @@ class GenericLabel(Label):
         return hash((self.__class__, self.fields))
 
     def __repr__(self):
-        return f"GenericLabel({str(self.fields)})"
+        return ("GenericLabel(".format()
+                + ", ".join([repr(self.fields['start_index']),
+                             repr(self.fields['end_index'])] + ["{}={}".format(k, repr(v))
+                                                                for k, v in self.fields.items() if
+                                                                k not in (
+                                                                'start_index', 'end_index')])
+                + ")")
 
 
 def proto_label_adapter(label_type_id: str):
@@ -230,4 +236,3 @@ _label_adapters: Dict[str, ProtoLabelAdapter] = {
 
 def get_label_adapter(label_type_id):
     return _label_adapters[label_type_id]
-
