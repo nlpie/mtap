@@ -24,10 +24,9 @@ from . import _events_service
 from . import _processing
 from . import _utils
 from . import base
+from ._label_indices import label_index
 from ._labels import GenericLabel
-from ._labels import distinct_label_index
 from ._labels import proto_label_adapter
-from ._labels import standard_label_index
 
 try:
     __version__ = get_distribution(__name__).version
@@ -38,8 +37,6 @@ __all__ = [
     '__version__',
     'config',
     'events',
-    'distinct_label_index',
-    'standard_label_index',
     'GenericLabel',
     'proto_label_adapter',
     'processor',

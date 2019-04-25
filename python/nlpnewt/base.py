@@ -518,8 +518,22 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
+    @property
     @abstractmethod
-    def at(self, label: Union[Label, Location], default=...) -> 'LabelIndex[L]':
+    def distinct(self) -> bool:
+        """Whether this label index is distinct, i.e. all of the labels in it are non-overlapping,
+        or not distinct.
+
+        Returns
+        -------
+        bool
+            True if distinct, False if not.
+
+        """
+        ...
+
+    @abstractmethod
+    def at(self, label: Union[Label, Location]) -> 'LabelIndex[L]':
         """Returns the labels at the specified label or location.
 
         Returns

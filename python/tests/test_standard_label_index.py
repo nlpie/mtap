@@ -15,10 +15,10 @@
 import pytest
 
 from nlpnewt import GenericLabel
-from nlpnewt._standard_label_index import _LabelIndex, _SortedLabels, create_standard_label_index
+from nlpnewt._label_indices import internal_label_index, label_index
 from nlpnewt.base import Location
 
-tested = _LabelIndex(_SortedLabels([
+tested = internal_label_index([
     GenericLabel(0, 5, i=0),
     GenericLabel(0, 7, i=1),
     GenericLabel(2, 6, i=2),
@@ -27,13 +27,13 @@ tested = _LabelIndex(_SortedLabels([
     GenericLabel(9, 10, i=5),
     GenericLabel(9, 13, i=6),
     GenericLabel(9, 13, i=7),
-]))
+])
 
-empty = create_standard_label_index([])
+empty = internal_label_index([])
 
 
 def test_create_sort():
-    sorted = create_standard_label_index([
+    sorted = label_index([
         GenericLabel(9, 13, i=6),
         GenericLabel(0, 7, i=1),
         GenericLabel(6, 8, i=4),
@@ -110,7 +110,7 @@ def test_getitem_slice_neg_right():
 
 
 def test_getitem_slice_neg_left():
-    assert tested[-3:-1] == [
+    assert tested[-4:-1] == [
         GenericLabel(6, 8, i=4),
         GenericLabel(9, 10, i=5),
         GenericLabel(9, 13, i=6),
@@ -123,19 +123,30 @@ def test_getitem_not_idx_slice():
 
 
 def tested_getitem_slice_step_not_one():
-    with pytest.raises(IndexError):
-        tested[1:3:2]
+    slice = tested[1:4:2]
+    assert slice == ([
+        GenericLabel(0, 7, i=1),
+        GenericLabel(6, 7, i=3),
+    ])
 
 
 def test_at():
-    assert tested.at(GenericLabel(2, 6)) == GenericLabel(2, 6, i=2)
+    assert tested.at(GenericLabel(2, 6))[0] == GenericLabel(2, 6, i=2)
 
 
 def test_at_location():
-    assert tested.at(Location(2, 6)) == GenericLabel(2, 6, i=2)
+    assert tested.at(Location(2, 6))[0] == GenericLabel(2, 6, i=2)
 
 
 def test_at_location_multiple():
+    assert tested.at(Location(9, 13)) == [
+        GenericLabel(9, 13, i=6),
+        GenericLabel(9, 13, i=7),
+    ]
+
+
+def test_at_location_not_found():
+    assert tested.at(Location(10, 10)) == []
 
 
 def test_len():
@@ -186,7 +197,7 @@ def test_empty_inside():
     
     
 def test_inside_many():
-    tested = _LabelIndex(_SortedLabels([
+    tested = StandardLabelIndex(_SortedLabels([
         GenericLabel(0, 3),
         GenericLabel(0, 3),
         GenericLabel(0, 3),

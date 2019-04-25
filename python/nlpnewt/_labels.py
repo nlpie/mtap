@@ -16,54 +16,14 @@ from typing import Callable, Dict, TypeVar
 
 import nlpnewt
 from . import constants, _utils
-from ._distinct_label_index import create_distinct_label_index
-from ._empty_label_index import INSTANCE as EMPTY_INDEX
-from ._standard_label_index import create_standard_label_index
-from .base import Label, LabelIndex, ProtoLabelAdapter
+from ._label_indices import label_index
+from .base import Label, ProtoLabelAdapter
 
-__all__ = (['distinct_label_index',
-            'standard_label_index',
-            'GenericLabel',
+__all__ = (['GenericLabel',
             'proto_label_adapter',
             'get_label_adapter'])
 
 L = TypeVar('L', bound=Label)
-
-
-def distinct_label_index(*labels: L) -> LabelIndex[L]:
-    """Creates a distinct label index from the labels.
-
-    Parameters
-    ----------
-    labels: *Label
-        Zero or more labels to create a label index from.
-
-    Returns
-    -------
-    nlpnewt.base.LabelIndex
-
-    """
-    if len(labels) == 0:
-        return EMPTY_INDEX
-    return create_distinct_label_index(labels)
-
-
-def standard_label_index(*labels: L) -> LabelIndex[L]:
-    """Creates a standard label index from the labels.
-
-    Parameters
-    ----------
-    labels: *Label
-        Zero or more labels to create a standard label index from.
-
-    Returns
-    -------
-    nlpnewt.base.LabelIndex
-
-    """
-    if len(labels) == 0:
-        return EMPTY_INDEX
-    return create_standard_label_index(labels)
 
 
 class GenericLabel(Label):
@@ -214,9 +174,7 @@ class _GenericLabelAdapter(ProtoLabelAdapter):
             generic_label = nlpnewt.GenericLabel(**d)
             labels.append(generic_label)
 
-        return (create_distinct_label_index(labels)
-                if self.distinct
-                else create_standard_label_index(labels))
+        return label_index(labels, self.distinct)
 
     def add_to_message(self, labels, request):
         json_labels = request.json_labels
