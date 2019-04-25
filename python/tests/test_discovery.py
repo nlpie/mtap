@@ -64,7 +64,7 @@ class TestProcessor(nlpnewt.base.DocumentProcessor):
 
 
 @pytest.fixture
-def processor_service(events_service):
+def processor_service(events):
     logger = logging.getLogger()
 
     server = nlpnewt.processor_server('nlpnewt-test-processor', 'localhost', 50052, workers=5)
@@ -98,7 +98,7 @@ how to fire phasers?"""
 
 
 @pytest.mark.consul
-def test_discover_events_service(events_service):
+def test_discover_events_service(events):
     with nlpnewt.events() as events:
         with events.open_event('1') as e:
             e.add_document('plaintext', 'bluh')

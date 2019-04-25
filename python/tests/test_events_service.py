@@ -24,170 +24,170 @@ modules. Our neural pathways have become accustomed to your sensory input patter
 do remember how to fire phasers?"""
 
 
-def test_OpenEvent(doc_service):
+def test_OpenEvent(events):
     request = events_pb2.OpenEventRequest(event_id='1')
-    response = doc_service.OpenEvent(request)
+    response = events[1].OpenEvent(request)
     assert response.created is True
 
 
-def test_OpenEvent_without_id(doc_service):
+def test_OpenEvent_without_id(events):
     request = events_pb2.OpenEventRequest(event_id=None)
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.OpenEvent(request)
+        events[1].OpenEvent(request)
         assert excinfo.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_OpenEvent_duplicate(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    response = doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_OpenEvent_duplicate(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    response = events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     assert response.created is False
 
 
-def test_OpenEvent_only_create(doc_service):
-    response = doc_service.OpenEvent(
+def test_OpenEvent_only_create(events):
+    response = events[1].OpenEvent(
         events_pb2.OpenEventRequest(event_id='1', only_create_new=True))
     assert response.created is True
 
 
-def test_OpenEvent_only_create_duplicate(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_OpenEvent_only_create_duplicate(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1', only_create_new=True))
+        events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1', only_create_new=True))
         assert excinfo.value.code() == grpc.StatusCode.ALREADY_EXISTS
 
 
-def test_CloseEvent_delete(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.CloseEvent(events_pb2.CloseEventRequest(event_id='1'))
-    response = doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_CloseEvent_delete(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].CloseEvent(events_pb2.CloseEventRequest(event_id='1'))
+    response = events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     assert response.created is True
 
 
-def test_CloseEvent_no_delete(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.CloseEvent(events_pb2.CloseEventRequest(event_id='1'))
-    response = doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_CloseEvent_no_delete(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].CloseEvent(events_pb2.CloseEventRequest(event_id='1'))
+    response = events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     assert response.created is False
 
 
-def test_AddMetadataBadEvent(doc_service):
+def test_AddMetadataBadEvent(events):
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'))
+        events[1].AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'))
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddMetadata(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'))
+def test_AddMetadata(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'))
 
 
-def test_AddMetadata_EmptyKey(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_AddMetadata_EmptyKey(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='', value='bar'))
+        events[1].AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='', value='bar'))
         assert excinfo.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_AddMetadata_NoneKey(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_AddMetadata_NoneKey(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key=None, value='bar'))
+        events[1].AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key=None, value='bar'))
         assert excinfo.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_GetAllMetadata(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'))
-    doc_service.AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='baz', value='buh'))
-    response = doc_service.GetAllMetadata(events_pb2.GetAllMetadataRequest(event_id='1'))
+def test_GetAllMetadata(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'))
+    events[1].AddMetadata(events_pb2.AddMetadataRequest(event_id='1', key='baz', value='buh'))
+    response = events[1].GetAllMetadata(events_pb2.GetAllMetadataRequest(event_id='1'))
     d = dict(response.metadata)
     assert d == {'foo': 'bar', 'baz': 'buh'}
 
 
-def test_AddDocument_bad_event(doc_service):
+def test_AddDocument_bad_event(events):
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                              document_name='plaintext',
-                                                              text=PHASERS))
+        events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                         document_name='plaintext',
+                                                         text=PHASERS))
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddDocument(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_AddDocument(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
 
 
-def test_AddDocument_empty_name(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_AddDocument_empty_name(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                              document_name='',
-                                                              text=PHASERS))
+        events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                         document_name='',
+                                                         text=PHASERS))
         assert excinfo.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_AddDocument_empty_text(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=''))
+def test_AddDocument_empty_text(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=''))
 
 
-def test_AddDocument_exists(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_AddDocument_exists(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                              document_name='plaintext',
-                                                              text=PHASERS))
+        events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                         document_name='plaintext',
+                                                         text=PHASERS))
         assert excinfo.value.code() == grpc.StatusCode.ALREADY_EXISTS
 
 
-def test_GetAllDocuments(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=''))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='other',
-                                                          text=''))
+def test_GetAllDocuments(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=''))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='other',
+                                                     text=''))
     request = events_pb2.GetAllDocumentNamesRequest(event_id='1')
-    response = doc_service.GetAllDocumentNames(request)
+    response = events[1].GetAllDocumentNames(request)
     document_names = list(response.document_names)
     assert document_names == ['plaintext', 'other']
 
 
-def test_GetDocumentText_bad_event(doc_service):
+def test_GetDocumentText_bad_event(events):
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.GetDocumentText(events_pb2.GetDocumentTextRequest(event_id='1',
-                                                                      document_name='plaintext'))
+        events[1].GetDocumentText(events_pb2.GetDocumentTextRequest(event_id='1',
+                                                                 document_name='plaintext'))
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetDocumentText_bad_document(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_GetDocumentText_bad_document(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.GetDocumentText(events_pb2.GetDocumentTextRequest(event_id='1',
-                                                                      document_name='plaintext'))
+        events[1].GetDocumentText(events_pb2.GetDocumentTextRequest(event_id='1',
+                                                                 document_name='plaintext'))
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetDocumentText(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
-    response = doc_service.GetDocumentText(events_pb2.GetDocumentTextRequest(event_id='1',
-                                                                             document_name='plaintext'))
+def test_GetDocumentText(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
+    response = events[1].GetDocumentText(events_pb2.GetDocumentTextRequest(event_id='1',
+                                                                        document_name='plaintext'))
     assert response.text == PHASERS
 
 
-def test_AddLabels_bad_event(doc_service):
+def test_AddLabels_bad_event(events):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -197,12 +197,12 @@ def test_AddLabels_bad_event(doc_service):
     label['some_other_field'] = 'blah'
 
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddLabels(request)
+        events[1].AddLabels(request)
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddLabels_bad_document(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_AddLabels_bad_document(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -212,15 +212,15 @@ def test_AddLabels_bad_document(doc_service):
     label['some_other_field'] = 'blah'
 
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddLabels(request)
+        events[1].AddLabels(request)
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddLabels_bad_index_name(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_AddLabels_bad_index_name(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='')
@@ -230,15 +230,15 @@ def test_AddLabels_bad_index_name(doc_service):
     label['some_other_field'] = 'blah'
 
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.AddLabels(request)
+        events[1].AddLabels(request)
         assert excinfo.value.code() == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_AddLabels(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_AddLabels(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -246,64 +246,64 @@ def test_AddLabels(doc_service):
     s['start_index'] = 15
     s['end_index'] = 20
     s['some_other_field'] = 'blah'
-    doc_service.AddLabels(request)
+    events[1].AddLabels(request)
 
 
-def test_AddLabels_no_labels(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_AddLabels_no_labels(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
-    doc_service.AddLabels(request)
+    events[1].AddLabels(request)
 
 
-def test_GetLabels_bad_event(doc_service):
+def test_GetLabels_bad_event(events):
     r = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.GetLabels(r)
+        events[1].GetLabels(r)
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabels_bad_document_name(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+def test_GetLabels_bad_document_name(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     r = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.GetLabels(r)
+        events[1].GetLabels(r)
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabels_bad_index_name(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_GetLabels_bad_index_name(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
     r = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     with pytest.raises(grpc.RpcError) as excinfo:
-        doc_service.GetLabels(r)
+        events[1].GetLabels(r)
         assert excinfo.value.code() == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabels_no_labels(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
-    doc_service.AddLabels(events_pb2.AddLabelsRequest(event_id='1',
-                                                      document_name='plaintext',
-                                                      index_name='labels'))
+def test_GetLabels_no_labels(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
+    events[1].AddLabels(events_pb2.AddLabelsRequest(event_id='1',
+                                                 document_name='plaintext',
+                                                 index_name='labels'))
     req = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
-    res = doc_service.GetLabels(req)
+    res = events[1].GetLabels(req)
     assert len(res.json_labels.labels) == 0
 
 
-def test_GetLabels(doc_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1',
-                                                          document_name='plaintext',
-                                                          text=PHASERS))
+def test_GetLabels(events):
+    events[1].OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events[1].AddDocument(events_pb2.AddDocumentRequest(event_id='1',
+                                                     document_name='plaintext',
+                                                     text=PHASERS))
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -311,10 +311,10 @@ def test_GetLabels(doc_service):
     s['start_index'] = 15
     s['end_index'] = 20
     s['some_other_field'] = 'blah'
-    doc_service.AddLabels(request)
+    events[1].AddLabels(request)
 
     req = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
-    res = doc_service.GetLabels(req)
+    res = events[1].GetLabels(req)
     assert len(res.json_labels.labels) == 1
     label = res.json_labels.labels[0]
     assert label['start_index'] == 15

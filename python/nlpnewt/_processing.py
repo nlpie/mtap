@@ -301,10 +301,10 @@ class _Pipeline(base.Pipeline, base.DocumentProcessor):
             event = target
 
         start = datetime.now()
-        results = [component.call_process(event, params) for component in self._components]
+        results = [component.call_process(event.event_id, params) for component in self._components]
         total = datetime.now() - start
         times = {}
-        for _, component_times in results:
+        for _, component_times, _ in results:
             times.update(component_times)
         times['pipeline:total'] = total
         self.times_collector.add_times(times)
@@ -330,9 +330,9 @@ class _Pipeline(base.Pipeline, base.DocumentProcessor):
         return {'component_results': results}
 
     def call_process_components(self, event, params):
-        results = [component.call_process(event, params) for component in self._components]
+        results = [component.call_process(event.event_id, params) for component in self._components]
         times = {}
-        for _, component_times in results:
+        for _, component_times, _ in results:
             times.update(component_times)
         for k, v in times.items():
             _processor_local.context.add_time(k, v)

@@ -39,21 +39,22 @@ class TestProcessor(nlpnewt.base.DocumentProcessor):
 
 
 @pytest.fixture
-def processor_service(doc_service):
+def processor_service(events):
     logger = logging.getLogger()
 
-    server = nlpnewt.processor_server('nlpnewt-test-processor', 'localhost', 50052, workers=5,
-                                      events_address='localhost:50051')
+    server = nlpnewt.processor_server('nlpnewt-test-processor', 'localhost', 0, workers=5,
+                                      events_address=events[0])
     server.start(register=False)
     time.sleep(1)
     for i in range(10):
         try:
-            with grpc.insecure_channel('localhost:50052') as channel:
+            address = f'localhost:{server.port}'
+            with grpc.insecure_channel(address) as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
                 request = health_pb2.HealthCheckRequest(service='nlpnewt-test-processor')
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
-                    yield channel
+                    yield address, channel
             event = server.stop()
             event.wait()
             return
@@ -72,24 +73,26 @@ neural pathways have become accustomed to your sensory input patterns. Mr. Worf,
 how to fire phasers?"""
 
 
-def test_processor_service(doc_service, processor_service):
-    doc_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
-    doc_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1', document_name='hey',
-                                                          text=PHASERS))
+def test_processor_service(events, processor_service):
+    events_host, events_service = events
+    events_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
+    events_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1', document_name='hey',
+                                                     text=PHASERS))
 
     request = processing_pb2.ProcessRequest(processor_name='nlpnewt-test-processor', event_id='1')
     request.params['document_name'] = 'hey'
-    processor_stub = processing_pb2_grpc.ProcessorStub(processor_service)
+    processor_stub = processing_pb2_grpc.ProcessorStub(processor_service[1])
     processor_stub.Process(request)
 
-    r = doc_service.GetLabels(events_pb2.GetLabelsRequest(event_id='1', document_name='hey',
-                                                          index_name='blub'))
+    r = events_service.GetLabels(events_pb2.GetLabelsRequest(event_id='1', document_name='hey',
+                                                     index_name='blub'))
     assert r is not None
 
 
-def test_pipeline_client(doc_service, processor_service):
-    with nlpnewt.pipeline() as p, nlpnewt.events('localhost:50051') as events:
-        p.add_processor('nlpnewt-test-processor', 'localhost:50052')
+def test_pipeline_client(events, processor_service):
+    events_host, events_service = events
+    with nlpnewt.pipeline() as p, nlpnewt.events(events_host) as events:
+        p.add_processor('nlpnewt-test-processor', processor_service[0])
         event = events.open_event('1')
         doc = event.add_document('hey', PHASERS)
 
@@ -109,5 +112,5 @@ def test_pipeline_client(doc_service, processor_service):
         assert first_component_stats.timing_info['remote_call'].min == remote_call_time
         assert pipeline_timer_stats.timing_info['total'].mean > remote_call_time
 
-    doc_service.GetLabels(events_pb2.GetLabelsRequest(event_id='1', document_name='hey',
-                                                      index_name='blub'))
+    events_service.GetLabels(events_pb2.GetLabelsRequest(event_id='1', document_name='hey',
+                                                 index_name='blub'))

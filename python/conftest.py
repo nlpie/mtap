@@ -38,7 +38,7 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture
-def doc_service():
+def events():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
@@ -47,12 +47,13 @@ def doc_service():
 
     for i in range(10):
         try:
-            with grpc.insecure_channel(f'localhost:{server.port}') as channel:
+            host = f'localhost:{server.port}'
+            with grpc.insecure_channel(host) as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
                 request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME)
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
-                    yield events_pb2_grpc.EventsStub(channel)
+                    yield host, events_pb2_grpc.EventsStub(channel)
             event = server.stop()
             event.wait()
             return

@@ -110,8 +110,8 @@ class _View(metaclass=ABCMeta):
             to_index = len(self.locations)
         i = bisect_right(self.locations, location, from_index, to_index)
 
-        if i != to_index and self.locations[i] == location:
-            return i
+        if i > from_index and self.locations[i - 1] == location:
+            return i - 1
         raise ValueError
 
     def _index_lt(self,
@@ -169,22 +169,24 @@ class _Ascending(_View):
 
 class _Descending(_View):
     def _reverse_index(self, i: int = None):
-        if i is None:
-            return None
-        return len(self._indices) - 1 - i
+        return -(i + 1)
 
     def __getitem__(self, idx) -> Union[Label, '_View']:
         if isinstance(idx, int):
             return self._labels[self._indices[self._reverse_index(idx)]]
         elif isinstance(idx, slice):
-            idx = slice(self._reverse_index(idx.stop), self._reverse_index(idx.start), idx.step)
+            start = idx.stop
+            if start is not None:
+                start = self._reverse_index(idx.stop - 1)
+            stop = idx.start
+            if stop is not None:
+                stop = self._reverse_index(idx.start - 1)
+            idx = slice(start, stop, idx.step)
             return _Descending(self._labels, self._indices[idx])
 
     def __iter__(self) -> Iterator[Label]:
-        i = self._reverse_index(0)
-        while i > self._reverse_index(len(self._indices)):
-            yield self._labels[i]
-            i -= 1
+        for i in range(len(self._indices)):
+            yield self._labels[self._indices[self._reverse_index(i)]]
 
     def reversed(self):
         return _Ascending(self._labels, self._indices)
