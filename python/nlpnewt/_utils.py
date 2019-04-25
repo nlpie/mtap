@@ -14,17 +14,13 @@
 """Internal utilities."""
 
 import datetime
-import logging
+import math
 import typing
 from concurrent.futures.thread import ThreadPoolExecutor
 
-import math
 from google.protobuf import struct_pb2
 
-import nlpnewt
-
-logger = logging.getLogger("nlpnewt")
-logger.setLevel(logging.INFO)
+from . import base
 
 
 def copy_dict_to_struct(d, struct, parents):
@@ -135,7 +131,7 @@ class TimerStatsAggregator:
         variance = self._sse / self._count
         std = math.sqrt(variance)
         std = datetime.timedelta(seconds=std)
-        return nlpnewt.TimerStats(mean=mean, std=std, max=self._max, min=self._min, sum=self._sum)
+        return base.TimerStats(mean=mean, std=std, max=self._max, min=self._min, sum=self._sum)
 
 
 class ProcessingTimesCollector:
@@ -161,7 +157,7 @@ class ProcessingTimesCollector:
                 for identifier, stats in self._times_map.items() if identifier.startswith(prefix)}
 
     def get_aggregates(self,
-                       identifier=None) -> typing.Dict[str, nlpnewt.TimerStats]:
+                       identifier=None) -> typing.Dict[str, base.TimerStats]:
         future = self._executor.submit(self._get_aggregates, identifier or '')
         return future.result()
 

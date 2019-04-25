@@ -29,8 +29,8 @@ abstract class AbstractLabelIndex<L extends Label>
   }
 
   @Override
-  public @NotNull LabelIndex<L> beginsInside(@NotNull Label label) {
-    return beginsInside(label.getStartIndex(), label.getEndIndex());
+  public @NotNull LabelIndex<L> beginningInside(@NotNull Label label) {
+    return beginningInside(label.getStartIndex(), label.getEndIndex());
   }
 
   @Override

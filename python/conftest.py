@@ -19,6 +19,7 @@ import grpc
 import pytest
 
 import nlpnewt
+import nlpnewt.constants
 from nlpnewt.api.v1 import health_pb2, health_pb2_grpc, events_pb2_grpc
 
 
@@ -37,25 +38,27 @@ def pytest_collection_modifyitems(config, items):
 
 
 @pytest.fixture
-def doc_service():
+def events():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
-    server = nlpnewt.events_server('localhost', 50051, workers=5)
+    server = nlpnewt.events_server('localhost', 0, workers=5)
     server.start(register=False)
 
     for i in range(10):
         try:
-            with grpc.insecure_channel('localhost:50051') as channel:
+            host = f'localhost:{server.port}'
+            with grpc.insecure_channel(host) as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service=nlpnewt.events_service_name())
+                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME)
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
-                    yield events_pb2_grpc.EventsStub(channel)
+                    yield host, events_pb2_grpc.EventsStub(channel)
             event = server.stop()
             event.wait()
             return
         except Exception as e:
+            logging.error(e)
             logger.warning(f"Failed to connect try {i}/10. Retrying in .05 seconds.")
             time.sleep(.05)
 

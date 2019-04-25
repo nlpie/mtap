@@ -94,7 +94,7 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    *
    * @return A view of the labels in this index that begin inside that span.
    */
-  @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex);
+  @NotNull LabelIndex<L> beginningInside(int startIndex, int endIndex);
 
   /**
    * A Label index of all labels that begin inside the span of text covered by {@code label}.
@@ -103,7 +103,7 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    *
    * @return A view of the labels in this index that begin inside that span.
    */
-  @NotNull LabelIndex<L> beginsInside(@NotNull Label label);
+  @NotNull LabelIndex<L> beginningInside(@NotNull Label label);
 
   /**
    * A label index of all labels that begin before {@code index}.

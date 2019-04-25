@@ -23,15 +23,11 @@ from typing import Iterator
 
 import grpc
 
-import nlpnewt
-from nlpnewt import _discovery
-from nlpnewt.api.v1 import events_pb2_grpc, events_pb2
-
-_label_adapters = {}
-
-
-def register_proto_label_adapter(label_type_id, label_adapter):
-    _label_adapters[label_type_id] = label_adapter
+from . import _discovery
+from . import base
+from . import constants
+from . import _labels
+from .api.v1 import events_pb2_grpc, events_pb2
 
 
 def get_events(config, *, address=None, stub=None):
@@ -45,7 +41,7 @@ def get_events(config, *, address=None, stub=None):
     return _EventsClient(channel)
 
 
-class _EventsClient(nlpnewt.Events):
+class _EventsClient(base.Events):
     def __init__(self, channel):
         self.stub = events_pb2_grpc.EventsStub(channel)
         self._is_open = True
@@ -127,7 +123,7 @@ class _EventsClient(nlpnewt.Events):
         return adapter.create_index_from_response(response)
 
 
-class _Event(nlpnewt.Event):
+class _Event(base.Event):
     def __init__(self, client: _EventsClient, event_id):
         self._client = client
         self._event_id = event_id
@@ -267,7 +263,7 @@ class _Metadata(collections.abc.MutableMapping):
         self._metadata = response
 
 
-class _Document(nlpnewt.Document):
+class _Document(base.Document):
     def __init__(self, client: _EventsClient, event, document_name):
         self._client = client
         self._document_name = document_name
@@ -307,9 +303,9 @@ class _Document(nlpnewt.Document):
             return self._label_indices[label_index_name]
 
         if label_type_id is None:
-            label_type_id = nlpnewt.generic_label_id()
+            label_type_id = constants.GENERIC_LABEL_ID
 
-        label_adapter = _label_adapters[label_type_id]
+        label_adapter = _labels.get_label_adapter(label_type_id)
 
         label_index = self._client.get_labels(self._event_id, self._document_name, label_index_name,
                                               adapter=label_adapter)
@@ -325,7 +321,9 @@ class _Document(nlpnewt.Document):
         if label_type is not None and distinct is not None:
             raise ValueError("Either distinct or or label_type needs to be set, but not both.")
         if label_type is None:
-            label_type = nlpnewt.distinct_generic_label_id() if distinct else nlpnewt.generic_label_id()
+            label_type = (constants.DISTINCT_GENERIC_LABEL_ID
+                          if distinct
+                          else constants.GENERIC_LABEL_ID)
 
         labeler = _Labeler(self._client, self, label_index_name, label_type)
         self._labelers.append(label_index_name)
@@ -339,12 +337,12 @@ class _Document(nlpnewt.Document):
         return self._created_indices.append(created_indices)
 
 
-class _Labeler(nlpnewt.Labeler):
+class _Labeler(base.Labeler):
     def __init__(self, client, document, label_index_name, label_type_id):
         self._client = client
         self._document = document
         self._label_index_name = label_index_name
-        self._label_adapter: nlpnewt.ProtoLabelAdapter = _label_adapters[label_type_id]
+        self._label_adapter: base.ProtoLabelAdapter = _labels.get_label_adapter(label_type_id)
         self.is_done = False
         self._current_labels = []
 

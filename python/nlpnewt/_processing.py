@@ -22,9 +22,9 @@ from datetime import datetime
 
 import grpc
 
-import nlpnewt
-from nlpnewt import _utils, _discovery, Event, AggregateTimingInfo, ProcessingResult, _events_client
-from nlpnewt.api.v1 import processing_pb2_grpc, processing_pb2, health_pb2_grpc, health_pb2
+from . import _utils, _discovery, _events_client, base
+from .base import Event, ProcessingResult, AggregateTimingInfo
+from .api.v1 import processing_pb2_grpc, processing_pb2, health_pb2_grpc, health_pb2
 
 _processor_local = threading.local()
 _processors = {}  # processors registry
@@ -163,7 +163,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer, health_pb2_grpc.
             return health_pb2.HealthCheckResponse(status='NOT_SERVING')
 
 
-class _ProcessorServer(nlpnewt.Server):
+class _ProcessorServer(base.Server):
     def __init__(self, config, thread_pool, address, port, runner):
         server = grpc.server(thread_pool)
         servicer = _ProcessorServicer(runner)
@@ -174,6 +174,10 @@ class _ProcessorServer(nlpnewt.Server):
         self._config = config
         self._address = address
         self._runner = runner
+
+    @property
+    def port(self) -> int:
+        return self._port
 
     def start(self, *, register: bool):
         _logger.info("Starting processor server identifier: %s address: %s port: %d",
@@ -253,14 +257,11 @@ class _RemoteRunner:
         self._channel.close()
 
 
-class _Pipeline(nlpnewt.Pipeline, nlpnewt.DocumentProcessor):
-    def __init__(self, config, processor_ids):
+class _Pipeline(base.Pipeline, base.DocumentProcessor):
+    def __init__(self, config):
         self._config = config
         self.ids = {}
         self._components = []
-        if processor_ids is not None:
-            for processor_id in processor_ids:
-                self.add_processor(processor_id)
 
     @property
     def times_collector(self):
@@ -300,10 +301,10 @@ class _Pipeline(nlpnewt.Pipeline, nlpnewt.DocumentProcessor):
             event = target
 
         start = datetime.now()
-        results = [component.call_process(event, params) for component in self._components]
+        results = [component.call_process(event.event_id, params) for component in self._components]
         total = datetime.now() - start
         times = {}
-        for _, component_times in results:
+        for _, component_times, _ in results:
             times.update(component_times)
         times['pipeline:total'] = total
         self.times_collector.add_times(times)
@@ -329,9 +330,9 @@ class _Pipeline(nlpnewt.Pipeline, nlpnewt.DocumentProcessor):
         return {'component_results': results}
 
     def call_process_components(self, event, params):
-        results = [component.call_process(event, params) for component in self._components]
+        results = [component.call_process(event.event_id, params) for component in self._components]
         times = {}
-        for _, component_times in results:
+        for _, component_times, _ in results:
             times.update(component_times)
         for k, v in times.items():
             _processor_local.context.add_time(k, v)
@@ -367,8 +368,8 @@ class _Pipeline(nlpnewt.Pipeline, nlpnewt.DocumentProcessor):
                 pass
 
 
-def create_pipeline(config, processor_ids):
-    return _Pipeline(config, processor_ids)
+def create_pipeline(config):
+    return _Pipeline(config)
 
 
 def create_runner(config,

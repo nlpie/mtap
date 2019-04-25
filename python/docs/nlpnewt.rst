@@ -198,27 +198,27 @@ API Documentation
 Events service client, documents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autofunction:: events
-.. autoclass:: Events
-.. autoclass:: Event
-.. autoclass:: Document
+.. autoclass:: nlpnewt.base.Events
+.. autoclass:: nlpnewt.base.Event
+.. autoclass:: nlpnewt.base.Document
 
 Labels on text
 ^^^^^^^^^^^^^^
-.. autoclass:: Label
-.. autoclass:: Labeler
-.. autoclass:: LabelIndex
-.. autoclass:: GenericLabel
+.. autoclass:: nlpnewt.base.Label
+.. autoclass:: nlpnewt.base.Labeler
+.. autoclass:: nlpnewt.base.LabelIndex
+.. autoclass:: nlpnewt.base.GenericLabel
 
 Custom Label Types
 ^^^^^^^^^^^^^^^^^^
 .. autofunction:: proto_label_adapter
-.. autoclass:: ProtoLabelAdapter
+.. autoclass:: nlpnewt.base.ProtoLabelAdapter
 
 Creating Processors
 ^^^^^^^^^^^^^^^^^^^
 .. autofunction:: processor
-.. autoclass:: Processor
-.. autoclass:: DocumentProcessor
+.. autoclass:: nlpnewt.base.Processor
+.. autoclass:: nlpnewt.base.DocumentProcessor
 
 Performance timing
 ^^^^^^^^^^^^^^^^^^
@@ -226,16 +226,16 @@ Performance timing
 
 Running Services
 ^^^^^^^^^^^^^^^^
-.. autoclass:: Server
+.. autoclass:: nlpnewt.base.Server
 .. autofunction:: events_server
 .. autofunction:: processor_server
 
 Running a pipeline
 ^^^^^^^^^^^^^^^^^^
 .. autofunction:: pipeline
-.. autoclass:: Pipeline
+.. autoclass:: nlpnewt.base.Pipeline
 
 Configuration
 ^^^^^^^^^^^^^
 .. autofunction:: config
-.. autoclass:: Config
+.. autoclass:: nlpnewt.base.Config

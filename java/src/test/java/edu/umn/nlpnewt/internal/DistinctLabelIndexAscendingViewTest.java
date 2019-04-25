@@ -214,7 +214,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void beginsInside() {
-    LabelIndex<Span> beginsInside = ascending.beginsInside(Span.of(4, 22));
+    LabelIndex<Span> beginsInside = ascending.beginningInside(Span.of(4, 22));
     assertEquals(Arrays.asList(
         Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
     ), beginsInside.asList());
@@ -222,7 +222,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void emptyBeginsInside() {
-    LabelIndex<Span> beginsInside = emptyAscending.beginsInside(4, 22);
+    LabelIndex<Span> beginsInside = emptyAscending.beginningInside(4, 22);
     assertEquals(Collections.emptyList(), beginsInside.asList());
   }
 

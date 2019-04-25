@@ -62,7 +62,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
   }
 
   @Override
-  public @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex) {
+  public @NotNull LabelIndex<L> beginningInside(int startIndex, int endIndex) {
     return createAscendingView(startIndex, endIndex - 1, startIndex, null, null, null);
   }
 
@@ -460,7 +460,7 @@ final class StandardLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    public @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex) {
+    public @NotNull LabelIndex<L> beginningInside(int startIndex, int endIndex) {
       return updateBounds(startIndex, endIndex - 1, null, null);
     }
 

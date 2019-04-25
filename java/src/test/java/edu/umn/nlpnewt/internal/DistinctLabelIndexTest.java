@@ -236,14 +236,14 @@ class DistinctLabelIndexTest {
 
   @Test
   void beginsInsideOverlap() {
-    LabelIndex<Span> beginsInside = tested.beginsInside(1, 7);
+    LabelIndex<Span> beginsInside = tested.beginningInside(1, 7);
 
     assertEquals(Arrays.asList(Span.of(3, 5), Span.of(6, 10)), beginsInside.asList());
   }
 
   @Test
   void beginsInsideTouching() {
-    LabelIndex<Span> beginsInside = tested.beginsInside(0, 6);
+    LabelIndex<Span> beginsInside = tested.beginningInside(0, 6);
 
     assertEquals(Arrays.asList(Span.of(0, 3), Span.of(3, 5)), beginsInside.asList());
   }

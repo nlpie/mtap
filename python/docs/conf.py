@@ -43,15 +43,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon',
-    'javasphinx'
+    'sphinx.ext.napoleon'
 ]
-
-javadoc_url_map = {
-    'edu.umn.nlpnewt': (
-    'file:///Users/ben/go/src/github.umn.edu/nlpie/nlpnewt/java/build/docs/javadoc/index.html',
-    'javadoc')
-}
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True

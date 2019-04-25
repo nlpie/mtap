@@ -69,7 +69,7 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
   }
 
   @Override
-  public @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex) {
+  public @NotNull LabelIndex<L> beginningInside(int startIndex, int endIndex) {
     int left = higherIndex(startIndex, null, null);
     int right = lowerStart(endIndex - 1, null, null);
     return new AscendingView(left, right);
@@ -374,7 +374,7 @@ final class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
-    public @NotNull LabelIndex<L> beginsInside(int startIndex, int endIndex) {
+    public @NotNull LabelIndex<L> beginningInside(int startIndex, int endIndex) {
       return updateEnds(higherIndex(startIndex, left, right + 1),
           lowerStart(endIndex - 1, left, right + 1));
     }
