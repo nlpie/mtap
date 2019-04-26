@@ -18,7 +18,6 @@ package edu.umn.nlpnewt.internal;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
-import edu.umn.nlpnewt.api.v1.Labels;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -192,7 +191,7 @@ final class NewtEventsImpl implements EventsClient {
         .setIndexName(indexName)
         .build();
     GetLabelsResponse response = stub.getLabels(request);
-    Labels.JsonLabels jsonLabels = response.getJsonLabels();
+    JsonLabels jsonLabels = response.getJsonLabels();
     if (jsonLabels.getIsDistinct()) {
       return GenericLabelAdapter.DISTINCT_ADAPTER.createIndexFromResponse(response);
     } else {

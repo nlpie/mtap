@@ -16,10 +16,7 @@
 package edu.umn.nlpnewt;
 
 import com.google.protobuf.Any;
-import com.google.protobuf.Message;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
-import edu.umn.nlpnewt.api.v1.EventsOuterClass;
-import edu.umn.nlpnewt.api.v1.Labels;
 import io.grpc.stub.StreamObserver;
 
 import java.util.HashMap;
@@ -31,7 +28,7 @@ import static edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
 public class EventsService extends EventsGrpc.EventsImplBase {
 
   private static class LabelIndex {
-    Labels.JsonLabels jsonLabels = null;
+    JsonLabels jsonLabels = null;
     Any otherLabels = null;
   }
 
@@ -138,7 +135,7 @@ public class EventsService extends EventsGrpc.EventsImplBase {
     Document document = event.documents.get(request.getDocumentName());
     if (request.hasJsonLabels()) {
       LabelIndex value = new LabelIndex();
-      value.jsonLabels = Labels.JsonLabels.newBuilder(request.getJsonLabels()).build();
+      value.jsonLabels = JsonLabels.newBuilder(request.getJsonLabels()).build();
       document.labelIndexMap.put(request.getIndexName(), value);
     } else if (request.hasOtherLabels()) {
       LabelIndex value = new LabelIndex();

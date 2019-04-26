@@ -14,6 +14,10 @@
 
 PKGS := $(shell go list ./...)
 
+.PHONY: clean
+clean:
+	rm -rf nlpnewt/api
+
 .PHONY: proto
 proto:
 	go generate ./...

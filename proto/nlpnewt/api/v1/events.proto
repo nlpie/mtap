@@ -20,7 +20,7 @@
 syntax = "proto3";
 import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
-import "nlpnewt/api/v1/labels.proto";
+import "google/protobuf/struct.proto";
 
 package nlpnewt.api.v1;
 
@@ -266,6 +266,26 @@ message GetLabelsRequest {
    */
   string index_name = 3;
 }
+
+/**
+ * A Label Index of dynamic Labels, which are client/processor specified data
+ * objects containing information about an area of text.
+ */
+message JsonLabels {
+  /**
+   * Whether the label index is distinct, i.e. only consists of non-overlapping,
+   * non-empty spans of text.
+   */
+  bool is_distinct = 1;
+
+  /**
+   * The labels, which are dynamic JSON objects and must contain the number
+   * fields "start_index" and "end_index". Any other fields are application-
+   * specific and dynamic.
+   */
+  repeated google.protobuf.Struct labels = 2;
+}
+
 
 /**
  * The response for retrieving labels from an event and document.

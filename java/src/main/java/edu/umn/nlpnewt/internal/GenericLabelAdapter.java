@@ -18,10 +18,11 @@ package edu.umn.nlpnewt.internal;
 import com.google.protobuf.Struct;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass;
-import edu.umn.nlpnewt.api.v1.Labels;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+
+import static edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
 
 @Internal
 final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
@@ -51,8 +52,8 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   }
 
   @Override
-  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull EventsOuterClass.GetLabelsResponse response) {
-    Labels.JsonLabels jsonLabels = response.getJsonLabels();
+  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response) {
+    JsonLabels jsonLabels = response.getJsonLabels();
 
     List<GenericLabel> labels = new ArrayList<>();
     for (Struct struct : jsonLabels.getLabelsList()) {
@@ -75,8 +76,8 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
 
   @Override
   public void addToMessage(@NotNull List<@NotNull GenericLabel> labels,
-                           EventsOuterClass.AddLabelsRequest.@NotNull Builder builder) {
-    Labels.JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
+                           AddLabelsRequest.@NotNull Builder builder) {
+    JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
     jsonLabelsBuilder.setIsDistinct(isDistinct);
     for (GenericLabel label : labels) {
       AbstractJsonObject.copyJsonObjectToStruct(label, jsonLabelsBuilder.addLabelsBuilder());
