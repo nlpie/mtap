@@ -21,10 +21,11 @@ from concurrent import futures
 from datetime import datetime
 
 import grpc
+from grpc_health.v1 import health, health_pb2_grpc
 
 from . import _utils, _discovery, _events_client, base
 from .base import Event, ProcessingResult, AggregateTimingInfo
-from .api.v1 import processing_pb2_grpc, processing_pb2, health_pb2_grpc, health_pb2
+from .api.v1 import processing_pb2_grpc, processing_pb2
 
 _processor_local = threading.local()
 _processors = {}  # processors registry
@@ -103,7 +104,7 @@ class _ProcessorRunner:
         self.processor.close()
 
 
-class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer, health_pb2_grpc.HealthServicer):
+class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self, runner: _ProcessorRunner):
         self._runner = runner
         self._times_collector = _utils.ProcessingTimesCollector()
@@ -153,21 +154,15 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer, health_pb2_grpc.
     def GetInfo(self, request, context):
         return processing_pb2.GetInfoResponse(name=self.processor_name)
 
-    def Check(self, request, context):
-        if request.service is None or request.service == '':
-            return health_pb2.HealthCheckResponse(status='SERVING')
-        elif request.service == self._runner.component_id:
-            return health_pb2.HealthCheckResponse(status=self._runner.processor.status)
-        else:
-            return health_pb2.HealthCheckResponse(status='NOT_SERVING')
-
 
 class _ProcessorServer(base.Server):
     def __init__(self, config, thread_pool, address, port, runner):
         server = grpc.server(thread_pool)
         servicer = _ProcessorServicer(runner)
         processing_pb2_grpc.add_ProcessorServicer_to_server(servicer, server)
-        health_pb2_grpc.add_HealthServicer_to_server(servicer, server)
+        health_servicer = health.HealthServicer()
+        health_servicer.set(runner.component_id, 'SERVING')
+        health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
         self._port = server.add_insecure_port(f'{address}:{port}')
         self._server = server
         self._config = config
@@ -309,7 +304,10 @@ class _Pipeline(base.Pipeline, base.DocumentProcessor):
         self.times_collector.add_times(times)
 
         for result in results:
-            event.add_created_indices(result[2])
+            try:
+                event.add_created_indices(result[2])
+            except AttributeError:
+                pass
 
         return [ProcessingResult(identifier=component.component_id, results=result[0],
                                  timing_info=result[1], created_indices=result[2])

@@ -68,7 +68,6 @@ class clean(_clean):
 class build_py(_build_py):
     def run(self):
         generate_proto('../proto/nlpnewt/api/v1/events.proto')
-        generate_proto('../proto/nlpnewt/api/v1/health.proto')
         generate_proto('../proto/nlpnewt/api/v1/processing.proto')
 
 
@@ -107,7 +106,8 @@ setup(
     keywords='nlp grpc microservices',
     packages=find_packages(),
     install_requires=[
-        'grpcio>=1.19.0',
+        'grpcio>=1.20.0',
+        'grpcio-health-checking>=1.20.0',
         'protobuf>=3.7.0',
         'pyyaml',
         'python-consul'

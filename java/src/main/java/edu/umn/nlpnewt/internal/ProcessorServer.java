@@ -19,10 +19,11 @@ import com.google.protobuf.util.Durations;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
-import grpc.health.v1.HealthGrpc;
 import io.grpc.Server;
 import io.grpc.Status;
+import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.services.HealthStatusManager;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,12 +39,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static grpc.health.v1.HealthOuterClass.HealthCheckRequest;
-import static grpc.health.v1.HealthOuterClass.HealthCheckResponse;
-import static grpc.health.v1.HealthOuterClass.HealthCheckResponse.ServingStatus;
-import static grpc.health.v1.HealthOuterClass.HealthCheckResponse.ServingStatus.NOT_SERVING;
-import static grpc.health.v1.HealthOuterClass.HealthCheckResponse.ServingStatus.SERVING;
 
 /**
  * A server that hosts {@link AbstractDocumentProcessor} and {@link AbstractEventProcessor}.
@@ -61,11 +56,15 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
   private final ServiceRegister.RegistrationCalls register;
 
+  private final HealthStatusManager healthStatusManager;
+
   private ProcessorServer(Server server,
                           AbstractEventProcessor processor,
+                          HealthStatusManager healthStatusManager,
                           @Nullable ServiceRegister.RegistrationCalls register) {
     this.server = server;
     this.processor = processor;
+    this.healthStatusManager = healthStatusManager;
     this.register = register;
   }
 
@@ -95,10 +94,13 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
     String eventsTarget = options.getEventsTarget();
     NewtEvents events = NewtInternal.createEvents(config, eventsTarget);
+
+    HealthStatusManager healthStatusManager = new HealthStatusManager();
+    healthStatusManager.setStatus(identifier, HealthCheckResponse.ServingStatus.SERVING);
     ProcessorService service = new ProcessorService(processor, events, identifier);
     Server server = NettyServerBuilder.forAddress(new InetSocketAddress(options.getAddress(), options.getPort()))
         .addService(service)
-        .addService(new ProcessorHealth(identifier, processor))
+        .addService(healthStatusManager.getHealthService())
         .build();
 
     ServiceRegister.RegistrationCalls register = null;
@@ -107,7 +109,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
       register = serviceRegister.registerProcessorService(identifier);
     }
 
-    return new ProcessorServer(server, processor, register);
+    return new ProcessorServer(server, processor, healthStatusManager, register);
   }
 
   @Override
@@ -148,6 +150,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
     if (register != null) {
       register.deregister();
     }
+    healthStatusManager.enterTerminalState();
     server.shutdown();
     try {
       processor.shutdown();
@@ -225,39 +228,6 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
       try {
         String name = processor.getClass().getAnnotation(Processor.class).value();
         responseObserver.onNext(Processing.GetInfoResponse.newBuilder().setName(name).build());
-        responseObserver.onCompleted();
-      } catch (Throwable t) {
-        responseObserver.onError(t);
-      }
-    }
-  }
-
-  static class ProcessorHealth extends HealthGrpc.HealthImplBase {
-    private final String identifier;
-
-    private final AbstractEventProcessor processor;
-
-    ProcessorHealth(String identifier, AbstractEventProcessor processor) {
-      this.identifier = identifier;
-      this.processor = processor;
-
-    }
-
-    @Override
-    public void check(HealthCheckRequest request,
-                      StreamObserver<HealthCheckResponse> responseObserver) {
-      String service = request.getService();
-      try {
-        ServingStatus status;
-        if ("".equals(service)) {
-          status = SERVING;
-        } else if (service.equals(identifier)) {
-          status = processor.getServingStatus();
-        } else {
-          status = NOT_SERVING;
-        }
-        HealthCheckResponse response = HealthCheckResponse.newBuilder().setStatus(status).build();
-        responseObserver.onNext(response);
         responseObserver.onCompleted();
       } catch (Throwable t) {
         responseObserver.onError(t);

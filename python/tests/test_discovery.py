@@ -17,11 +17,11 @@ import time
 
 import grpc
 import pytest
+from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 import nlpnewt
 import nlpnewt.base
 import nlpnewt.constants
-from nlpnewt.api.v1 import health_pb2_grpc, health_pb2
 
 
 @pytest.fixture

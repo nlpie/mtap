@@ -379,3 +379,6 @@ gradle-app.setting
 go/nlpnewt/api/v1/
 
 python/docs/_build
+
+.project
+.classpath

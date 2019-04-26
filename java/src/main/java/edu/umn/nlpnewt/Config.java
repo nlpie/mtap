@@ -178,7 +178,6 @@ public final class Config {
    *
    * @return Object value or null.
    */
-  @Nullable
   public Object get(@NotNull String key) {
     return config.get(key);
   }
@@ -191,7 +190,6 @@ public final class Config {
    *
    * @return String value or null.
    */
-  @Nullable
   public String getStringValue(@NotNull String key) {
     return (String) config.get(key);
   }
@@ -204,7 +202,6 @@ public final class Config {
    *
    * @return String value or null.
    */
-  @Nullable
   public Integer getIntegerValue(@NotNull String key) {
     return (Integer) config.get(key);
   }
@@ -217,7 +214,6 @@ public final class Config {
    *
    * @return Double value or null.
    */
-  @Nullable
   public Double getDoubleValue(@NotNull String key) {
     return (Double) config.get(key);
   }
@@ -230,7 +226,6 @@ public final class Config {
    *
    * @return Boolean value or null
    */
-  @Nullable
   public Boolean getBooleanValue(@NotNull String key) {
     return (Boolean) config.get(key);
   }

@@ -13,18 +13,17 @@
 # limitations under the License.
 
 import datetime
-import logging
 import time
 import typing as _typing
 
 import grpc
 import pytest
+from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 import nlpnewt
 import nlpnewt.base
+from nlpnewt.api.v1 import processing_pb2_grpc, events_pb2, processing_pb2
 from nlpnewt.base import Document
-from nlpnewt.api.v1 import health_pb2_grpc, health_pb2, processing_pb2_grpc, events_pb2, \
-    processing_pb2
 
 
 @nlpnewt.processor('nlpnewt-test-processor')

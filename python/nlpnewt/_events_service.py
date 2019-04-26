@@ -18,10 +18,12 @@ import threading
 from concurrent import futures
 
 import grpc
+from grpc_health.v1 import health_pb2_grpc
+from grpc_health.v1 import health
 
 from . import base
 from . import constants
-from .api.v1 import health_pb2, health_pb2_grpc, events_pb2, events_pb2_grpc
+from .api.v1 import events_pb2, events_pb2_grpc
 
 LOGGER = logging.getLogger(__name__)
 
@@ -181,19 +183,15 @@ class _EventsServicer(events_pb2_grpc.EventsServicer, health_pb2_grpc.HealthServ
             getattr(response, labels_type).CopyFrom(labels)
         return response
 
-    def Check(self, request, context=None):
-        if request.service == '' or request.service == constants.EVENTS_SERVICE_NAME:
-            return health_pb2.HealthCheckResponse(status='SERVING')
-        else:
-            return health_pb2.HealthCheckResponse(status='NOT_SERVING')
-
 
 class _EventsServer(base.Server):
     def __init__(self, config, thread_pool, address, port):
         server = grpc.server(thread_pool)
         servicer = _EventsServicer()
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)
-        health_pb2_grpc.add_HealthServicer_to_server(servicer, server)
+        health_servicer = health.HealthServicer()
+        health_servicer.set(constants.EVENTS_SERVICE_NAME, 'SERVING')
+        health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
         self._port = server.add_insecure_port(f'{address}:{port}')
         self._server = server
         self._address = address
