@@ -93,7 +93,6 @@ class _ProcessorRunner:
             try:
                 with stopwatch('process_method'):
                     result = self.processor.process(event, p)
-
                 return result, context.times, event.created_indices
             except Exception as e:
                 self.failure_count += 1

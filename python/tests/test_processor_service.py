@@ -40,15 +40,12 @@ class TestProcessor(nlpnewt.base.DocumentProcessor):
 
 @pytest.fixture
 def processor_service(events):
-    logger = logging.getLogger()
-
-    server = nlpnewt.processor_server('nlpnewt-test-processor', 'localhost', 0, workers=5,
+    server = nlpnewt.processor_server('nlpnewt-test-processor', '127.0.0.1', 0, workers=5,
                                       events_address=events[0])
     server.start(register=False)
-    time.sleep(1)
     for i in range(10):
         try:
-            address = f'localhost:{server.port}'
+            address = f'127.0.0.1:{server.port}'
             with grpc.insecure_channel(address) as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
                 request = health_pb2.HealthCheckRequest(service='nlpnewt-test-processor')

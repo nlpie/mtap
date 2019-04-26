@@ -25,22 +25,21 @@ from nlpnewt.api.v1 import health_pb2_grpc, health_pb2
 
 
 @pytest.fixture
-def events_service():
+def discovery_events():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
-    server = nlpnewt.events_server('localhost', 50051, workers=5)
+    server = nlpnewt.events_server('127.0.0.1', 0, workers=5)
     server.start(register=True)
 
     for i in range(10):
         try:
-            with grpc.insecure_channel('localhost:50051') as channel:
+            with grpc.insecure_channel(f'127.0.0.1:{server.port}') as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME())
+                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME)
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
-                    nlpnewt.events()
-                    yield channel
+                    yield
             event = server.stop()
             event.wait()
             return
@@ -52,7 +51,7 @@ def events_service():
     raise ValueError('Unable to connect to documents service.')
 
 
-@nlpnewt.processor('nlpnewt-test-processor')
+@nlpnewt.processor('nlpnewt-discovery-test-processor')
 class TestProcessor(nlpnewt.base.DocumentProcessor):
     def process_document(self, document, params):
         text = document.text
@@ -62,22 +61,28 @@ class TestProcessor(nlpnewt.base.DocumentProcessor):
             labeler(4, 5, x='b')
             labeler(6, 7, x='c')
 
+        return {
+            'success': text == TEXT
+        }
+
 
 @pytest.fixture
-def processor_service(events):
+def discovery_processor_service(discovery_events):
     logger = logging.getLogger()
 
-    server = nlpnewt.processor_server('nlpnewt-test-processor', 'localhost', 50052, workers=5)
+    server = nlpnewt.processor_server('nlpnewt-discovery-test-processor', '127.0.0.1', 0, workers=5)
     server.start(register=True)
 
     for i in range(10):
         try:
-            with grpc.insecure_channel('localhost:50052') as channel:
+            with grpc.insecure_channel(f'127.0.0.1:{server.port}') as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service='nlpnewt-test-processor')
+                request = health_pb2.HealthCheckRequest(service='nlpnewt-discovery-test-processor')
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
                     yield channel
+                else:
+                    continue
             event = server.stop()
             event.wait()
             return
@@ -98,17 +103,20 @@ how to fire phasers?"""
 
 
 @pytest.mark.consul
-def test_discover_events_service(events):
+def test_discover_events_service(discovery_events):
     with nlpnewt.events() as events:
         with events.open_event('1') as e:
             e.add_document('plaintext', 'bluh')
 
 
 @pytest.mark.consul
-def test_discover_processor(processor_service):
-    with nlpnewt.events() as events, nlpnewt.pipeline(['nlpnewt-test-processor']) as p:
+def test_discover_processor(discovery_processor_service):
+    with nlpnewt.events() as events, nlpnewt.pipeline() as p:
+        p.add_processor('nlpnewt-discovery-test-processor')
         with events.open_event(event_id='1') as event:
             doc = event.add_document(document_name='hey', text=TEXT)
-            r = p.process_document(doc)
+            r = p.run(doc)
 
     assert r is not None
+    print(r)
+    assert r[0].results['success']

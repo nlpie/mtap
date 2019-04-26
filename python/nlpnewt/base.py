@@ -1048,6 +1048,9 @@ class Pipeline(metaclass=ABCMeta):
 
     """
 
+    def __enter__(self) -> 'Pipeline':
+        ...
+
     @abstractmethod
     def add_processor(self, name: str, address: str = None, *, identifier: str = None,
                       params: Dict[str, str] = None):

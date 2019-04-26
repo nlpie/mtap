@@ -40,8 +40,7 @@ _DEFAULT_CONFIG = _collapse({}, None, {
         'host': 'localhost',
         'port': 8500,
         'scheme': 'http',
-        'dns_ip': '127.0.0.1',
-        'dns_port': 8600
+        'python_naming_scheme': 'ipv4'
     }
 })
 

@@ -3,8 +3,9 @@ consul:
   host: localhost
   port: 8500
   scheme: http
-  dns_ip: 127.0.0.1
-  dns_port: 8600
+  # Python uses {python_naming_scheme}:address[:port][,address[:port],...] as grpc targets
+  python_naming_scheme: ipv4
+
 gateway:
   port: 8080
   refresh_interval: 10
