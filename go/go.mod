@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-module github.umn.edu/nlpie/nlpnewt/go
+module github.com/benknoll-umn/nlpnewt/go
 
 go 1.12
 
