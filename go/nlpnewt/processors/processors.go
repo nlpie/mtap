@@ -19,6 +19,7 @@ package processors
 import (
 	"context"
 	"encoding/json"
+	"github.com/benknoll-umn/nlpnewt/go/nlpnewt/api/v1"
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
