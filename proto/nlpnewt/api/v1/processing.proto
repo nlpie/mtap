@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * APIs and message types for hosting and running processors.
+ */
 syntax = "proto3";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
@@ -21,54 +25,167 @@ package nlpnewt.api.v1;
 
 option java_package = "edu.umn.nlpnewt.api.v1";
 
+/**
+ * The name of a newly created label index during a process call.
+ */
 message CreatedIndex {
+  /**
+   * The document's name where the index was created.
+   */
   string document_name = 1;
+
+  /**
+   * The name of the label index that was created.
+   */
   string index_name = 2;
 }
 
+/**
+ * A request for a processor to run on a specific event.
+ */
 message ProcessRequest {
+  /**
+   * The identifier of the processor that is being called, currently is unused
+   * but may be eventually used for routing if multiple processors are hosted
+   * on the same port / endpoint.
+   */
   string processor_name = 1;
+
+  /**
+   * The identifier of the event to process.
+   */
   string event_id = 2;
+
+  /**
+   * A dynamic JSON object of runtime parameters that the processor will use.
+   */
   google.protobuf.Struct params = 3;
 }
 
+/**
+ * The response after a processor completes processing of an event.
+ */
 message ProcessResponse {
+  /**
+   * Processor-specific timings of different operations. Includes a "process"
+   * time for total time taken.
+   */
   map<string, google.protobuf.Duration> timing_info = 1;
+
+  /**
+   * The dynamic JSON object result returned by the processor.
+   */
   google.protobuf.Struct result = 2;
+
+  /**
+   * All label indices that were created on the event during processing.
+   */
   repeated CreatedIndex created_indices = 3;
 }
 
+/**
+ * Request for processor information.
+ */
 message GetInfoRequest {
+  /**
+   * The identifier of the processor to return info, currently is unused
+   * but may be eventually used for routing if multiple processors are hosted
+   * on the same port / endpoint.
+   */
   string processor_name = 1;
 }
 
+/**
+ * Processor information response, currently does not include anything besides
+ * the processor name. May eventually be extended to reflect more processor
+ * information like documentation, required inputs (label indices and
+ * parameters), and outputs (label indices and parameters), etc.
+ */
 message GetInfoResponse {
+  /**
+   * The name of the processor.
+   */
   string name = 1;
 }
 
+/**
+ * A set of globally-aggregated measurements for a specific processor timer
+ * across all requests.
+ */
 message TimerStats {
+  /**
+   * The mean duration.
+   */
   google.protobuf.Duration mean = 1;
+
+  /**
+   * The standard deviation of the duration.
+   */
   google.protobuf.Duration std = 2;
+
+  /**
+   * The maximum duration.
+   */
   google.protobuf.Duration max = 3;
+
+  /**
+   * The minimum duration.
+   */
   google.protobuf.Duration min = 4;
+
+  /**
+   * The sum of durations.
+   */
   google.protobuf.Duration sum = 5;
 }
 
+/**
+ * Request for globally-aggregated statistics about the processor.
+ */
 message GetStatsRequest {
+  /**
+   * The processor name.
+   */
   string processor_name = 1;
 }
 
+/**
+ * Processor statistics response.
+ */
 message GetStatsResponse {
+  /**
+   * The number of documents processed.
+   */
   int32 processed = 1;
+
+  /**
+   * The number of documents that have failed to process.
+   */
   int32 failures = 2;
+
+  /**
+   * Statistics for each timer.
+   */
   map<string, TimerStats> timing_stats = 3;
 }
 
+/**
+ * A processor service is responsible for processing an event, adding results to
+ * the events service, and then optionally returning a custom result.
+ */
 service Processor {
-  rpc Process (ProcessRequest) returns (ProcessResponse) {
-  }
-  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
-  }
-  rpc GetStats (GetStatsRequest) returns (GetStatsResponse) {
-  }
+  /**
+   * Processes an event.
+   */
+  rpc Process (ProcessRequest) returns (ProcessResponse) {}
+
+  /**
+   * Gets information about the processor.
+   */
+  rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {}
+
+  /**
+   * Gets globally-aggregated statistics about the processor.
+   */
+  rpc GetStats (GetStatsRequest) returns (GetStatsResponse) {}
 }
