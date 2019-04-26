@@ -47,13 +47,13 @@ def events():
 
     for i in range(10):
         try:
-            host = f'localhost:{server.port}'
-            with grpc.insecure_channel(host) as channel:
+            address = f'127.0.0.1:{server.port}'
+            with grpc.insecure_channel(address) as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
                 request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME)
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
-                    yield host, events_pb2_grpc.EventsStub(channel)
+                    yield address, events_pb2_grpc.EventsStub(channel)
             event = server.stop()
             event.wait()
             return

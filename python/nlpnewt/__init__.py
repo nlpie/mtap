@@ -52,7 +52,7 @@ def config() -> base.Config:
 
     Returns
     -------
-    nlpnewt.base.Config
+    base.Config
         Configuration object.
 
     """
@@ -69,7 +69,7 @@ def events(target=None) -> base.Events:
 
     Returns
     -------
-    nlpnewt.base.Events
+    base.Events
         An object for interacting with the documents on the documents service.
 
     Examples
@@ -174,7 +174,7 @@ def pipeline() -> base.Pipeline:
 
     Returns
     -------
-    nlpnewt.base.Pipeline
+    base.Pipeline
         The object which encapsulates a pipeline configuration
 
 
@@ -232,7 +232,7 @@ def events_server(address: typing.AnyStr, port: int, *, workers: int = 10) -> ba
 
     Returns
     -------
-    nlpnewt.base.Server
+    base.Server
         Server object that can be used to start and stop the server.
 
     """
@@ -277,7 +277,7 @@ def processor_server(processor_name: str,
 
     Returns
     -------
-    nlpnewt.base.Server
+    base.Server
         Server object that can be used to start and stop the server.
 
     """

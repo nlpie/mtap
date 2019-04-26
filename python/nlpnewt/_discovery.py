@@ -48,7 +48,6 @@ class ConsulDiscovery(Discovery):
         self.c = consul.Consul(host=host,
                                port=config['consul.port'],
                                scheme=config['consul.scheme'])
-        self.dns = config['consul.dns_ip'] + ":" + str(config['consul.dns_port'])
 
     def register_events_service(self, address, port, version):
         name = constants.EVENTS_SERVICE_NAME
@@ -73,8 +72,10 @@ class ConsulDiscovery(Discovery):
         """
         name = constants.EVENTS_SERVICE_NAME
         _, services = self.c.health.service(name, tag='v1')
-        port = services[0]['Service']['Port']
-        return f"dns://{self.dns}/{version}.{name}.service.consul:{port}"
+        addresses = []
+        for service in services:
+            addresses.append(f"{service['Node']['Address']}:{service['Service']['Port']}")
+        return f"ipv4:{','.join(addresses)}"
 
     def register_processor_service(self, address, port, processor_id, version):
         self.c.agent.service.register(processor_id,
@@ -95,5 +96,7 @@ class ConsulDiscovery(Discovery):
     def discover_processor_service(self, processor_name, version):
         tag = constants.PROCESSING_SERVICE_TAG
         _, services = self.c.health.service(processor_name, tag=tag)
-        port = services[0]['Service']['Port']
-        return f"dns://{self.dns}/{tag}.{processor_name}.service.consul:{port}"
+        addresses = []
+        for service in services:
+            addresses.append(f"{service['Node']['Address']}:{service['Service']['Port']}")
+        return f"ipv4:{','.join(addresses)}"
