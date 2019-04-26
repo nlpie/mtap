@@ -69,7 +69,6 @@ class build_py(_build_py):
     def run(self):
         generate_proto('../proto/nlpnewt/api/v1/events.proto')
         generate_proto('../proto/nlpnewt/api/v1/health.proto')
-        generate_proto('../proto/nlpnewt/api/v1/labels.proto')
         generate_proto('../proto/nlpnewt/api/v1/processing.proto')
 
 
