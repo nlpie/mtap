@@ -20,7 +20,21 @@ package nlpnewt.api.v1;
 
 option java_package = "edu.umn.nlpnewt.api.v1";
 
+/**
+ * A Label Index of dynamic Labels, which are client/processor specified data
+ * objects containing information about an area of text.
+ */
 message JsonLabels {
+  /**
+   * Whether the label index is distinct, i.e. only consists of non-overlapping,
+   * non-empty spans of text.
+   */
   bool is_distinct = 1;
+
+  /**
+   * The labels, which are dynamic JSON objects and must contain the number
+   * fields "start_index" and "end_index". Any other fields are application-
+   * specific and dynamic.
+   */
   repeated google.protobuf.Struct labels = 2;
 }
