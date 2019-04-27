@@ -65,6 +65,10 @@ public final class Config {
     this.config = config;
   }
 
+  private Config(Config config) {
+    this.config = new HashMap<>(config.config);
+  }
+
   /**
    * Loads a configuration from one of the default locations if there is a configuration file
    * present.
@@ -168,6 +172,15 @@ public final class Config {
         targetMap.put(newPrefix, value);
       }
     }
+  }
+
+  /**
+   * Creates a copy of this configuration object.
+   *
+   * @return A shallow copy of this configuration object.
+   */
+  public Config copy() {
+    return new Config(this);
   }
 
   /**

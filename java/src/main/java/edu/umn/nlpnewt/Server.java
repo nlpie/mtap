@@ -30,9 +30,9 @@ public interface Server {
   void start() throws IOException;
 
   /**
-   * Tells the server to stop receiving requests and to shut down.
+   * Tells the server to shutdown receiving requests and to shut down.
    */
-  void stop();
+  void shutdown();
 
   /**
    * Waits until the server has shutdown.

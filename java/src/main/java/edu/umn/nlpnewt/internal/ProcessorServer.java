@@ -15,34 +15,20 @@
  */
 package edu.umn.nlpnewt.internal;
 
-import com.google.protobuf.util.Durations;
 import edu.umn.nlpnewt.*;
-import edu.umn.nlpnewt.api.v1.Processing;
-import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
 import io.grpc.Server;
-import io.grpc.Status;
 import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.services.HealthStatusManager;
-import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.net.Inet6Address;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * A server that hosts {@link AbstractDocumentProcessor} and {@link AbstractEventProcessor}.
- *
+ * <p>
  * This class is for internal use, users should either use the command line or
  * {@link Newt#createProcessorServer(ProcessorServerOptions)}.
  */
@@ -51,112 +37,38 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
 
   private final Server server;
+  private final ProcessorService service;
 
-  private final AbstractEventProcessor processor;
-
-  private final ServiceRegister.RegistrationCalls register;
-
-  private final HealthStatusManager healthStatusManager;
-
-  private ProcessorServer(Server server,
-                          AbstractEventProcessor processor,
-                          HealthStatusManager healthStatusManager,
-                          @Nullable ServiceRegister.RegistrationCalls register) {
+  private ProcessorServer(Server server, ProcessorService service) {
     this.server = server;
-    this.processor = processor;
-    this.healthStatusManager = healthStatusManager;
-    this.register = register;
+    this.service = service;
   }
 
   public static ProcessorServer create(Config config, ProcessorServerOptions options) {
-    AbstractEventProcessor processor = null;
-    try {
-      Class<? extends AbstractEventProcessor> processorClass = options.getProcessorClass();
-      if (processorClass != null) {
-        processor = processorClass.getConstructor().newInstance();
-      }
-    } catch (InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
-      throw new IllegalStateException("Reflection failure trying to instantiate the processor class.", e);
-    }
-
-    if (processor == null) {
-      processor = options.getProcessor();
-    }
-
-    if (processor == null) {
-      throw new IllegalStateException("Processor was not defined.");
-    }
-
-    String identifier = options.getIdentifier();
-    if (identifier == null) {
-      identifier = processor.getClass().getAnnotation(Processor.class).value();
-    }
-
-    String eventsTarget = options.getEventsTarget();
-    NewtEvents events = NewtInternal.createEvents(config, eventsTarget);
-
-    HealthStatusManager healthStatusManager = new HealthStatusManager();
-    healthStatusManager.setStatus(identifier, HealthCheckResponse.ServingStatus.SERVING);
-    ProcessorService service = new ProcessorService(processor, events, identifier);
+    ProcessorService service = new ProcessorService(config, options);
     Server server = NettyServerBuilder.forAddress(new InetSocketAddress(options.getAddress(), options.getPort()))
         .addService(service)
-        .addService(healthStatusManager.getHealthService())
+        .addService(options.getHealthStatusManager().getHealthService())
         .build();
 
-    ServiceRegister.RegistrationCalls register = null;
-    if (options.getRegister()) {
-      ServiceRegister serviceRegister = ServiceRegister.getServiceRegister(config);
-      register = serviceRegister.registerProcessorService(identifier);
-    }
-
-    return new ProcessorServer(server, processor, healthStatusManager, register);
+    return new ProcessorServer(server, service);
   }
 
   @Override
   public void start() throws IOException {
     server.start();
+    service.register();
     logger.info("Server started on port " + server.getPort());
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       System.err.println("Shutting down processor server ");
-      stop();
+      shutdown();
     }));
-    if (register != null) {
-      String address = null;
-      int port = -1;
-      List<? extends SocketAddress> sockets = server.getListenSockets();
-      for (SocketAddress socket : sockets) {
-        if (socket instanceof InetSocketAddress) {
-          InetSocketAddress socketAddress = (InetSocketAddress) socket;
-          InetAddress inetAddress = socketAddress.getAddress();
-          if (inetAddress instanceof Inet6Address) {
-            address = "[" + inetAddress.getHostAddress() + "]";
-          } else {
-            address = inetAddress.getHostAddress();
-          }
-          port = socketAddress.getPort();
-        }
-      }
-
-      if (address == null) {
-        throw new IllegalStateException("No address.");
-      }
-
-      register.register(address, port, "v1");
-    }
   }
 
   @Override
-  public void stop() {
-    if (register != null) {
-      register.deregister();
-    }
-    healthStatusManager.enterTerminalState();
+  public void shutdown() {
+    service.shutdown();
     server.shutdown();
-    try {
-      processor.shutdown();
-    } catch (Throwable t) {
-      logger.error("Error while shutting down ");
-    }
   }
 
   @Override
@@ -169,69 +81,4 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
     return server.getPort();
   }
 
-  static class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
-
-    private final AbstractEventProcessor processor;
-
-    private final NewtEvents documents;
-    private final String identifier;
-
-    ProcessorService(AbstractEventProcessor processor, NewtEvents documents, String identifier) {
-      this.processor = processor;
-      this.documents = documents;
-      this.identifier = identifier;
-    }
-
-    @Override
-    public void process(Processing.ProcessRequest request,
-                        StreamObserver<Processing.ProcessResponse> responseObserver) {
-      Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder();
-      try (TimingInfoImpl timingInfo = TimingInfoImpl.getTimingInfo()) {
-        timingInfo.activate(identifier);
-        String eventID = request.getEventId();
-
-        JsonObject.Builder resultBuilder = JsonObject.newBuilder();
-        try (Event event = documents.openEvent(eventID)) {
-          JsonObject.Builder builder = JsonObject.newBuilder();
-          AbstractJsonObject.copyStructToJsonObjectBuilder(request.getParams(), builder);
-          JsonObject params = builder.build();
-          Timer timer = timingInfo.start("process_method");
-          processor.process(event, params, resultBuilder);
-          timer.stop();
-          for (Map.Entry<String, List<String>> entry : event.getCreatedIndices().entrySet()) {
-            for (String indexName : entry.getValue()) {
-              responseBuilder.addCreatedIndices(Processing.CreatedIndex.newBuilder()
-                  .setDocumentName(entry.getKey())
-                  .setIndexName(indexName)
-                  .build());
-            }
-          }
-        }
-
-        AbstractJsonObject resultObject = resultBuilder.build();
-        AbstractJsonObject.copyJsonObjectToStruct(resultObject, responseBuilder.getResultBuilder());
-
-        Set<Map.Entry<String, Duration>> entries = timingInfo.getTimes().entrySet();
-        for (Map.Entry<String, Duration> entry : entries) {
-          responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(entry.getValue().toNanos()));
-        }
-        responseObserver.onNext(responseBuilder.build());
-        responseObserver.onCompleted();
-      } catch (Throwable t) {
-        responseObserver.onError(Status.fromThrowable(t).asException());
-      }
-    }
-
-    @Override
-    public void getInfo(Processing.GetInfoRequest request,
-                        StreamObserver<Processing.GetInfoResponse> responseObserver) {
-      try {
-        String name = processor.getClass().getAnnotation(Processor.class).value();
-        responseObserver.onNext(Processing.GetInfoResponse.newBuilder().setName(name).build());
-        responseObserver.onCompleted();
-      } catch (Throwable t) {
-        responseObserver.onError(t);
-      }
-    }
-  }
 }

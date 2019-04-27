@@ -134,7 +134,7 @@ public final class Newt {
    *   // in a process() method call
    *   Timer timer = Newt.timingInfo().start("timerKey");
    *   // do some kind of work you want to time
-   *   timer.stop();
+   *   timer.shutdown();
    *   }
    * </pre>
    * <p>
@@ -286,7 +286,7 @@ public final class Newt {
    *
    * @param options The options object.
    *
-   * @return {@code Server} object that can be used to start and stop serving the processor.
+   * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
   public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) {
     return NewtInternal.createProcessorServer(config, options);

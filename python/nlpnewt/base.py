@@ -29,6 +29,7 @@ __all__ = (['Config',
             'LabelIndex',
             'Labeler',
             'ProtoLabelAdapter',
+            'ProcessorContext',
             'Processor',
             'DocumentProcessor',
             'Server',
@@ -839,21 +840,40 @@ class ProtoLabelAdapter(ABC):
         ...
 
 
-class Processor(metaclass=ABCMeta):
-    """Abstract base class for an event processor.
-    """
+class ProcessorContext(metaclass=ABCMeta):
+    """Abstract base class for a processing context which gets passed to processors."""
+    def update_serving_status(self, status: str):
+        """Updates the serving status of the processor for health checking.
 
-    @property
-    def status(self) -> str:
-        """Returns the current status of the processor for health checking.
-
-        Returns
-        -------
-        str
+        Parameters
+        ----------
+        status: str
             One of "SERVING", "NOT_SERVING", "UNKNOWN".
 
         """
-        return "SERVING"
+        ...
+
+
+class Processor(metaclass=ABCMeta):
+    """Abstract base class for an event processor.
+
+    Implementation should either have the default constructor or one which takes a single argument
+    of type :obj:`ProcessorContext`.
+
+    Examples
+    --------
+    >>> class ExampleProcessor(nlpnewt.Processor):
+    >>>     def process(event, params):
+    >>>         ...
+
+    >>> class ExampleProcessor(nlpnewt.Processor):
+    >>>     def __init__(self, processor_context):
+    >>>         // use processor_context
+    >>>
+    >>>     def process(event, params):
+    >>>         ...
+
+    """
 
     @abstractmethod
     def process(self, event: Event, params: Dict[str, str]) -> Optional[Dict[str, str]]:
@@ -885,6 +905,21 @@ class Processor(metaclass=ABCMeta):
 class DocumentProcessor(Processor, metaclass=ABCMeta):
     """Abstract base class for a document processor, a :obj:`Processor` which automatically
     retrieves a :obj:`Document` from the event using the processing parameter 'document_name'.
+
+
+    Examples
+    --------
+    >>> class ExampleProcessor(nlpnewt.Processor):
+    >>>     def process_document(document, params):
+    >>>         ...
+
+    >>> class ExampleProcessor(nlpnewt.Processor):
+    >>>     def __init__(self, processor_context):
+    >>>         self.context = processor_context
+    >>>
+    >>>     def process_document(document, params):
+    >>>         ...
+
     """
 
     def process(self, event: Event, params: Dict[str, str]) -> Optional[Dict[str, str]]:

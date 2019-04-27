@@ -61,7 +61,7 @@ final class TimingInfoImpl implements TimingInfo, AutoCloseable {
       @Override
       public void stop() {
         if (!active) {
-          throw new IllegalStateException("Attempted to stop a timer outside of a processing context.");
+          throw new IllegalStateException("Attempted to shutdown a timer outside of a processing context.");
         }
         times.put(identifier + ":" + key, stopwatch.elapsed());
       }

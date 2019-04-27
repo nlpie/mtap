@@ -38,9 +38,7 @@ import org.jetbrains.annotations.NotNull;
  * ensuring thread-safety.
  */
 public abstract class AbstractEventProcessor {
-  public ServingStatus getServingStatus() {
-    return ServingStatus.SERVING;
-  }
+
 
   /**
    * Method where the subclass implementation does its processing on the event.
@@ -56,7 +54,7 @@ public abstract class AbstractEventProcessor {
   );
 
   /**
-   * Called when the processor service is going to stop serving so the processor can free
+   * Called when the processor service is going to shutdown serving so the processor can free
    * any resources associated with the processor.
    *
    * @throws Exception any exception that the subclass processor throws while shutting down.

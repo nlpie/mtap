@@ -80,7 +80,7 @@ public class DocumentsProcessorIT {
       }
     } finally {
       channel.shutdown();
-      server.stop();
+      server.shutdown();
     }
   }
 
