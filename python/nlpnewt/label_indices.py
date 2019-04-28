@@ -15,11 +15,336 @@
 from abc import ABCMeta, abstractmethod
 from bisect import bisect_left, bisect_right
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence
+from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic
 
-from .base import Label, Location, LabelIndex
+from .labels import Label, Location
 
 L = TypeVar('L', bound=Label)
+
+__all__ = [
+    'LabelIndex',
+    'label_index',
+    'presorted_label_index'
+]
+
+
+class LabelIndex(Sequence[L], Generic[L]):
+    """An immutable sequence of labels ordered by their location in text. By default sorts by
+    ascending :func:`Label.start_index` and then by ascending :func:`Label.end_index`.
+
+    See Also
+    ========
+    Document.get_label_index : Method for getting existing label indices.
+    Document.get_labeler : Method for adding new label indexes to documents.
+    Labeler : Object for adding new label indices to documents.
+    """
+    @abstractmethod
+    def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
+        """Returns the label at the specified index/slice.
+
+        Parameters
+        ----------
+        idx : int or slice
+            The index of the label to return or a slice of indices to return as a new label index,
+            or a label to indicate to indicate a location.
+
+        Returns
+        -------
+        L or LabelIndex
+            Label if a single index, LabelIndex if a slice of indices.
+
+        Examples
+        --------
+        At index:
+
+        >>> sentences = distinct_label_index(label(0, 10),
+        >>>                                  label(11, 40),
+        >>>                                  label(41, 60),
+        >>>                                  label(61, 90))
+        >>> sentence = sentences[0]
+        >>> print(sentence)
+        GenericLabel{start_index = 0, end_index = 10}
+
+
+
+        Slice:
+
+        >>> sentences = distinct_label_index(label(0, 10),
+        >>>                                  label(11, 40),
+        >>>                                  label(41, 60),
+        >>>                                  label(61, 90))
+        >>> sentences[:2]
+        LabelIndex[GenericLabel{0, 10}, GenericLabel{11, 40}]
+        >>> last_two_sentences = [-2:]
+        LabelIndex[GenericLabel{41, 60}, GenericLabel{61, 90}]
+
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def distinct(self) -> bool:
+        """Whether this label index is distinct, i.e. all of the labels in it are non-overlapping,
+        or not distinct.
+
+        Returns
+        -------
+        bool
+            True if distinct, False if not.
+
+        """
+        ...
+
+    @abstractmethod
+    def at(self, label: Union[Label, Location]) -> 'LabelIndex[L]':
+        """Returns the labels at the specified label or location.
+
+        Returns
+        -------
+        LabelIndex
+            A view of this label index.
+
+        Examples
+        --------
+        >>> concepts = standard_label_index(label(0, 10, x=1),
+        >>>                                 label(0, 10, x=2),
+        >>>                                 label(6, 20, x=3))
+        >>>
+        >>> term = label(0, 10)
+        >>> concepts.at(term)
+        standard_label_index([GenericLabel(0, 10, x=1), GenericLabel(0, 10, x=2)])
+
+        """
+        ...
+
+    @abstractmethod
+    def __len__(self) -> int:
+        """The number of labels in this label index.
+
+        Returns
+        -------
+        int
+            Count of labels in this index.
+
+        Examples
+        --------
+        >>> len(sentences_index)
+        25
+
+        """
+        ...
+
+    @abstractmethod
+    def __contains__(self, item: Any) -> bool:
+        """Checks if the item is a label in this label index.
+
+        Parameters
+        ----------
+        item: Any
+
+        Returns
+        -------
+        bool
+            True if the item is a label and it is in this label index. False if it is not.
+
+        """
+        ...
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[L]:
+        """An iterator of the label objects in this index.
+
+        Returns
+        -------
+        typing.Iterator[Label]
+
+
+        Examples
+        --------
+        >>> for sentence in sentences_index:
+        >>>     # use sentence
+
+        >>> it = iter(sentences_index)
+        >>> try:
+        >>>     next_sentence = next(it)
+        >>> except StopIteration:
+        >>>     pass
+        """
+        ...
+
+    @abstractmethod
+    def __reversed__(self) -> 'Iterator[L]':
+        """The labels in this label index in reverse order.
+
+        Returns
+        -------
+        Iterator[L]
+            An iterator of the elements in reverse order.
+        """
+        ...
+
+    @abstractmethod
+    def index(self, x: Any, start: int = ..., end: int = ...) -> int:
+        """The index of the first occurrence of `x` in the label index at or after `start`
+        and before `end`.
+
+        Parameters
+        ----------
+        x: Any
+        start: int, optional
+            Inclusive start index.
+        end: int, optional
+            Exclusive end index.
+
+        Returns
+        -------
+        index: int
+
+        Raises
+        ------
+        ValueError
+            If x is not found in this label index.
+
+        """
+        ...
+
+    @abstractmethod
+    def count(self, x: Any) -> int:
+        """The number of times `x` occurs in the label index.
+
+        Parameters
+        ----------
+        x: Any
+
+        Returns
+        -------
+        count: int
+            The total number of times that the parameter occurs, or 0 if it doesn't occur.
+
+        """
+        ...
+
+    @abstractmethod
+    def covering(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+        """A label index containing all labels that cover / contain the specified span of text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose location specifies the entire span of text, or the start index of
+            the span of text.
+        end: int, optional
+            The exclusive end index of the span of text if it has not been specified by a label.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+
+        """
+        ...
+
+    @abstractmethod
+    def inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+        """A label index containing all labels that are inside the specified span of text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose location specifies the entire span of text, or the start index of
+            the span of text.
+        end: int, optional
+            The exclusive end index of the span of text if it has not been specified by a label.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+        """
+        ...
+
+    @abstractmethod
+    def beginning_inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+        """A label index containing all labels whose begin index is inside the specified span of
+        text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose location specifies the entire span of text, or the start index of
+            the span of text.
+        end: int, optional
+            The exclusive end index of the span of text if it has not been specified by a label.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+        """
+        ...
+
+    def before(self, x: Union[Label, float]) -> 'LabelIndex[L]':
+        """A label index containing all labels that are before a label's location in text or
+        an index in text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose begin indicates a text index to use, or the text index itself.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+        """
+        try:
+            index = x.start_index
+        except AttributeError:
+            index = x
+        return self.inside(0, index)
+
+    def after(self, x: Union[Label, float]) -> 'LabelIndex[L]':
+        """A label index containing all labels that are after a label's location in text
+        or an index in text.
+
+        Parameters
+        ----------
+        x: Label or int
+            Either a label whose end indicates a text index to use, or the text index itself.
+
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+        """
+        try:
+            index = x.end_index
+        except AttributeError:
+            index = x
+        return self.inside(index, float('inf'))
+
+    @abstractmethod
+    def ascending(self) -> 'LabelIndex[L]':
+        """This label index sorted according to ascending start and end index.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+        """
+        ...
+
+    @abstractmethod
+    def descending(self) -> 'LabelIndex[L]':
+        """This label index sorted according to descending start index and ascending end index.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A view of this label index.
+        """
+        ...
 
 
 def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
@@ -37,10 +362,10 @@ def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
 
     """
     labels = sorted(labels, key=attrgetter('location'))
-    return internal_label_index(labels, distinct)
+    return presorted_label_index(labels, distinct)
 
 
-def internal_label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
+def presorted_label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
     if len(labels) == 0:
         return EMPTY[distinct]
     return _LabelIndex(distinct, _Ascending(labels))
@@ -199,15 +524,15 @@ class _Descending(_View):
         return self._reverse_index(index_location)
 
 
-def _start_and_end(x: Union[Label, int], end: Optional[int] = None) -> Location:
+def _start_and_end(x: Union[Label, float], end: Optional[float] = None) -> Location:
     if end is None:
         x = _location(x)
         start = x.start_index
         end = x.end_index
     else:
-        if not isinstance(x, int):
+        if not isinstance(x, int) and not isinstance(x, float):
             raise TypeError
-        if not isinstance(end, int):
+        if not isinstance(end, int) and not isinstance(end, float):
             raise TypeError
         start = x
         if end is None:
@@ -304,15 +629,15 @@ class _LabelIndex(LabelIndex[L]):
                 count += 1
         return count
 
-    def covering(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+    def covering(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(max_start=start, min_end=end)
 
-    def inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+    def inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(start, end - 1, start, end)
 
-    def beginning_inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+    def beginning_inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(min_start=start, max_start=end - 1)
 
@@ -386,13 +711,13 @@ class _Empty(LabelIndex):
     def count(self, x: Any) -> int:
         return 0
 
-    def covering(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+    def covering(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
-    def inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+    def inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
-    def beginning_inside(self, x: Union[Label, int], end: Optional[int] = None) -> 'LabelIndex[L]':
+    def beginning_inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
     def ascending(self) -> 'LabelIndex[L]':

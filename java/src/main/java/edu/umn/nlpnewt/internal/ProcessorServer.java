@@ -19,7 +19,6 @@ import edu.umn.nlpnewt.*;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.services.HealthStatusManager;
-import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,13 +37,12 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
   private final Server server;
   private final ProcessorService service;
-
-  private final String address;
+  private final HealthStatusManager healthStatusManager;
 
   ProcessorServer(Config config, ProcessorServerOptions options) {
     service = new ProcessorService(config, options);
-    address = options.getAddress();
-    server = NettyServerBuilder.forAddress(new InetSocketAddress(address, options.getPort()))
+    healthStatusManager = options.getHealthStatusManager();
+    server = NettyServerBuilder.forAddress(new InetSocketAddress(options.getAddress(), options.getPort()))
         .addService(service)
         .addService(options.getHealthStatusManager().getHealthService())
         .build();
@@ -63,6 +61,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
   @Override
   public void shutdown() {
+    healthStatusManager.enterTerminalState();
     service.shutdown();
     server.shutdown();
   }

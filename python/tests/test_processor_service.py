@@ -14,34 +14,36 @@
 
 import datetime
 import time
-import typing as _typing
+from typing import Dict
 
 import grpc
 import pytest
 from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 import nlpnewt
-import nlpnewt.base
 from nlpnewt.api.v1 import processing_pb2_grpc, events_pb2, processing_pb2
-from nlpnewt.base import Document
+from nlpnewt.events import Document
+from nlpnewt.processing import DocumentProcessor, ProcessorContext
 
 
 @nlpnewt.processor('nlpnewt-test-processor')
-class TestProcessor(nlpnewt.base.DocumentProcessor):
-    def process_document(self, document: Document, params: _typing.Dict[str, str]):
-        text = document.text
+class ProcessorWithContext(DocumentProcessor):
+    def __init__(self, context: ProcessorContext):
+        self.context = context
 
+    def process(self, document: Document, params: Dict[str, str]):
+        with self.context.stopwatch('fetch_document'):
+            text = document.text
         with document.get_labeler('blub') as labeler:
             labeler(0, 3, x='a')
             labeler(4, 5, x='b')
             labeler(6, 7, x='c')
 
-
 @pytest.fixture
 def processor_service(events):
-    server = nlpnewt.processor_server('nlpnewt-test-processor', '127.0.0.1', 0, workers=5,
-                                      events_address=events[0])
-    server.start(register=False)
+    server = nlpnewt.ProcessorServer('nlpnewt-test-processor', '127.0.0.1', 0, workers=5,
+                                     events_address=events[0])
+    server.start()
     for i in range(10):
         try:
             address = f'127.0.0.1:{server.port}'
@@ -73,7 +75,7 @@ def test_processor_service(events, processor_service):
     events_host, events_service = events
     events_service.OpenEvent(events_pb2.OpenEventRequest(event_id='1'))
     events_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1', document_name='hey',
-                                                     text=PHASERS))
+                                                             text=PHASERS))
 
     request = processing_pb2.ProcessRequest(processor_name='nlpnewt-test-processor', event_id='1')
     request.params['document_name'] = 'hey'
@@ -81,13 +83,13 @@ def test_processor_service(events, processor_service):
     processor_stub.Process(request)
 
     r = events_service.GetLabels(events_pb2.GetLabelsRequest(event_id='1', document_name='hey',
-                                                     index_name='blub'))
+                                                             index_name='blub'))
     assert r is not None
 
 
 def test_pipeline_client(events, processor_service):
     events_host, events_service = events
-    with nlpnewt.pipeline() as p, nlpnewt.events(events_host) as events:
+    with nlpnewt.Pipeline() as p, nlpnewt.Events(events_host) as events:
         p.add_processor('nlpnewt-test-processor', processor_service[0])
         event = events.open_event('1')
         doc = event.add_document('hey', PHASERS)
@@ -109,4 +111,4 @@ def test_pipeline_client(events, processor_service):
         assert pipeline_timer_stats.timing_info['total'].mean > remote_call_time
 
     events_service.GetLabels(events_pb2.GetLabelsRequest(event_id='1', document_name='hey',
-                                                 index_name='blub'))
+                                                         index_name='blub'))

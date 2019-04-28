@@ -15,7 +15,7 @@
 
 import abc
 
-from nlpnewt import constants
+from . import constants
 
 
 class Discovery(abc.ABC):

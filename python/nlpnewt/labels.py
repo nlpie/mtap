@@ -12,16 +12,101 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Internal labels functionality."""
-from typing import Callable, Dict, TypeVar
+from abc import ABC, abstractmethod
+from typing import TypeVar, NamedTuple
 
-import nlpnewt
-from . import constants, _utils
-from ._label_indices import label_index
-from .base import Label, ProtoLabelAdapter
 
-__all__ = (['GenericLabel',
-            'proto_label_adapter',
-            'get_label_adapter'])
+class Location(NamedTuple):
+    """A location in text.
+
+    Used to perform comparison of labels based on their locations.
+
+    Attributes
+    ==========
+    start_index: int or float
+        The start index inclusive of the location in text.
+    end_index: int or float
+        The end index exclusive of the location in text.
+    """
+    start_index: float
+    end_index: float
+
+    def covers(self, other):
+        return self.start_index <= other.start_index and self.end_index >= other.end_index
+
+
+class Label(ABC):
+    """An abstract base class for a label of attributes on text.
+
+    Attributes
+    ----------
+    start_index
+    end_index
+    location
+
+    """
+
+    @property
+    @abstractmethod
+    def start_index(self) -> int:
+        """The index of the first character of the text covered by this label"""
+        ...
+
+    @start_index.setter
+    @abstractmethod
+    def start_index(self, value: int):
+        ...
+
+    @property
+    @abstractmethod
+    def end_index(self) -> int:
+        """The index after the last character of the text covered by this label."""
+        ...
+
+    @end_index.setter
+    @abstractmethod
+    def end_index(self, value: int):
+        ...
+
+    @property
+    def location(self) -> Location:
+        """Returns a tuple of (start_index, end_index).
+
+        Used to perform sorting and comparison first based on start_index, then based on end_index.
+
+        Returns
+        -------
+        Location
+            The location of this label in text.
+
+        """
+        return Location(self.start_index, self.end_index)
+
+    def get_covered_text(self, text: str):
+        """Retrieves the slice of text from `start_index` to `end_index`.
+
+        Parameters
+        ----------
+        text: str
+            The text to retrieve covered text from.
+
+        Returns
+        -------
+        str
+            Substring slice of the text.
+
+        Examples
+        --------
+        >>> label = labeler(0, 9)
+        >>> label.get_covered_text("The quick brown fox jumped over the lazy dog.")
+        "The quick"
+
+        >>> label = labeler(0, 9)
+        >>> "The quick brown fox jumped over the lazy dog."[label.start_index:label.end_index]
+        "The quick"
+        """
+        return text[self.start_index:self.end_index]
+
 
 L = TypeVar('L', bound=Label)
 
@@ -116,81 +201,5 @@ class GenericLabel(Label):
                              repr(self.fields['end_index'])] + ["{}={}".format(k, repr(v))
                                                                 for k, v in self.fields.items() if
                                                                 k not in (
-                                                                'start_index', 'end_index')])
+                                                                    'start_index', 'end_index')])
                 + ")")
-
-
-def proto_label_adapter(label_type_id: str):
-    """Registers a :obj:`ProtoLabelAdapter` for a specific identifier.
-
-    When that id is referenced in the document :func:`~Document.get_labeler`
-    and  :func:`~Document.get_label_index`.
-
-    Parameters
-    ----------
-    label_type_id: hashable
-        This can be anything as long as it is hashable, good choices are strings or the label types
-        themselves if they are concrete classes.
-
-    Returns
-    -------
-    decorator
-        Decorator object which invokes the callable to create the label adapter.
-
-    Examples
-    --------
-    >>> @nlpnewt.proto_label_adapter("example.Sentence")
-    >>> class SentenceAdapter(nlpnewt.ProtoLabelAdapter):
-    >>>    # ... implementation of the ProtoLabelAdapter for sentences.
-
-    >>> with document.get_labeler("sentences", "example.Sentence") as labeler
-    >>>     # add labels
-
-    >>> label_index = document.get_label_index("sentences", "example.Sentence")
-    >>>     # do something with labels
-    """
-
-    def decorator(func: Callable[[], ProtoLabelAdapter]):
-        _label_adapters[label_type_id] = func()
-        return func
-
-    return decorator
-
-
-class _GenericLabelAdapter(ProtoLabelAdapter):
-
-    def __init__(self, distinct):
-        self.distinct = distinct
-
-    def create_label(self, *args, **kwargs):
-        return GenericLabel(*args, **kwargs)
-
-    def create_index_from_response(self, response):
-        json_labels = response.json_labels
-        labels = []
-        for label in json_labels.labels:
-            d = {}
-            _utils.copy_struct_to_dict(label, d)
-            generic_label = nlpnewt.GenericLabel(**d)
-            labels.append(generic_label)
-
-        return label_index(labels, self.distinct)
-
-    def add_to_message(self, labels, request):
-        json_labels = request.json_labels
-        for label in labels:
-            _utils.copy_dict_to_struct(label.fields, json_labels.labels.add(), [label])
-
-
-generic_adapter = _GenericLabelAdapter(False)
-
-distinct_generic_adapter = _GenericLabelAdapter(True)
-
-_label_adapters: Dict[str, ProtoLabelAdapter] = {
-    constants.DISTINCT_GENERIC_LABEL_ID: distinct_generic_adapter,
-    constants.GENERIC_LABEL_ID: generic_adapter
-}
-
-
-def get_label_adapter(label_type_id):
-    return _label_adapters[label_type_id]

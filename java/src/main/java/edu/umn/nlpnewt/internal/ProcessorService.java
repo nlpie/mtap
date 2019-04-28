@@ -59,7 +59,7 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
     eventsTarget = options.getEventsTarget();
     processor = options.getProcessor();
     identifier = options.getIdentifier();
-    healthStatusManager = new HealthStatusManager();
+    healthStatusManager = options.getHealthStatusManager();
     contextManager = new ProcessorContextManager(options.getIdentifier(),
         options.getHealthStatusManager());
     if (options.getRegister()) {
@@ -111,7 +111,6 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
     if (deregister != null) {
       deregister.run();
     }
-    healthStatusManager.enterTerminalState();
     processor.shutdown();
   }
 

@@ -14,14 +14,16 @@
 
 import logging
 import time
+from typing import Dict, Any, Optional
 
 import grpc
 import pytest
 from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 import nlpnewt
-import nlpnewt.base
 import nlpnewt.constants
+from nlpnewt.events import Document
+from nlpnewt.processing import DocumentProcessor
 
 
 @pytest.fixture
@@ -29,8 +31,8 @@ def discovery_events():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
-    server = nlpnewt.events_server('127.0.0.1', 0, workers=5)
-    server.start(register=True)
+    server = nlpnewt.EventsServer('127.0.0.1', 0, register=True, workers=5)
+    server.start()
 
     for i in range(10):
         try:
@@ -52,8 +54,8 @@ def discovery_events():
 
 
 @nlpnewt.processor('nlpnewt-discovery-test-processor')
-class TestProcessor(nlpnewt.base.DocumentProcessor):
-    def process_document(self, document, params):
+class TestProcessor(DocumentProcessor):
+    def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         text = document.text
 
         with document.get_labeler('blub') as labeler:
@@ -70,8 +72,9 @@ class TestProcessor(nlpnewt.base.DocumentProcessor):
 def discovery_processor_service(discovery_events):
     logger = logging.getLogger()
 
-    server = nlpnewt.processor_server('nlpnewt-discovery-test-processor', '127.0.0.1', 0, workers=5)
-    server.start(register=True)
+    server = nlpnewt.ProcessorServer('nlpnewt-discovery-test-processor', '127.0.0.1', 0,
+                                     register=True, workers=5)
+    server.start()
 
     for i in range(10):
         try:
@@ -104,14 +107,14 @@ how to fire phasers?"""
 
 @pytest.mark.consul
 def test_discover_events_service(discovery_events):
-    with nlpnewt.events() as events:
+    with nlpnewt.Events() as events:
         with events.open_event('1') as e:
             e.add_document('plaintext', 'bluh')
 
 
 @pytest.mark.consul
 def test_discover_processor(discovery_processor_service):
-    with nlpnewt.events() as events, nlpnewt.pipeline() as p:
+    with nlpnewt.Events() as events, nlpnewt.Pipeline() as p:
         p.add_processor('nlpnewt-discovery-test-processor')
         with events.open_event(event_id='1') as event:
             doc = event.add_document(document_name='hey', text=TEXT)

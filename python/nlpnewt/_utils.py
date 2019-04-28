@@ -13,14 +13,7 @@
 # limitations under the License.
 """Internal utilities."""
 
-import datetime
-import math
-import typing
-from concurrent.futures.thread import ThreadPoolExecutor
-
 from google.protobuf import struct_pb2
-
-from . import base
 
 
 def copy_dict_to_struct(d, struct, parents):
@@ -103,63 +96,3 @@ def copy_struct_to_dict(struct, dictionary):
             raise TypeError("Unrecognized type:", type(v))
 
 
-class TimerStatsAggregator:
-    def __init__(self):
-        self._count = 0
-        self._min = datetime.timedelta.max
-        self._max = datetime.timedelta.min
-        self._mean = 0.0
-        self._sse = 0.0
-        self._sum = datetime.timedelta(seconds=0)
-
-    def add_time(self, time):
-        if time < self._min:
-            self._min = time
-        if time > self._max:
-            self._max = time
-
-        self._count += 1
-        self._sum += time
-        time = time.total_seconds()
-        delta = time - self._mean
-        self._mean += delta / self._count
-        delta2 = time - self._mean
-        self._sse += delta * delta2
-
-    def finalize(self):
-        mean = datetime.timedelta(seconds=self._mean)
-        variance = self._sse / self._count
-        std = math.sqrt(variance)
-        std = datetime.timedelta(seconds=std)
-        return base.TimerStats(mean=mean, std=std, max=self._max, min=self._min, sum=self._sum)
-
-
-class ProcessingTimesCollector:
-    def __init__(self):
-        self._executor = ThreadPoolExecutor(max_workers=1,
-                                            thread_name_prefix='processing_times_listener')
-        self._times_map = {}
-
-    def _add_times(self, times):
-        for k, v in times.items():
-            try:
-                agg = self._times_map[k]
-            except KeyError:
-                agg = TimerStatsAggregator()
-                self._times_map[k] = agg
-            agg.add_time(v)
-
-    def add_times(self, times):
-        self._executor.submit(self._add_times, times)
-
-    def _get_aggregates(self, prefix):
-        return {identifier: stats.finalize()
-                for identifier, stats in self._times_map.items() if identifier.startswith(prefix)}
-
-    def get_aggregates(self,
-                       identifier=None) -> typing.Dict[str, base.TimerStats]:
-        future = self._executor.submit(self._get_aggregates, identifier or '')
-        return future.result()
-
-    def shutdown(self):
-        self._executor.shutdown(wait=True)

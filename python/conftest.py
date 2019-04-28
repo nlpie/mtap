@@ -43,8 +43,8 @@ def events():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
-    server = nlpnewt.events_server('localhost', 0, workers=5)
-    server.start(register=False)
+    server = nlpnewt.EventsServer('localhost', 0, workers=5)
+    server.start()
 
     for i in range(10):
         try:
