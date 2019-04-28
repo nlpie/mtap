@@ -13,7 +13,9 @@
 # limitations under the License.
 import logging
 
-import nlpnewt
+from ._config import Config
+from ._events_service import EventsServer
+from .processing import ProcessorServer
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -27,11 +29,11 @@ def run_events_server(args):
         Command line arguments.
     """
     import time
-    with nlpnewt.config() as c:
+    with Config() as c:
         if args.config is not None:
             c.update_from_yaml(args.config)
-        server = nlpnewt.events_server(args.address, args.port, workers=args.workers)
-        server.start(register=args.register)
+        server = EventsServer(args.address, args.port, register=args.register, workers=args.workers)
+        server.start()
 
         while True:
             try:
@@ -55,18 +57,19 @@ def run_processor_service(args):
     if args.module is not None:
         importlib.import_module(args.module)
 
-    with nlpnewt.config() as c:
+    with Config() as c:
         if args.config is not None:
             c.update_from_yaml(args.config)
         processor_name = args.name
-        server = nlpnewt.processor_server(processor_name,
-                                          address=args.address,
-                                          port=args.port,
-                                          workers=args.workers,
-                                          processor_id=args.identifier,
-                                          events_address=args.events_address,
-                                          args=args.args)
-        server.start(register=args.register)
+        server = ProcessorServer(processor_name,
+                                 address=args.address,
+                                 port=args.port,
+                                 register=args.register,
+                                 workers=args.workers,
+                                 processor_id=args.identifier,
+                                 events_address=args.events_address,
+                                 args=args.args)
+        server.start()
         while True:
             try:
                 time.sleep(_ONE_DAY_IN_SECONDS)

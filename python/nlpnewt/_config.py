@@ -17,8 +17,6 @@ import os
 import threading
 from pathlib import Path
 
-from . import base
-
 
 def _collapse(d, path, v):
     try:
@@ -45,7 +43,7 @@ _DEFAULT_CONFIG = _collapse({}, None, {
 })
 
 
-def load_config(f):
+def _load_config(f):
     from yaml import load
     try:
         from yaml import CLoader as Loader
@@ -55,7 +53,7 @@ def load_config(f):
     return _collapse({}, None, config)
 
 
-def load_default_config(config_path=None):
+def _load_default_config(config_path=None):
     potential_paths = [config_path, os.getenv('NEWT_CONFIG')]
     locations = [Path.cwd(), Path.home().joinpath('.newt'), Path('/etc/newt/')]
     potential_paths += [location.joinpath('newtConfig.yml') for location in locations]
@@ -63,13 +61,36 @@ def load_default_config(config_path=None):
     for config_path in potential_paths:
         try:
             with config_path.open('rb') as f:
-                return load_config(f)
+                return _load_config(f)
         except (AttributeError, FileNotFoundError):
             pass
     return _DEFAULT_CONFIG
 
 
-class _Config(dict, base.Config):
+class Config(dict):
+    """The nlpnewt configuration dictionary.
+
+    By default configuration is loaded from one of a number of locations in the following priority:
+
+      - A file at the path of the '--config' parameter passed into main methods.
+      - A file at the path of the 'NEWT_CONFIG' environment variable
+      - $PWD/newtConfig.yml
+      - $HOME/.newt/newtConfig.yml'
+      - etc/newt/newtConfig.yml
+
+
+    Nlpnewt components will use a global shared configuration object, by entering the context of a
+    config object using "with", all of the nlpnewt functions called on that thread will make use of
+    that config object.
+
+    Examples
+    --------
+    >>> with nlpnewt.Config() as config:
+    >>>     config['key'] = 'value'
+    >>>     # other nlpnewt methods in this
+    >>>     # block will use the updated config object.
+
+    """
     _lock = threading.RLock()
     _global_instance = None
     _context = threading.local()
@@ -99,12 +120,17 @@ class _Config(dict, base.Config):
         self._context.config = None
 
     def _load_default_config(self):
-        self.update(load_default_config())
+        self.update(_load_default_config())
 
     def update_from_yaml(self, path):
+        """Updates the configuration by loading and collapsing all of the structures in a yaml file.
+
+        Parameters
+        ----------
+        path: str
+            The path to the yaml file to load.
+
+        """
         with path.open('rb') as f:
-            self.update(load_config(f))
+            self.update(_load_config(f))
 
-
-def get_config():
-    return _Config()

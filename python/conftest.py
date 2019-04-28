@@ -17,10 +17,11 @@ import time
 
 import grpc
 import pytest
+from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 import nlpnewt
 import nlpnewt.constants
-from nlpnewt.api.v1 import health_pb2, health_pb2_grpc, events_pb2_grpc
+from nlpnewt.api.v1 import events_pb2_grpc
 
 
 def pytest_addoption(parser):
@@ -42,8 +43,8 @@ def events():
     logger = logging.getLogger()
     logger.info('Starting document service')
 
-    server = nlpnewt.events_server('localhost', 0, workers=5)
-    server.start(register=False)
+    server = nlpnewt.EventsServer('localhost', 0, workers=5)
+    server.start()
 
     for i in range(10):
         try:

@@ -25,27 +25,40 @@ import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.Newt;
 
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 /**
  * Internal code to do service registration magic.
  */
 @Internal
-abstract class ServiceRegister {
-  static ServiceRegister getServiceRegister(Config config) {
+abstract class RegistrationManager {
+
+  protected String address;
+  protected int port;
+
+  static RegistrationManager create(Config config) {
     if ("consul".equals(config.getStringValue("discovery"))) {
-      return new ConsulServiceRegister(config);
+      return new ConsulRegistrationManager(config);
     } else {
       throw new IllegalArgumentException("Unrecognized discovery mechanism");
     }
   }
 
-  abstract RegistrationCalls registerProcessorService(String identifier);
+  public void setHealthAddress(String address) {
+    this.address = address;
+  }
 
-  static final class ConsulServiceRegister extends ServiceRegister {
+  public void setHealthPort(int port) {
+    this.port = port;
+  }
+
+  abstract Runnable registerService(String identifier, String... tags);
+
+  static final class ConsulRegistrationManager extends RegistrationManager {
 
     private final AgentClient agent;
 
-    ConsulServiceRegister(Config config) {
+    ConsulRegistrationManager(Config config) {
       String host = config.getStringValue("consul.host");
       int port = config.getIntegerValue("consul.port");
       HostAndPort hostAndPort = HostAndPort.fromHost(host).withDefaultPort(port);
@@ -53,40 +66,29 @@ abstract class ServiceRegister {
       agent = consul.agentClient();
     }
 
-    @Override
-    RegistrationCalls registerProcessorService(String identifier) {
+    Runnable registerService(String identifier, String... tags) {
+      String uuid = UUID.randomUUID().toString();
+      ImmutableRegCheck grpcCheck = ImmutableRegCheck.builder()
+          .interval("10s")
+          .grpc(address + ":" + port)
+          .status("passing")
+          .build();
+      ImmutableRegistration registration = ImmutableRegistration.builder()
+          .address("")
+          .id(uuid)
+          .name(identifier)
+          .port(port)
+          .check(grpcCheck)
+          .addTags(tags)
+          .build();
+      agent.register(registration);
 
-      return new RegistrationCalls() {
-        private final UUID uuid = UUID.randomUUID();
-
-        @Override
-        public void register(String address, int port, String version) {
-          ImmutableRegCheck grpcCheck = ImmutableRegCheck.builder()
-              .interval("10s")
-              .grpc(address + ":" + port)
-              .status("passing")
-              .build();
-          ImmutableRegistration registration = ImmutableRegistration.builder()
-              .address("")
-              .id(uuid.toString())
-              .name(identifier)
-              .port(port)
-              .check(grpcCheck)
-              .addTags(Newt.PROCESSOR_SERVICE_TAG)
-              .build();
-          agent.register(registration);
-        }
-
-        @Override
-        public void deregister() {
-          agent.deregister(uuid.toString());
-        }
-      };
+      return () -> agent.deregister(uuid);
     }
   }
 
   static abstract class RegistrationCalls {
-    public abstract void register(String address, int port, String version);
+    public abstract void register(String identifier);
 
     public abstract void deregister();
   }

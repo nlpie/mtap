@@ -16,16 +16,19 @@
 import re
 
 import nlpnewt
-import nlpnewt.base
+from nlpnewt.processing import DocumentProcessor
 
 the = re.compile('the', flags=re.I)
 
 
 @nlpnewt.processor('nlpnewt-example-processor-python')
-class ExampleProcessor(nlpnewt.base.DocumentProcessor):
+class ExampleProcessor(DocumentProcessor):
     """Does some labeling of the counts of the letter 'a' and 'b' in a document, and all of the
     times the word 'the' occurs.
     """
+
+    def __init__(self, context: ProcessorContext):
+        self.context = context
 
     def process_document(self, document, params):
         if params['do_work']:

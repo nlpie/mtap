@@ -14,14 +14,13 @@
 
 import pytest
 
-from nlpnewt import GenericLabel
-from nlpnewt._label_indices import internal_label_index, label_index
-from nlpnewt.base import Location
+from nlpnewt import GenericLabel, Location
+from nlpnewt.label_indices import presorted_label_index, label_index
 
 
 @pytest.fixture
 def tested():
-    return internal_label_index([
+    return presorted_label_index([
         GenericLabel(0, 5, i=0),
         GenericLabel(0, 7, i=1),
         GenericLabel(2, 6, i=2),
@@ -188,7 +187,7 @@ def test_inside_after(tested):
 
 
 def test_inside_many(tested):
-    tested = internal_label_index([
+    tested = presorted_label_index([
         GenericLabel(0, 3),
         GenericLabel(0, 3),
         GenericLabel(0, 3),
@@ -398,7 +397,7 @@ def test_count_in(tested):
 
 
 def test_count_multiple(tested):
-    index = internal_label_index([
+    index = presorted_label_index([
         GenericLabel(2, 6, i=2),
         GenericLabel(6, 7, i=3),
         GenericLabel(6, 8, i=4),

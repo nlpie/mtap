@@ -65,6 +65,10 @@ public final class Config {
     this.config = config;
   }
 
+  private Config(Config config) {
+    this.config = new HashMap<>(config.config);
+  }
+
   /**
    * Loads a configuration from one of the default locations if there is a configuration file
    * present.
@@ -171,6 +175,15 @@ public final class Config {
   }
 
   /**
+   * Creates a copy of this configuration object.
+   *
+   * @return A shallow copy of this configuration object.
+   */
+  public Config copy() {
+    return new Config(this);
+  }
+
+  /**
    * The value for {@code key}. Null if the value is set to null or the configuration does not
    * contain {@code key}.
    *
@@ -178,7 +191,6 @@ public final class Config {
    *
    * @return Object value or null.
    */
-  @Nullable
   public Object get(@NotNull String key) {
     return config.get(key);
   }
@@ -191,7 +203,6 @@ public final class Config {
    *
    * @return String value or null.
    */
-  @Nullable
   public String getStringValue(@NotNull String key) {
     return (String) config.get(key);
   }
@@ -204,7 +215,6 @@ public final class Config {
    *
    * @return String value or null.
    */
-  @Nullable
   public Integer getIntegerValue(@NotNull String key) {
     return (Integer) config.get(key);
   }
@@ -217,7 +227,6 @@ public final class Config {
    *
    * @return Double value or null.
    */
-  @Nullable
   public Double getDoubleValue(@NotNull String key) {
     return (Double) config.get(key);
   }
@@ -230,7 +239,6 @@ public final class Config {
    *
    * @return Boolean value or null
    */
-  @Nullable
   public Boolean getBooleanValue(@NotNull String key) {
     return (Boolean) config.get(key);
   }
