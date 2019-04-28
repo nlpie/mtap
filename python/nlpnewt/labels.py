@@ -36,15 +36,7 @@ class Location(NamedTuple):
 
 
 class Label(ABC):
-    """An abstract base class for a label of attributes on text.
-
-    Attributes
-    ----------
-    start_index
-    end_index
-    location
-
-    """
+    """An abstract base class for a label of attributes on text."""
 
     @property
     @abstractmethod
@@ -115,13 +107,6 @@ class GenericLabel(Label):
     """Default implementation of the Label class which uses a dictionary to store attributes.
 
     Will be suitable for the majority of use cases for labels.
-
-    Attributes
-    ----------
-    start_index
-    end_index
-    *: Any
-        Other attributes dynamically set on the label.
 
     Parameters
     ----------

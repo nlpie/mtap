@@ -29,9 +29,9 @@ stores and provides the data associated with an event for the lifetime of the ev
 The :obj:`Event` python object functions as both a client to the events service and as a cache of
 data stored locally.
 
-To connect to an events service the :func:`nlpnewt.events` function is used, which either takes an
-address to the events service, or optionally will use service discovery such as :ref:`discovery <consul>`, and
-returns a :obj:`nlpnewt.Events` object, which acts as a client to the events service::
+To connect to an events service the :obj:`nlpnewt.Events` class is used, which either takes an
+address to the events service, or optionally will use service discovery such
+as :ref:`discovery <consul>`::
 
  with nlpnewt.events(address) as events:
      with events.open_event('1') as event:
@@ -197,45 +197,42 @@ API Documentation
 
 Events service client, documents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autofunction:: events
-.. autoclass:: nlpnewt.base.Events
-.. autoclass:: nlpnewt.base.Event
-.. autoclass:: nlpnewt.base.Document
+.. autoclass:: Events
+.. autoclass:: nlpnewt.events.Event
+.. autoclass:: nlpnewt.events.Document
 
 Labels on text
 ^^^^^^^^^^^^^^
-.. autoclass:: nlpnewt.base.Label
-.. autoclass:: nlpnewt.base.Labeler
-.. autoclass:: nlpnewt.base.LabelIndex
-.. autoclass:: nlpnewt.base.GenericLabel
+.. autoclass:: nlpnewt.labels.Label
+.. autoclass:: nlpnewt.labels.Location
+.. autoclass:: nlpnewt.events.Labeler
+.. autoclass:: GenericLabel
+.. autoclass:: nlpnewt.label_indices.LabelIndex
 
 Custom Label Types
 ^^^^^^^^^^^^^^^^^^
 .. autofunction:: proto_label_adapter
-.. autoclass:: nlpnewt.base.ProtoLabelAdapter
+.. autoclass:: nlpnewt.events.ProtoLabelAdapter
 
 Creating Processors
 ^^^^^^^^^^^^^^^^^^^
 .. autofunction:: processor
-.. autoclass:: nlpnewt.base.Processor
-.. autoclass:: nlpnewt.base.DocumentProcessor
-
-Performance timing
-^^^^^^^^^^^^^^^^^^
-.. autofunction:: stopwatch
+.. autoclass:: nlpnewt.processing.EventProcessor
+.. autoclass:: nlpnewt.processing.DocumentProcessor
+.. autoclass:: nlpnewt.processing.ProcessorContext
 
 Running Services
 ^^^^^^^^^^^^^^^^
-.. autoclass:: nlpnewt.base.Server
-.. autofunction:: events_server
-.. autofunction:: processor_server
+.. autoclass:: EventsServer
+.. autoclass:: ProcessorServer
 
 Running a pipeline
 ^^^^^^^^^^^^^^^^^^
-.. autofunction:: pipeline
-.. autoclass:: nlpnewt.base.Pipeline
+.. autoclass:: Pipeline
+.. autoclass:: nlpnewt.processing.ProcessingResult
+.. autoclass:: nlpnewt.processing.TimerStats
+.. autoclass:: nlpnewt.processing.AggregateTimingInfo
 
 Configuration
 ^^^^^^^^^^^^^
-.. autofunction:: config
-.. autoclass:: nlpnewt.base.Config
+.. autoclass:: Config

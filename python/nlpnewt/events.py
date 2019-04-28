@@ -25,7 +25,6 @@ import grpc
 from . import _discovery
 from . import _utils
 from . import constants
-from . import labels
 from ._config import Config
 from .api.v1 import events_pb2_grpc, events_pb2
 from .label_indices import label_index
@@ -129,12 +128,6 @@ class Event(Mapping[str, 'Document']):
 
     The Event object functions as a map from string document names to :obj:`Document` objects that
     can be used to access document data from the events server.
-
-    Attributes
-    ----------
-    event_id
-    metadata
-    created_indices
 
     Examples
     --------
@@ -316,13 +309,6 @@ class Document:
     Both label indices, once added, and the document text are immutable. This is to enable
     parallelization and distribution of processing, and to prevent changes to upstream data that
     has already been used in the creation of downstream data.
-
-    Attributes
-    ==========
-    event
-    document_name
-    text
-    created_indices
 
     """
 

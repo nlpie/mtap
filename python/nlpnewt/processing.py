@@ -257,60 +257,37 @@ class DocumentProcessor(metaclass=ABCMeta):
 
 
 class ProcessingResult(NamedTuple):
-    """The result of processing one document or event
-
-    Attributes
-    ----------
-    identifier: str
-        The id of the processor with respect to the pipeline.
-    results: dict
-        The json object returned by the processor as its results
-    timing_info: dict[str, timedelta]
-        A dictionary of the times taken processing this document
-    created_indices: dict[str, list[str]]
-        Any indices that have been added to documents by this processor.
-
-    """
+    """The result of processing one document or event."""
     identifier: str
     results: Dict
     timing_info: Dict
     created_indices: Dict[str, List[str]]
 
 
+ProcessingResult.identifier.__doc__ = "str: The id of the processor with respect to the pipeline."
+ProcessingResult.results.__doc__ = "dict[str, typing.Any]: The json object returned by the processor as its results."
+ProcessingResult.timing_info.__doc__ = "dict[str, datetime.timedelta]: A dictionary of the times taken processing this document"
+ProcessingResult.created_indices.__doc__ = "dict[str, list[str]]: Any indices that have been added to documents by this processor."
+
+
 class TimerStats(NamedTuple):
-    """Statistics about a labeled runtime.
-
-    Attributes
-    ----------
-    mean: timedelta
-        The mean duration.
-    std: timedelta
-        The standard deviation of all times.
-    max: timedelta
-        The maximum of all times.
-    min: timedelta
-        The minimum of all times.
-    sum: timedelta
-        The sum of all times.
-
-    """
+    """Statistics about a labeled runtime."""
     mean: timedelta
     std: timedelta
-    max: timedelta
     min: timedelta
+    max: timedelta
     sum: timedelta
+
+
+TimerStats.mean.__doc__ = "datetime.timedelta: The mean duration."
+TimerStats.std.__doc__ = "datetime.timedelta: The standard deviation of all times."
+TimerStats.max.__doc__ = "datetime.timedelta: The minimum of all times."
+TimerStats.min.__doc__ = "datetime.timedelta: The maximum of all times."
+TimerStats.sum.__doc__ = "datetime.timedelta: The sum of all times."
 
 
 class AggregateTimingInfo(NamedTuple):
-    """Collection of all of the timing info for a specific processor.
-
-    Attributes
-    ----------
-    identifier: str
-        The id of the processor with respect to the pipeline.
-    timing_info: dict[str, TimerStats]
-        A map from all of the timer labels to their aggregate values.
-    """
+    """Collection of all of the timing info for a specific processor."""
     identifier: str
     timing_info: Dict[str, TimerStats]
 
@@ -325,6 +302,10 @@ class AggregateTimingInfo(NamedTuple):
                   f"    max: {str(stats.max)}\n"
                   f"    sum: {str(stats.sum)}")
         print("")
+
+
+AggregateTimingInfo.identifier.__doc__ = "str: The ID of the processor with respect to the pipeline."
+AggregateTimingInfo.timing_info.__doc__ = "dict[str, TimerStats]: A map from all of the timer labels to their aggregate values."
 
 
 class Pipeline:
@@ -429,12 +410,12 @@ class Pipeline:
                                   params=params)
         self._components.append(runner)
 
-    def run(self, target, *, params=None):
+    def run(self, target, *, params=None) -> List[ProcessingResult]:
         """Processes the event/document using all of the processors in the pipeline.
 
         Parameters
         ----------
-        target: Event, Document
+        target: Event or Document
             Either an event or a document to process.
         params: dict
             Json object containing params specific to processing this event, the existing params
@@ -492,8 +473,8 @@ class Pipeline:
         Returns
         -------
         list[AggregateTimingInfo]
-            A list of AggregateTimingInfo objects in the same order that they were added to the
-            pipeline.
+            A list of AggregateTimingInfo objects, one for each processor, in the same order that
+            the processors were added to the pipeline.
 
         """
         timing_infos = []
@@ -548,7 +529,8 @@ class Pipeline:
 
 
 class ProcessorServer:
-    """
+    """Host a NLP-NEWT processor as a service.
+
     Parameters
     ----------
     processor_name: str
@@ -556,7 +538,7 @@ class ProcessorServer:
     address: str
         The address / hostname / IP to host the server on.
     port: int
-        The port to host the server on.
+        The port to host the server on, or 0 to use a random port.
     register: bool, optional
         Whether to register the processor with service discovery.
     events_address: str, optional
@@ -571,11 +553,6 @@ class ProcessorServer:
     args: List[str]
         Any additional command line arguments that should be passed to the processor on
         instantiation.
-
-    Attributes
-    ----------
-    port: int
-        The port the server is currently hosting on.
 
     """
 
