@@ -17,9 +17,9 @@ package edu.umn.nlpnewt.internal;
 
 import edu.umn.nlpnewt.*;
 import io.grpc.Server;
-import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.services.HealthStatusManager;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,25 +39,21 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
   private final Server server;
   private final ProcessorService service;
 
-  private ProcessorServer(Server server, ProcessorService service) {
-    this.server = server;
-    this.service = service;
-  }
+  private final String address;
 
-  public static ProcessorServer create(Config config, ProcessorServerOptions options) {
-    ProcessorService service = new ProcessorService(config, options);
-    Server server = NettyServerBuilder.forAddress(new InetSocketAddress(options.getAddress(), options.getPort()))
+  ProcessorServer(Config config, ProcessorServerOptions options) {
+    service = new ProcessorService(config, options);
+    address = options.getAddress();
+    server = NettyServerBuilder.forAddress(new InetSocketAddress(address, options.getPort()))
         .addService(service)
         .addService(options.getHealthStatusManager().getHealthService())
         .build();
-
-    return new ProcessorServer(server, service);
   }
 
   @Override
   public void start() throws IOException {
     server.start();
-    service.register();
+    service.start(server.getPort());
     logger.info("Server started on port " + server.getPort());
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       System.err.println("Shutting down processor server ");

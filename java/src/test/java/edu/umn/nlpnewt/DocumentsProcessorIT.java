@@ -42,7 +42,7 @@ public class DocumentsProcessorIT {
 
     Newt newt = new Newt();
     Server server = newt.createProcessorServer(ProcessorServerOptions.emptyOptions()
-        .withProcessor(new TestDocumentProcessor())
+        .withProcessorClass(TestDocumentProcessor.class)
         .withEventsTarget("localhost:" + eventsPort));
     server.start();
     int port = server.getPort();
@@ -85,7 +85,13 @@ public class DocumentsProcessorIT {
   }
 
   @Processor("test-processor")
-  private static class TestDocumentProcessor extends AbstractDocumentProcessor {
+  public static class TestDocumentProcessor extends AbstractDocumentProcessor {
+
+    private final ProcessorContext context;
+
+    public TestDocumentProcessor(ProcessorContext context) {
+      this.context = context;
+    }
 
     @Override
     protected void process(@NotNull Document document,
@@ -93,19 +99,16 @@ public class DocumentsProcessorIT {
                            JsonObject.@NotNull Builder result) {
       Boolean doWork = params.getBooleanValue("do_work");
       if (doWork != null && doWork) {
+        Timer fooTimer = context.startTimer("foo_timer");
         try (Labeler<GenericLabel> labeler = document.getLabeler("foo")) {
           labeler.add(GenericLabel.createSpan(0, 5));
         }
+        fooTimer.stop();
         try (Labeler<GenericLabel> labeler = document.getLabeler("bar", true)) {
           labeler.add(GenericLabel.createSpan(0, 5));
         }
         result.setProperty("answer", 42);
       }
-    }
-
-    @Override
-    public void shutdown() throws Exception {
-
     }
   }
 }

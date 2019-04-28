@@ -126,27 +126,6 @@ public final class Newt {
   }
 
   /**
-   * Returns a timing info object that can be used to measure times in a
-   * {@link AbstractEventProcessor} or {@link AbstractDocumentProcessor} processing context.
-   *
-   * <pre>
-   *   {@code
-   *   // in a process() method call
-   *   Timer timer = Newt.timingInfo().start("timerKey");
-   *   // do some kind of work you want to time
-   *   timer.shutdown();
-   *   }
-   * </pre>
-   * <p>
-   * The time will automatically be stored and returned by the framework.
-   *
-   * @return An interface for the system's timing information for the current processing context.
-   */
-  public static @NotNull TimingInfo timingInfo() {
-    return NewtInternal.getTimingInfo();
-  }
-
-  /**
    * A command-line main method for launching processing servers.
    *
    * @param args The command line arguments for launching the processor server.

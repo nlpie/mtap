@@ -25,16 +25,21 @@ import io.grpc.health.v1.HealthCheckResponse;
 import io.grpc.services.HealthStatusManager;
 import io.grpc.stub.StreamObserver;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
+
 class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
   private final Class<? extends AbstractEventProcessor> processorClass;
   private final String eventsTarget;
-  private final ProcessorContext processorContext;
+  private final ProcessorContextManager contextManager;
   private final Config config;
+  private final RegistrationManager registrationManager;
 
   private NewtEvents events = null;
 
@@ -42,51 +47,80 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
 
   private String identifier;
 
-  ProcessorService(Config config, ProcessorServerOptions options) {
+  private Runnable deregister = null;
+  private final HealthStatusManager healthStatusManager;
+
+  ProcessorService(
+      Config config,
+      ProcessorServerOptions options
+  ) {
     this.config = config;
     processorClass = options.getProcessorClass();
     eventsTarget = options.getEventsTarget();
-
     processor = options.getProcessor();
     identifier = options.getIdentifier();
-
-    HealthStatusManager healthStatusManager = new HealthStatusManager();
-    healthStatusManager.setStatus(identifier, HealthCheckResponse.ServingStatus.SERVING);
-
-    processorContext = new ProcessorContextImpl(options);
-  }
-
-  void start() {
-    instantiateProcessor();
-    connectToEvents();
-  }
-
-  void instantiateProcessor() {
-    if (processor == null) {
-
+    healthStatusManager = new HealthStatusManager();
+    contextManager = new ProcessorContextManager(options.getIdentifier(),
+        options.getHealthStatusManager());
+    if (options.getRegister()) {
+      registrationManager = RegistrationManager.create(config);
+      registrationManager.setHealthAddress(options.getAddress());
+    } else {
+      registrationManager = null;
     }
   }
 
-  void connectToEvents() {
+  void start(int port) {
+    // instantiate processor if not provided.
+    if (processor == null) {
+      try {
+        try {
+          Constructor<? extends AbstractEventProcessor> constructor = processorClass.getConstructor(ProcessorContext.class);
+          processor = constructor.newInstance(contextManager.getShim());
+        } catch (NoSuchMethodException ignored) {
+          // fall back to default constructor
+          Constructor<? extends AbstractEventProcessor> constructor = processorClass.getConstructor();
+          processor = constructor.newInstance();
+        }
+      } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+        throw new IllegalStateException("Unable to instantiate processor.", e);
+      }
+    }
+
+    // set identifier to default if not provided.
+    if (identifier == null) {
+      identifier = processor.getClass().getAnnotation(Processor.class).value();
+    }
+
+    // connect to events service
     if (events == null) {
       events = NewtEventsImpl.create(config, eventsTarget);
     }
-  }
 
-  void register() {
+    // set health status to serving
+    healthStatusManager.setStatus(identifier, HealthCheckResponse.ServingStatus.SERVING);
 
+    // register with registration
+    if (registrationManager != null) {
+      registrationManager.setHealthPort(port);
+      deregister = registrationManager.registerService(identifier, PROCESSOR_SERVICE_TAG);
+    }
   }
 
   void shutdown() {
-
+    if (deregister != null) {
+      deregister.run();
+    }
+    healthStatusManager.enterTerminalState();
+    processor.shutdown();
   }
 
   @Override
   public void process(Processing.ProcessRequest request,
                       StreamObserver<Processing.ProcessResponse> responseObserver) {
     Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder();
-    try (TimingInfoImpl timingInfo = TimingInfoImpl.getTimingInfo()) {
-      timingInfo.activate(identifier);
+    try (ProcessorContextManager.ProcessorThreadContext context = contextManager.enterContext()) {
+      contextManager.enterContext();
       String eventID = request.getEventId();
 
       JsonObject.Builder resultBuilder = JsonObject.newBuilder();
@@ -94,7 +128,7 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
         JsonObject.Builder builder = JsonObject.newBuilder();
         AbstractJsonObject.copyStructToJsonObjectBuilder(request.getParams(), builder);
         JsonObject params = builder.build();
-        Timer timer = timingInfo.start("process_method");
+        Timer timer = context.startTimer("process_method");
         processor.process(event, params, resultBuilder);
         timer.stop();
         for (Map.Entry<String, List<String>> entry : event.getCreatedIndices().entrySet()) {
@@ -110,7 +144,7 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
       AbstractJsonObject resultObject = resultBuilder.build();
       AbstractJsonObject.copyJsonObjectToStruct(resultObject, responseBuilder.getResultBuilder());
 
-      Set<Map.Entry<String, Duration>> entries = timingInfo.getTimes().entrySet();
+      Set<Map.Entry<String, Duration>> entries = context.getTimes().entrySet();
       for (Map.Entry<String, Duration> entry : entries) {
         responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(entry.getValue().toNanos()));
       }
@@ -133,18 +167,5 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
     }
   }
 
-  static class ProcessorContextImpl implements ProcessorContext {
-    private final String identifier;
-    private final HealthStatusManager healthStatusManager;
 
-    public ProcessorContextImpl(ProcessorServerOptions processorServerOptions) {
-      this.identifier = processorServerOptions.getIdentifier();
-      this.healthStatusManager = processorServerOptions.getHealthStatusManager();
-    }
-
-    @Override
-    public void updateServingStatus(HealthCheckResponse.ServingStatus status) {
-      healthStatusManager.setStatus(identifier, status);
-    }
-  }
 }

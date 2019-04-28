@@ -30,12 +30,8 @@ public final class NewtInternal {
     return NewtEventsImpl.create(config, address);
   }
 
-  public static TimingInfo getTimingInfo() {
-    return TimingInfoImpl.getTimingInfo();
-  }
-
   public static Server createProcessorServer(Config config, ProcessorServerOptions settings) {
-    return ProcessorServer.create(config, settings);
+    return new ProcessorServer(config, settings);
   }
 
   public static <L extends Label> @NotNull LabelIndex<@NotNull L> standardLabelIndex(

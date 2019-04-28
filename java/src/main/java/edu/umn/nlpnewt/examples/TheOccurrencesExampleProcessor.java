@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
 @Processor("nlpnewt-example-processor-java")
 public class TheOccurrencesExampleProcessor extends AbstractDocumentProcessor {
   private final Pattern pattern = Pattern.compile("\\w+");
+  private final ProcessorContext context;
+
+  public TheOccurrencesExampleProcessor(ProcessorContext context) {
+    this.context = context;
+  }
 
   @Override
   protected void process(@NotNull Document document,
@@ -40,7 +45,7 @@ public class TheOccurrencesExampleProcessor extends AbstractDocumentProcessor {
     }
 
     // Example of using a timer to do timing of operations
-    Timer timer = Newt.timingInfo().start("fetch_time");
+    Timer timer = context.startTimer("fetch_time");
     String text = document.getText();
     timer.stop();
 

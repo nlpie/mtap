@@ -17,9 +17,18 @@
 package edu.umn.nlpnewt;
 
 import io.grpc.health.v1.HealthCheckResponse;
+import org.jetbrains.annotations.NotNull;
+
+import java.time.Duration;
+import java.util.Map;
 
 /**
  * Interface for a processing context which gets passed to processors upon construction.
+ *
+ * The framework will automatically enter a thread context before the
+ * {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
+ * {@link AbstractDocumentProcessor#process(Event, JsonObject, JsonObject.Builder)} methods are
+ * called, and automatically exit after.
  */
 public interface ProcessorContext {
   /**
@@ -29,4 +38,29 @@ public interface ProcessorContext {
    * @param status The status of this processor.
    */
   void updateServingStatus(HealthCheckResponse.ServingStatus status);
+
+  /**
+   * Starts a timer keyed by {@code key}.
+   * <p>
+   * Must be called inside a
+   * {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
+   * {@link AbstractDocumentProcessor#process(Event, JsonObject, JsonObject.Builder)} method.
+   *
+   * @param key The key to store the time under.
+   *
+   * @return A timer object that will automatically store the time elapsed in the processing
+   * context.
+   */
+  @NotNull Timer startTimer(String key);
+
+  /**
+   * Returns all of the times that have completed timing in the current thread context.
+   * <p>
+   * Must be called inside a
+   * {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
+   * {@link AbstractDocumentProcessor#process(Event, JsonObject, JsonObject.Builder)} method.
+   *
+   * @return Map of times.
+   */
+  Map<String, Duration> getTimes();
 }

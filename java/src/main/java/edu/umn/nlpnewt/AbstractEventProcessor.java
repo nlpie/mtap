@@ -56,10 +56,8 @@ public abstract class AbstractEventProcessor {
   /**
    * Called when the processor service is going to shutdown serving so the processor can free
    * any resources associated with the processor.
-   *
-   * @throws Exception any exception that the subclass processor throws while shutting down.
    */
-  public void shutdown() throws Exception {
+  public void shutdown() {
     // this method left purposefully empty
   }
 }
