@@ -20,3 +20,11 @@ First install go, then follow installation instructions on https://github.com/gr
 cd go
 go generate ./...
 ```
+
+# building python documentation
+
+```bash
+pip3 install sphinx sphinx_rtd_theme
+cd python/docs
+make html 
+```
