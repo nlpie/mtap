@@ -70,7 +70,7 @@ abstract class RegistrationManager {
       String uuid = UUID.randomUUID().toString();
       ImmutableRegCheck grpcCheck = ImmutableRegCheck.builder()
           .interval("10s")
-          .grpc(address + ":" + port)
+          .grpc(address + ":" + port + "/" + identifier)
           .status("passing")
           .build();
       ImmutableRegistration registration = ImmutableRegistration.builder()

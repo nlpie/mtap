@@ -169,6 +169,7 @@ class Event(Mapping[str, 'Document']):
             return self._metadata
         except AttributeError:
             self._metadata = _Metadata(self._client, self)
+            return self._metadata
 
     @property
     def created_indices(self) -> Dict[AnyStr, List[AnyStr]]:

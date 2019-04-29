@@ -17,6 +17,7 @@
 package edu.umn.nlpnewt.internal;
 
 import com.google.protobuf.util.Durations;
+import edu.umn.nlpnewt.Timer;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
@@ -28,27 +29,30 @@ import io.grpc.stub.StreamObserver;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
 
-class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
+final class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
   private final Class<? extends AbstractEventProcessor> processorClass;
   private final String eventsTarget;
   private final ProcessorContextManager contextManager;
   private final Config config;
   private final RegistrationManager registrationManager;
-
-  private NewtEvents events = null;
-
-  private AbstractEventProcessor processor;
-
-  private String identifier;
-
-  private Runnable deregister = null;
   private final HealthStatusManager healthStatusManager;
+  private final TimesCollector timesCollector;
+  private NewtEvents events = null;
+  private AbstractEventProcessor processor;
+  private String identifier;
+  private Runnable deregister = null;
+
+  private int processed = 0;
+  private int failures = 0;
 
   ProcessorService(
       Config config,
@@ -60,14 +64,15 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
     processor = options.getProcessor();
     identifier = options.getIdentifier();
     healthStatusManager = options.getHealthStatusManager();
-    contextManager = new ProcessorContextManager(options.getIdentifier(),
-        options.getHealthStatusManager());
+    contextManager = new ProcessorContextManager(options.getHealthStatusManager());
     if (options.getRegister()) {
       registrationManager = RegistrationManager.create(config);
       registrationManager.setHealthAddress(options.getAddress());
     } else {
       registrationManager = null;
     }
+
+    timesCollector = new TimesCollector();
   }
 
   void start(int port) {
@@ -91,6 +96,8 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
     if (identifier == null) {
       identifier = processor.getClass().getAnnotation(Processor.class).value();
     }
+
+    contextManager.setIdentifier(identifier);
 
     // connect to events service
     if (events == null) {
@@ -145,12 +152,16 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
 
       Set<Map.Entry<String, Duration>> entries = context.getTimes().entrySet();
       for (Map.Entry<String, Duration> entry : entries) {
-        responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(entry.getValue().toNanos()));
+        long nanos = entry.getValue().toNanos();
+        timesCollector.addTime(entry.getKey(), nanos);
+        responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(nanos));
       }
       responseObserver.onNext(responseBuilder.build());
       responseObserver.onCompleted();
+      processed++;
     } catch (Throwable t) {
       responseObserver.onError(Status.fromThrowable(t).asException());
+      failures++;
     }
   }
 
@@ -167,5 +178,80 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
     }
   }
 
+  @Override
+  public void getStats(Processing.GetStatsRequest request,
+                       StreamObserver<Processing.GetStatsResponse> responseObserver) {
+    try {
+      Processing.GetStatsResponse.Builder builder = Processing.GetStatsResponse.newBuilder()
+          .setProcessed(processed)
+          .setFailures(failures);
+      Map<String, Processing.TimerStats> timerStats = timesCollector.getTimerStats();
+      builder.putAllTimingStats(timesCollector.getTimerStats());
+      responseObserver.onNext(builder.build());
+      responseObserver.onCompleted();
+    } catch (Throwable t) {
+      responseObserver.onError(t);
+    }
+  }
+
+  private static class RunningVariance {
+    private long count = 0;
+    private long min = Long.MAX_VALUE;
+    private long max = 0;
+    private double mean = 0;
+    private double sse = 0;
+    private long sum = 0;
+
+    void addTime(long time) {
+      if (time < min) {
+        min = time;
+      }
+      if (time > max) {
+        max = time;
+      }
+
+      count++;
+      sum += time;
+      double delta = time - mean;
+      mean += delta / count;
+      double delta2 = time - mean;
+      sse += delta * delta2;
+    }
+
+    Processing.TimerStats createStats() {
+      return Processing.TimerStats.newBuilder()
+          .setMean(Durations.fromNanos(Math.round(mean)))
+          .setStd(Durations.fromNanos(Math.round(Math.sqrt(sse / count))))
+          .setMin(Durations.fromNanos(min))
+          .setMax(Durations.fromNanos(max))
+          .setSum(Durations.fromNanos(sum))
+          .build();
+    }
+  }
+
+  private static class TimesCollector {
+    private final Map<String, RunningVariance> timesMap = new HashMap<>();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    void addTime(String key, long time) {
+      executor.submit(() -> {
+        RunningVariance runningVariance = timesMap.computeIfAbsent(key, unused -> new RunningVariance());
+        runningVariance.addTime(time);
+      });
+    }
+
+    Map<String, Processing.TimerStats> getTimerStats() {
+      Future<Map<String, Processing.TimerStats>> future = executor.submit(() -> timesMap.entrySet()
+          .stream()
+          .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.getKey(), e.getValue().createStats()))
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+      );
+      try {
+        return future.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new IllegalArgumentException(e);
+      }
+    }
+  }
 
 }

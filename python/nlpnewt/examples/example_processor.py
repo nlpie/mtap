@@ -14,9 +14,11 @@
 """An example document processor."""
 
 import re
+from typing import Dict, Any, Optional
 
 import nlpnewt
-from nlpnewt.processing import DocumentProcessor
+from nlpnewt.events import Document
+from nlpnewt.processing import DocumentProcessor, ProcessorContext
 
 the = re.compile('the', flags=re.I)
 
@@ -30,9 +32,9 @@ class ExampleProcessor(DocumentProcessor):
     def __init__(self, context: ProcessorContext):
         self.context = context
 
-    def process_document(self, document, params):
+    def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if params['do_work']:
-            with nlpnewt.stopwatch('fetch_time'):
+            with self.context.stopwatch('fetch_time'):
                 text = document.text
 
             a_count = text.count('a')

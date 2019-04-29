@@ -527,6 +527,13 @@ class Pipeline:
         """
         return _PipelineProcessor(self._components)
 
+    def print_times(self):
+        """Prints all of the times collected during this pipeline.
+        """
+        self.pipeline_timer_stats().print_times()
+        for pipeline_timer in self.processor_timer_stats():
+            pipeline_timer.print_times()
+
 
 class ProcessorServer:
     """Host a NLP-NEWT processor as a service.
@@ -575,6 +582,7 @@ class ProcessorServer:
         self.events_address = events_address
 
         self._health_servicer = health.HealthServicer()
+        self._health_servicer.set('', 'SERVING')
         self._servicer = _ProcessorServicer(
             config=Config(),
             processor_name=processor_name,

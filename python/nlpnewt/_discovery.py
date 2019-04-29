@@ -54,8 +54,7 @@ class ConsulDiscovery(Discovery):
         self.c.agent.service.register(name,
                                       port=port,
                                       check={
-                                          'name': 'gRPC Health Check',
-                                          'grpc': f"{address}:{port}",
+                                          'grpc': f"{address}:{port}/{name}",
                                           'interval': "10s",
                                           'status': 'passing'
                                       },
@@ -81,8 +80,7 @@ class ConsulDiscovery(Discovery):
         self.c.agent.service.register(processor_id,
                                       port=port,
                                       check={
-                                          'name': 'gRPC Health Check',
-                                          'grpc': f"{address}:{port}",
+                                          'grpc': f"{address}:{port}/{processor_id}",
                                           'interval': "10s",
                                           'status': 'passing'
                                       },
