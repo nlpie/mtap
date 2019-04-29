@@ -22,7 +22,7 @@ import edu.umn.nlpnewt.Label;
 import java.util.Objects;
 
 @Internal
-class Span implements Label {
+final class Span implements Label {
 
   private final int startIndex;
   private final int endIndex;

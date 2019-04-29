@@ -32,7 +32,7 @@ import java.util.Map;
 
 class ProcessorContextManager {
   private final ThreadLocal<ProcessorThreadContext> threadContext = new ThreadLocal<>();
-  private final String identifier;
+  private String identifier = null;
 
   private final HealthStatusManager healthStatusManager;
 
@@ -53,8 +53,7 @@ class ProcessorContextManager {
     }
   };
 
-  ProcessorContextManager(String identifier, HealthStatusManager healthStatusManager) {
-    this.identifier = identifier;
+  ProcessorContextManager(HealthStatusManager healthStatusManager) {
     this.healthStatusManager = healthStatusManager;
   }
 
@@ -71,6 +70,14 @@ class ProcessorContextManager {
           "managed process call.");
     }
     return local;
+  }
+
+  public String getIdentifier() {
+    return identifier;
+  }
+
+  public void setIdentifier(String identifier) {
+    this.identifier = identifier;
   }
 
   @NotNull ProcessorContext getShim() {

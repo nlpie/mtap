@@ -37,7 +37,8 @@ if __name__ == '__main__':
     from datetime import datetime
     from time import time
 
-    conn = sqlite3.connect(sys.argv[1])
+    file = sys.argv[1]
+    conn = sqlite3.connect(file)
     c = conn.cursor()
     source_documents = c.execute('SELECT * FROM txts').fetchall()
 
