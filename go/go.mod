@@ -19,9 +19,9 @@ module github.com/benknoll-umn/nlpnewt/go
 go 1.12
 
 require (
-	github.com/coreos/etcd v3.3.12+incompatible // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/protobuf v1.3.1
+	github.com/gorilla/handlers v1.4.0
 	github.com/gorilla/mux v1.7.1
 	github.com/grpc-ecosystem/grpc-gateway v1.8.5
 	github.com/hashicorp/consul/api v1.0.1
@@ -30,11 +30,10 @@ require (
 	github.com/spf13/cast v1.3.0
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.3.2
-	github.com/stretchr/objx v0.1.1 // indirect
-	github.com/ugorji/go/codec v0.0.0-20190320090025-2dc34c0b8780 // indirect
 	golang.org/x/crypto v0.0.0-20190404164418-38d8ce5564a5 // indirect
 	golang.org/x/net v0.0.0-20181220203305-927f97764cc3
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 	golang.org/x/sys v0.0.0-20190405154228-4b34438f7a67 // indirect
+	google.golang.org/genproto v0.0.0-20180817151627-c66870c02cf8
 	google.golang.org/grpc v1.19.1
 )

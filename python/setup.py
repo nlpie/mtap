@@ -49,7 +49,8 @@ def generate_proto(source, require=True):
             sys.exit(-1)
 
         proto_include = pkg_resources.resource_filename('grpc_tools', '_proto')
-        grpc_tools.protoc.main(["-I.", "-I{}".format(proto_include), "-I../proto",
+        grpc_tools.protoc.main(["-I.", "-I{}".format(proto_include),
+                                "-I../thirdparty/api-common-protos-0.1.0", "-I../proto",
                                 "--python_out=.", "--grpc_python_out=.", source])
 
 
