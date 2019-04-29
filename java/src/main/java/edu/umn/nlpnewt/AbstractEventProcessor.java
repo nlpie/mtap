@@ -15,7 +15,6 @@
  */
 package edu.umn.nlpnewt;
 
-import grpc.health.v1.HealthOuterClass.HealthCheckResponse.ServingStatus;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -57,6 +56,7 @@ public abstract class AbstractEventProcessor {
    * Called when the processor service is going to shutdown serving so the processor can free
    * any resources associated with the processor.
    */
+  @SuppressWarnings("EmptyMethod")
   public void shutdown() {
     // this method left purposefully empty
   }

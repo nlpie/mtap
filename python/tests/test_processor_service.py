@@ -39,9 +39,12 @@ class ProcessorWithContext(DocumentProcessor):
             labeler(4, 5, x='b')
             labeler(6, 7, x='c')
 
+
 @pytest.fixture
 def processor_service(events):
-    server = nlpnewt.ProcessorServer('nlpnewt-test-processor', '127.0.0.1', 0, workers=5,
+    server = nlpnewt.ProcessorServer('nlpnewt-test-processor', '127.0.0.1', 0,
+                                     processor_id='nlpnewt-test-processor-id',
+                                     workers=5,
                                      events_address=events[0])
     server.start()
     for i in range(10):
@@ -49,7 +52,7 @@ def processor_service(events):
             address = f'127.0.0.1:{server.port}'
             with grpc.insecure_channel(address) as channel:
                 stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service='nlpnewt-test-processor')
+                request = health_pb2.HealthCheckRequest(service='nlpnewt-test-processor-id')
                 response = stub.Check(request)
                 if response.status == health_pb2.HealthCheckResponse.SERVING:
                     yield address, channel
@@ -77,7 +80,7 @@ def test_processor_service(events, processor_service):
     events_service.AddDocument(events_pb2.AddDocumentRequest(event_id='1', document_name='hey',
                                                              text=PHASERS))
 
-    request = processing_pb2.ProcessRequest(processor_name='nlpnewt-test-processor', event_id='1')
+    request = processing_pb2.ProcessRequest(processor_id='nlpnewt-test-processor-id', event_id='1')
     request.params['document_name'] = 'hey'
     processor_stub = processing_pb2_grpc.ProcessorStub(processor_service[1])
     processor_stub.Process(request)
@@ -87,22 +90,29 @@ def test_processor_service(events, processor_service):
     assert r is not None
 
 
+def test_get_info(processor_service):
+    processor_stub = processing_pb2_grpc.ProcessorStub(processor_service[1])
+    info = processor_stub.GetInfo(processing_pb2.GetInfoRequest(processor_id='nlpnewt-test-processor-id'))
+    assert info.name == 'nlpnewt-test-processor'
+    assert info.identifier == 'nlpnewt-test-processor-id'
+
+
 def test_pipeline_client(events, processor_service):
     events_host, events_service = events
     with nlpnewt.Pipeline() as p, nlpnewt.Events(events_host) as events:
-        p.add_processor('nlpnewt-test-processor', processor_service[0])
+        p.add_processor('nlpnewt-test-processor-id', processor_service[0])
         event = events.open_event('1')
         doc = event.add_document('hey', PHASERS)
 
         r = p.run(doc)
         processor_timer_stats = p.processor_timer_stats()
         pipeline_timer_stats = p.pipeline_timer_stats()
-        remote_call_time = r[0].timing_info['nlpnewt-test-processor-1:remote_call']
+        remote_call_time = r[0].timing_info['nlpnewt-test-processor-id-1:remote_call']
         process_method_time = r[0].timing_info[
-            'nlpnewt-test-processor-1:nlpnewt-test-processor:process_method']
+            'nlpnewt-test-processor-id-1:nlpnewt-test-processor-id:process_method']
         assert remote_call_time > process_method_time
         first_component_stats = processor_timer_stats[0]
-        assert first_component_stats.identifier == 'nlpnewt-test-processor-1'
+        assert first_component_stats.identifier == 'nlpnewt-test-processor-id-1'
         assert first_component_stats.timing_info['remote_call'].std == datetime.timedelta(seconds=0)
         assert first_component_stats.timing_info['remote_call'].mean == remote_call_time
         assert first_component_stats.timing_info['remote_call'].max == remote_call_time
