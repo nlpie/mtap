@@ -23,15 +23,47 @@ import (
 	_ "github.com/benknoll-umn/nlpnewt/go/nlpnewt/consul"
 	"github.com/benknoll-umn/nlpnewt/go/nlpnewt/processors"
 	"github.com/golang/glog"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 )
+
+func serveSwagger(r *mux.Router) {
+	m := mux.NewRouter()
+	m.HandleFunc("/v1/processors/swagger.json",
+		func(w http.ResponseWriter, req *http.Request) {
+			_, err := io.Copy(w, strings.NewReader(nlpnewt_api_v1.Processing))
+			if err != nil {
+				w.WriteHeader(500)
+			}
+			w.Header().Set("Content-Type", "application/json")
+		})
+
+	m.HandleFunc("/v1/events/swagger.json",
+		func(w http.ResponseWriter, req *http.Request) {
+			_, err := io.Copy(w, strings.NewReader(nlpnewt_api_v1.Events))
+			if err != nil {
+				w.WriteHeader(500)
+			}
+			w.Header().Set("Content-Type", "application/json")
+		})
+
+	corsHandler := handlers.CORS(
+		handlers.AllowedOrigins([]string{"*"}),
+		handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"}),
+		handlers.AllowedHeaders([]string{"Content-Type", "api-key", "Authorization"}),
+	)
+	r.Handle("/v1/processors/swagger.json", corsHandler(m))
+	r.Handle("/v1/events/swagger.json", corsHandler(m))
+}
 
 func run() error {
 	glog.V(1).Infoln("Starting NLP-NEWT API gateway")
@@ -50,6 +82,8 @@ func run() error {
 	consulAddr := consulHost + ":" + strconv.Itoa(consulPort)
 
 	m := mux.NewRouter()
+
+	serveSwagger(m)
 
 	config := processors.Config{
 		ConsulAddress:   consulHost,
@@ -92,7 +126,7 @@ func run() error {
 	port := strconv.Itoa(viper.GetInt("gateway.port"))
 	glog.V(1).Infoln("Serving on port " + port)
 
-	return http.ListenAndServe(":"+port, m)
+	return http.ListenAndServe(":"+port, handlers.CORS(handlers.AllowedOrigins([]string{"*"}))(m))
 }
 
 func main() {
