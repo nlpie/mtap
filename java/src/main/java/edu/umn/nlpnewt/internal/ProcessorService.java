@@ -159,7 +159,8 @@ class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
                       StreamObserver<Processing.GetInfoResponse> responseObserver) {
     try {
       String name = processor.getClass().getAnnotation(Processor.class).value();
-      responseObserver.onNext(Processing.GetInfoResponse.newBuilder().setName(name).build());
+      responseObserver.onNext(Processing.GetInfoResponse.newBuilder().setName(name)
+          .setIdentifier(identifier).build());
       responseObserver.onCompleted();
     } catch (Throwable t) {
       responseObserver.onError(t);

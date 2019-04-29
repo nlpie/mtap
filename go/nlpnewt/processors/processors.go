@@ -80,7 +80,7 @@ func NewProcessorsServer(ctx context.Context, config *Config) (*ProcessorsServer
 		semaphore:  semaphore.NewWeighted(int64(1)),
 	}
 	ps.Dispatcher.HandleFunc("/v1/processors", ps.handleProcessors).Methods("GET")
-	ps.Dispatcher.PathPrefix("/v1/processors/{Name}").HandlerFunc(ps.dispatchToProcessor)
+	ps.Dispatcher.PathPrefix("/v1/processors/{Identifier}").HandlerFunc(ps.dispatchToProcessor)
 
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = config.ConsulAddress + ":" + strconv.Itoa(config.ConsulPort)
@@ -129,8 +129,8 @@ func (ps *ProcessorsServer) handleProcessors(w http.ResponseWriter, r *http.Requ
 func (ps *ProcessorsServer) dispatchToProcessor(w http.ResponseWriter, r *http.Request) {
 	glog.V(3).Info("Dispatching a processor gateway request")
 	vars := mux.Vars(r)
-	name := vars["Name"]
-	p, prs := ps.processors[name]
+	identifier := vars["Identifier"]
+	p, prs := ps.processors[identifier]
 	if prs {
 		p.mux.ServeHTTP(w, r)
 	} else {

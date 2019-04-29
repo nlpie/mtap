@@ -17,7 +17,7 @@ config_version: 3
 http:
   rules:
     - selector: nlpnewt.api.v1.Processor.Process
-      post: "/v1/processors/{processor_name}/process/{event_id}"
+      post: "/v1/processors/{processor_id}/process/{event_id}"
       body: "*"
     - selector: nlpnewt.api.v1.Processor.GetInfo
-      get: "/v1/processors/{processor_name}/info"
+      get: "/v1/processors/{processor_id}/info"

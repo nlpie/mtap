@@ -15,6 +15,7 @@
 
 import contextlib
 import logging
+import math
 import threading
 from abc import ABCMeta, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -22,10 +23,9 @@ from datetime import datetime, timedelta
 from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional
 
 import grpc
-import math
 from grpc_health.v1 import health, health_pb2_grpc
 
-from . import _utils, _discovery, events
+from . import _utils, _discovery
 from ._config import Config
 from .api.v1 import processing_pb2_grpc, processing_pb2
 from .events import Event, Document, Events
@@ -497,7 +497,7 @@ class Pipeline:
 
         """
         pipeline_id = 'pipeline:'
-        aggregates = self.__times_collector.get_aggregates(pipeline_id)
+        aggregates = self._times_collector.get_aggregates(pipeline_id)
         aggregates = {k[len(pipeline_id):]: v for k, v in aggregates.items()}
         return AggregateTimingInfo(identifier='pipeline', timing_info=aggregates)
 
@@ -725,7 +725,8 @@ class _RemoteRunner:
 
         with _enter_context(self.component_id) as context:
             try:
-                request = processing_pb2.ProcessRequest(event_id=event_id)
+                request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
+                                                        event_id=event_id)
                 _utils.copy_dict_to_struct(p, request.params, [p])
                 with context.stopwatch('remote_call'):
                     response = self._stub.Process(request)
@@ -892,7 +893,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         return r
 
     def GetInfo(self, request, context):
-        return processing_pb2.GetInfoResponse(name=self.processor_name)
+        return processing_pb2.GetInfoResponse(name=self.processor_name, identifier=self.processor_id)
 
 
 class _TimerStatsAggregator:
