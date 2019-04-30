@@ -132,6 +132,8 @@ class GenericLabel(Label, Mapping[str, Any]):
     """
 
     def __init__(self, start_index: int, end_index: int, **kwargs):
+        for v in kwargs.values():
+            _check_type(v)
         self.__dict__['fields'] = dict(kwargs)
         self.fields['start_index'] = start_index
         self.fields['end_index'] = end_index
@@ -140,17 +142,9 @@ class GenericLabel(Label, Mapping[str, Any]):
     def start_index(self):
         return self.fields['start_index']
 
-    @start_index.setter
-    def start_index(self, value):
-        self.fields['start_index'] = value
-
     @property
     def end_index(self):
         return self.fields['end_index']
-
-    @end_index.setter
-    def end_index(self, value):
-        self.fields['end_index'] = value
 
     def __getattr__(self, item):
         fields = self.__dict__['fields']
@@ -170,15 +164,13 @@ class GenericLabel(Label, Mapping[str, Any]):
             Some kind of value, must be able to be serialized to json.
 
         """
-        self.__dict__['_fields'][key] = value
+        _check_type(value, [self])
+        self.__dict__['fields'][key] = value
 
     def __eq__(self, other):
         if not isinstance(other, GenericLabel):
             return False
         return self.fields == other.fields
-
-    def __hash__(self):
-        return hash((self.__class__, self.fields))
 
     def __repr__(self):
         return ("GenericLabel(".format()
@@ -203,7 +195,7 @@ def _check_type(o: Any, parents=None):
     if parents is None:
         parents = [o]
     if isinstance(o, (str, float, bool, int)) or o is None:
-        pass
+        return
     elif isinstance(o, Mapping):
         for v in o.values():
             if v in parents:
