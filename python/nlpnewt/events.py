@@ -23,7 +23,7 @@ from typing import Iterator, AnyStr, List, Dict, MutableMapping, Mapping, Generi
 import grpc
 
 from . import _discovery
-from . import _utils
+from . import _structs
 from . import constants
 from ._config import Config
 from .api.v1 import events_pb2_grpc, events_pb2
@@ -716,7 +716,7 @@ class _GenericLabelAdapter(ProtoLabelAdapter):
         labels = []
         for label in json_labels.labels:
             d = {}
-            _utils.copy_struct_to_dict(label, d)
+            _structs.copy_struct_to_dict(label, d)
             generic_label = GenericLabel(**d)
             labels.append(generic_label)
 
@@ -725,7 +725,7 @@ class _GenericLabelAdapter(ProtoLabelAdapter):
     def add_to_message(self, labels, request):
         json_labels = request.json_labels
         for label in labels:
-            _utils.copy_dict_to_struct(label.fields, json_labels.labels.add(), [label])
+            _structs.copy_dict_to_struct(label.fields, json_labels.labels.add(), [label])
 
 
 _generic_adapter = _GenericLabelAdapter(False)

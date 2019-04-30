@@ -13,7 +13,7 @@
 # limitations under the License.
 """Internal labels functionality."""
 from abc import ABC, abstractmethod
-from typing import TypeVar, NamedTuple
+from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence
 
 
 class Location(NamedTuple):
@@ -103,7 +103,7 @@ class Label(ABC):
 L = TypeVar('L', bound=Label)
 
 
-class GenericLabel(Label):
+class GenericLabel(Label, Mapping[str, Any]):
     """Default implementation of the Label class which uses a dictionary to store attributes.
 
     Will be suitable for the majority of use cases for labels.
@@ -188,3 +188,32 @@ class GenericLabel(Label):
                                                                 k not in (
                                                                     'start_index', 'end_index')])
                 + ")")
+
+    def __getitem__(self, k: str) -> Any:
+        return self.fields[k]
+
+    def __len__(self) -> int:
+        return len(self.fields)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.fields)
+
+
+def _check_type(o: Any, parents=None):
+    if parents is None:
+        parents = [o]
+    if isinstance(o, (str, float, bool, int)) or o is None:
+        pass
+    elif isinstance(o, Mapping):
+        for v in o.values():
+            if v in parents:
+                raise ValueError('Recursive loop')
+            _check_type(v, parents + [v])
+    elif isinstance(o, Sequence):
+        for v in o:
+            if v in parents:
+                raise ValueError('Recursive loop')
+            _check_type(v, parents + [v])
+    else:
+        raise TypeError('Unrecognized type')
+
