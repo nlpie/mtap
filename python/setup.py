@@ -14,6 +14,7 @@
 """A framework for developing NLP pipeline components."""
 
 import os
+import subprocess
 import sys
 from distutils.command.build_py import build_py as _build_py
 from distutils.command.clean import clean as _clean
@@ -21,6 +22,16 @@ from distutils.command.clean import clean as _clean
 import pkg_resources
 from setuptools import setup, find_packages
 from setuptools.command.test import test as _test
+
+
+def git_version():
+    try:
+        proc = subprocess.run(['git', 'describe', '--tags', '--dirty'], capture_output=True)
+        if proc.returncode == 0:
+            return proc.stdout.decode("utf-8").rstrip()
+    except:
+        pass
+    return 'development0'
 
 
 def generate_proto(source, require=True):
@@ -91,7 +102,7 @@ class test(_test):
 
 setup(
     name='nlpnewt',
-    use_scm_version={"root": "..", "relative_to": __file__},
+    version=git_version(),
     description='A framework for developing NLP pipeline components.',
     author='University of Minnesota NLP/IE Group',
     author_email='nlp-ie@umn.edu',
@@ -105,24 +116,24 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     keywords='nlp grpc microservices',
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests', ]),
     install_requires=[
         'grpcio>=1.20.0',
         'grpcio-health-checking>=1.20.0',
         'protobuf>=3.7.0',
         'pyyaml',
-        'python-consul'
+        'python-consul',
+        'googleapis-common-protos',
     ],
     setup_requires=[
         'pytest-runner',
         'grpcio-tools',
-        'setuptools_scm'
     ],
     tests_require=[
         'pytest'
     ],
     extras_require={
-        'grpc_tools': ['grpcio-tools', 'googleapis-common-protos'],
+        'grpc_tools': ['grpcio-tools'],
         'tests': ['pytest-runner', 'pytest'],
         'docs': ['sphinx', 'sphinx_rtd_theme']
     },

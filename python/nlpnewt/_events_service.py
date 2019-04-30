@@ -46,7 +46,7 @@ class EventsServer:
         prefix = constants.EVENTS_SERVICE_NAME + "-workers-"
         thread_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix)
         server = grpc.server(thread_pool)
-        servicer = _EventsServicer()
+        servicer = EventsServicer()
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)
         health_servicer = health.HealthServicer()
         health_servicer.set('', 'SERVING')
@@ -109,31 +109,7 @@ class EventsServer:
         return shutdown_event
 
 
-class _Event:
-    def __init__(self):
-        self.c_lock = threading.RLock()
-        self.clients = 0
-        self.metadata = {}
-        self.documents = {}
-        self.d_lock = threading.RLock()
-
-
-class _Document:
-    def __init__(self, text):
-        self.text = text
-        self.lock = {}
-        self.labels = {}
-
-
-def _set_error_context(context, status_code, msg):
-    try:
-        context.set_code(status_code)
-        context.set_details(msg)
-    except AttributeError:
-        pass
-
-
-class _EventsServicer(events_pb2_grpc.EventsServicer, health_pb2_grpc.HealthServicer):
+class EventsServicer(events_pb2_grpc.EventsServicer, health_pb2_grpc.HealthServicer):
     def __init__(self):
         self.lock = threading.RLock()
         self.events = {}
@@ -263,3 +239,27 @@ class _EventsServicer(events_pb2_grpc.EventsServicer, health_pb2_grpc.HealthServ
         if labels_type is not None:
             getattr(response, labels_type).CopyFrom(labels)
         return response
+
+
+class _Event:
+    def __init__(self):
+        self.c_lock = threading.RLock()
+        self.clients = 0
+        self.metadata = {}
+        self.documents = {}
+        self.d_lock = threading.RLock()
+
+
+class _Document:
+    def __init__(self, text):
+        self.text = text
+        self.lock = {}
+        self.labels = {}
+
+
+def _set_error_context(context, status_code, msg):
+    try:
+        context.set_code(status_code)
+        context.set_details(msg)
+    except AttributeError:
+        pass

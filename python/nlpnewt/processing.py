@@ -25,7 +25,7 @@ from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc
 
-from . import _utils, _discovery
+from . import _structs, _discovery
 from ._config import Config
 from .api.v1 import processing_pb2_grpc, processing_pb2
 from .events import Event, Document, Events
@@ -735,11 +735,11 @@ class _RemoteRunner:
             try:
                 request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
                                                         event_id=event_id)
-                _utils.copy_dict_to_struct(p, request.params, [p])
+                _structs.copy_dict_to_struct(p, request.params, [p])
                 with context.stopwatch('remote_call'):
                     response = self._stub.Process(request)
                 r = {}
-                _utils.copy_struct_to_dict(response.result, r)
+                _structs.copy_struct_to_dict(response.result, r)
 
                 timing_info = response.timing_info
                 for k, v in timing_info.items():
@@ -861,15 +861,16 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         except AttributeError:
             pass
         self._runner.close()
+        self._times_collector.close()
 
     def Process(self, request, context=None):
         params = {}
-        _utils.copy_struct_to_dict(request.params, params)
+        _structs.copy_struct_to_dict(request.params, params)
         try:
             response = processing_pb2.ProcessResponse()
             result, times, added_indices = self._runner.call_process(request.event_id, params)
             if result is not None:
-                _utils.copy_dict_to_struct(result, response.result, [])
+                _structs.copy_dict_to_struct(result, response.result, [])
 
             self._times_collector.add_times(times)
             for k, l in times.items():
@@ -962,7 +963,7 @@ class _ProcessingTimesCollector:
         future = self._executor.submit(self._get_aggregates, identifier or '')
         return future.result()
 
-    def shutdown(self):
+    def close(self):
         self._executor.shutdown(wait=True)
 
 
