@@ -27,7 +27,7 @@ from . import _structs
 from . import constants
 from ._config import Config
 from .api.v1 import events_pb2_grpc, events_pb2
-from .label_indices import label_index
+from .label_indices import label_index, LabelIndex
 from .labels import GenericLabel, Label
 
 __all__ = [
@@ -195,7 +195,7 @@ class Event(Mapping[str, 'Document']):
                     self._client.close_event(self._event_id)
                     self._open = False
 
-    def add_document(self, document_name, text):
+    def add_document(self, document_name: str, text: str):
         """Adds a document to the event keyed by the document_name and
         containing the specified text.
 
@@ -214,18 +214,19 @@ class Event(Mapping[str, 'Document']):
             modify the document with the `document_name` on this event.
         """
         self.ensure_open()
-        if text is None:
-            raise ValueError("Argument text cannot be None. "
-                             "None maps to an empty string in protobuf.")
+        if not isinstance(document_name, str):
+            raise TypeError('Document name is not string.')
+        if not isinstance(text, str):
+            raise ValueError('text is not string.')
         self._client.add_document(self._event_id, document_name, text)
         document = Document(self._client, self, document_name)
         self._documents[document_name] = document
         return document
 
     def __contains__(self, document_name: str) -> bool:
-        if not isinstance(document_name, str):
-            raise TypeError('Document name is not string')
         self.ensure_open()
+        if not isinstance(document_name, str):
+            return False
         if document_name in self._documents:
             return True
         self._refresh_documents()
@@ -252,9 +253,9 @@ class Event(Mapping[str, 'Document']):
         'The quick brown fox jumped over the lazy dog.'
 
         """
-        if not isinstance(document_name, str):
-            raise TypeError('Document name is not string')
         self.ensure_open()
+        if not isinstance(document_name, str):
+            raise KeyError
         try:
             return self._documents[document_name]
         except KeyError:
@@ -375,7 +376,7 @@ class Document:
         """
         return list(self._created_indices)
 
-    def get_label_index(self, label_index_name: str, *, label_type_id: str = None):
+    def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
         """Gets the document's label index with the specified key, fetching it from the
         service if it is not cached locally.
 
@@ -397,7 +398,6 @@ class Document:
         self._event.ensure_open()
         if label_index_name in self._label_indices:
             return self._label_indices[label_index_name]
-
         if label_type_id is None:
             label_type_id = constants.GENERIC_LABEL_ID
 
@@ -462,7 +462,7 @@ class Document:
         self._created_indices.append(label_index_name)
 
     def add_created_indices(self, created_indices):
-        return self._created_indices.append(created_indices)
+        return self._created_indices.extend(created_indices)
 
 
 class Labeler(Generic[L]):
@@ -482,7 +482,7 @@ class Labeler(Generic[L]):
         self.is_done = False
         self._current_labels = []
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> L:
         """Calls the constructor for the label type adding it to the list of labels to be uploaded.
 
         Parameters
@@ -519,25 +519,65 @@ class Labeler(Generic[L]):
         self.is_done = True
 
 
-class ProtoLabelAdapter(ABC):
+class ProtoLabelAdapter(ABC, Generic[L]):
     """Responsible for serialization and deserialization of non-standard label types.
 
     See Also
     --------
-    proto_label_adapter: The decorator used to create
+    proto_label_adapter: The decorator that stores proto label adapters for use.
 
     """
 
     @abstractmethod
-    def create_label(self, *args, **kwargs):
+    def create_label(self, *args, **kwargs) -> L:
+        """Called by labelers to create labels.
+
+        Should include the positional arguments 'start_index' and 'end_index', because those are
+        required properties of labels.
+
+        Parameters
+        ----------
+        args: Any
+            args you want your labeler to take.
+        kwargs: Any
+            kwargs you want your labeler to take.
+
+        Returns
+        -------
+        L
+            The label type.
+
+        """
         ...
 
     @abstractmethod
-    def create_index_from_response(self, response):
+    def create_index_from_response(self, response: events_pb2.GetLabelsResponse) -> LabelIndex[L]:
+        """Creates a LabelIndex from the response from an events service.
+
+        Parameters
+        ----------
+        response: events_pb2.GetLabelsResponse
+            The response from the events service.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A label index containing all the labels from the events service.
+
+        """
         ...
 
     @abstractmethod
-    def add_to_message(self, labels, request):
+    def add_to_message(self, labels: List[L], request: events_pb2.AddLabelsRequest):
+        """Adds a list of labels to the request to the event service to add labels.
+
+        Parameters
+        ----------
+        labels: List[L]
+            The list of labels that need to be sent to the server.
+        request: events_pb2.AddLabelsRequest
+            The request that will be sent to the server.
+        """
         ...
 
 
@@ -606,7 +646,7 @@ class _EventsClient:
 
     def close_event(self, event_id):
         request = events_pb2.CloseEventRequest(event_id=event_id)
-        self.stub.CloseEvent.with_call(request)
+        self.stub.CloseEvent(request)
 
     def get_all_metadata(self, event_id):
         request = events_pb2.GetAllMetadataRequest(event_id=event_id)
@@ -700,7 +740,7 @@ class _Metadata(collections.abc.MutableMapping):
     def _refresh_metadata(self):
         self._event.ensure_open()
         response = self._client.get_all_metadata(self._event_id)
-        self._metadata = response
+        self._metadata.update(response)
 
 
 class _GenericLabelAdapter(ProtoLabelAdapter):
