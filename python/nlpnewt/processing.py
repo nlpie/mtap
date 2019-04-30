@@ -861,6 +861,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         except AttributeError:
             pass
         self._runner.close()
+        self._times_collector.close()
 
     def Process(self, request, context=None):
         params = {}
@@ -962,7 +963,7 @@ class _ProcessingTimesCollector:
         future = self._executor.submit(self._get_aggregates, identifier or '')
         return future.result()
 
-    def shutdown(self):
+    def close(self):
         self._executor.shutdown(wait=True)
 
 
