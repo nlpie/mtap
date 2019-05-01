@@ -133,6 +133,7 @@ public interface Label {
     return Integer.compare(getEndIndex(), other.getEndIndex());
   }
 
+
   default int compareStart(@NotNull Label other) {
     return Integer.compare(getStartIndex(), other.getStartIndex());
   }
