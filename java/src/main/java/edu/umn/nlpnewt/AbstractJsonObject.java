@@ -90,52 +90,43 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
    */
   public static void copyJsonObjectToStruct(AbstractJsonObject abstractJsonObject,
                                             Struct.Builder structBuilder) {
-    internalCopyJsonObject(abstractJsonObject, structBuilder, new ArrayDeque<>());
+    internalCopyJsonObject(abstractJsonObject, structBuilder);
   }
 
   private static void internalCopyJsonObject(AbstractJsonObject abstractJsonObject,
-                                             Struct.Builder struct,
-                                             Deque<Object> parents) {
-    parents.push(abstractJsonObject);
-    for (Entry<?, ?> entry : abstractJsonObject.entrySet()) {
-      Object key = entry.getKey();
-      if (!(key instanceof String)) {
-        throw new IllegalArgumentException("Key is not a string key");
-      }
+                                             Struct.Builder struct) {
+    for (Entry<String, ?> entry : abstractJsonObject.entrySet()) {
+      String key = entry.getKey();
       Object value = entry.getValue();
-
-      struct.putFields((String) key, createValue(value, parents));
+      Value protoValue = createValue(value);
+      struct.putFields(key, protoValue);
     }
-    parents.pop();
   }
 
-  private static Value createValue(Object from, Deque<Object> parents) {
-    if (parents.contains(from)) {
-      throw new IllegalArgumentException("Circular reference attempting to convert map to struct.");
-    }
-    if (from instanceof List) {
-      parents.push(from);
+  private static Value createValue(Object from) {
+    if (from == null) {
+      return Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build();
+    } else if (from instanceof List) {
       ListValue.Builder builder = ListValue.newBuilder();
       List fromList = (List) from;
       for (Object item : fromList) {
-        Value value = createValue(item, parents);
+        Value value = createValue(item);
         builder.addValues(value);
       }
-      parents.pop();
       return Value.newBuilder().setListValue(builder).build();
     } else if (from instanceof AbstractJsonObject) {
-      parents.push(from);
       Struct.Builder builder = Struct.newBuilder();
       AbstractJsonObject abstractJsonObject = (AbstractJsonObject) from;
-      internalCopyJsonObject(abstractJsonObject, builder, parents);
-      parents.pop();
+      internalCopyJsonObject(abstractJsonObject, builder);
       return Value.newBuilder().setStructValue(builder).build();
     } else if (from instanceof Double) {
       return Value.newBuilder().setNumberValue((Double) from).build();
     } else if (from instanceof String) {
-      return Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build();
+      return Value.newBuilder().setStringValue((String) from).build();
+    } else if (from instanceof Boolean) {
+      return Value.newBuilder().setBoolValue((Boolean) from).build();
     } else {
-      throw new IllegalArgumentException("Incompatible value type: " + from.getClass().getCanonicalName());
+      throw new IllegalStateException("Incompatible value type: " + from.getClass().getCanonicalName());
     }
   }
 
@@ -186,20 +177,17 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
         Object key = entry.getKey();
         Object val = entry.getValue();
         if (!(key instanceof String)) {
-          throw new IllegalStateException("Nested maps must have keys of String type.");
+          throw new IllegalArgumentException("Nested maps must have keys of String type.");
         }
         jsonBuilder.setProperty((String) key, jsonify(val, parents));
       }
       parents.pop();
       result = jsonBuilder.build();
-    } else if (value instanceof AbstractJsonObject) {
-      parents.push(value);
-      result = jsonify(((AbstractJsonObject) value).backingMap, parents);
-      parents.pop();
     } else if (value instanceof List) {
+      checkForReferenceCycle(value, parents);
       List<?> list = (List<?>) value;
       List<Object> out = new ArrayList<>(list.size());
-      parents.push(value);
+      parents.push(list);
       for (Object o : list) {
         out.add(jsonify(o, parents));
       }
