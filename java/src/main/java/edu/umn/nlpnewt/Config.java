@@ -123,7 +123,7 @@ public final class Config {
    *
    * @throws IOException If the file fails to load.
    */
-  private static @NotNull Config loadConfig(Path configFile) throws IOException {
+  public static @NotNull Config loadConfig(Path configFile) throws IOException {
     try (InputStream inputStream = Files.newInputStream(configFile)) {
       Yaml yaml = new Yaml();
       Map<String, Object> yamlMap = yaml.load(inputStream);
@@ -251,6 +251,15 @@ public final class Config {
    */
   public void update(Map<@NotNull String, @Nullable Object> updates) {
     config.putAll(updates);
+  }
+
+  /**
+   * Updates this config with the configuration stored in another config file.
+   *
+   * @param config Other config file.
+   */
+  public void update(Config config) {
+    this.config.putAll(config.config);
   }
 
   /**

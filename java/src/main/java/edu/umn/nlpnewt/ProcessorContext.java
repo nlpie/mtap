@@ -63,4 +63,8 @@ public interface ProcessorContext {
    * @return Map of times.
    */
   Map<String, Duration> getTimes();
+
+  String getIdentifier();
+
+  NewtEvents getEvents();
 }

@@ -267,7 +267,7 @@ public final class Newt {
    *
    * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
-  public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) {
+  public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
     return NewtInternal.createProcessorServer(config, options);
   }
 }

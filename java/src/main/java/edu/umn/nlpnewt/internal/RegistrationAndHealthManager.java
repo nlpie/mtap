@@ -16,18 +16,19 @@
 
 package edu.umn.nlpnewt.internal;
 
-import edu.umn.nlpnewt.AbstractEventProcessor;
-import edu.umn.nlpnewt.ProcessorContext;
-import org.jetbrains.annotations.NotNull;
+import io.grpc.BindableService;
+import io.grpc.health.v1.HealthCheckResponse;
 
-import java.io.Closeable;
+public interface RegistrationAndHealthManager {
+  void setHealthAddress(String address);
 
-public interface ProcessorContextManager extends ProcessorContext {
-  @NotNull Closeable enterContext();
+  void setHealthPort(int port);
 
-  AbstractEventProcessor getProcessor();
+  Runnable startedService(String processor_id, String... tags);
 
-  void startedServing(String address, int port);
+  BindableService getHealthService();
 
-  void stoppedServing();
+  void enterTerminalState();
+
+  void setStatus(String identifier, HealthCheckResponse.ServingStatus status);
 }

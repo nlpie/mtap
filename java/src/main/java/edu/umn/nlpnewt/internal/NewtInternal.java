@@ -19,6 +19,7 @@ import edu.umn.nlpnewt.*;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -30,8 +31,8 @@ public final class NewtInternal {
     return NewtEventsImpl.create(config, address);
   }
 
-  public static Server createProcessorServer(Config config, ProcessorServerOptions settings) {
-    return new ProcessorServer(config, settings);
+  public static Server createProcessorServer(Config config, ProcessorServerOptions settings) throws IOException {
+    return ProcessorServer.create(config, settings);
   }
 
   public static <L extends Label> @NotNull LabelIndex<@NotNull L> standardLabelIndex(

@@ -15,7 +15,6 @@
  */
 package edu.umn.nlpnewt;
 
-import io.grpc.services.HealthStatusManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.*;
@@ -69,8 +68,6 @@ public final class ProcessorServerOptions {
       usage = "The identifier to register the processor under. If not specified will default " +
           "to the @Processor annotation name.")
   private String identifier = null;
-
-  private HealthStatusManager healthStatusManager = null;
 
   /**
    * Creates an empty processor server options.
@@ -293,6 +290,11 @@ public final class ProcessorServerOptions {
     this.configFile = configFile;
   }
 
+  public ProcessorServerOptions withConfigFile(@Nullable Path configFile) {
+    setConfigFile(configFile);
+    return this;
+  }
+
   /**
    * An optional identifier to replace the processor's default identifier for service registration
    * and discovery.
@@ -325,41 +327,6 @@ public final class ProcessorServerOptions {
     setIdentifier(identifier);
     return this;
   }
-
-  /**
-   * Returns the health status manager which will be used to respond to health checks.
-   *
-   * @return gRPC health status manager.
-   */
-  @NotNull
-  public HealthStatusManager getHealthStatusManager() {
-    if (healthStatusManager == null) {
-      healthStatusManager = new HealthStatusManager();
-    }
-    return healthStatusManager;
-  }
-
-  /**
-   * Sets the health status manager to use.
-   *
-   * @param healthStatusManager A gRPC health status manager.
-   */
-  public void setHealthStatusManager(@NotNull HealthStatusManager healthStatusManager) {
-    this.healthStatusManager = healthStatusManager;
-  }
-
-  /**
-   * Builder method that sets the health status manager to use.
-   *
-   * @param healthStatusManager A gRPC health status manager.
-   * @return This options object.
-   */
-  public ProcessorServerOptions withHealthStatusManager(@NotNull HealthStatusManager healthStatusManager) {
-    setHealthStatusManager(healthStatusManager);
-    return this;
-  }
-
-
 
   /**
    * An args4j option handler that will parse a fully qualified class name into a

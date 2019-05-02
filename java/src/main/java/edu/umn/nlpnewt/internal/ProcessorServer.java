@@ -18,12 +18,13 @@ package edu.umn.nlpnewt.internal;
 import edu.umn.nlpnewt.*;
 import io.grpc.Server;
 import io.grpc.netty.NettyServerBuilder;
-import io.grpc.services.HealthStatusManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * A server that hosts {@link AbstractDocumentProcessor} and {@link AbstractEventProcessor}.
@@ -35,24 +36,47 @@ import java.net.InetSocketAddress;
 final class ProcessorServer implements edu.umn.nlpnewt.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
 
+  private final String address;
   private final Server server;
-  private final ProcessorService service;
-  private final HealthStatusManager healthStatusManager;
+  private final ProcessorContextManager processorContext;
 
-  ProcessorServer(Config config, ProcessorServerOptions options) {
-    service = new ProcessorService(config, options);
-    healthStatusManager = options.getHealthStatusManager();
-    server = NettyServerBuilder.forAddress(new InetSocketAddress(options.getAddress(), options.getPort()))
+  ProcessorServer(
+      String address,
+      Server server,
+      ProcessorContextManager processorContext
+  ) {
+    this.address = address;
+    this.server = server;
+    this.processorContext = processorContext;
+  }
+
+  static ProcessorServer create(Config config, ProcessorServerOptions options) throws IOException {
+    Path configFile = options.getConfigFile();
+    if (configFile != null) {
+      Config updates = Config.loadConfig(configFile);
+      config.update(updates);
+    }
+    RegistrationAndHealthManager rhManager = RegistrationAndHealthManagerImpl.create(
+        config,
+        options.getRegister()
+    );
+    ProcessorContextManager context = new ProcessorContextImpl(config, options, rhManager);
+    ProcessorService service = new ProcessorService(context);
+    String address = options.getAddress();
+    InetSocketAddress socketAddress = new InetSocketAddress(address, options.getPort());
+    Server server = NettyServerBuilder.forAddress(socketAddress)
         .addService(service)
-        .addService(options.getHealthStatusManager().getHealthService())
+        .addService(rhManager.getHealthService())
         .build();
+    return new ProcessorServer(address, server, context);
   }
 
   @Override
   public void start() throws IOException {
     server.start();
-    service.start(server.getPort());
-    logger.info("Server started on port " + server.getPort());
+    int port = server.getPort();
+    processorContext.startedServing(address, port);
+    logger.info("Server started on port " + port);
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       System.err.println("Shutting down processor server ");
       shutdown();
@@ -61,8 +85,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
   @Override
   public void shutdown() {
-    healthStatusManager.enterTerminalState();
-    service.shutdown();
+    processorContext.stoppedServing();
     server.shutdown();
   }
 
