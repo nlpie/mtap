@@ -19,6 +19,8 @@ package edu.umn.nlpnewt;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests {@link GenericLabel} and {@link Label} default methods via that subclass.
@@ -67,5 +69,53 @@ class GenericLabelTest {
     assertFalse(first.locationEquals(fifth));
   }
 
+  @Test
+  void covers() {
+    GenericLabel span = GenericLabel.createSpan(0, 6);
+    assertTrue(span.covers(4, 6));
+    assertFalse(span.covers(4, 8));
+  }
 
+  @Test
+  void coversLabel() {
+    GenericLabel span = GenericLabel.createSpan(0, 6);
+    assertTrue(span.covers(GenericLabel.createSpan(4, 6)));
+    assertFalse(span.covers(GenericLabel.createSpan(4, 8)));
+  }
+
+  @Test
+  void isInside() {
+    GenericLabel first = GenericLabel.createSpan(0, 10);
+    assertTrue(first.isInside(0, 20));
+    assertFalse(first.isInside(0, 5));
+  }
+
+  @Test
+  void coveredText() {
+    GenericLabel span = GenericLabel.createSpan(4, 7);
+    assertEquals("bar", span.coveredText("foo bar"));
+  }
+
+  @Test
+  void coveredTextDocument() {
+    GenericLabel span = GenericLabel.createSpan(4, 7);
+    Document document = mock(Document.class);
+    when(document.getText()).thenReturn("foo bar");
+    assertEquals("bar", span.coveredText(document));
+  }
+
+  @Test
+  void compareLocation() {
+    assertTrue(GenericLabel.createSpan(0, 6).compareLocation(GenericLabel.createSpan(4, 8)) < 0);
+    assertTrue(GenericLabel.createSpan(4, 10).compareLocation(GenericLabel.createSpan(0, 4)) > 0);
+    assertTrue(GenericLabel.createSpan(0, 6).compareLocation(GenericLabel.createSpan(0, 3)) > 0);
+    assertEquals(0, GenericLabel.createSpan(0, 4).compareLocation(GenericLabel.createSpan(0, 4)));
+  }
+
+  @Test
+  void compareStart() {
+    assertTrue(GenericLabel.createSpan(0, 4).compareStart(GenericLabel.createSpan(1, 4)) < 0);
+    assertTrue(GenericLabel.createSpan(1, 4).compareStart(GenericLabel.createSpan(0, 4)) > 0);
+    assertEquals(0, GenericLabel.createSpan(1, 4).compareStart(GenericLabel.createSpan(1, 4)));
+  }
 }
