@@ -16,22 +16,13 @@
 
 package edu.umn.nlpnewt.internal;
 
-import edu.umn.nlpnewt.*;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
-import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
-import java.io.Writer;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -43,7 +34,7 @@ class ProcessorServerTest {
 
   @Test
   void start() throws IOException {
-    ProcessorContextManager contextManager = mock(ProcessorContextManager.class);
+    ProcessorRunner contextManager = mock(ProcessorRunner.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
@@ -55,7 +46,7 @@ class ProcessorServerTest {
 
   @Test
   void getPort() throws IOException {
-    ProcessorContextManager contextManager = mock(ProcessorContextManager.class);
+    ProcessorRunner contextManager = mock(ProcessorRunner.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
@@ -67,7 +58,7 @@ class ProcessorServerTest {
 
   @Test
   void shutdown() throws IOException {
-    ProcessorContextManager contextManager = mock(ProcessorContextManager.class);
+    ProcessorRunner contextManager = mock(ProcessorRunner.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 

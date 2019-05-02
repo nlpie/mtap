@@ -23,6 +23,8 @@ import io.grpc.internal.AbstractServerImplBuilder;
 import io.grpc.netty.NettyServerBuilder;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 
@@ -32,7 +34,7 @@ class InternalOptions extends ProcessorServerOptions {
   private AbstractServerImplBuilder<?> serverBuilder = null;
   private NewtEvents events = null;
   private ProcessorGrpc.ProcessorImplBase processorService = null;
-  private ProcessorContextManager contextManager;
+  private ProcessorRunner contextManager;
 
   public InternalOptions(Config config) throws IOException {
     this.config = ConfigImpl.createByCopying(config);
@@ -114,14 +116,14 @@ class InternalOptions extends ProcessorServerOptions {
     return events;
   }
 
-  public ProcessorContextManager getContextManager() {
+  public ProcessorRunner getContextManager() {
     if (contextManager == null) {
-      contextManager = new ContextManager(this);
+      contextManager = new ProcessorRunnerImpl(this);
     }
     return contextManager;
   }
 
-  public void setContextManager(ProcessorContextManager contextManager) {
+  public void setContextManager(ProcessorRunner contextManager) {
     this.contextManager = contextManager;
   }
 
@@ -133,4 +135,27 @@ class InternalOptions extends ProcessorServerOptions {
     return new ProcessorServer(getAddress(), server, getContextManager());
   }
 
+  public EventProcessor createProcessor(ProcessorContext context) {
+    EventProcessor processor = getProcessor();
+    if (processor != null) {
+      return processor;
+    }
+    try {
+      Class<? extends EventProcessor> processorClass = getProcessorClass();
+      if (processorClass == null) {
+        throw new IllegalStateException("Neither processor nor processorClass was set");
+      }
+      try {
+        Constructor<? extends EventProcessor> constructor = processorClass.getConstructor(ProcessorContext.class);
+        processor = constructor.newInstance(context);
+      } catch (NoSuchMethodException ignored) {
+        // fall back to default constructor
+        Constructor<? extends EventProcessor> constructor = processorClass.getConstructor();
+        processor = constructor.newInstance();
+      }
+    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+      throw new IllegalStateException("Unable to instantiate processor.", e);
+    }
+    return processor;
+  }
 }

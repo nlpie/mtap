@@ -34,14 +34,14 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
   private final String address;
   private final Server server;
-  private final ProcessorContextManager context;
+  private final ProcessorRunner context;
 
   private boolean running = false;
 
   ProcessorServer(
       String address,
       Server server,
-      ProcessorContextManager context
+      ProcessorRunner context
   ) {
     this.address = address;
     this.server = server;

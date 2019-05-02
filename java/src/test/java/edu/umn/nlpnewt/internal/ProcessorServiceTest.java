@@ -16,18 +16,13 @@
 
 package edu.umn.nlpnewt.internal;
 
-import edu.umn.nlpnewt.EventProcessor;
-import edu.umn.nlpnewt.ProcessorContext;
-import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Test;
 
-import java.io.Closeable;
+import static org.junit.jupiter.api.Assertions.*;
 
-public interface ProcessorContextManager extends ProcessorContext {
-  @NotNull Closeable enterContext();
-
-  EventProcessor getProcessor();
-
-  void startedServing(String address, int port);
-
-  void stoppedServing();
+class ProcessorServiceTest {
+  @Test
+  void process() {
+    
+  }
 }

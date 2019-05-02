@@ -69,20 +69,6 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
   }
 
   /**
-   * Copies a protobuf struct to a newBuilder for a json object.
-   *
-   * @param struct  The protobuf struct message.
-   * @param builder The newBuilder for the json object.
-   */
-  public static void copyStructToJsonObjectBuilder(Struct struct,
-                                                   AbstractBuilder<?> builder) {
-    Map<String, Value> fieldsMap = struct.getFieldsMap();
-    for (Entry<String, Value> entry : fieldsMap.entrySet()) {
-      builder.setProperty(entry.getKey(), getValue(entry.getValue()));
-    }
-  }
-
-  /**
    * Copies a json object to a protobuf struct newBuilder.
    *
    * @param abstractJsonObject The json object.
@@ -142,7 +128,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
         return from.getBoolValue();
       case STRUCT_VALUE:
         JsonObject.Builder builder = new JsonObject.Builder();
-        copyStructToJsonObjectBuilder(from.getStructValue(), builder);
+        builder.copyStruct(from.getStructValue());
         return builder.build();
       case LIST_VALUE:
         List<Object> list = new ArrayList<>();
@@ -302,6 +288,21 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
       extends AbstractMap<@NotNull String, @Nullable Object> {
 
     protected Map<@NotNull String, @Nullable Object> backingMap = new HashMap<>();
+
+    /**
+     * Copies a protobuf struct to a newBuilder for a json object.
+     *
+     * @param struct  The protobuf struct message.
+     */
+    @SuppressWarnings("unchecked")
+    @NotNull
+    public T copyStruct(Struct struct) {
+      Map<String, Value> fieldsMap = struct.getFieldsMap();
+      for (Entry<String, Value> entry : fieldsMap.entrySet()) {
+        setProperty(entry.getKey(), getValue(entry.getValue()));
+      }
+      return (T) this;
+    }
 
     /**
      * Returns the property cast as a {@link String} object.

@@ -17,7 +17,6 @@ package edu.umn.nlpnewt.internal;
 
 import com.google.protobuf.Struct;
 import edu.umn.nlpnewt.*;
-import edu.umn.nlpnewt.api.v1.EventsOuterClass;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -58,7 +57,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
     List<GenericLabel> labels = new ArrayList<>();
     for (Struct struct : jsonLabels.getLabelsList()) {
       JsonObject.Builder builder = new JsonObject.Builder();
-      JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+      builder.copyStruct(struct);
       labels.add(new GenericLabel(builder.build()));
     }
 

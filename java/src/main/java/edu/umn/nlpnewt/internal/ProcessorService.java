@@ -23,7 +23,6 @@ import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 
-import java.io.Closeable;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -31,13 +30,13 @@ import java.util.Set;
 
 final class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
   private final TimesCollector timesCollector;
-  private final ProcessorContextManager processorContext;
+  private final ProcessorRunner runner;
 
   private int processed = 0;
   private int failures = 0;
 
-  ProcessorService(ProcessorContextManager processorContext) {
-    this.processorContext = processorContext;
+  ProcessorService(ProcessorRunner runner) {
+    this.runner = runner;
     timesCollector = new TimesCollector();
   }
 
@@ -46,34 +45,26 @@ final class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
       Processing.ProcessRequest request,
       StreamObserver<Processing.ProcessResponse> responseObserver
   ) {
-    JsonObject.Builder builder = JsonObject.newBuilder();
-    AbstractJsonObject.copyStructToJsonObjectBuilder(request.getParams(), builder);
-    JsonObject params = builder.build();
+    JsonObject params = JsonObject.newBuilder().copyStruct(request.getParams()).build();
 
-    Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder();
-
-    JsonObject.Builder resultBuilder = JsonObject.newBuilder();
-
-    try (Closeable ignored = processorContext.enterContext()) {
+    try {
       String eventID = request.getEventId();
-      try (Event event = processorContext.getEvents().openEvent(eventID)) {
-        Timer timer = processorContext.startTimer("process_method");
-        processorContext.getProcessor().process(event, params, resultBuilder);
-        timer.stop();
-        for (Map.Entry<String, List<String>> entry : event.getCreatedIndices().entrySet()) {
-          for (String indexName : entry.getValue()) {
-            responseBuilder.addCreatedIndices(Processing.CreatedIndex.newBuilder()
-                .setDocumentName(entry.getKey())
-                .setIndexName(indexName)
-                .build());
-          }
+      ProcessingResult result = runner.process(eventID, params);
+
+      Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder();
+      for (Map.Entry<String, List<String>> entry : event.getCreatedIndices().entrySet()) {
+        for (String indexName : entry.getValue()) {
+          responseBuilder.addCreatedIndices(Processing.CreatedIndex.newBuilder()
+              .setDocumentName(entry.getKey())
+              .setIndexName(indexName)
+              .build());
         }
       }
 
       AbstractJsonObject resultObject = resultBuilder.build();
       AbstractJsonObject.copyJsonObjectToStruct(resultObject, responseBuilder.getResultBuilder());
 
-      Set<Map.Entry<String, Duration>> entries = processorContext.getTimes().entrySet();
+      Set<Map.Entry<String, Duration>> entries = runner.getTimes().entrySet();
       for (Map.Entry<String, Duration> entry : entries) {
         long nanos = entry.getValue().toNanos();
         timesCollector.addTime(entry.getKey(), nanos);
@@ -92,10 +83,10 @@ final class ProcessorService extends ProcessorGrpc.ProcessorImplBase {
   public void getInfo(Processing.GetInfoRequest request,
                       StreamObserver<Processing.GetInfoResponse> responseObserver) {
     try {
-      String name = processorContext.getProcessor()
+      String name = runner.getProcessor()
           .getClass().getAnnotation(Processor.class).value();
       responseObserver.onNext(Processing.GetInfoResponse.newBuilder().setName(name)
-          .setIdentifier(processorContext.getIdentifier()).build());
+          .setIdentifier(runner.getIdentifier()).build());
       responseObserver.onCompleted();
     } catch (Throwable t) {
       responseObserver.onError(t);

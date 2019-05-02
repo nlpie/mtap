@@ -209,7 +209,7 @@ class JsonObjectTest {
         .putFields("foo", Value.newBuilder().setStringValue("bar").build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals("bar", jsonObject.getStringValue("foo"));
   }
@@ -229,7 +229,7 @@ class JsonObjectTest {
         .putFields("foo", Value.newBuilder().setNumberValue(10.0).build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals(10.0, jsonObject.getNumberValue("foo").doubleValue());
   }
@@ -249,7 +249,7 @@ class JsonObjectTest {
         .putFields("foo", Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertNull(jsonObject.get("foo"));
   }
@@ -279,7 +279,7 @@ class JsonObjectTest {
             ).build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals("baz", 
         jsonObject.getJsonObjectValue("foo").getStringValue("bar"));
@@ -325,7 +325,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals(Arrays.asList(1.0, 2.0, 3.0, 4.0), jsonObject.getListValue("foo"));
   }
@@ -347,7 +347,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals(1L, jsonObject.getNumberValue("foo").longValue());
   }
@@ -369,7 +369,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals(1, jsonObject.getNumberValue("foo").intValue());
   }
@@ -391,7 +391,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals((short) 1, jsonObject.getNumberValue("foo").shortValue());
   }
@@ -413,7 +413,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals((byte) 1, jsonObject.getNumberValue("foo").byteValue());
   }
@@ -435,7 +435,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertEquals('a', jsonObject.getStringValue("foo").charAt(0));
   }
@@ -457,7 +457,7 @@ class JsonObjectTest {
             .build())
         .build();
     JsonObject.Builder builder = JsonObject.newBuilder();
-    JsonObject.copyStructToJsonObjectBuilder(struct, builder);
+    builder.copyStruct(struct);
     JsonObject jsonObject = builder.build();
     assertTrue(jsonObject.getBooleanValue("foo"));
   }

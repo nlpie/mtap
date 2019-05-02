@@ -22,52 +22,28 @@ import io.grpc.health.v1.HealthCheckResponse;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Closeable;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
 import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
 
-class ContextManager implements ProcessorContextManager {
-  private InternalOptions processorContext;
+class ProcessorRunnerImpl implements ProcessorRunner {
   private final ThreadLocal<ProcessorThreadContext> threadContext = new ThreadLocal<>();
-  private String identifier = null;
+  private final InternalOptions internalOptions;
+  private final EventProcessor processor;
+  private final String identifier;
   private Runnable deregister = null;
-  private EventProcessor processor = null;
 
-  public ContextManager(InternalOptions processorContext) {
-    this.processorContext = processorContext;
+  ProcessorRunnerImpl(InternalOptions internalOptions, EventProcessor processor, String identifier) {
+    this.internalOptions = internalOptions;
+    this.processor = processor;
+    this.identifier = identifier;
   }
 
   @Override
-  public void updateServingStatus(HealthCheckResponse.ServingStatus status) {
-    processorContext.getRegistrationAndHealthManager().setStatus(identifier, status);
-  }
-
-  @Override
-  public @NotNull Timer startTimer(String key) {
-    return getCurrent().startTimer(key);
-  }
-
-  @Override
-  public Map<String, Duration> getTimes() {
-    return getCurrent().getTimes();
-  }
-
-  @Override
-  public String getIdentifier() {
-    return identifier;
-  }
-
-  @Override
-  public NewtEvents getEvents() {
-    return processorContext.getEvents();
-  }
-
-  @Override
-  public @NotNull Closeable enterContext() {
+  public @NotNull ProcessorThreadContext enterContext() {
     ProcessorThreadContext processorThreadContext = new ProcessorThreadContext();
     threadContext.set(processorThreadContext);
     return processorThreadContext;
@@ -85,7 +61,7 @@ class ContextManager implements ProcessorContextManager {
 
   @Override
   public void startedServing(String address, int port) {
-    RegistrationAndHealthManager registrationAndHealthManager = processorContext.getRegistrationAndHealthManager();
+    RegistrationAndHealthManager registrationAndHealthManager = internalOptions.getRegistrationAndHealthManager();
     registrationAndHealthManager.setHealthAddress(address);
     registrationAndHealthManager.setHealthPort(port);
     deregister = registrationAndHealthManager.startedService(identifier, PROCESSOR_SERVICE_TAG);
@@ -96,40 +72,48 @@ class ContextManager implements ProcessorContextManager {
     if (deregister != null) {
       deregister.run();
     }
-    if (getProcessor() != null) {
-      getProcessor().shutdown();
-    }
+    processor.shutdown();
   }
 
   @Override
-  public EventProcessor getProcessor() {
-    if (processor != null) {
-      return processor;
-    }
-    processor = processorContext.getProcessor();
-    if (processor != null) {
-      return processor;
-    }
-    try {
-      Class<? extends EventProcessor> processorClass = processorContext.getProcessorClass();
-      if (processorClass == null) {
-        throw new IllegalStateException("Neither processor nor processorClass was set");
+  public ProcessingResult process(String eventID, JsonObject params) throws IOException {
+    JsonObject.Builder resultBuilder = JsonObject.newBuilder();
+    try (ProcessorThreadContext context = enterContext()) {
+      try (Event event = internalOptions.getEvents().openEvent(eventID)) {
+        Timer timer = context.startTimer("process_method");
+        processor.process(event, params, resultBuilder);
+        timer.stop();
+        return new ProcessingResult(event.getCreatedIndices(), context.getTimes(),
+            resultBuilder.build());
       }
-      try {
-        Constructor<? extends EventProcessor> constructor = processorClass.getConstructor(ProcessorContext.class);
-        processor = constructor.newInstance(this);
-      } catch (NoSuchMethodException ignored) {
-        // fall back to default constructor
-        Constructor<? extends EventProcessor> constructor = processorClass.getConstructor();
-        processor = constructor.newInstance();
-      }
-    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-      throw new IllegalStateException("Unable to instantiate processor.", e);
     }
-    if (identifier == null) {
-      identifier = processor.getClass().getAnnotation(Processor.class).value();
+  }
+
+  public class Context implements ProcessorContext {
+    @Override
+    public void updateServingStatus(HealthCheckResponse.ServingStatus status) {
+      internalOptions.getRegistrationAndHealthManager().setStatus(identifier, status);
     }
-    return processor;
+
+    @Override
+    public @NotNull Timer startTimer(String key) {
+      return getCurrent().startTimer(key);
+    }
+
+    @Override
+    public Map<String, Duration> getTimes() {
+      return getCurrent().getTimes();
+    }
+
+    @Override
+    public String getIdentifier() {
+      return identifier;
+    }
+
+    @Override
+    public NewtEvents getEvents() {
+      return internalOptions.getEvents();
+    }
   }
 
   public class ProcessorThreadContext implements Closeable {
