@@ -18,10 +18,13 @@ package edu.umn.nlpnewt.internal;
 
 import com.google.protobuf.Struct;
 import com.google.protobuf.util.Durations;
-import edu.umn.nlpnewt.*;
+import com.google.rpc.DebugInfo;
+import edu.umn.nlpnewt.JsonObject;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
+import io.grpc.Metadata;
 import io.grpc.Status;
+import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.StreamObserver;
 
 import java.time.Duration;
@@ -40,10 +43,14 @@ final class ProcessorServiceImpl extends ProcessorGrpc.ProcessorImplBase impleme
   private int processed = 0;
   private int failures = 0;
 
-  ProcessorServiceImpl(ProcessorRunner runner, RegistrationAndHealthManager registrationAndHealthManager) {
+  ProcessorServiceImpl(
+      ProcessorRunner runner,
+      RegistrationAndHealthManager registrationAndHealthManager,
+      TimesCollector timesCollector
+  ) {
     this.runner = runner;
     this.registrationAndHealthManager = registrationAndHealthManager;
-    timesCollector = new TimesCollector();
+    this.timesCollector = timesCollector;
   }
 
   @Override
@@ -76,7 +83,15 @@ final class ProcessorServiceImpl extends ProcessorGrpc.ProcessorImplBase impleme
       responseObserver.onCompleted();
       processed++;
     } catch (Throwable t) {
-      responseObserver.onError(Status.fromThrowable(t).asException());
+      Metadata trailers = new Metadata();
+      Metadata.Key<DebugInfo> key = ProtoUtils.keyForProto(DebugInfo.getDefaultInstance());
+      DebugInfo.Builder debugInfoBuilder = DebugInfo.newBuilder();
+      for (StackTraceElement stackTraceElement : t.getStackTrace()) {
+        debugInfoBuilder.addStackEntries(stackTraceElement.toString());
+      }
+      trailers.put(key, debugInfoBuilder.build());
+      responseObserver.onError(Status.INTERNAL.withDescription(t.toString())
+          .asRuntimeException(trailers));
       failures++;
     }
   }
@@ -90,7 +105,9 @@ final class ProcessorServiceImpl extends ProcessorGrpc.ProcessorImplBase impleme
           .setIdentifier(runner.getProcessorId()).build());
       responseObserver.onCompleted();
     } catch (Throwable t) {
-      responseObserver.onError(t);
+      responseObserver.onError(Status.INTERNAL.withDescription(t.toString())
+          .withCause(t)
+          .asRuntimeException());
     }
   }
 
@@ -105,7 +122,9 @@ final class ProcessorServiceImpl extends ProcessorGrpc.ProcessorImplBase impleme
       responseObserver.onNext(builder.build());
       responseObserver.onCompleted();
     } catch (Throwable t) {
-      responseObserver.onError(t);
+      responseObserver.onError(Status.INTERNAL.withDescription(t.toString())
+          .withCause(t)
+          .asRuntimeException());
     }
   }
 

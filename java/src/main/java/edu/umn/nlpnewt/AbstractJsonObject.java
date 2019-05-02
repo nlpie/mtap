@@ -297,6 +297,9 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     @SuppressWarnings("unchecked")
     @NotNull
     public T copyStruct(Struct struct) {
+      if (struct == null) {
+        return (T) this;
+      }
       Map<String, Value> fieldsMap = struct.getFieldsMap();
       for (Entry<String, Value> entry : fieldsMap.entrySet()) {
         setProperty(entry.getKey(), getValue(entry.getValue()));

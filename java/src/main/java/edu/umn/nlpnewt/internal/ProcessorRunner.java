@@ -18,10 +18,8 @@ package edu.umn.nlpnewt.internal;
 
 import edu.umn.nlpnewt.JsonObject;
 
-import java.io.IOException;
-
 public interface ProcessorRunner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params) throws IOException;
+  ProcessingResult process(String eventID, JsonObject params);
 
   String getProcessorName();
 

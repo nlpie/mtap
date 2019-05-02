@@ -40,6 +40,7 @@ class InternalOptions extends ProcessorServerOptions {
   private ProcessorContextManager contextManager = null;
   private ProcessorRunner processorRunner = null;
   private String processorName = null;
+  private TimesCollector timesCollector = null;
 
   public InternalOptions(Config config) throws IOException {
     this.config = ConfigImpl.createByCopying(config);
@@ -104,7 +105,11 @@ class InternalOptions extends ProcessorServerOptions {
 
   public ProcessorService getProcessorService() {
     if (processorService == null) {
-      processorService = new ProcessorServiceImpl(getProcessorRunner(), getRegistrationAndHealthManager());
+      processorService = new ProcessorServiceImpl(
+          getProcessorRunner(),
+          getRegistrationAndHealthManager(),
+          getTimesCollector()
+      );
     }
     return processorService;
   }
@@ -205,5 +210,20 @@ class InternalOptions extends ProcessorServerOptions {
 
   public void setProcessorRunner(ProcessorRunner processorRunner) {
     this.processorRunner = processorRunner;
+  }
+
+  public void setProcessorName(String processorName) {
+    this.processorName = processorName;
+  }
+
+  public TimesCollector getTimesCollector() {
+    if (timesCollector == null) {
+      timesCollector = new TimesCollectorImpl();
+    }
+    return timesCollector;
+  }
+
+  public void setTimesCollector(TimesCollector timesCollector) {
+    this.timesCollector = timesCollector;
   }
 }

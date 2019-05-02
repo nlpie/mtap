@@ -19,8 +19,6 @@ package edu.umn.nlpnewt.internal;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.ProcessorContextManager.ProcessorThreadContext;
 
-import java.io.IOException;
-
 class ProcessorRunnerImpl implements ProcessorRunner {
 
   private final ProcessorContextManager processorContextManager;
@@ -44,7 +42,7 @@ class ProcessorRunnerImpl implements ProcessorRunner {
   }
 
   @Override
-  public ProcessingResult process(String eventID, JsonObject params) throws IOException {
+  public ProcessingResult process(String eventID, JsonObject params) {
     JsonObject.Builder resultBuilder = JsonObject.newBuilder();
     try (ProcessorThreadContext context = processorContextManager.enterContext()) {
       try (Event event = events.openEvent(eventID)) {

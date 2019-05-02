@@ -18,40 +18,10 @@ package edu.umn.nlpnewt.internal;
 
 import edu.umn.nlpnewt.api.v1.Processing;
 
-import java.util.AbstractMap;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
-class TimesCollector {
-  private final Map<String, RunningVariance> timesMap = new HashMap<>();
-  private final ExecutorService executor = Executors.newSingleThreadExecutor();
+public interface TimesCollector {
+  void addTime(String key, long time);
 
-  void addTime(String key, long time) {
-    executor.submit(() -> {
-      RunningVariance runningVariance = timesMap.computeIfAbsent(key,
-          unused -> new RunningVariance());
-      runningVariance.addTime(time);
-    });
-  }
-
-  Map<String, Processing.TimerStats> getTimerStats() {
-    Future<Map<String, Processing.TimerStats>> future = executor.submit(
-        () -> timesMap.entrySet().stream()
-            .map(e -> new AbstractMap.SimpleImmutableEntry<>(
-                e.getKey(),
-                e.getValue().createStats())
-            )
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-    );
-    try {
-      return future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new IllegalArgumentException(e);
-    }
-  }
+  Map<String, Processing.TimerStats> getTimerStats();
 }
