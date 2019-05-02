@@ -68,27 +68,6 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     backingMap = abstractJsonObject.backingMap;
   }
 
-  /**
-   * Copies a json object to a protobuf struct newBuilder.
-   *
-   * @param abstractJsonObject The json object.
-   * @param structBuilder      The protobuf struct newBuilder.
-   */
-  public static void copyJsonObjectToStruct(AbstractJsonObject abstractJsonObject,
-                                            Struct.Builder structBuilder) {
-    internalCopyJsonObject(abstractJsonObject, structBuilder);
-  }
-
-  private static void internalCopyJsonObject(AbstractJsonObject abstractJsonObject,
-                                             Struct.Builder struct) {
-    for (Entry<String, ?> entry : abstractJsonObject.entrySet()) {
-      String key = entry.getKey();
-      Object value = entry.getValue();
-      Value protoValue = createValue(value);
-      struct.putFields(key, protoValue);
-    }
-  }
-
   private static Value createValue(Object from) {
     if (from == null) {
       return Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build();
@@ -103,7 +82,12 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     } else if (from instanceof AbstractJsonObject) {
       Struct.Builder builder = Struct.newBuilder();
       AbstractJsonObject abstractJsonObject = (AbstractJsonObject) from;
-      internalCopyJsonObject(abstractJsonObject, builder);
+      for (Entry<String, ?> entry : abstractJsonObject.entrySet()) {
+        String key = entry.getKey();
+        Object value = entry.getValue();
+        Value protoValue = createValue(value);
+        builder.putFields(key, protoValue);
+      }
       return Value.newBuilder().setStructValue(builder).build();
     } else if (from instanceof Double) {
       return Value.newBuilder().setNumberValue((Double) from).build();
@@ -113,32 +97,6 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
       return Value.newBuilder().setBoolValue((Boolean) from).build();
     } else {
       throw new IllegalStateException("Incompatible value type: " + from.getClass().getCanonicalName());
-    }
-  }
-
-  private static Object getValue(Value from) {
-    switch (from.getKindCase()) {
-      case NULL_VALUE:
-        return null;
-      case NUMBER_VALUE:
-        return from.getNumberValue();
-      case STRING_VALUE:
-        return from.getStringValue();
-      case BOOL_VALUE:
-        return from.getBoolValue();
-      case STRUCT_VALUE:
-        JsonObject.Builder builder = new JsonObject.Builder();
-        builder.copyStruct(from.getStructValue());
-        return builder.build();
-      case LIST_VALUE:
-        List<Object> list = new ArrayList<>();
-        for (Value value : from.getListValue().getValuesList()) {
-          list.add(getValue(value));
-        }
-        return list;
-      case KIND_NOT_SET:
-      default:
-        throw new IllegalStateException("Unrecognized kind of struct value.");
     }
   }
 
@@ -195,6 +153,33 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
         + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
         " lists of objects of valid types, and maps of strings to objects of valid types");
     return result;
+
+  }
+
+  private static Object getValue(Value from) {
+    switch (from.getKindCase()) {
+      case NULL_VALUE:
+        return null;
+      case NUMBER_VALUE:
+        return from.getNumberValue();
+      case STRING_VALUE:
+        return from.getStringValue();
+      case BOOL_VALUE:
+        return from.getBoolValue();
+      case STRUCT_VALUE:
+        JsonObject.Builder builder = new JsonObject.Builder();
+        builder.copyStruct(from.getStructValue());
+        return builder.build();
+      case LIST_VALUE:
+        List<Object> list = new ArrayList<>();
+        for (Value value : from.getListValue().getValuesList()) {
+          list.add(getValue(value));
+        }
+        return list;
+      case KIND_NOT_SET:
+      default:
+        throw new IllegalStateException("Unrecognized kind of struct value.");
+    }
   }
 
   private static void checkForReferenceCycle(Object value, Deque<Object> parents) {
@@ -203,6 +188,21 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
         throw new IllegalArgumentException("Detected reference cycle.");
       }
     }
+  }
+
+  /**
+   * Copies a json object to a protobuf struct newBuilder.
+   *
+   * @param structBuilder The protobuf struct newBuilder.
+   */
+  public Struct.Builder copyToStruct(Struct.Builder structBuilder) {
+    for (Entry<String, ?> entry : entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+      Value protoValue = createValue(value);
+      structBuilder.putFields(key, protoValue);
+    }
+    return structBuilder;
   }
 
   /**
@@ -290,9 +290,9 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     protected Map<@NotNull String, @Nullable Object> backingMap = new HashMap<>();
 
     /**
-     * Copies a protobuf struct to a newBuilder for a json object.
+     * Copies the contents of a protobuf struct to this builder.
      *
-     * @param struct  The protobuf struct message.
+     * @param struct The protobuf struct message.
      */
     @SuppressWarnings("unchecked")
     @NotNull

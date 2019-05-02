@@ -34,18 +34,18 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
 
   private final String address;
   private final Server server;
-  private final ProcessorRunner context;
+  private final ProcessorService service;
 
   private boolean running = false;
 
   ProcessorServer(
       String address,
       Server server,
-      ProcessorRunner context
+      ProcessorService processorService
   ) {
     this.address = address;
     this.server = server;
-    this.context = context;
+    this.service = processorService;
   }
 
   @Override
@@ -56,7 +56,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
     running = true;
     server.start();
     int port = server.getPort();
-    context.startedServing(address, port);
+    service.startedServing(address, port);
     logger.info("Server started on port " + port);
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       System.err.println("Shutting down processor server ");
@@ -70,7 +70,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
       return;
     }
     running = false;
-    context.stoppedServing();
+    service.stoppedServing();
     server.shutdown();
   }
 

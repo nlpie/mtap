@@ -79,7 +79,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
     JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
     jsonLabelsBuilder.setIsDistinct(isDistinct);
     for (GenericLabel label : labels) {
-      AbstractJsonObject.copyJsonObjectToStruct(label, jsonLabelsBuilder.addLabelsBuilder());
+      label.copyToStruct(jsonLabelsBuilder.addLabelsBuilder());
     }
   }
 }

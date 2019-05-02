@@ -17,10 +17,10 @@
 package edu.umn.nlpnewt.internal;
 
 import edu.umn.nlpnewt.*;
-import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
 import io.grpc.Server;
 import io.grpc.internal.AbstractServerImplBuilder;
 import io.grpc.netty.NettyServerBuilder;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -28,13 +28,18 @@ import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 
+/**
+ * Performs dependency injection of the different processing components.
+ */
 class InternalOptions extends ProcessorServerOptions {
-  private RegistrationAndHealthManager registrationAndHealthManager = null;
   private Config config;
+  private RegistrationAndHealthManager registrationAndHealthManager = null;
   private AbstractServerImplBuilder<?> serverBuilder = null;
   private NewtEvents events = null;
-  private ProcessorGrpc.ProcessorImplBase processorService = null;
-  private ProcessorRunner contextManager;
+  private ProcessorService processorService = null;
+  private ProcessorContextManager contextManager = null;
+  private ProcessorRunner processorRunner = null;
+  private String processorName = null;
 
   public InternalOptions(Config config) throws IOException {
     this.config = ConfigImpl.createByCopying(config);
@@ -97,14 +102,14 @@ class InternalOptions extends ProcessorServerOptions {
     this.config = config;
   }
 
-  public ProcessorGrpc.ProcessorImplBase getProcessorService() {
+  public ProcessorService getProcessorService() {
     if (processorService == null) {
-      processorService = new ProcessorService(getContextManager());
+      processorService = new ProcessorServiceImpl(getProcessorRunner(), getRegistrationAndHealthManager());
     }
     return processorService;
   }
 
-  public void setProcessorService(ProcessorGrpc.ProcessorImplBase processorService) {
+  public void setProcessorService(ProcessorService processorService) {
     this.processorService = processorService;
   }
 
@@ -116,14 +121,14 @@ class InternalOptions extends ProcessorServerOptions {
     return events;
   }
 
-  public ProcessorRunner getContextManager() {
+  public ProcessorContextManager getContextManager() {
     if (contextManager == null) {
-      contextManager = new ProcessorRunnerImpl(this);
+      contextManager = new ProcessorContextManager(getIdentifier(), getEvents(), getRegistrationAndHealthManager());
     }
     return contextManager;
   }
 
-  public void setContextManager(ProcessorRunner contextManager) {
+  public void setContextManager(ProcessorContextManager contextManager) {
     this.contextManager = contextManager;
   }
 
@@ -132,30 +137,73 @@ class InternalOptions extends ProcessorServerOptions {
         .addService(getProcessorService())
         .addService(getRegistrationAndHealthManager().getHealthService())
         .build();
-    return new ProcessorServer(getAddress(), server, getContextManager());
+    return new ProcessorServer(getAddress(), server, getProcessorService());
   }
 
-  public EventProcessor createProcessor(ProcessorContext context) {
+  public String getIdentifier() {
+    String identifier = super.getIdentifier();
+    if (identifier != null) {
+      return identifier;
+    }
+    identifier = getProcessorName();
+    setIdentifier(identifier);
+    return identifier;
+  }
+
+  @NotNull
+  private String getProcessorName() {
+    if (processorName != null) {
+      return processorName;
+    }
     EventProcessor processor = getProcessor();
+    Class<? extends EventProcessor> processorClass = null;
     if (processor != null) {
-      return processor;
+      processorClass = processor.getClass();
     }
-    try {
-      Class<? extends EventProcessor> processorClass = getProcessorClass();
-      if (processorClass == null) {
-        throw new IllegalStateException("Neither processor nor processorClass was set");
-      }
-      try {
-        Constructor<? extends EventProcessor> constructor = processorClass.getConstructor(ProcessorContext.class);
-        processor = constructor.newInstance(context);
-      } catch (NoSuchMethodException ignored) {
-        // fall back to default constructor
-        Constructor<? extends EventProcessor> constructor = processorClass.getConstructor();
-        processor = constructor.newInstance();
-      }
-    } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
-      throw new IllegalStateException("Unable to instantiate processor.", e);
+    if (processorClass == null) {
+      processorClass = getProcessorClass();
     }
-    return processor;
+    if (processorClass == null) {
+      throw new IllegalStateException("Requires either processor or processor class.");
+    }
+    processorName = processorClass.getAnnotation(Processor.class).value();
+    return processorName;
+  }
+
+  public ProcessorRunner getProcessorRunner() {
+    if (processorRunner == null) {
+      EventProcessor processor = getProcessor();
+      if (processor == null) {
+        try {
+          Class<? extends EventProcessor> processorClass = getProcessorClass();
+          if (processorClass == null) {
+            throw new IllegalStateException("Neither processor nor processorClass was set");
+          }
+          try {
+            Constructor<? extends EventProcessor> constructor = processorClass.getConstructor(ProcessorContext.class);
+            processor = constructor.newInstance(getContextManager().getContext());
+          } catch (NoSuchMethodException ignored) {
+            // fall back to default constructor
+            Constructor<? extends EventProcessor> constructor = processorClass.getConstructor();
+            processor = constructor.newInstance();
+          }
+        } catch (NoSuchMethodException | IllegalAccessException | InstantiationException | InvocationTargetException e) {
+          throw new IllegalStateException("Unable to instantiate processor.", e);
+        }
+      }
+
+      processorRunner = new ProcessorRunnerImpl(
+          processor,
+          getContextManager(),
+          getEvents(),
+          getProcessorName(),
+          getIdentifier()
+      );
+    }
+    return processorRunner;
+  }
+
+  public void setProcessorRunner(ProcessorRunner processorRunner) {
+    this.processorRunner = processorRunner;
   }
 }

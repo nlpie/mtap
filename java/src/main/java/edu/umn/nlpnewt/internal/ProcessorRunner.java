@@ -16,20 +16,17 @@
 
 package edu.umn.nlpnewt.internal;
 
-import edu.umn.nlpnewt.EventProcessor;
 import edu.umn.nlpnewt.JsonObject;
-import edu.umn.nlpnewt.ProcessorContext;
-import org.jetbrains.annotations.NotNull;
 
-import java.io.Closeable;
 import java.io.IOException;
 
-public interface ProcessorRunner {
-  @NotNull Closeable enterContext();
-
-  void startedServing(String address, int port);
-
-  void stoppedServing();
-
+public interface ProcessorRunner extends AutoCloseable {
   ProcessingResult process(String eventID, JsonObject params) throws IOException;
+
+  String getProcessorName();
+
+  String getProcessorId();
+
+  @Override
+  void close();
 }

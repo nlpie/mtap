@@ -198,7 +198,7 @@ class JsonObjectTest {
   void stringValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", "bar").build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals("bar", struct.getFieldsOrThrow("foo").getStringValue());
   }
@@ -218,7 +218,7 @@ class JsonObjectTest {
   void doubleValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", 20.0d).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals(20.0d, struct.getFieldsOrThrow("foo").getNumberValue());
   }
@@ -238,7 +238,7 @@ class JsonObjectTest {
   void nullValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", null).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals(NullValue.NULL_VALUE, struct.getFieldsOrThrow("foo").getNullValue());
   }
@@ -261,7 +261,7 @@ class JsonObjectTest {
     map.put("b", 2);
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", map).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals(1, (int) struct.getFieldsOrThrow("foo").getStructValue()
         .getFieldsOrThrow("a").getNumberValue());
@@ -290,7 +290,7 @@ class JsonObjectTest {
     JsonObject o1 = JsonObject.newBuilder().setProperty("a", 1).setProperty("b", 2).build();
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", o1).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals(1, (int) struct.getFieldsOrThrow("foo").getStructValue()
         .getFieldsOrThrow("a").getNumberValue());
@@ -303,7 +303,7 @@ class JsonObjectTest {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", Arrays.asList(0, 1, 2, 3))
         .build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     Value value = struct.getFieldsOrThrow("foo");
     assertEquals(0.0, value.getListValue().getValues(0).getNumberValue());
@@ -334,7 +334,7 @@ class JsonObjectTest {
   void longValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", 1L).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals(1L, struct.getFieldsOrThrow("foo").getNumberValue());
   }
@@ -356,7 +356,7 @@ class JsonObjectTest {
   void integerValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", 1).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals(1, struct.getFieldsOrThrow("foo").getNumberValue());
   }
@@ -378,7 +378,7 @@ class JsonObjectTest {
   void shortValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", (short) 1).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals((short) 1, struct.getFieldsOrThrow("foo").getNumberValue());
   }
@@ -400,7 +400,7 @@ class JsonObjectTest {
   void byteValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", (byte) 1).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals((byte) 1, struct.getFieldsOrThrow("foo").getNumberValue());
   }
@@ -422,7 +422,7 @@ class JsonObjectTest {
   void charValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", 'c').build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertEquals("c", struct.getFieldsOrThrow("foo").getStringValue());
   }
@@ -444,7 +444,7 @@ class JsonObjectTest {
   void boolValueToStruct() {
     JsonObject jsonObject = JsonObject.newBuilder().setProperty("foo", true).build();
     Struct.Builder builder = Struct.newBuilder();
-    JsonObject.copyJsonObjectToStruct(jsonObject, builder);
+    jsonObject.copyToStruct(builder);
     Struct struct = builder.build();
     assertTrue(struct.getFieldsOrThrow("foo").getBoolValue());
   }

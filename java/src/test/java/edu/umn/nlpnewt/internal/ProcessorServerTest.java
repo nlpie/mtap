@@ -34,38 +34,39 @@ class ProcessorServerTest {
 
   @Test
   void start() throws IOException {
-    ProcessorRunner contextManager = mock(ProcessorRunner.class);
+    ProcessorService processorService = mock(ProcessorService.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
     ProcessorServer processorServer = new ProcessorServer("localhost", server,
-        contextManager);
+        processorService);
     processorServer.start();
-    verify(contextManager).startedServing("localhost", -1);
+    verify(processorService).startedServing("localhost", -1);
   }
 
   @Test
   void getPort() throws IOException {
-    ProcessorRunner contextManager = mock(ProcessorRunner.class);
+    ProcessorService processorService = mock(ProcessorService.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
     ProcessorServer processorServer = new ProcessorServer("localhost", server,
-        contextManager);
+        processorService);
     processorServer.start();
     assertEquals(-1, processorServer.getPort());
   }
 
   @Test
-  void shutdown() throws IOException {
-    ProcessorRunner contextManager = mock(ProcessorRunner.class);
+  void shutdown() throws IOException, InterruptedException {
+    ProcessorService processorService = mock(ProcessorService.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
     ProcessorServer processorServer = new ProcessorServer("localhost", server,
-        contextManager);
+        processorService);
     processorServer.start();
     processorServer.shutdown();
-    verify(contextManager).stoppedServing();
+    processorServer.blockUntilShutdown();
+    verify(processorService).stoppedServing();
   }
 }

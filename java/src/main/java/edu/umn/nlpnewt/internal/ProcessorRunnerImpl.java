@@ -16,70 +16,38 @@
 
 package edu.umn.nlpnewt.internal;
 
-import com.google.common.base.Stopwatch;
 import edu.umn.nlpnewt.*;
-import io.grpc.health.v1.HealthCheckResponse;
-import org.jetbrains.annotations.NotNull;
+import edu.umn.nlpnewt.ProcessorContextManager.ProcessorThreadContext;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-
-import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
 
 class ProcessorRunnerImpl implements ProcessorRunner {
-  private final ThreadLocal<ProcessorThreadContext> threadContext = new ThreadLocal<>();
-  private final InternalOptions internalOptions;
+
+  private final ProcessorContextManager processorContextManager;
   private final EventProcessor processor;
+  private final NewtEvents events;
+  private final String name;
   private final String identifier;
-  private Runnable deregister = null;
 
-  ProcessorRunnerImpl(InternalOptions internalOptions, EventProcessor processor, String identifier) {
-    this.internalOptions = internalOptions;
+  ProcessorRunnerImpl(
+      EventProcessor processor,
+      ProcessorContextManager processorContextManager,
+      NewtEvents events,
+      String name,
+      String identifier
+  ) {
     this.processor = processor;
+    this.processorContextManager = processorContextManager;
+    this.events = events;
+    this.name = name;
     this.identifier = identifier;
-  }
-
-  @Override
-  public @NotNull ProcessorThreadContext enterContext() {
-    ProcessorThreadContext processorThreadContext = new ProcessorThreadContext();
-    threadContext.set(processorThreadContext);
-    return processorThreadContext;
-  }
-
-  @NotNull
-  private ProcessorThreadContext getCurrent() {
-    ProcessorThreadContext local = threadContext.get();
-    if (local == null) {
-      throw new IllegalStateException("Attempting to use processor context outside of a " +
-          "managed process call.");
-    }
-    return local;
-  }
-
-  @Override
-  public void startedServing(String address, int port) {
-    RegistrationAndHealthManager registrationAndHealthManager = internalOptions.getRegistrationAndHealthManager();
-    registrationAndHealthManager.setHealthAddress(address);
-    registrationAndHealthManager.setHealthPort(port);
-    deregister = registrationAndHealthManager.startedService(identifier, PROCESSOR_SERVICE_TAG);
-  }
-
-  @Override
-  public void stoppedServing() {
-    if (deregister != null) {
-      deregister.run();
-    }
-    processor.shutdown();
   }
 
   @Override
   public ProcessingResult process(String eventID, JsonObject params) throws IOException {
     JsonObject.Builder resultBuilder = JsonObject.newBuilder();
-    try (ProcessorThreadContext context = enterContext()) {
-      try (Event event = internalOptions.getEvents().openEvent(eventID)) {
+    try (ProcessorThreadContext context = processorContextManager.enterContext()) {
+      try (Event event = events.openEvent(eventID)) {
         Timer timer = context.startTimer("process_method");
         processor.process(event, params, resultBuilder);
         timer.stop();
@@ -89,65 +57,18 @@ class ProcessorRunnerImpl implements ProcessorRunner {
     }
   }
 
-  public class Context implements ProcessorContext {
-    @Override
-    public void updateServingStatus(HealthCheckResponse.ServingStatus status) {
-      internalOptions.getRegistrationAndHealthManager().setStatus(identifier, status);
-    }
-
-    @Override
-    public @NotNull Timer startTimer(String key) {
-      return getCurrent().startTimer(key);
-    }
-
-    @Override
-    public Map<String, Duration> getTimes() {
-      return getCurrent().getTimes();
-    }
-
-    @Override
-    public String getIdentifier() {
-      return identifier;
-    }
-
-    @Override
-    public NewtEvents getEvents() {
-      return internalOptions.getEvents();
-    }
+  @Override
+  public String getProcessorName() {
+    return name;
   }
 
-  public class ProcessorThreadContext implements Closeable {
-    private final Map<String, Duration> times = new HashMap<>();
+  @Override
+  public String getProcessorId() {
+    return identifier;
+  }
 
-    private boolean active = true;
-
-    @NotNull Timer startTimer(String key) {
-      Stopwatch stopwatch = Stopwatch.createStarted();
-
-      return new Timer() {
-        @Override
-        public void stop() {
-          if (!active) {
-            throw new IllegalStateException("Processor context has been exited prior to stop.");
-          }
-          times.put(identifier + ":" + key, stopwatch.elapsed());
-        }
-
-        @Override
-        public void close() {
-          stop();
-        }
-      };
-    }
-
-    Map<String, Duration> getTimes() {
-      return times;
-    }
-
-    @Override
-    public void close() {
-      active = false;
-      threadContext.remove();
-    }
+  @Override
+  public void close() {
+    processor.shutdown();
   }
 }
