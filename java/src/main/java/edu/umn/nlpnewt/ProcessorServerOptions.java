@@ -15,6 +15,8 @@
  */
 package edu.umn.nlpnewt;
 
+import io.grpc.internal.AbstractServerImplBuilder;
+import io.grpc.netty.NettyServerBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.*;
@@ -22,6 +24,7 @@ import org.kohsuke.args4j.spi.OneArgumentOptionHandler;
 import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.kohsuke.args4j.spi.Setter;
 
+import java.net.InetSocketAddress;
 import java.nio.file.Path;
 
 /**
@@ -29,15 +32,15 @@ import java.nio.file.Path;
  * <p>
  * Which processor to launch is specified via either processor or processorClass.
  */
-public final class ProcessorServerOptions {
+public class ProcessorServerOptions {
 
   @Nullable
   @Argument(required = true, metaVar = "PROCESSOR_CLASS", handler = ProcessorOptionHandler.class,
       usage = "Processor full class name")
-  private Class<? extends AbstractEventProcessor> processorClass = null;
+  private Class<? extends EventProcessor> processorClass = null;
 
   @Nullable
-  private AbstractEventProcessor processor = null;
+  private EventProcessor processor = null;
 
   @NotNull
   @Option(name = "-a", aliases = {"--address"}, metaVar = "ADDRESS",
@@ -75,6 +78,22 @@ public final class ProcessorServerOptions {
   public ProcessorServerOptions() {}
 
   /**
+   * Copy constructor.
+   *
+   * @param options Options to copy from.
+   */
+  public ProcessorServerOptions(ProcessorServerOptions options) {
+    processorClass = options.getProcessorClass();
+    processor = options.getProcessor();
+    address = options.getAddress();
+    port = options.getPort();
+    register = options.getRegister();
+    eventsTarget = options.getEventsTarget();
+    configFile = options.getConfigFile();
+    identifier = options.getIdentifier();
+  }
+
+  /**
    * Creates an empty processor server options.
    *
    * @return Processor server options object.
@@ -88,7 +107,7 @@ public final class ProcessorServerOptions {
    *
    * @return processorClass or {@code null} if not set.
    */
-  public @Nullable Class<? extends AbstractEventProcessor> getProcessorClass() {
+  public @Nullable Class<? extends EventProcessor> getProcessorClass() {
     return processorClass;
   }
 
@@ -98,7 +117,7 @@ public final class ProcessorServerOptions {
    * @param processorClass processorClass or {@code null} if it should be unset.
    */
   public void setProcessorClass(
-      @Nullable Class<? extends AbstractEventProcessor> processorClass
+      @Nullable Class<? extends EventProcessor> processorClass
   ) {
     if (processor != null && processorClass != null) {
       throw new IllegalStateException("Processor already set to processor instance.");
@@ -114,7 +133,7 @@ public final class ProcessorServerOptions {
    * @return This options object.
    */
   public ProcessorServerOptions withProcessorClass(
-      @Nullable Class<? extends AbstractEventProcessor> processorClass
+      @Nullable Class<? extends EventProcessor> processorClass
   ) {
     setProcessorClass(processorClass);
     return this;
@@ -125,7 +144,7 @@ public final class ProcessorServerOptions {
    *
    * @return processor or {@code null} if it is unset.
    */
-  public @Nullable AbstractEventProcessor getProcessor() {
+  public @Nullable EventProcessor getProcessor() {
     return processor;
   }
 
@@ -134,7 +153,7 @@ public final class ProcessorServerOptions {
    *
    * @param processor processor or {@code null} if it should be unset.
    */
-  public void setProcessor(@Nullable AbstractEventProcessor processor) {
+  public void setProcessor(@Nullable EventProcessor processor) {
     if (processorClass != null && processor != null) {
       throw new IllegalStateException("Processor already defined by class.");
     }
@@ -148,7 +167,7 @@ public final class ProcessorServerOptions {
    *
    * @return This options object.
    */
-  public ProcessorServerOptions withProcessor(@Nullable AbstractEventProcessor processor) {
+  public ProcessorServerOptions withProcessor(@Nullable EventProcessor processor) {
     setProcessor(processor);
     return this;
   }
@@ -330,25 +349,25 @@ public final class ProcessorServerOptions {
 
   /**
    * An args4j option handler that will parse a fully qualified class name into a
-   * {@link AbstractEventProcessor} class.
+   * {@link EventProcessor} class.
    */
   public static class ProcessorOptionHandler
-      extends OneArgumentOptionHandler<Class<? extends AbstractEventProcessor>> {
+      extends OneArgumentOptionHandler<Class<? extends EventProcessor>> {
 
     public ProcessorOptionHandler(
         CmdLineParser parser,
         OptionDef option,
-        Setter<? super Class<? extends AbstractEventProcessor>> setter
+        Setter<? super Class<? extends EventProcessor>> setter
     ) {
       super(parser, option, setter);
     }
 
     @Override
-    protected Class<? extends AbstractEventProcessor> parse(
+    protected Class<? extends EventProcessor> parse(
         String argument
     ) throws NumberFormatException, CmdLineException {
       try {
-        return Class.forName(argument).asSubclass(AbstractEventProcessor.class);
+        return Class.forName(argument).asSubclass(EventProcessor.class);
       } catch (ClassNotFoundException e) {
         throw new CmdLineException(owner, "Invalid processor class name", e);
       }

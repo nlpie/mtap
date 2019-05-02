@@ -26,8 +26,8 @@ import java.util.Map;
  * Interface for a processing context which gets passed to processors upon construction.
  *
  * The framework will automatically enter a thread context before the
- * {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
- * {@link AbstractDocumentProcessor#process(Event, JsonObject, JsonObject.Builder)} methods are
+ * {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
+ * {@link DocumentProcessorBase#process(Event, JsonObject, JsonObject.Builder)} methods are
  * called, and automatically exit after.
  */
 public interface ProcessorContext {
@@ -43,8 +43,8 @@ public interface ProcessorContext {
    * Starts a timer keyed by {@code key}.
    * <p>
    * Must be called inside a
-   * {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
-   * {@link AbstractDocumentProcessor#process(Event, JsonObject, JsonObject.Builder)} method.
+   * {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
+   * {@link DocumentProcessorBase#process(Event, JsonObject, JsonObject.Builder)} method.
    *
    * @param key The key to store the time under.
    *
@@ -57,8 +57,8 @@ public interface ProcessorContext {
    * Returns all of the times that have completed timing in the current thread context.
    * <p>
    * Must be called inside a
-   * {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
-   * {@link AbstractDocumentProcessor#process(Event, JsonObject, JsonObject.Builder)} method.
+   * {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
+   * {@link DocumentProcessorBase#process(Event, JsonObject, JsonObject.Builder)} method.
    *
    * @return Map of times.
    */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota
+ * Copyright 2019 Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package edu.umn.nlpnewt;
 
-import org.jetbrains.annotations.NotNull;
+package edu.umn.nlpnewt;
 
 /**
  * Abstract base class for a processor of {@link Event} objects.
@@ -23,7 +22,7 @@ import org.jetbrains.annotations.NotNull;
  * Example:
  * <pre>
  *     &#64;Processor('example-processor')
- *     public class ExampleProcessor extends AbstractEventProcessor {
+ *     public class ExampleProcessor extends EventProcessorBase {
  *       &#64;Override
  *       public void process(Event event, JsonObject params, JsonObject.Builder result) {
  *         // do processing on event
@@ -32,32 +31,10 @@ import org.jetbrains.annotations.NotNull;
  * </pre>
  * <p>
  * The no-argument default constructor is required for instantiation via reflection. At runtime,
- * the {@link AbstractEventProcessor#process(Event, JsonObject, JsonObject.Builder)} method
+ * the {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} method
  * may be called simultaneously from multiple threads, so the implementing class is responsible for
  * ensuring thread-safety.
  */
-public abstract class AbstractEventProcessor {
+public abstract class EventProcessorBase implements EventProcessor {
 
-
-  /**
-   * Method where the subclass implementation does its processing on the event.
-   *
-   * @param event  event object to process.
-   * @param params processing parameters.
-   * @param result result map
-   */
-  public abstract void process(
-      @NotNull Event event,
-      @NotNull JsonObject params,
-      @NotNull JsonObject.Builder result
-  );
-
-  /**
-   * Called when the processor service is going to shutdown serving so the processor can free
-   * any resources associated with the processor.
-   */
-  @SuppressWarnings("EmptyMethod")
-  public void shutdown() {
-    // this method left purposefully empty
-  }
 }

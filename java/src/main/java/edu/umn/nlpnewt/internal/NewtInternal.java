@@ -31,8 +31,9 @@ public final class NewtInternal {
     return NewtEventsImpl.create(config, address);
   }
 
-  public static Server createProcessorServer(Config config, ProcessorServerOptions settings) throws IOException {
-    return ProcessorServer.create(config, settings);
+  public static Server createProcessorServer(Config config, ProcessorServerOptions options) throws IOException {
+    InternalOptions internalOptions = new InternalOptions(config, options);
+    return internalOptions.createProcessorServer();
   }
 
   public static <L extends Label> @NotNull LabelIndex<@NotNull L> standardLabelIndex(

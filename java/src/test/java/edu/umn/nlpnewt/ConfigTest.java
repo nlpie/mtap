@@ -28,7 +28,7 @@ class ConfigTest {
 
   @BeforeEach
   void setUp() {
-    config = Config.emptyConfig();
+    config = ConfigImpl.emptyConfig();
   }
 
   @Test

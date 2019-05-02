@@ -15,23 +15,29 @@
  */
 package edu.umn.nlpnewt;
 
-
-import java.lang.annotation.*;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Annotation which marks a {@link EventProcessor} or {@link DocumentProcessorBase} as
- * available for service discovery registration.
+ * A processor of events.
  */
-@Documented
-@Target(ElementType.TYPE)
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Processor {
+public interface EventProcessor {
   /**
-   * The processor name. This will be the default name that the processor identifies under with
-   * service discovery. It should be a valid dns path component, i.e. only consisting of
-   * alphanumeric characters and dashes.
+   * Performs processing of an event.
    *
-   * @return String processor name.
+   * @param event  event object to process.
+   * @param params processing parameters.
+   * @param result result map
    */
-  String value();
+  void process(
+      @NotNull Event event,
+      @NotNull JsonObject params,
+      @NotNull JsonObject.Builder result
+  );
+
+  /**
+   * Called when the processor service is going to shutdown serving so the processor can free
+   * any resources associated with the processor.
+   */
+  @SuppressWarnings("EmptyMethod")
+  default void shutdown() { }
 }

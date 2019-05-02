@@ -16,7 +16,7 @@
 
 package edu.umn.nlpnewt.internal;
 
-import edu.umn.nlpnewt.AbstractEventProcessor;
+import edu.umn.nlpnewt.EventProcessor;
 import edu.umn.nlpnewt.ProcessorContext;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,7 +25,7 @@ import java.io.Closeable;
 public interface ProcessorContextManager extends ProcessorContext {
   @NotNull Closeable enterContext();
 
-  AbstractEventProcessor getProcessor();
+  EventProcessor getProcessor();
 
   void startedServing(String address, int port);
 

@@ -23,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
  * Example:
  * <pre>
  *     &#64;Processor('example-processor')
- *     public class ExampleProcessor extends AbstractDocumentProcessor {
+ *     public class ExampleProcessor extends DocumentProcessorBase {
  *       &#64;Override
  *       protected void process(Document document, JsonObject params, JsonObject.Builder result) {
  *         // do processing on document
@@ -32,11 +32,11 @@ import org.jetbrains.annotations.NotNull;
  * </pre>
  * <p>
  * The no-argument default constructor is required for instantiation via reflection. At runtime,
- * the {@link AbstractDocumentProcessor#process(Document, JsonObject, JsonObject.Builder)} method
+ * the {@link DocumentProcessorBase#process(Document, JsonObject, JsonObject.Builder)} method
  * may be called simultaneously from multiple threads, so the implementing class is responsible for
  * ensuring thread-safety.
  */
-public abstract class AbstractDocumentProcessor extends AbstractEventProcessor {
+public abstract class DocumentProcessorBase implements EventProcessor {
   @Override
   public final void process(@NotNull Event event,
                             @NotNull JsonObject params,

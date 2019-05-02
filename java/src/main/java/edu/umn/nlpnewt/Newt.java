@@ -53,10 +53,10 @@ public final class Newt {
    * Creates a {@code Newt} object using configuration loaded from the standard locations.
    *
    * @throws IOException If there is an IOException while loading the configuration.
-   * @see Config
+   * @see ConfigImpl
    */
   public Newt() throws IOException {
-    config = Config.loadConfigFromLocationOrDefaults(null);
+    config = ConfigImpl.loadConfigFromLocationOrDefaults(null);
   }
 
   /**
@@ -66,10 +66,10 @@ public final class Newt {
    * @param configPath The path to load configuration from or {@code null}.
    *
    * @throws IOException If there is an {@code IOException} while loading the configuration.
-   * @see Config
+   * @see ConfigImpl
    */
   public Newt(@Nullable Path configPath) throws IOException {
-    config = Config.loadConfigFromLocationOrDefaults(configPath);
+    config = ConfigImpl.loadConfigFromLocationOrDefaults(configPath);
   }
 
   /**
@@ -81,7 +81,7 @@ public final class Newt {
    * @throws IOException If there is an {@code IOException} while loading the configuration.
    */
   public Newt(@NotNull Map<@NotNull String, @Nullable Object> configUpdates) throws IOException {
-    config = Config.loadConfigFromLocationOrDefaults(null);
+    config = ConfigImpl.loadConfigFromLocationOrDefaults(null);
     config.update(configUpdates);
   }
 
@@ -248,7 +248,7 @@ public final class Newt {
 
   /**
    * Creates a {@code Server} object that can be used to start hosting an
-   * {@link AbstractEventProcessor} or an {@link AbstractDocumentProcessor}.
+   * {@link EventProcessor} or an {@link DocumentProcessorBase}.
    * <p>
    * Example:
    * <pre>
