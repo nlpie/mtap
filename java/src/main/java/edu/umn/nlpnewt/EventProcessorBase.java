@@ -31,7 +31,7 @@ package edu.umn.nlpnewt;
  * </pre>
  * <p>
  * The no-argument default constructor is required for instantiation via reflection. At runtime,
- * the {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} method
+ * the {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} method
  * may be called simultaneously from multiple threads, so the implementing class is responsible for
  * ensuring thread-safety.
  */

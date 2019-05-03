@@ -30,7 +30,7 @@ class ProcessorServerOptionsTest {
   public static class TestProcessorBase extends DocumentProcessorBase {
 
     @Override
-    protected void process(@NotNull Document document, @NotNull JsonObject params, JsonObject.@NotNull Builder result) {
+    protected void process(@NotNull Document document, @NotNull JsonObject params, @NotNull JsonObjectBuilder result) {
 
     }
   }

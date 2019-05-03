@@ -15,7 +15,8 @@
  */
 package edu.umn.nlpnewt;
 
-import edu.umn.nlpnewt.internal.NewtInternal;
+import edu.umn.nlpnewt.internal.events.NewtInternalEvents;
+import edu.umn.nlpnewt.internal.processing.NewtInternalProcessing;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
@@ -105,7 +106,7 @@ public final class Newt {
   public static <L extends Label> @NotNull LabelIndex<L> standardLabelIndex(
       @NotNull List<@NotNull L> labels
   ) {
-    return NewtInternal.standardLabelIndex(labels);
+    return NewtInternalEvents.standardLabelIndex(labels);
   }
 
   /**
@@ -122,7 +123,7 @@ public final class Newt {
   public static <L extends Label> @NotNull LabelIndex<L> distinctLabelIndex(
       @NotNull List<@NotNull L> labels
   ) {
-    return NewtInternal.distinctLabelIndex(labels);
+    return NewtInternalEvents.distinctLabelIndex(labels);
   }
 
   /**
@@ -151,7 +152,7 @@ public final class Newt {
 
     try {
       Newt newt = new Newt();
-      Server server = NewtInternal.createProcessorServer(newt.config, processorServerOptions);
+      Server server = newt.createProcessorServer(processorServerOptions);
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
@@ -200,7 +201,7 @@ public final class Newt {
    * @return {@code NewtEvents} object connected to the events service.
    */
   public @NotNull NewtEvents events(@Nullable String address) {
-    return NewtInternal.createEvents(config, address);
+    return NewtInternalEvents.createEvents(config, address);
   }
 
   /**
@@ -220,7 +221,7 @@ public final class Newt {
    * @return {@code NewtEvents} object connected to the events service.
    */
   public @NotNull NewtEvents events(@NotNull String host, int port) {
-    return NewtInternal.createEvents(config, host + ":" + port);
+    return NewtInternalEvents.createEvents(config, host + ":" + port);
   }
 
   /**
@@ -241,7 +242,7 @@ public final class Newt {
    * @return {@code NewtEvents} object connected to the events service.
    */
   public @NotNull NewtEvents events(@NotNull InetSocketAddress address) {
-    return NewtInternal.createEvents(config,
+    return NewtInternalEvents.createEvents(config,
         address.getHostString() + ":" + address.getPort());
   }
 
@@ -268,6 +269,7 @@ public final class Newt {
    * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
   public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
-    return NewtInternal.createProcessorServer(config, options);
+    NewtInternalProcessing processing = new NewtInternalProcessing(config, options);
+    return processing.createProcessorServer();
   }
 }

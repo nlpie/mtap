@@ -23,7 +23,6 @@ import org.jetbrains.annotations.NotNull;
 public interface EventProcessor {
   /**
    * Performs processing of an event.
-   *
    * @param event  event object to process.
    * @param params processing parameters.
    * @param result result map
@@ -31,7 +30,7 @@ public interface EventProcessor {
   void process(
       @NotNull Event event,
       @NotNull JsonObject params,
-      @NotNull JsonObject.Builder result
+      @NotNull JsonObjectBuilder result
   );
 
   /**

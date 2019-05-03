@@ -37,7 +37,7 @@ public class TheOccurrencesExampleProcessorBase extends DocumentProcessorBase {
   @Override
   protected void process(@NotNull Document document,
                          @NotNull JsonObject params,
-                         @NotNull JsonObject.Builder result) {
+                         @NotNull JsonObjectBuilder result) {
     // Example of using process level parameters to do conditional processing
     Boolean doWork = params.getBooleanValue("do_work");
     if (doWork == null || !doWork) {

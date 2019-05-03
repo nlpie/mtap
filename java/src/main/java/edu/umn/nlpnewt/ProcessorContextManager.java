@@ -17,7 +17,7 @@
 package edu.umn.nlpnewt;
 
 import com.google.common.base.Stopwatch;
-import edu.umn.nlpnewt.internal.RegistrationAndHealthManager;
+import edu.umn.nlpnewt.internal.processing.RegistrationAndHealthManager;
 import io.grpc.health.v1.HealthCheckResponse;
 import org.jetbrains.annotations.NotNull;
 
@@ -46,14 +46,13 @@ public class ProcessorContextManager {
     this.registrationAndHealthManager = registrationAndHealthManager;
   }
 
-  public @NotNull ProcessorThreadContext enterContext() {
+  public ProcessorContext enterContext() {
     ProcessorThreadContext processorThreadContext = new ProcessorThreadContext();
     threadContext.set(processorThreadContext);
     return processorThreadContext;
   }
 
-  @NotNull
-  private ProcessorThreadContext getCurrent() {
+  private ProcessorContext getCurrent() {
     ProcessorThreadContext local = threadContext.get();
     if (local == null) {
       throw new IllegalStateException("Attempting to use processor context outside of a " +
@@ -91,13 +90,17 @@ public class ProcessorContextManager {
     public NewtEvents getEvents() {
       return newtEvents;
     }
+
+    @Override
+    public void close() { }
   }
 
-  public class ProcessorThreadContext implements Closeable {
+  public class ProcessorThreadContext extends Context implements Closeable {
     private final Map<String, Duration> times = new HashMap<>();
 
     private boolean active = true;
 
+    @Override
     public @NotNull Timer startTimer(String key) {
       Stopwatch stopwatch = Stopwatch.createStarted();
 
@@ -117,6 +120,7 @@ public class ProcessorContextManager {
       };
     }
 
+    @Override
     public Map<String, Duration> getTimes() {
       return times;
     }

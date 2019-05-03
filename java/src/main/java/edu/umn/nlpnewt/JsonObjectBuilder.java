@@ -23,17 +23,14 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A immutable representation of a JSON object, this class provides the basis of generic labels and
- * the parameter and results dictionaries for processing.
- */
-public interface JsonObject extends Map<@NotNull String, @Nullable Object> {
+public interface JsonObjectBuilder<T extends JsonObjectBuilder, R extends JsonObject>
+    extends Map<@NotNull String, @Nullable Object> {
   /**
-   * Copies a json object to a protobuf struct newBuilder.
+   * Copies the contents of a protobuf struct to this builder.
    *
-   * @param structBuilder The protobuf struct newBuilder.
+   * @param struct The protobuf struct message.
    */
-  Struct.Builder copyToStruct(Struct.Builder structBuilder);
+  T copyStruct(Struct struct);
 
   /**
    * Returns the property cast as a {@link String} object.
@@ -69,7 +66,7 @@ public interface JsonObject extends Map<@NotNull String, @Nullable Object> {
    *
    * @return Value stored under the property name cast as a JsonObject.
    */
-  JsonObject getJsonObjectValue(@NotNull String propertyName);
+  AbstractJsonObject getJsonObjectValue(@NotNull String propertyName);
 
   /**
    * Returns the property cast as a {@link List}.
@@ -79,4 +76,30 @@ public interface JsonObject extends Map<@NotNull String, @Nullable Object> {
    * @return Value stored under the property name cast as a {@link List}.
    */
   List getListValue(@NotNull String propertyName);
+
+  /**
+   * Builder method which sets a property keyed by {@code propertyName} to the {@code value}.
+   *
+   * @param propertyName The name the property should be stored under.
+   * @param value        The value of the property.
+   *
+   * @return This builder.
+   */
+  T setProperty(@NotNull String propertyName, @Nullable Object value);
+
+  /**
+   * Builder method which sets all of the properties in {@code map}.
+   *
+   * @param map The map of string property names to property values.
+   *
+   * @return This builder.
+   */
+  T setProperties(Map<@NotNull String, @Nullable Object> map);
+
+  /**
+   * Creates the concrete json object type.
+   *
+   * @return
+   */
+  R build();
 }

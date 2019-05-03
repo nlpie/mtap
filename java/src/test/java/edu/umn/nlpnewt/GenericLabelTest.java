@@ -36,7 +36,7 @@ class GenericLabelTest {
 
   @Test
   void createGenericLabelCopy() {
-    JsonObject jsonObject = JsonObject.newBuilder()
+    JsonObjectImpl jsonObject = JsonObjectImpl.newBuilder()
         .setProperty("start_index", 0)
         .setProperty("end_index", 5)
         .setProperty("foo", "bar")

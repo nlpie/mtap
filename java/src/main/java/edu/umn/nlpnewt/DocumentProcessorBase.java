@@ -32,7 +32,7 @@ import org.jetbrains.annotations.NotNull;
  * </pre>
  * <p>
  * The no-argument default constructor is required for instantiation via reflection. At runtime,
- * the {@link DocumentProcessorBase#process(Document, JsonObject, JsonObject.Builder)} method
+ * the {@link DocumentProcessorBase#process(Document, JsonObject, JsonObjectBuilder)} method
  * may be called simultaneously from multiple threads, so the implementing class is responsible for
  * ensuring thread-safety.
  */
@@ -40,7 +40,7 @@ public abstract class DocumentProcessorBase implements EventProcessor {
   @Override
   public final void process(@NotNull Event event,
                             @NotNull JsonObject params,
-                            JsonObject.@NotNull Builder result) {
+                            @NotNull JsonObjectBuilder result) {
     String document_name = params.getStringValue("document_name");
 
     Document document = event.get(document_name);
@@ -49,14 +49,13 @@ public abstract class DocumentProcessorBase implements EventProcessor {
 
   /**
    * Method implemented by subclasses to process documents.
-   *
-   * @param document document to process.
+   *  @param document document to process.
    * @param params   processing parameters.
    * @param result   results object.
    */
   protected abstract void process(
       @NotNull Document document,
       @NotNull JsonObject params,
-      @NotNull JsonObject.Builder result
+      @NotNull JsonObjectBuilder result
   );
 }

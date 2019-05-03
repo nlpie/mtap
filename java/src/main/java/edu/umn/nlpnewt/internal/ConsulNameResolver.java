@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota
+ * Copyright 2019 Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import java.util.List;
  * Internal implementation of grpc name-resolution magic using consul.
  */
 @Internal
-final class ConsulNameResolver extends NameResolver {
+public final class ConsulNameResolver extends NameResolver {
 
   private final String authority;
 
@@ -88,12 +88,11 @@ final class ConsulNameResolver extends NameResolver {
     }
   }
 
-  static class Factory extends NameResolver.Factory {
+  public static class Factory extends NameResolver.Factory {
 
-    static Factory create() {
+    public static Factory create() {
       return new Factory();
     }
-
 
     @Override
     public String getDefaultScheme() {

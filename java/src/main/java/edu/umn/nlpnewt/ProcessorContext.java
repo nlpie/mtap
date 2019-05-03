@@ -26,11 +26,11 @@ import java.util.Map;
  * Interface for a processing context which gets passed to processors upon construction.
  *
  * The framework will automatically enter a thread context before the
- * {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
- * {@link DocumentProcessorBase#process(Event, JsonObject, JsonObject.Builder)} methods are
+ * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} or
+ * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} methods are
  * called, and automatically exit after.
  */
-public interface ProcessorContext {
+public interface ProcessorContext extends AutoCloseable {
   /**
    * Updates the serving status of this processor for health checking. By default, the processor
    * starts at "SERVING".
@@ -43,8 +43,8 @@ public interface ProcessorContext {
    * Starts a timer keyed by {@code key}.
    * <p>
    * Must be called inside a
-   * {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
-   * {@link DocumentProcessorBase#process(Event, JsonObject, JsonObject.Builder)} method.
+   * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} or
+   * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} method.
    *
    * @param key The key to store the time under.
    *
@@ -57,8 +57,8 @@ public interface ProcessorContext {
    * Returns all of the times that have completed timing in the current thread context.
    * <p>
    * Must be called inside a
-   * {@link EventProcessor#process(Event, JsonObject, JsonObject.Builder)} or
-   * {@link DocumentProcessorBase#process(Event, JsonObject, JsonObject.Builder)} method.
+   * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} or
+   * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} method.
    *
    * @return Map of times.
    */
@@ -67,4 +67,7 @@ public interface ProcessorContext {
   String getIdentifier();
 
   NewtEvents getEvents();
+
+  @Override
+  void close();
 }

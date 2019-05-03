@@ -96,7 +96,7 @@ public class DocumentsProcessorIT {
     @Override
     protected void process(@NotNull Document document,
                            @NotNull JsonObject params,
-                           JsonObject.@NotNull Builder result) {
+                           @NotNull JsonObjectBuilder result) {
       Boolean doWork = params.getBooleanValue("do_work");
       if (doWork != null && doWork) {
         Timer fooTimer = context.startTimer("foo_timer");

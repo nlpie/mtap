@@ -46,7 +46,7 @@ import java.util.*;
  * {@link Float} is converted to {@link Double}. {@link String} and {@link Boolean} are stored
  * directly. {@link Character} is converted to a {@link String} of length 1.
  */
-public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @Nullable Object> {
+public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @Nullable Object> implements JsonObject {
 
   private final Map<String, Object> backingMap;
 
@@ -115,7 +115,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     } else if (value instanceof Map) {
       checkForReferenceCycle(value, parents);
       Map<?, ?> map = (Map<?, ?>) value;
-      JsonObject.Builder jsonBuilder = new JsonObject.Builder();
+      JsonObjectImpl.Builder jsonBuilder = new JsonObjectImpl.Builder();
       parents.push(value);
       for (Map.Entry<?, ?> entry : map.entrySet()) {
         Object key = entry.getKey();
@@ -167,7 +167,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
       case BOOL_VALUE:
         return from.getBoolValue();
       case STRUCT_VALUE:
-        JsonObject.Builder builder = new JsonObject.Builder();
+        JsonObjectImpl.Builder builder = new JsonObjectImpl.Builder();
         builder.copyStruct(from.getStructValue());
         return builder.build();
       case LIST_VALUE:
@@ -190,11 +190,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     }
   }
 
-  /**
-   * Copies a json object to a protobuf struct newBuilder.
-   *
-   * @param structBuilder The protobuf struct newBuilder.
-   */
+  @Override
   public Struct.Builder copyToStruct(Struct.Builder structBuilder) {
     for (Entry<String, ?> entry : entrySet()) {
       String key = entry.getKey();
@@ -205,57 +201,27 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     return structBuilder;
   }
 
-  /**
-   * Returns the property cast as a {@link String} object.
-   *
-   * @param propertyName The property name.
-   *
-   * @return Value stored under the property name given cast as a String.
-   */
+  @Override
   public String getStringValue(@NotNull String propertyName) {
     return (String) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link Double} object.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a Double.
-   */
+  @Override
   public Double getNumberValue(@NotNull String propertyName) {
     return (Double) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link Boolean} object.
-   *
-   * @param propertyName The name of the property.
-   *
-   * @return Value stored under the property name cast as a JsonObject.
-   */
+  @Override
   public Boolean getBooleanValue(@NotNull String propertyName) {
     return (Boolean) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link AbstractJsonObject}.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a JsonObject.
-   */
-  public AbstractJsonObject getJsonObjectValue(@NotNull String propertyName) {
+  @Override
+  public JsonObject getJsonObjectValue(@NotNull String propertyName) {
     return (AbstractJsonObject) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link List}.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a {@link List}.
-   */
+  @Override
   public List getListValue(@NotNull String propertyName) {
     return (List) backingMap.get(propertyName);
   }
@@ -284,16 +250,12 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
    *
    * @param <T> The newBuilder type to be returned by newBuilder methods.
    */
-  public abstract static class AbstractBuilder<T extends AbstractBuilder>
-      extends AbstractMap<@NotNull String, @Nullable Object> {
+  public abstract static class AbstractBuilder<T extends AbstractBuilder, R extends JsonObject>
+      extends AbstractMap<@NotNull String, @Nullable Object> implements JsonObjectBuilder<T, R> {
 
     protected Map<@NotNull String, @Nullable Object> backingMap = new HashMap<>();
 
-    /**
-     * Copies the contents of a protobuf struct to this builder.
-     *
-     * @param struct The protobuf struct message.
-     */
+    @Override
     @SuppressWarnings("unchecked")
     @NotNull
     public T copyStruct(Struct struct) {
@@ -307,69 +269,32 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
       return (T) this;
     }
 
-    /**
-     * Returns the property cast as a {@link String} object.
-     *
-     * @param propertyName The property name.
-     *
-     * @return Value stored under the property name given cast as a String.
-     */
+    @Override
     public String getStringValue(@NotNull String propertyName) {
       return (String) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link Double} object.
-     *
-     * @param propertyName The name the property is stored under.
-     *
-     * @return Value stored under the property name cast as a Double.
-     */
+    @Override
     public Double getNumberValue(@NotNull String propertyName) {
       return (Double) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link Boolean} object.
-     *
-     * @param propertyName The name of the property.
-     *
-     * @return Value stored under the property name cast as a JsonObject.
-     */
+    @Override
     public Boolean getBooleanValue(@NotNull String propertyName) {
       return (Boolean) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link AbstractJsonObject}.
-     *
-     * @param propertyName The name the property is stored under.
-     *
-     * @return Value stored under the property name cast as a JsonObject.
-     */
+    @Override
     public AbstractJsonObject getJsonObjectValue(@NotNull String propertyName) {
       return (AbstractJsonObject) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link List}.
-     *
-     * @param propertyName The name the property is stored under.
-     *
-     * @return Value stored under the property name cast as a {@link List}.
-     */
+    @Override
     public List getListValue(@NotNull String propertyName) {
       return (List) backingMap.get(propertyName);
     }
 
-    /**
-     * Builder method which sets a property keyed by {@code propertyName} to the {@code value}.
-     *
-     * @param propertyName The name the property should be stored under.
-     * @param value        The value of the property.
-     *
-     * @return This newBuilder.
-     */
+    @Override
     @SuppressWarnings("unchecked")
     @NotNull
     public final T setProperty(@NotNull String propertyName, @Nullable Object value) {
@@ -384,13 +309,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
       return backingMap.put(key, jsonify(value, parents));
     }
 
-    /**
-     * Builder method which sets all of the properties in {@code map}.
-     *
-     * @param map The map of string property names to property values.
-     *
-     * @return This newBuilder.
-     */
+    @Override
     @SuppressWarnings("unchecked")
     public final T setProperties(Map<@NotNull String, @Nullable Object> map) {
       putAll(map);
