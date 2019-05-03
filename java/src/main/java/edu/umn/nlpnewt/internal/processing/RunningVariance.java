@@ -48,15 +48,15 @@ class RunningVariance {
   Processing.TimerStats createStats() {
     return Processing.TimerStats.newBuilder()
         .setMean(Durations.fromNanos(Math.round(mean)))
-        .setStd(Durations.fromNanos(getStd()))
+        .setStd(Durations.fromNanos(Math.round(getStd())))
         .setMin(Durations.fromNanos(min))
         .setMax(Durations.fromNanos(max))
         .setSum(Durations.fromNanos(sum))
         .build();
   }
 
-  long getStd() {
-    return Math.round(Math.sqrt(sse / count));
+  double getStd() {
+    return Math.sqrt(sse / count);
   }
 
   long getCount() {
@@ -73,10 +73,6 @@ class RunningVariance {
 
   double getMean() {
     return mean;
-  }
-
-  double getSse() {
-    return sse;
   }
 
   long getSum() {
