@@ -31,7 +31,11 @@ import java.util.stream.Collectors;
 @Internal
 class TimesCollectorImpl implements TimesCollector {
   private final Map<String, RunningVariance> timesMap = new HashMap<>();
-  private final ExecutorService executor = Executors.newSingleThreadExecutor();
+  private final ExecutorService executor;
+
+  public TimesCollectorImpl(ExecutorService executor) {
+    this.executor = executor;
+  }
 
   @Override
   public void addTime(String key, long time) {

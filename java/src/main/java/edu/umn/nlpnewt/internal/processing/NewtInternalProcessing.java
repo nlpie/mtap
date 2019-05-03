@@ -28,6 +28,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 /**
@@ -240,7 +241,7 @@ public class NewtInternalProcessing extends ProcessorServerOptions {
 
   public TimesCollector getTimesCollector() {
     if (timesCollector == null) {
-      timesCollector = new TimesCollectorImpl();
+      timesCollector = new TimesCollectorImpl(Executors.newSingleThreadExecutor());
     }
     return timesCollector;
   }
