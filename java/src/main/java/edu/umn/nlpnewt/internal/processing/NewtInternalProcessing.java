@@ -37,6 +37,7 @@ import java.util.function.Supplier;
 @Internal
 public class NewtInternalProcessing extends ProcessorServerOptions {
   private Config config;
+  private RegistrationAndHealthManager.Factory registrationAndHealthManagerFactory = RegistrationAndHealthManagerImpl::create;
   private RegistrationAndHealthManager registrationAndHealthManager = null;
   private AbstractServerImplBuilder<?> serverBuilder = null;
   private NewtEvents events = null;
@@ -50,11 +51,6 @@ public class NewtInternalProcessing extends ProcessorServerOptions {
 
   public NewtInternalProcessing(Config config) throws IOException {
     this.config = ConfigImpl.createByCopying(config);
-    Path configFile = getConfigFile();
-    if (configFile != null) {
-      ConfigImpl updates = ConfigImpl.loadConfig(configFile);
-      this.config.update(updates);
-    }
   }
 
   public NewtInternalProcessing(
@@ -82,17 +78,19 @@ public class NewtInternalProcessing extends ProcessorServerOptions {
     this.serverBuilder = serverBuilder;
   }
 
-  public ProcessorServerOptions withServerBuilder(AbstractServerImplBuilder<?> serverBuilder) {
-    setServerBuilder(serverBuilder);
-    return this;
+  public RegistrationAndHealthManager.Factory getRegistrationAndHealthManagerFactory() {
+    return registrationAndHealthManagerFactory;
+  }
+
+  public void setRegistrationAndHealthManagerFactory(
+      RegistrationAndHealthManager.Factory registrationAndHealthManagerFactory
+  ) {
+    this.registrationAndHealthManagerFactory = registrationAndHealthManagerFactory;
   }
 
   public RegistrationAndHealthManager getRegistrationAndHealthManager() {
     if (registrationAndHealthManager == null) {
-      return RegistrationAndHealthManagerImpl.create(
-          config,
-          getRegister()
-      );
+      return getRegistrationAndHealthManagerFactory().create(config, getRegister());
     }
     return registrationAndHealthManager;
   }

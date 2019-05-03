@@ -16,26 +16,5 @@
 
 package edu.umn.nlpnewt.internal.processing;
 
-import edu.umn.nlpnewt.Config;
-import edu.umn.nlpnewt.Internal;
-import io.grpc.BindableService;
-import io.grpc.health.v1.HealthCheckResponse;
-
-@Internal
-public interface RegistrationAndHealthManager {
-  void setHealthAddress(String address);
-
-  void setHealthPort(int port);
-
-  Runnable startedService(String processor_id, String... tags);
-
-  BindableService getHealthService();
-
-  void enterTerminalState();
-
-  void setStatus(String identifier, HealthCheckResponse.ServingStatus status);
-
-  interface Factory {
-    RegistrationAndHealthManager create(Config config, boolean register);
-  }
+public interface NewtEventsFactory {
 }
