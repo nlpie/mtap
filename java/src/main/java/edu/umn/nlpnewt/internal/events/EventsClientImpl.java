@@ -30,17 +30,23 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
 
   private final EventsGrpc.EventsBlockingStub stub;
   private final ManagedChannel channel;
+  private final ProtoLabelAdapter<GenericLabel> distinctAdapter;
+  private final ProtoLabelAdapter<GenericLabel> standardAdapter;
 
-  EventsClientImpl(ManagedChannel channel) {
+  EventsClientImpl(ManagedChannel channel,
+                   ProtoLabelAdapter<GenericLabel> distinctAdapter,
+                   ProtoLabelAdapter<GenericLabel> standardAdapter) {
     stub = EventsGrpc.newBlockingStub(channel);
     this.channel = channel;
+    this.distinctAdapter = distinctAdapter;
+    this.standardAdapter = standardAdapter;
   }
 
   @Override
   public void openEvent(@NotNull String eventID, boolean onlyCreateNew) {
     EventsOuterClass.OpenEventRequest request = EventsOuterClass.OpenEventRequest.newBuilder()
         .setEventId(eventID)
-        .setOnlyCreateNew(false)
+        .setOnlyCreateNew(onlyCreateNew)
         .build();
     //noinspection ResultOfMethodCallIgnored
     stub.openEvent(request);
@@ -154,9 +160,9 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
     EventsOuterClass.GetLabelsResponse response = stub.getLabels(request);
     EventsOuterClass.JsonLabels jsonLabels = response.getJsonLabels();
     if (jsonLabels.getIsDistinct()) {
-      return GenericLabelAdapter.DISTINCT_ADAPTER.createIndexFromResponse(response);
+      return distinctAdapter.createIndexFromResponse(response);
     } else {
-      return GenericLabelAdapter.NOT_DISTINCT_ADAPTER.createIndexFromResponse(response);
+      return standardAdapter.createIndexFromResponse(response);
     }
   }
 

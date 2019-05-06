@@ -14,6 +14,8 @@ public class NewtEvents {
   private final NewtServices newtServices;
 
   private String address = null;
+  private ProtoLabelAdapter<GenericLabel> distinctAdapter = null;
+  private ProtoLabelAdapter<GenericLabel> standardAdapter = null;
   private ManagedChannel eventsChannel = null;
   private EventsClient eventsClient = null;
   private Events events = null;
@@ -28,6 +30,30 @@ public class NewtEvents {
 
   public NewtEvents setAddress(String address) {
     this.address = address;
+    return this;
+  }
+
+  public ProtoLabelAdapter<GenericLabel> getDistinctAdapter() {
+    if (distinctAdapter == null) {
+      distinctAdapter = GenericLabelAdapter.DISTINCT_ADAPTER;
+    }
+    return distinctAdapter;
+  }
+
+  public NewtEvents setDistinctAdapter(ProtoLabelAdapter<GenericLabel> distinctAdapter) {
+    this.distinctAdapter = distinctAdapter;
+    return this;
+  }
+
+  public ProtoLabelAdapter<GenericLabel> getStandardAdapter() {
+    if (standardAdapter == null) {
+      standardAdapter = GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
+    }
+    return standardAdapter;
+  }
+
+  public NewtEvents setStandardAdapter(ProtoLabelAdapter<GenericLabel> standardAdapter) {
+    this.standardAdapter = standardAdapter;
     return this;
   }
 
@@ -54,7 +80,7 @@ public class NewtEvents {
 
   public EventsClient getEventsClient() {
     if (eventsClient == null) {
-      eventsClient = new EventsClientImpl(getEventsChannel());
+      eventsClient = new EventsClientImpl(getEventsChannel(), getDistinctAdapter(), getStandardAdapter());
     }
     return eventsClient;
   }
