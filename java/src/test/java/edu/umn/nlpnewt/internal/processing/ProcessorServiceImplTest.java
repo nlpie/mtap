@@ -18,20 +18,26 @@ package edu.umn.nlpnewt.internal.processing;
 
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
+import edu.umn.nlpnewt.JsonObject;
 import edu.umn.nlpnewt.JsonObjectImpl;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
+import edu.umn.nlpnewt.internal.services.ServiceInfo;
+import edu.umn.nlpnewt.internal.services.ServiceLifecycle;
+import edu.umn.nlpnewt.internal.timing.TimesCollector;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
 import org.junit.Rule;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -43,23 +49,35 @@ import static org.mockito.Mockito.*;
 class ProcessorServiceImplTest {
   @Rule
   public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+  private ServiceLifecycle serviceLifecycle;
+  private Runner runner;
+  private TimesCollector timesCollector;
+  private String uniqueServiceId;
+
+  @BeforeEach
+  void setUp() {
+    serviceLifecycle = mock(ServiceLifecycle.class);
+    runner = mock(Runner.class);
+    timesCollector = mock(TimesCollector.class);
+    uniqueServiceId = "uniqueServiceId";
+  }
+
+  public ProcessorService createProcessorService(boolean register) {
+    return new ProcessorServiceImpl(serviceLifecycle, runner, timesCollector, uniqueServiceId,
+        register);
+  }
 
   @Test
   void testProcess() throws IOException {
-    ProcessorRunner runner = mock(ProcessorRunner.class);
     HashMap<String, List<String>> createdIndices = new HashMap<>();
     createdIndices.put("plaintext", Arrays.asList("indexOne", "indexTwo"));
     HashMap<String, Duration> times = new HashMap<>();
     times.put("process_method", Duration.ofNanos(30));
     JsonObjectImpl resultObject = JsonObjectImpl.newBuilder().setProperty("result", true).build();
-    ProcessingResult result = new ProcessingResultImpl(createdIndices, times, resultObject);
-    when(runner.process(eq("1"), any(JsonObjectImpl.class))).thenReturn(result);
+    ProcessingResult result = new ProcessingResult(createdIndices, times, resultObject);
+    when(runner.process(eq("1"), any(JsonObject.class))).thenReturn(result);
 
-    RegistrationAndHealthManager rhManager = mock(RegistrationAndHealthManager.class);
-
-    TimesCollector timesCollector = mock(TimesCollector.class);
-
-    ProcessorServiceImpl service = new ProcessorServiceImpl(runner, rhManager, timesCollector);
+    ProcessorService service = createProcessorService(true);
 
     String name = InProcessServerBuilder.generateName();
     InProcessServerBuilder.forName(name).directExecutor().addService(service).build().start();
@@ -74,9 +92,9 @@ class ProcessorServiceImplTest {
         .build()
     );
 
-    ArgumentCaptor<JsonObjectImpl> jsonCaptor = ArgumentCaptor.forClass(JsonObjectImpl.class);
+    ArgumentCaptor<JsonObject> jsonCaptor = ArgumentCaptor.forClass(JsonObjectImpl.class);
     verify(runner).process(eq("1"), jsonCaptor.capture());
-    JsonObjectImpl params = jsonCaptor.getValue();
+    JsonObject params = jsonCaptor.getValue();
     assertTrue(params.getBooleanValue("test"));
     verify(timesCollector).addTime("process_method", 30);
     assertEquals(1, response.getTimingInfoCount());
@@ -90,14 +108,9 @@ class ProcessorServiceImplTest {
 
   @Test
   void processFailure() throws IOException {
-    ProcessorRunner runner = mock(ProcessorRunner.class);
-    when(runner.process(eq("1"), any(JsonObjectImpl.class))).thenThrow(new IllegalStateException("bluh"));
+    when(runner.process(eq("1"), any(JsonObjectImpl.class))).thenThrow(new IllegalStateException("foo"));
 
-    RegistrationAndHealthManager rhManager = mock(RegistrationAndHealthManager.class);
-
-    TimesCollector timesCollector = mock(TimesCollector.class);
-
-    ProcessorServiceImpl service = new ProcessorServiceImpl(runner, rhManager, timesCollector);
+    ProcessorService service = createProcessorService(true);
 
     String name = InProcessServerBuilder.generateName();
     InProcessServerBuilder.forName(name).directExecutor().addService(service).build().start();
@@ -111,19 +124,12 @@ class ProcessorServiceImplTest {
         .setParams(Struct.newBuilder().putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
         .build()
     ));
-    assertEquals("INTERNAL: java.lang.IllegalStateException: bluh", exception.getMessage());
+    assertEquals("INTERNAL: java.lang.IllegalStateException: foo", exception.getMessage());
   }
 
   @Test
   void getInfo() throws IOException {
-    ProcessorRunner runner = mock(ProcessorRunner.class);
-    when(runner.process(eq("1"), any(JsonObjectImpl.class))).thenThrow(new IllegalStateException("bluh"));
-
-    RegistrationAndHealthManager rhManager = mock(RegistrationAndHealthManager.class);
-
-    TimesCollector timesCollector = mock(TimesCollector.class);
-
-    ProcessorServiceImpl service = new ProcessorServiceImpl(runner, rhManager, timesCollector);
+    ProcessorService service = createProcessorService(true);
     when(runner.getProcessorName()).thenReturn("name");
     when(runner.getProcessorId()).thenReturn("id");
 
@@ -140,24 +146,20 @@ class ProcessorServiceImplTest {
 
   @Test
   void getStats() throws IOException {
-    ProcessorRunner runner = mock(ProcessorRunner.class);
     HashMap<String, List<String>> createdIndices = new HashMap<>();
     createdIndices.put("plaintext", Arrays.asList("indexOne", "indexTwo"));
     HashMap<String, Duration> times = new HashMap<>();
     times.put("process_method", Duration.ofNanos(30));
     JsonObjectImpl resultObject = JsonObjectImpl.newBuilder().setProperty("result", true).build();
-    ProcessingResult result = new ProcessingResultImpl(createdIndices, times, resultObject);
+    ProcessingResult result = new ProcessingResult(createdIndices, times, resultObject);
     when(runner.process(eq("1"), any(JsonObjectImpl.class))).thenReturn(result);
 
-    RegistrationAndHealthManager rhManager = mock(RegistrationAndHealthManager.class);
-
-    TimesCollector timesCollector = mock(TimesCollector.class);
     HashMap<String, Processing.TimerStats> timesMap = new HashMap<>();
     timesMap.put("test:process_method", Processing.TimerStats.newBuilder()
         .setMax(com.google.protobuf.Duration.newBuilder().setNanos(100).build()).build());
     when(timesCollector.getTimerStats()).thenReturn(timesMap);
 
-    ProcessorServiceImpl service = new ProcessorServiceImpl(runner, rhManager, timesCollector);
+    ProcessorService service = createProcessorService(true);
 
     String name = InProcessServerBuilder.generateName();
     InProcessServerBuilder.forName(name).directExecutor().addService(service).build().start();
@@ -182,39 +184,40 @@ class ProcessorServiceImplTest {
 
   @Test
   void startedServing() {
-    ProcessorRunner runner = mock(ProcessorRunner.class);
     when(runner.getProcessorId()).thenReturn("foo");
 
-    RegistrationAndHealthManager rhManager = mock(RegistrationAndHealthManager.class);
-
-    TimesCollector timesCollector = mock(TimesCollector.class);
-
-    ProcessorServiceImpl service = new ProcessorServiceImpl(runner, rhManager, timesCollector);
+    ProcessorService service = createProcessorService(true);
 
     service.startedServing("localhost", 9090);
 
-    verify(rhManager).setHealthAddress("localhost");
-    verify(rhManager).setHealthPort(9090);
-    verify(rhManager).startedService("foo", PROCESSOR_SERVICE_TAG);
+    ArgumentCaptor<ServiceInfo> serviceInfoCaptor = ArgumentCaptor.forClass(ServiceInfo.class);
+    verify(serviceLifecycle).startedService(serviceInfoCaptor.capture());
+
+    ServiceInfo serviceInfo = serviceInfoCaptor.getValue();
+    assertEquals("localhost", serviceInfo.getAddress());
+    assertEquals(9090, serviceInfo.getPort());
+    assertEquals("uniqueServiceId", serviceInfo.getIdentifier());
+    assertEquals("foo", serviceInfo.getName());
+    assertEquals(Collections.singletonList(PROCESSOR_SERVICE_TAG), serviceInfo.getTags());
+    assertTrue(serviceInfo.isRegister());
   }
 
   @Test
   void stoppedServing() {
-    ProcessorRunner runner = mock(ProcessorRunner.class);
     when(runner.getProcessorId()).thenReturn("foo");
 
-    RegistrationAndHealthManager rhManager = mock(RegistrationAndHealthManager.class);
-    Runnable deregister = mock(Runnable.class);
-    when(rhManager.startedService("foo", PROCESSOR_SERVICE_TAG)).thenReturn(deregister);
+    ProcessorService service = createProcessorService(true);
 
-    TimesCollector timesCollector = mock(TimesCollector.class);
-
-    ProcessorServiceImpl service = new ProcessorServiceImpl(runner, rhManager, timesCollector);
-
-    service.startedServing("localhost", 9090);
     service.stoppedServing();
 
+    ArgumentCaptor<ServiceInfo> serviceInfoCaptor = ArgumentCaptor.forClass(ServiceInfo.class);
+    verify(serviceLifecycle).stoppedService(serviceInfoCaptor.capture());
+
+    ServiceInfo serviceInfo = serviceInfoCaptor.getValue();
+    assertEquals("uniqueServiceId", serviceInfo.getIdentifier());
+    assertEquals("foo", serviceInfo.getName());
+    assertTrue(serviceInfo.isRegister());
+
     verify(runner).close();
-    verify(deregister).run();
   }
 }

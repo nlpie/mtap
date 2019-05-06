@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.internal.processing;
+package edu.umn.nlpnewt.internal.timing;
 
 import com.google.protobuf.util.Durations;
 import edu.umn.nlpnewt.Internal;

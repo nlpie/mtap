@@ -23,12 +23,16 @@ import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.JsonObjectImpl;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
+import edu.umn.nlpnewt.internal.services.ServiceInfo;
+import edu.umn.nlpnewt.internal.services.ServiceLifecycle;
+import edu.umn.nlpnewt.internal.timing.TimesCollector;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.StreamObserver;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -37,22 +41,26 @@ import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
 @Internal
 final class ProcessorServiceImpl extends ProcessorGrpc.ProcessorImplBase implements ProcessorService {
   private final TimesCollector timesCollector;
-  private final ProcessorRunner runner;
-  private final RegistrationAndHealthManager registrationAndHealthManager;
-
-  private Runnable deregister = null;
+  private final Runner runner;
+  private final String uniqueServiceId;
+  private final boolean register;
+  private final ServiceLifecycle serviceLifecycle;
 
   private int processed = 0;
   private int failures = 0;
 
   ProcessorServiceImpl(
-      ProcessorRunner runner,
-      RegistrationAndHealthManager registrationAndHealthManager,
-      TimesCollector timesCollector
+      ServiceLifecycle serviceLifecycle,
+      Runner runner,
+      TimesCollector timesCollector,
+      String uniqueServiceId,
+      boolean register
   ) {
+    this.serviceLifecycle = serviceLifecycle;
     this.runner = runner;
-    this.registrationAndHealthManager = registrationAndHealthManager;
     this.timesCollector = timesCollector;
+    this.uniqueServiceId = uniqueServiceId;
+    this.register = register;
   }
 
   @Override
@@ -132,16 +140,56 @@ final class ProcessorServiceImpl extends ProcessorGrpc.ProcessorImplBase impleme
 
   @Override
   public void startedServing(String address, int port) {
-    registrationAndHealthManager.setHealthAddress(address);
-    registrationAndHealthManager.setHealthPort(port);
-    deregister = registrationAndHealthManager.startedService(runner.getProcessorId(), PROCESSOR_SERVICE_TAG);
+    ServiceInfo serviceInfo = new ServiceInfo(
+        runner.getProcessorId(),
+        uniqueServiceId,
+        address,
+        port,
+        Collections.singletonList(PROCESSOR_SERVICE_TAG),
+        register
+    );
+    serviceLifecycle.startedService(serviceInfo);
   }
 
   @Override
   public void stoppedServing() {
-    if (deregister != null) {
-      deregister.run();
-    }
+    ServiceInfo serviceInfo = new ServiceInfo(
+        runner.getProcessorId(),
+        uniqueServiceId,
+        null,
+        -1,
+        Collections.singletonList(PROCESSOR_SERVICE_TAG),
+        register
+    );
+    serviceLifecycle.stoppedService(serviceInfo);
     runner.close();
+  }
+
+  TimesCollector getTimesCollector() {
+    return timesCollector;
+  }
+
+  Runner getRunner() {
+    return runner;
+  }
+
+  String getUniqueServiceId() {
+    return uniqueServiceId;
+  }
+
+  boolean isRegister() {
+    return register;
+  }
+
+  ServiceLifecycle getServiceLifecycle() {
+    return serviceLifecycle;
+  }
+
+  int getProcessed() {
+    return processed;
+  }
+
+  int getFailures() {
+    return failures;
   }
 }

@@ -26,7 +26,7 @@ import java.io.Closeable;
  * Usage:
  * <pre>
  *   {@code
- *   try (NewtEvents events = newt.events("localhost:9090")) {
+ *   try (Events events = newt.events("localhost:9090")) {
  *     // interact with events service.
  *   }
  *   }
@@ -34,7 +34,7 @@ import java.io.Closeable;
  * <p>
  * Implements {@link Closeable} and will close the connection to the events service when closed.
  */
-public interface NewtEvents extends Closeable {
+public interface Events extends Closeable {
   /**
    * Opens the event, creating it if it does not already exist.
    *

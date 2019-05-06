@@ -15,8 +15,10 @@
  */
 package edu.umn.nlpnewt;
 
-import edu.umn.nlpnewt.internal.events.NewtInternalEvents;
-import edu.umn.nlpnewt.internal.processing.NewtInternalProcessing;
+import edu.umn.nlpnewt.internal.events.NewtEvents;
+import edu.umn.nlpnewt.internal.processing.NewtProcessing;
+import edu.umn.nlpnewt.internal.services.NewtServices;
+import edu.umn.nlpnewt.internal.timing.NewtTiming;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
@@ -106,7 +108,7 @@ public final class Newt {
   public static <L extends Label> @NotNull LabelIndex<L> standardLabelIndex(
       @NotNull List<@NotNull L> labels
   ) {
-    return NewtInternalEvents.standardLabelIndex(labels);
+    return NewtEvents.standardLabelIndex(labels);
   }
 
   /**
@@ -123,7 +125,7 @@ public final class Newt {
   public static <L extends Label> @NotNull LabelIndex<L> distinctLabelIndex(
       @NotNull List<@NotNull L> labels
   ) {
-    return NewtInternalEvents.distinctLabelIndex(labels);
+    return NewtEvents.distinctLabelIndex(labels);
   }
 
   /**
@@ -189,7 +191,7 @@ public final class Newt {
    *
    * <pre>
    *   {@code
-   *   try (NewtEvents events = newt.events("localhost:9090")) {
+   *   try (Events events = newt.events("localhost:9090")) {
    *     // interact with events service.
    *   }
    *   }
@@ -198,10 +200,13 @@ public final class Newt {
    * @param address The bound address and port of a newt events service. For example:
    *                "localhost:9090" or {@code null} if service discovery should be used.
    *
-   * @return {@code NewtEvents} object connected to the events service.
+   * @return {@code Events} object connected to the events service.
    */
-  public @NotNull NewtEvents events(@Nullable String address) {
-    return NewtInternalEvents.createEvents(config, address);
+  public @NotNull Events events(@Nullable String address) {
+    Config config = ConfigImpl.createByCopying(this.config);
+    NewtServices newtServices = new NewtServices(config);
+    NewtEvents newtEvents = new NewtEvents(newtServices).setAddress(address);
+    return newtEvents.getEvents();
   }
 
   /**
@@ -209,7 +214,7 @@ public final class Newt {
    *
    * <pre>
    *   {@code
-   *   try (NewtEvents events = newt.events("localhost", 9090)) {
+   *   try (Events events = newt.events("localhost", 9090)) {
    *     // interact with the events service.
    *   }
    *   }
@@ -218,10 +223,10 @@ public final class Newt {
    * @param host The host ip or name of a newt events service. Example: "localhost" or "1.1.1.1".
    * @param port The host port of a newt events service. Example: {@code 9999}.
    *
-   * @return {@code NewtEvents} object connected to the events service.
+   * @return {@code Events} object connected to the events service.
    */
-  public @NotNull NewtEvents events(@NotNull String host, int port) {
-    return NewtInternalEvents.createEvents(config, host + ":" + port);
+  public @NotNull Events events(@NotNull String host, int port) {
+    return events(host + ":" + port);
   }
 
   /**
@@ -230,7 +235,7 @@ public final class Newt {
    * <pre>
    *   {@code
    *   InetSocketAddress address = new InetSocketAddress("localhost", 9090);
-   *   try (NewtEvents events = newt.events(address)) {
+   *   try (Events events = newt.events(address)) {
    *     // interact with events service.
    *   }
    *   }
@@ -239,11 +244,10 @@ public final class Newt {
    * @param address An {@code InetSocketAddress} for the bound address and port of a newt events
    *                service.
    *
-   * @return {@code NewtEvents} object connected to the events service.
+   * @return {@code Events} object connected to the events service.
    */
-  public @NotNull NewtEvents events(@NotNull InetSocketAddress address) {
-    return NewtInternalEvents.createEvents(config,
-        address.getHostString() + ":" + address.getPort());
+  public @NotNull Events events(@NotNull InetSocketAddress address) {
+    return events(address.getHostString() + ":" + address.getPort());
   }
 
 
@@ -259,7 +263,7 @@ public final class Newt {
    *       .withProcessor(new SomeProcessor())
    *       .withPort(9090)
    *       .register();
-   *   Server server = newt.createProcessorServer(options);
+   *   Server server = newt.getProcessorServer(options);
    *   server.start();
    *   }
    * </pre>
@@ -269,7 +273,16 @@ public final class Newt {
    * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
   public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
-    NewtInternalProcessing processing = new NewtInternalProcessing(config, options);
-    return processing.createProcessorServer();
+    Config config = ConfigImpl.createByCopying(this.config);
+    Path configFile = options.getConfigFile();
+    if (configFile != null) {
+      config.update(ConfigImpl.loadConfig(configFile));
+    }
+    NewtServices newtServices = new NewtServices(config);
+    NewtTiming newtTiming = new NewtTiming();
+    NewtEvents newtEvents = new NewtEvents(newtServices);
+    NewtProcessing processing = new NewtProcessing(options, newtServices,
+        newtEvents, newtTiming);
+    return processing.getProcessorServer();
   }
 }

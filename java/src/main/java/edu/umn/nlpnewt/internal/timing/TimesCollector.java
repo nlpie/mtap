@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.internal.processing;
+package edu.umn.nlpnewt.internal.timing;
 
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.api.v1.Processing;

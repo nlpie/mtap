@@ -16,8 +16,6 @@
 
 package edu.umn.nlpnewt.internal.processing;
 
-import edu.umn.nlpnewt.internal.processing.ProcessorServer;
-import edu.umn.nlpnewt.internal.processing.ProcessorService;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
@@ -36,39 +34,39 @@ class ProcessorServerTest {
 
   @Test
   void start() throws IOException {
-    ProcessorService processorService = mock(ProcessorService.class);
+    ProcessorService service = mock(ProcessorService.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
     ProcessorServer processorServer = new ProcessorServer("localhost", server,
-        processorService);
+        service);
     processorServer.start();
-    verify(processorService).startedServing("localhost", -1);
+    verify(service).startedServing("localhost", -1);
   }
 
   @Test
   void getPort() throws IOException {
-    ProcessorService processorService = mock(ProcessorService.class);
+    ProcessorService service = mock(ProcessorService.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
     ProcessorServer processorServer = new ProcessorServer("localhost", server,
-        processorService);
+        service);
     processorServer.start();
     assertEquals(-1, processorServer.getPort());
   }
 
   @Test
   void shutdown() throws IOException, InterruptedException {
-    ProcessorService processorService = mock(ProcessorService.class);
+    ProcessorService service = mock(ProcessorService.class);
     String name = InProcessServerBuilder.generateName();
     Server server = InProcessServerBuilder.forName(name).directExecutor().build();
 
     ProcessorServer processorServer = new ProcessorServer("localhost", server,
-        processorService);
+        service);
     processorServer.start();
     processorServer.shutdown();
     processorServer.blockUntilShutdown();
-    verify(processorService).stoppedServing();
+    verify(service).stoppedServing();
   }
 }

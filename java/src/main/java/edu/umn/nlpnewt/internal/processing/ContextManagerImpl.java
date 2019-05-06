@@ -1,58 +1,48 @@
-/*
- * Copyright 2019 Regents of the University of Minnesota.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package edu.umn.nlpnewt;
+package edu.umn.nlpnewt.internal.processing;
 
 import com.google.common.base.Stopwatch;
-import edu.umn.nlpnewt.internal.processing.RegistrationAndHealthManager;
+import edu.umn.nlpnewt.ProcessorContext;
+import edu.umn.nlpnewt.Timer;
+import edu.umn.nlpnewt.internal.services.ServiceLifecycle;
 import io.grpc.health.v1.HealthCheckResponse;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.Closeable;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ProcessorContextManager {
-  private final Context context = new Context();
-
+class ContextManagerImpl implements ContextManager {
+  private final ServiceLifecycle serviceLifecycle;
   private final ThreadLocal<ProcessorThreadContext> threadContext = new ThreadLocal<>();
-
   private final String identifier;
-  private final NewtEvents newtEvents;
-  private final RegistrationAndHealthManager registrationAndHealthManager;
+  private final ProcessorContext context = new Context();
 
-
-  public ProcessorContextManager(
-      String identifier,
-      NewtEvents newtEvents,
-      RegistrationAndHealthManager registrationAndHealthManager
-  ) {
+  public ContextManagerImpl(ServiceLifecycle serviceLifecycle, String identifier) {
+    this.serviceLifecycle = serviceLifecycle;
     this.identifier = identifier;
-    this.newtEvents = newtEvents;
-    this.registrationAndHealthManager = registrationAndHealthManager;
   }
 
+  public ServiceLifecycle getServiceLifecycle() {
+    return serviceLifecycle;
+  }
+
+  public String getIdentifier() {
+    return identifier;
+  }
+
+  @Override
   public ProcessorContext enterContext() {
     ProcessorThreadContext processorThreadContext = new ProcessorThreadContext();
     threadContext.set(processorThreadContext);
     return processorThreadContext;
   }
 
-  private ProcessorContext getCurrent() {
+  @Override
+  public ProcessorContext getContext() {
+    return context;
+  }
+
+  public ProcessorContext getCurrent() {
     ProcessorThreadContext local = threadContext.get();
     if (local == null) {
       throw new IllegalStateException("Attempting to use processor context outside of a " +
@@ -61,14 +51,12 @@ public class ProcessorContextManager {
     return local;
   }
 
-  public ProcessorContext getContext() {
-    return context;
-  }
-
-  public class Context implements ProcessorContext {
+  private class Context implements ProcessorContext {
     @Override
     public void updateServingStatus(HealthCheckResponse.ServingStatus status) {
-      registrationAndHealthManager.setStatus(identifier, status);
+      if (serviceLifecycle != null) {
+        serviceLifecycle.setStatus(identifier, status);
+      }
     }
 
     @Override
@@ -82,23 +70,20 @@ public class ProcessorContextManager {
     }
 
     @Override
-    public String getIdentifier() {
-      return identifier;
-    }
-
-    @Override
-    public NewtEvents getEvents() {
-      return newtEvents;
-    }
-
-    @Override
     public void close() { }
   }
 
-  public class ProcessorThreadContext extends Context implements Closeable {
+  private class ProcessorThreadContext extends Context {
     private final Map<String, Duration> times = new HashMap<>();
 
     private boolean active = true;
+
+    @Override
+    public void updateServingStatus(HealthCheckResponse.ServingStatus status) {
+      if (serviceLifecycle != null) {
+        serviceLifecycle.setStatus(identifier, status);
+      }
+    }
 
     @Override
     public @NotNull Timer startTimer(String key) {
@@ -132,4 +117,3 @@ public class ProcessorContextManager {
     }
   }
 }
-

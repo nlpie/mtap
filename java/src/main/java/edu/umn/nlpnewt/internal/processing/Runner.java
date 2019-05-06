@@ -18,39 +18,16 @@ package edu.umn.nlpnewt.internal.processing;
 
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.JsonObject;
-
-import java.time.Duration;
-import java.util.List;
-import java.util.Map;
+import io.grpc.services.HealthStatusManager;
 
 @Internal
-public class ProcessingResultImpl implements ProcessingResult {
-  private final Map<String, List<String>> createdIndices;
-  private final Map<String, Duration> times;
-  private final JsonObject result;
+public interface Runner extends AutoCloseable {
+  ProcessingResult process(String eventID, JsonObject params);
 
-  ProcessingResultImpl(
-      Map<String, List<String>> createdIndices,
-      Map<String, Duration> times,
-      JsonObject result
-  ) {
-    this.createdIndices = createdIndices;
-    this.times = times;
-    this.result = result;
-  }
+  String getProcessorName();
+
+  String getProcessorId();
 
   @Override
-  public Map<String, List<String>> getCreatedIndices() {
-    return createdIndices;
-  }
-
-  @Override
-  public Map<String, Duration> getTimes() {
-    return times;
-  }
-
-  @Override
-  public JsonObject getResult() {
-    return result;
-  }
+  void close();
 }

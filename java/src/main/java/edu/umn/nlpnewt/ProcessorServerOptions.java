@@ -15,8 +15,6 @@
  */
 package edu.umn.nlpnewt;
 
-import io.grpc.internal.AbstractServerImplBuilder;
-import io.grpc.netty.NettyServerBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.*;
@@ -24,8 +22,8 @@ import org.kohsuke.args4j.spi.OneArgumentOptionHandler;
 import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.kohsuke.args4j.spi.Setter;
 
-import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.UUID;
 
 /**
  * Options bean used to start a processor server.
@@ -72,10 +70,16 @@ public class ProcessorServerOptions {
           "to the @Processor annotation name.")
   private String identifier = null;
 
+  @Nullable
+  @Option(name = "-u", aliases = {"--unique-service-id"}, metaVar = "UNIQUE_SERVICE_ID",
+      usage = "A unique per-instance server id that will be used to register and deregister the processor")
+  private String uniqueServiceId = null;
+
   /**
    * Creates an empty processor server options.
    */
-  public ProcessorServerOptions() {}
+  public ProcessorServerOptions() {
+  }
 
   /**
    * Copy constructor.
@@ -344,6 +348,36 @@ public class ProcessorServerOptions {
    */
   public ProcessorServerOptions withIdentifier(String identifier) {
     setIdentifier(identifier);
+    return this;
+  }
+
+  /**
+   * Gets a unique, per-instance service identifier used to register and deregister the processor
+   * with service discovery. Note: This identifier is not used to discover the service like
+   * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+   *
+   * @return String identifier or a random UUID if not set.
+   */
+  public String getUniqueServiceId() {
+    if (uniqueServiceId == null) {
+      uniqueServiceId = UUID.randomUUID().toString();
+    }
+    return uniqueServiceId;
+  }
+
+  /**
+   * Sets a unique, per-instance service identifier used to register and deregister the processor
+   * with service discovery. Note: This identifier is not used to discover the service like
+   * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+   *
+   * @param uniqueServiceId A string identifier unique to this service instance.
+   */
+  public void setUniqueServiceId(String uniqueServiceId) {
+    this.uniqueServiceId = uniqueServiceId;
+  }
+
+  public ProcessorServerOptions withUniqueServiceId(String uniqueServiceId) {
+    setUniqueServiceId(uniqueServiceId);
     return this;
   }
 

@@ -50,7 +50,7 @@ public class DocumentsProcessorIT {
     ManagedChannel channel = ManagedChannelBuilder.forAddress("127.0.0.1", port)
         .usePlaintext()
         .build();
-    try (NewtEvents events = newt.events("127.0.0.1:" + eventsPort)) {
+    try (Events events = newt.events("127.0.0.1:" + eventsPort)) {
       try (Event event = events.createEvent("1")) {
         Document document = event.addDocument("blah", "foo");
         ProcessorGrpc.ProcessorBlockingStub processorStub = ProcessorGrpc.newBlockingStub(channel);

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.internal;
+package edu.umn.nlpnewt.internal.services;
 
 import com.google.common.net.HostAndPort;
 import com.orbitz.consul.Consul;

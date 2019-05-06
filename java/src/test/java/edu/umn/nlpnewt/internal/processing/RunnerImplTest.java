@@ -20,90 +20,84 @@ import edu.umn.nlpnewt.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.same;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
-class ProcessorRunnerImplTest {
+class RunnerImplTest {
 
   private EventProcessor processor;
-  private ProcessorContextManager contextManager;
-  private NewtEvents events;
-  private JsonObjectBuilder jsonObjectBuilder;
-  private ProcessorRunnerImpl runner;
-  private ProcessingResultFactory factory;
+  private Events events;
+  private ContextManager contextManager;
+  private RunnerImpl runner;
 
   @BeforeEach
   void setUp() {
     processor = mock(EventProcessor.class);
-    contextManager = mock(ProcessorContextManager.class);
-    events = mock(NewtEvents.class);
-    jsonObjectBuilder = mock(JsonObjectBuilder.class);
-    factory = mock(ProcessingResultFactory.class);
-
-    runner = new ProcessorRunnerImpl(
+    events = mock(Events.class);
+    contextManager = mock(ContextManager.class);
+    runner = new RunnerImpl(
         processor,
-        contextManager,
         events,
-        "name",
-        "id",
-        () -> jsonObjectBuilder,
-        factory
+        contextManager,
+        "processorName",
+        "processorId"
     );
   }
 
   @Test
   void process() {
     ProcessorContext context = mock(ProcessorContext.class);
-    JsonObject params = mock(JsonObject.class);
-    Timer timer = mock(Timer.class);
-    Event event = mock(Event.class);
-    JsonObject result = mock(JsonObject.class);
-    ProcessingResult processingResult = mock(ProcessingResult.class);
-
     when(contextManager.enterContext()).thenReturn(context);
+
     Map<String, Duration> times = Collections.emptyMap();
     when(context.getTimes()).thenReturn(times);
+
+    Timer timer = mock(Timer.class);
     when(context.startTimer("process_method")).thenReturn(timer);
+
+    Event event = mock(Event.class);
     when(events.openEvent("1")).thenReturn(event);
+
     Map<@NotNull String, @NotNull List<@NotNull String>> indices = Collections.emptyMap();
     when(event.getCreatedIndices()).thenReturn(indices);
-    when(jsonObjectBuilder.build()).thenReturn(result);
-    when(factory.create(anyMap(), anyMap(), any(JsonObject.class))).thenReturn(processingResult);
 
+    JsonObject params = mock(JsonObject.class);
+    doAnswer((Answer<Void>) invocation -> {
+      JsonObjectBuilder builder = invocation.getArgument(2);
+      builder.setProperty("foo", "bar");
+      return null;
+    }).when(processor).process(same(event), same(params), any(JsonObjectBuilder.class));
 
-    runner.process("1", params);
+    ProcessingResult processingResult = runner.process("1", params);
 
     verify(contextManager).enterContext();
     verify(events).openEvent("1");
     verify(context).startTimer("process_method");
-    verify(processor).process(event, params, jsonObjectBuilder);
+    verify(processor).process(same(event), same(params), any(JsonObjectBuilder.class));
     verify(timer).stop();
     verify(context).close();
-    ArgumentCaptor<Map> createdIndicesCaptor = ArgumentCaptor.forClass(Map.class);
-    ArgumentCaptor<Map> timesCaptor = ArgumentCaptor.forClass(Map.class);
-    ArgumentCaptor<JsonObject> resultCaptor = ArgumentCaptor.forClass(JsonObject.class);
-    verify(factory).create(createdIndicesCaptor.capture(), timesCaptor.capture(), resultCaptor.capture());
-    assertEquals(indices, createdIndicesCaptor.getValue());
-    assertEquals(times, timesCaptor.getValue());
-    assertEquals(result, resultCaptor.getValue());
+
+    assertEquals(indices, processingResult.getCreatedIndices());
+    assertEquals(times, processingResult.getTimes());
+    assertEquals("bar", processingResult.getResult().getStringValue("foo"));
   }
 
   @Test
   void getProcessorName() {
-    assertEquals("name", runner.getProcessorName());
+    assertEquals("processorName", runner.getProcessorName());
   }
 
   @Test
   void getProcessorId() {
-    assertEquals("id", runner.getProcessorId());
+    assertEquals("processorId", runner.getProcessorId());
   }
 
   @Test

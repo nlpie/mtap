@@ -19,11 +19,8 @@ package edu.umn.nlpnewt.internal.events;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass;
-import edu.umn.nlpnewt.internal.ConsulNameResolver;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -37,22 +34,6 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
   EventsClientImpl(ManagedChannel channel) {
     stub = EventsGrpc.newBlockingStub(channel);
     this.channel = channel;
-  }
-
-  static EventsClientImpl create(Config config, @Nullable String address) {
-    ManagedChannel channel;
-    if (address == null) {
-      String consulHost = config.getStringValue("consul.host");
-      int consulPort = config.getIntegerValue("consul.port");
-      channel = ManagedChannelBuilder
-          .forTarget("consul://" + consulHost + ":" + consulPort + "/" + Newt.EVENTS_SERVICE_NAME)
-          .usePlaintext()
-          .nameResolverFactory(ConsulNameResolver.Factory.create())
-          .build();
-    } else {
-      channel = ManagedChannelBuilder.forTarget(address).usePlaintext().build();
-    }
-    return new EventsClientImpl(channel);
   }
 
   @Override

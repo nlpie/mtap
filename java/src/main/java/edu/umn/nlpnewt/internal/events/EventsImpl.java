@@ -22,11 +22,11 @@ import org.jetbrains.annotations.Nullable;
 import java.util.UUID;
 
 @Internal
-final class NewtEventsImpl implements NewtEvents {
+final class EventsImpl implements Events {
 
   private final EventsClient eventsClient;
 
-  public NewtEventsImpl(EventsClient eventsClient) {
+  public EventsImpl(EventsClient eventsClient) {
     this.eventsClient = eventsClient;
   }
 

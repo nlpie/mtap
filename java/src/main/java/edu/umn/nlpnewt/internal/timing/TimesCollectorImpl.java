@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.internal.processing;
+package edu.umn.nlpnewt.internal.timing;
 
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.api.v1.Processing;
@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 

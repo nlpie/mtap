@@ -16,16 +16,38 @@
 
 package edu.umn.nlpnewt.internal.processing;
 
+import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.JsonObject;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-public interface ProcessingResult {
-  Map<String, List<String>> getCreatedIndices();
+@Internal
+public class ProcessingResult {
+  private final Map<String, List<String>> createdIndices;
+  private final Map<String, Duration> times;
+  private final JsonObject result;
 
-  Map<String, Duration> getTimes();
+  ProcessingResult(
+      Map<String, List<String>> createdIndices,
+      Map<String, Duration> times,
+      JsonObject result
+  ) {
+    this.createdIndices = createdIndices;
+    this.times = times;
+    this.result = result;
+  }
 
-  JsonObject getResult();
+  public Map<String, List<String>> getCreatedIndices() {
+    return createdIndices;
+  }
+
+  public Map<String, Duration> getTimes() {
+    return times;
+  }
+
+  public JsonObject getResult() {
+    return result;
+  }
 }

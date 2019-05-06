@@ -18,63 +18,70 @@ package edu.umn.nlpnewt.internal.processing;
 
 import edu.umn.nlpnewt.*;
 
-import java.util.function.Supplier;
-
 @Internal
-class ProcessorRunnerImpl implements ProcessorRunner {
-
-  private final ProcessorContextManager processorContextManager;
+class RunnerImpl implements Runner {
+  private final Events events;
   private final EventProcessor processor;
-  private final NewtEvents events;
-  private final String name;
-  private final String identifier;
-  private final Supplier<JsonObjectBuilder<?, ?>> jsonObjectBuilderSupplier;
-  private final ProcessingResultFactory resultFactory;
+  private final ContextManager contextManager;
+  private final String processorName;
+  private final String processorId;
 
-  ProcessorRunnerImpl(
+  RunnerImpl(
       EventProcessor processor,
-      ProcessorContextManager processorContextManager,
-      NewtEvents events,
-      String name,
-      String identifier,
-      Supplier<JsonObjectBuilder<?, ?>> jsonObjectBuilderSupplier,
-      ProcessingResultFactory resultFactory
+      Events events,
+      ContextManager contextManager,
+      String processorName,
+      String processorId
   ) {
     this.processor = processor;
-    this.processorContextManager = processorContextManager;
     this.events = events;
-    this.name = name;
-    this.identifier = identifier;
-    this.jsonObjectBuilderSupplier = jsonObjectBuilderSupplier;
-    this.resultFactory = resultFactory;
+    this.contextManager = contextManager;
+    this.processorName = processorName;
+    this.processorId = processorId;
   }
 
   @Override
   public ProcessingResult process(String eventID, JsonObject params) {
-    JsonObjectBuilder resultBuilder = jsonObjectBuilderSupplier.get();
-    try (ProcessorContext context = processorContextManager.enterContext()) {
+    try (ProcessorContext context = contextManager.enterContext()) {
       try (Event event = events.openEvent(eventID)) {
+        JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
         Timer timer = context.startTimer("process_method");
         processor.process(event, params, resultBuilder);
         timer.stop();
-        return resultFactory.create(event.getCreatedIndices(), context.getTimes(),
-            resultBuilder.build());
+        return new ProcessingResult(
+            event.getCreatedIndices(),
+            context.getTimes(),
+            resultBuilder.build()
+        );
       }
     }
   }
 
+  Events getEvents() {
+    return events;
+  }
+
+  EventProcessor getProcessor() {
+    return processor;
+  }
+
+  ContextManager getContextManager() {
+    return contextManager;
+  }
+
   @Override
   public String getProcessorName() {
-    return name;
+    return processorName;
   }
 
   @Override
   public String getProcessorId() {
-    return identifier;
+    return processorId;
   }
 
   @Override
   public void close() {
     processor.shutdown();
   }
+
 }

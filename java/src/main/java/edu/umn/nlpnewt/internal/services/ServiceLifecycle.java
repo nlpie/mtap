@@ -14,7 +14,24 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.internal.processing;
+package edu.umn.nlpnewt.internal.services;
 
-public interface NewtEventsFactory {
+import edu.umn.nlpnewt.Internal;
+import io.grpc.BindableService;
+import io.grpc.health.v1.HealthCheckResponse;
+import io.grpc.services.HealthStatusManager;
+
+@Internal
+public interface ServiceLifecycle {
+  void startedService(ServiceInfo serviceInfo);
+
+  void stoppedService(ServiceInfo serviceInfo);
+
+  BindableService getHealthService();
+
+  void setStatus(String service, HealthCheckResponse.ServingStatus status);
+
+  void clearStatus(String service);
+
+  void enterTerminalState();
 }

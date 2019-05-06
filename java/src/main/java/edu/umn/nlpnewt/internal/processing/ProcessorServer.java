@@ -41,11 +41,11 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
   ProcessorServer(
       String address,
       Server server,
-      ProcessorService processorService
+      ProcessorService service
   ) {
     this.address = address;
     this.server = server;
-    this.service = processorService;
+    this.service = service;
   }
 
   @Override
@@ -84,4 +84,15 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
     return server.getPort();
   }
 
+  String getAddress() {
+    return address;
+  }
+
+  Server getServer() {
+    return server;
+  }
+
+  ProcessorService getService() {
+    return service;
+  }
 }
