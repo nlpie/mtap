@@ -60,9 +60,13 @@ def generate_proto(source, require=True):
             sys.exit(-1)
 
         proto_include = pkg_resources.resource_filename('grpc_tools', '_proto')
-        grpc_tools.protoc.main(["-I.", "-I{}".format(proto_include),
-                                "-I../thirdparty/api-common-protos-0.1.0", "-I../proto",
-                                "--python_out=.", "--grpc_python_out=.", source])
+        grpc_tools.protoc.main(["-I.",
+                                "-I{}".format(proto_include),
+                                "-I../third_party/api-common-protos-0.1.0",
+                                "-I../proto",
+                                "--python_out=.",
+                                "--grpc_python_out=.",
+                                source])
 
 
 class clean(_clean):
@@ -130,7 +134,8 @@ setup(
         'grpcio-tools',
     ],
     tests_require=[
-        'pytest'
+        'pytest',
+        'grpcio-testing'
     ],
     extras_require={
         'grpc_tools': ['grpcio-tools'],

@@ -13,14 +13,11 @@
 # limitations under the License.
 """An example document processor."""
 
-import re
 from typing import Dict, Any, Optional
 
 import nlpnewt
 from nlpnewt.events import Document
 from nlpnewt.processing import DocumentProcessor, ProcessorContext
-
-the = re.compile('the', flags=re.I)
 
 
 @nlpnewt.processor('nlpnewt-example-processor-python')

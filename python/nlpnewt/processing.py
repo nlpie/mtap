@@ -506,6 +506,8 @@ class Pipeline:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        if exc_val is not None:
+            raise exc_val
 
     def close(self):
         """Closes any open connections to remote processors.
@@ -594,7 +596,7 @@ class ProcessorServer:
             events_address=events_address,
             args=args
         )
-        prefix = self.processor_id + "-worker-"
+        prefix = self.processor_id + "-worker"
         workers = workers or 10
         thread_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix)
         self._server = grpc.server(thread_pool)
@@ -695,12 +697,11 @@ class _ProcessorRunner:
         self.processed += 1
         p = dict(self.params)
         p.update(params)
-        with _enter_context(self.component_id) as context, self.events.open_event(
-                event_id) as event:
+        with _enter_context(self.component_id) as c, self.events.open_event(event_id) as e:
             try:
-                with context.stopwatch('process_method'):
-                    result = self.processor.process(event, p)
-                return result, context.times, event.created_indices
+                with c.stopwatch('process_method'):
+                    result = self.processor.process(e, p)
+                return result, c.times, e.created_indices
             except Exception as e:
                 self.failure_count += 1
                 raise e

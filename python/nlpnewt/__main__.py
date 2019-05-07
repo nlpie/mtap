@@ -13,9 +13,9 @@
 # limitations under the License.
 import logging
 
-from ._config import Config
-from ._events_service import EventsServer
-from .processing import ProcessorServer
+from nlpnewt import Config
+from nlpnewt import EventsServer
+from nlpnewt import ProcessorServer
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 

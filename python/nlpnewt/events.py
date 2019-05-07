@@ -66,8 +66,11 @@ class Events:
 
     """
 
-    def __init__(self, address=None, *, stub=None):
-        self._client = _EventsClient(address, stub=stub)
+    def __init__(self, address=None, *, stub=None, client=None):
+        if client:
+            self._client = client
+        else:
+            self._client = _EventsClient(address, stub=stub)
 
     def open_event(self, event_id: str = None) -> 'Event':
         """Opens or creates an event on the events service and returns an Event object that can be
@@ -117,6 +120,8 @@ class Events:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        if exc_val is not None:
+            raise exc_val
 
     def close(self):
         self._client.close()
@@ -278,6 +283,8 @@ class Event(Mapping[str, 'Document']):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        if exc_val is not None:
+            raise exc_val
 
     def _refresh_documents(self):
         document_names = self._client.get_all_document_names(self._event_id)
@@ -666,7 +673,8 @@ class _EventsClient:
         request = events_pb2.AddDocumentRequest(event_id=event_id,
                                                 document_name=document_name,
                                                 text=text)
-        self.stub.AddDocument(request)
+        response, call = self.stub.AddDocument.with_call(request)
+        print(response)
 
     def get_document_text(self, event_id, document_name):
         request = events_pb2.GetDocumentTextRequest(event_id=event_id,
