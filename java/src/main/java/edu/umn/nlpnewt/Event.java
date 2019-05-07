@@ -31,7 +31,7 @@ import java.util.Map;
  * clients actively using an event. When the event is closed, the reference count is decremented,
  * and if the reference count hits 0 the events service will deallocate the event.
  */
-public interface Event extends Map<@NotNull String, @NotNull Document>, Closeable {
+public interface Event extends Map<@NotNull String, @NotNull Document>, AutoCloseable {
   /**
    * Returns the unique identifier for the event.
    *
@@ -62,4 +62,7 @@ public interface Event extends Map<@NotNull String, @NotNull Document>, Closeabl
    * @return A map of document names to a list of documents that have been created on that index.
    */
   @NotNull Map<@NotNull String, @NotNull List<@NotNull String>> getCreatedIndices();
+
+  @Override
+  void close();
 }

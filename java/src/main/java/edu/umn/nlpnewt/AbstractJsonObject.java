@@ -46,7 +46,7 @@ import java.util.*;
  * {@link Float} is converted to {@link Double}. {@link String} and {@link Boolean} are stored
  * directly. {@link Character} is converted to a {@link String} of length 1.
  */
-public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @Nullable Object> {
+public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @Nullable Object> implements JsonObject {
 
   private final Map<String, Object> backingMap;
 
@@ -68,100 +68,35 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     backingMap = abstractJsonObject.backingMap;
   }
 
-  /**
-   * Copies a protobuf struct to a newBuilder for a json object.
-   *
-   * @param struct  The protobuf struct message.
-   * @param builder The newBuilder for the json object.
-   */
-  public static void copyStructToJsonObjectBuilder(Struct struct,
-                                                   AbstractBuilder<?> builder) {
-    Map<String, Value> fieldsMap = struct.getFieldsMap();
-    for (Entry<String, Value> entry : fieldsMap.entrySet()) {
-      builder.setProperty(entry.getKey(), getValue(entry.getValue()));
-    }
-  }
-
-  /**
-   * Copies a json object to a protobuf struct newBuilder.
-   *
-   * @param abstractJsonObject The json object.
-   * @param structBuilder      The protobuf struct newBuilder.
-   */
-  public static void copyJsonObjectToStruct(AbstractJsonObject abstractJsonObject,
-                                            Struct.Builder structBuilder) {
-    internalCopyJsonObject(abstractJsonObject, structBuilder, new ArrayDeque<>());
-  }
-
-  private static void internalCopyJsonObject(AbstractJsonObject abstractJsonObject,
-                                             Struct.Builder struct,
-                                             Deque<Object> parents) {
-    parents.push(abstractJsonObject);
-    for (Entry<?, ?> entry : abstractJsonObject.entrySet()) {
-      Object key = entry.getKey();
-      if (!(key instanceof String)) {
-        throw new IllegalArgumentException("Key is not a string key");
-      }
-      Object value = entry.getValue();
-
-      struct.putFields((String) key, createValue(value, parents));
-    }
-    parents.pop();
-  }
-
-  private static Value createValue(Object from, Deque<Object> parents) {
-    if (parents.contains(from)) {
-      throw new IllegalArgumentException("Circular reference attempting to convert map to struct.");
-    }
-    if (from instanceof List) {
-      parents.push(from);
+  private static Value createValue(Object from) {
+    if (from == null) {
+      return Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build();
+    } else if (from instanceof List) {
       ListValue.Builder builder = ListValue.newBuilder();
       List fromList = (List) from;
       for (Object item : fromList) {
-        Value value = createValue(item, parents);
+        Value value = createValue(item);
         builder.addValues(value);
       }
-      parents.pop();
       return Value.newBuilder().setListValue(builder).build();
     } else if (from instanceof AbstractJsonObject) {
-      parents.push(from);
       Struct.Builder builder = Struct.newBuilder();
       AbstractJsonObject abstractJsonObject = (AbstractJsonObject) from;
-      internalCopyJsonObject(abstractJsonObject, builder, parents);
-      parents.pop();
+      for (Entry<String, ?> entry : abstractJsonObject.entrySet()) {
+        String key = entry.getKey();
+        Object value = entry.getValue();
+        Value protoValue = createValue(value);
+        builder.putFields(key, protoValue);
+      }
       return Value.newBuilder().setStructValue(builder).build();
     } else if (from instanceof Double) {
       return Value.newBuilder().setNumberValue((Double) from).build();
     } else if (from instanceof String) {
-      return Value.newBuilder().setNullValue(NullValue.NULL_VALUE).build();
+      return Value.newBuilder().setStringValue((String) from).build();
+    } else if (from instanceof Boolean) {
+      return Value.newBuilder().setBoolValue((Boolean) from).build();
     } else {
-      throw new IllegalArgumentException("Incompatible value type: " + from.getClass().getCanonicalName());
-    }
-  }
-
-  private static Object getValue(Value from) {
-    switch (from.getKindCase()) {
-      case NULL_VALUE:
-        return null;
-      case NUMBER_VALUE:
-        return from.getNumberValue();
-      case STRING_VALUE:
-        return from.getStringValue();
-      case BOOL_VALUE:
-        return from.getBoolValue();
-      case STRUCT_VALUE:
-        JsonObject.Builder builder = new JsonObject.Builder();
-        copyStructToJsonObjectBuilder(from.getStructValue(), builder);
-        return builder.build();
-      case LIST_VALUE:
-        List<Object> list = new ArrayList<>();
-        for (Value value : from.getListValue().getValuesList()) {
-          list.add(getValue(value));
-        }
-        return list;
-      case KIND_NOT_SET:
-      default:
-        throw new IllegalStateException("Unrecognized kind of struct value.");
+      throw new IllegalStateException("Incompatible value type: " + from.getClass().getCanonicalName());
     }
   }
 
@@ -180,26 +115,23 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     } else if (value instanceof Map) {
       checkForReferenceCycle(value, parents);
       Map<?, ?> map = (Map<?, ?>) value;
-      JsonObject.Builder jsonBuilder = new JsonObject.Builder();
+      JsonObjectImpl.Builder jsonBuilder = new JsonObjectImpl.Builder();
       parents.push(value);
       for (Map.Entry<?, ?> entry : map.entrySet()) {
         Object key = entry.getKey();
         Object val = entry.getValue();
         if (!(key instanceof String)) {
-          throw new IllegalStateException("Nested maps must have keys of String type.");
+          throw new IllegalArgumentException("Nested maps must have keys of String type.");
         }
         jsonBuilder.setProperty((String) key, jsonify(val, parents));
       }
       parents.pop();
       result = jsonBuilder.build();
-    } else if (value instanceof AbstractJsonObject) {
-      parents.push(value);
-      result = jsonify(((AbstractJsonObject) value).backingMap, parents);
-      parents.pop();
     } else if (value instanceof List) {
+      checkForReferenceCycle(value, parents);
       List<?> list = (List<?>) value;
       List<Object> out = new ArrayList<>(list.size());
-      parents.push(value);
+      parents.push(list);
       for (Object o : list) {
         out.add(jsonify(o, parents));
       }
@@ -221,6 +153,33 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
         + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
         " lists of objects of valid types, and maps of strings to objects of valid types");
     return result;
+
+  }
+
+  private static Object getValue(Value from) {
+    switch (from.getKindCase()) {
+      case NULL_VALUE:
+        return null;
+      case NUMBER_VALUE:
+        return from.getNumberValue();
+      case STRING_VALUE:
+        return from.getStringValue();
+      case BOOL_VALUE:
+        return from.getBoolValue();
+      case STRUCT_VALUE:
+        JsonObjectImpl.Builder builder = new JsonObjectImpl.Builder();
+        builder.copyStruct(from.getStructValue());
+        return builder.build();
+      case LIST_VALUE:
+        List<Object> list = new ArrayList<>();
+        for (Value value : from.getListValue().getValuesList()) {
+          list.add(getValue(value));
+        }
+        return list;
+      case KIND_NOT_SET:
+      default:
+        throw new IllegalStateException("Unrecognized kind of struct value.");
+    }
   }
 
   private static void checkForReferenceCycle(Object value, Deque<Object> parents) {
@@ -231,57 +190,38 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     }
   }
 
-  /**
-   * Returns the property cast as a {@link String} object.
-   *
-   * @param propertyName The property name.
-   *
-   * @return Value stored under the property name given cast as a String.
-   */
+  @Override
+  public Struct.Builder copyToStruct(Struct.Builder structBuilder) {
+    for (Entry<String, ?> entry : entrySet()) {
+      String key = entry.getKey();
+      Object value = entry.getValue();
+      Value protoValue = createValue(value);
+      structBuilder.putFields(key, protoValue);
+    }
+    return structBuilder;
+  }
+
+  @Override
   public String getStringValue(@NotNull String propertyName) {
     return (String) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link Double} object.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a Double.
-   */
+  @Override
   public Double getNumberValue(@NotNull String propertyName) {
     return (Double) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link Boolean} object.
-   *
-   * @param propertyName The name of the property.
-   *
-   * @return Value stored under the property name cast as a JsonObject.
-   */
+  @Override
   public Boolean getBooleanValue(@NotNull String propertyName) {
     return (Boolean) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link AbstractJsonObject}.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a JsonObject.
-   */
-  public AbstractJsonObject getJsonObjectValue(@NotNull String propertyName) {
+  @Override
+  public JsonObject getJsonObjectValue(@NotNull String propertyName) {
     return (AbstractJsonObject) backingMap.get(propertyName);
   }
 
-  /**
-   * Returns the property cast as a {@link List}.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a {@link List}.
-   */
+  @Override
   public List getListValue(@NotNull String propertyName) {
     return (List) backingMap.get(propertyName);
   }
@@ -310,74 +250,51 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
    *
    * @param <T> The newBuilder type to be returned by newBuilder methods.
    */
-  public abstract static class AbstractBuilder<T extends AbstractBuilder>
-      extends AbstractMap<@NotNull String, @Nullable Object> {
+  public abstract static class AbstractBuilder<T extends AbstractBuilder, R extends JsonObject>
+      extends AbstractMap<@NotNull String, @Nullable Object> implements JsonObjectBuilder<T, R> {
 
     protected Map<@NotNull String, @Nullable Object> backingMap = new HashMap<>();
 
-    /**
-     * Returns the property cast as a {@link String} object.
-     *
-     * @param propertyName The property name.
-     *
-     * @return Value stored under the property name given cast as a String.
-     */
+    @Override
+    @SuppressWarnings("unchecked")
+    @NotNull
+    public T copyStruct(Struct struct) {
+      if (struct == null) {
+        return (T) this;
+      }
+      Map<String, Value> fieldsMap = struct.getFieldsMap();
+      for (Entry<String, Value> entry : fieldsMap.entrySet()) {
+        setProperty(entry.getKey(), getValue(entry.getValue()));
+      }
+      return (T) this;
+    }
+
+    @Override
     public String getStringValue(@NotNull String propertyName) {
       return (String) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link Double} object.
-     *
-     * @param propertyName The name the property is stored under.
-     *
-     * @return Value stored under the property name cast as a Double.
-     */
+    @Override
     public Double getNumberValue(@NotNull String propertyName) {
       return (Double) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link Boolean} object.
-     *
-     * @param propertyName The name of the property.
-     *
-     * @return Value stored under the property name cast as a JsonObject.
-     */
+    @Override
     public Boolean getBooleanValue(@NotNull String propertyName) {
       return (Boolean) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link AbstractJsonObject}.
-     *
-     * @param propertyName The name the property is stored under.
-     *
-     * @return Value stored under the property name cast as a JsonObject.
-     */
+    @Override
     public AbstractJsonObject getJsonObjectValue(@NotNull String propertyName) {
       return (AbstractJsonObject) backingMap.get(propertyName);
     }
 
-    /**
-     * Returns the property cast as a {@link List}.
-     *
-     * @param propertyName The name the property is stored under.
-     *
-     * @return Value stored under the property name cast as a {@link List}.
-     */
+    @Override
     public List getListValue(@NotNull String propertyName) {
       return (List) backingMap.get(propertyName);
     }
 
-    /**
-     * Builder method which sets a property keyed by {@code propertyName} to the {@code value}.
-     *
-     * @param propertyName The name the property should be stored under.
-     * @param value        The value of the property.
-     *
-     * @return This newBuilder.
-     */
+    @Override
     @SuppressWarnings("unchecked")
     @NotNull
     public final T setProperty(@NotNull String propertyName, @Nullable Object value) {
@@ -392,13 +309,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
       return backingMap.put(key, jsonify(value, parents));
     }
 
-    /**
-     * Builder method which sets all of the properties in {@code map}.
-     *
-     * @param map The map of string property names to property values.
-     *
-     * @return This newBuilder.
-     */
+    @Override
     @SuppressWarnings("unchecked")
     public final T setProperties(Map<@NotNull String, @Nullable Object> map) {
       putAll(map);

@@ -42,7 +42,7 @@ public class DocumentsProcessorIT {
 
     Newt newt = new Newt();
     Server server = newt.createProcessorServer(ProcessorServerOptions.emptyOptions()
-        .withProcessorClass(TestDocumentProcessor.class)
+        .withProcessorClass(TestDocumentProcessorBase.class)
         .withEventsTarget("localhost:" + eventsPort));
     server.start();
     int port = server.getPort();
@@ -50,7 +50,7 @@ public class DocumentsProcessorIT {
     ManagedChannel channel = ManagedChannelBuilder.forAddress("127.0.0.1", port)
         .usePlaintext()
         .build();
-    try (NewtEvents events = newt.events("127.0.0.1:" + eventsPort)) {
+    try (Events events = newt.events("127.0.0.1:" + eventsPort)) {
       try (Event event = events.createEvent("1")) {
         Document document = event.addDocument("blah", "foo");
         ProcessorGrpc.ProcessorBlockingStub processorStub = ProcessorGrpc.newBlockingStub(channel);
@@ -85,18 +85,18 @@ public class DocumentsProcessorIT {
   }
 
   @Processor("test-processor")
-  public static class TestDocumentProcessor extends AbstractDocumentProcessor {
+  public static class TestDocumentProcessorBase extends DocumentProcessorBase {
 
     private final ProcessorContext context;
 
-    public TestDocumentProcessor(ProcessorContext context) {
+    public TestDocumentProcessorBase(ProcessorContext context) {
       this.context = context;
     }
 
     @Override
     protected void process(@NotNull Document document,
                            @NotNull JsonObject params,
-                           JsonObject.@NotNull Builder result) {
+                           @NotNull JsonObjectBuilder result) {
       Boolean doWork = params.getBooleanValue("do_work");
       if (doWork != null && doWork) {
         Timer fooTimer = context.startTimer("foo_timer");

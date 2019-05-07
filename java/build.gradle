@@ -68,6 +68,8 @@ dependencies {
 
     implementation group: 'com.google.protobuf', name: 'protobuf-java-util', version: protobufVersion
 
+    testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.26'
+    testCompile group: 'org.mockito', name: 'mockito-core', version: '2.+'
     testImplementation group: 'io.grpc', name: 'grpc-testing', version: grpcVersion
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: junitVersion
     testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion

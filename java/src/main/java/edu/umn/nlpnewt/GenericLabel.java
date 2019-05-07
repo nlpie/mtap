@@ -110,7 +110,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   /**
    * A newBuilder for generic label objects. Provides all the functionality of the json object newBuilder.
    */
-  public static class Builder extends AbstractJsonObject.AbstractBuilder<Builder> {
+  public static class Builder extends AbstractJsonObject.AbstractBuilder<Builder, GenericLabel> {
 
     private final int startIndex;
 
@@ -134,6 +134,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
      * @return Immutable finalized generic label that contains properties that have been added to
      * this newBuilder.
      */
+    @Override
     public GenericLabel build() {
       Label.checkIndexRange(startIndex, endIndex);
       setProperty(START_INDEX_KEY, startIndex);
