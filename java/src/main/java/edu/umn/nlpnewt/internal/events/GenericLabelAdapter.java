@@ -75,7 +75,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
 
   @Override
   public void addToMessage(@NotNull List<@NotNull GenericLabel> labels,
-                           AddLabelsRequest.@NotNull Builder builder) {
+                           @NotNull AddLabelsRequest.Builder builder) {
     JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
     jsonLabelsBuilder.setIsDistinct(isDistinct);
     for (GenericLabel label : labels) {
