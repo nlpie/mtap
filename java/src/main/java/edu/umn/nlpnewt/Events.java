@@ -35,6 +35,14 @@ import java.io.Closeable;
  * Implements {@link Closeable} and will close the connection to the events service when closed.
  */
 public interface Events extends Closeable {
+
+  /**
+   * Opens a new event with a random identifier.
+   *
+   * @return An object that can be used to interact with the created Event.
+   */
+  @NotNull Event createEvent();
+
   /**
    * Opens the event, creating it if it does not already exist.
    *
@@ -42,7 +50,7 @@ public interface Events extends Closeable {
    *
    * @return An object that can be used to interact with the Event.
    */
-  @NotNull Event openEvent(@Nullable String eventID);
+  @NotNull Event openEvent(@NotNull String eventID);
 
   /**
    * Opens the event, creating it or failing if it already exists.
@@ -51,5 +59,5 @@ public interface Events extends Closeable {
    *
    * @return An object that can be used to interact with the Event.
    */
-  @NotNull Event createEvent(@Nullable String eventID);
+  @NotNull Event createEvent(@NotNull String eventID);
 }

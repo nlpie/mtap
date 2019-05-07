@@ -17,7 +17,6 @@ package edu.umn.nlpnewt.internal.events;
 
 import edu.umn.nlpnewt.*;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -26,29 +25,38 @@ final class EventsImpl implements Events {
 
   private final EventsClient eventsClient;
 
-  public EventsImpl(EventsClient eventsClient) {
+  private final EventFactory eventFactory;
+
+  public EventsImpl(EventsClient eventsClient, EventFactory eventFactory) {
     this.eventsClient = eventsClient;
+    this.eventFactory = eventFactory;
+  }
+
+  @Override
+  public @NotNull Event createEvent() {
+    String eventID = UUID.randomUUID().toString();
+    return openEvent(eventID, true);
   }
 
   @Override
   @NotNull
-  public Event openEvent(@Nullable String eventID) {
+  public Event openEvent(@NotNull String eventID) {
     return openEvent(eventID, false);
   }
 
   @Override
   @NotNull
-  public Event createEvent(@Nullable String eventID) {
+  public Event createEvent(@NotNull String eventID) {
     return openEvent(eventID, true);
   }
 
   @NotNull
-  private Event openEvent(@Nullable String eventID, boolean onlyCreateNew) {
+  private Event openEvent(@NotNull String eventID, boolean onlyCreateNew) {
     if (eventID == null) {
-      eventID = UUID.randomUUID().toString();
+      throw new IllegalArgumentException("Event ID cannot be null");
     }
     eventsClient.openEvent(eventID, onlyCreateNew);
-    return new EventImpl(eventsClient, eventID);
+    return eventFactory.createEvent(eventsClient, eventID);
   }
 
   @Override

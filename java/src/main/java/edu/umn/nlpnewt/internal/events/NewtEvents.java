@@ -18,6 +18,8 @@ public class NewtEvents {
   private ProtoLabelAdapter<GenericLabel> standardAdapter = null;
   private ManagedChannel eventsChannel = null;
   private EventsClient eventsClient = null;
+  private EventFactory eventFactory = null;
+  private DocumentFactory documentFactory = null;
   private Events events = null;
 
   public NewtEvents(NewtServices newtServices) {
@@ -90,9 +92,38 @@ public class NewtEvents {
     return this;
   }
 
+  public DocumentFactory getDocumentFactory() {
+    if (documentFactory == null) {
+      documentFactory = new DocumentFactory() {
+        @Override
+        public Document createDocument(EventsClient client, Event event, String documentName) {
+          return new DocumentImpl(client, event, documentName);
+        }
+      };
+    }
+    return documentFactory;
+  }
+
+  public NewtEvents setDocumentFactory(DocumentFactory documentFactory) {
+    this.documentFactory = documentFactory;
+    return this;
+  }
+
+  public EventFactory getEventFactory() {
+    if (eventFactory == null) {
+      eventFactory = (client, eventID) -> new EventImpl(client, eventID, getDocumentFactory());
+    }
+    return eventFactory;
+  }
+
+  public NewtEvents setEventFactory(EventFactory eventFactory) {
+    this.eventFactory = eventFactory;
+    return this;
+  }
+
   public Events getEvents() {
     if (events == null) {
-      events = new EventsImpl(getEventsClient());
+      events = new EventsImpl(getEventsClient(), getEventFactory());
     }
     return events;
   }
