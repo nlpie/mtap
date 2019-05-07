@@ -883,12 +883,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
                     created_index.index_name = index_name
             return response
         except Exception as e:
-            try:
-                context.set_code(grpc.StatusCode.INTERNAL)
-                context.set_details(str(e))
-            except AttributeError:
-                pass
-            raise e
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
 
     def GetStats(self, request, context):
         r = processing_pb2.GetStatsResponse(processed=self._runner.processed,

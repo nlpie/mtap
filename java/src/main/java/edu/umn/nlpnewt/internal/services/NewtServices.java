@@ -31,15 +31,16 @@ public class NewtServices {
   }
 
   public DiscoveryMechanism getDiscoveryMechanism() {
-    if (discoveryMechanism != null) {
-      return discoveryMechanism;
+    if (discoveryMechanism == null) {
+      switch (config.getStringValue("discovery")) {
+        case "consul":
+          discoveryMechanism = new ConsulDiscoveryMechanism(config);
+          break;
+        default:
+          throw new IllegalArgumentException("Unrecognized discovery key.");
+      }
     }
-    switch (config.getStringValue("discovery")) {
-      case "consul":
-        discoveryMechanism = new ConsulDiscoveryMechanism(config);
-      default:
-        throw new IllegalArgumentException("Unrecognized discovery key.");
-    }
+    return discoveryMechanism;
   }
 
   public void setDiscoveryMechanism(DiscoveryMechanism discoveryMechanism) {

@@ -401,8 +401,9 @@ public class ProcessorServerOptions {
         String argument
     ) throws NumberFormatException, CmdLineException {
       try {
-        return Class.forName(argument).asSubclass(EventProcessor.class);
+        return getClass().getClassLoader().loadClass(argument).asSubclass(EventProcessor.class);
       } catch (ClassNotFoundException e) {
+        e.printStackTrace(System.err);
         throw new CmdLineException(owner, "Invalid processor class name", e);
       }
     }
