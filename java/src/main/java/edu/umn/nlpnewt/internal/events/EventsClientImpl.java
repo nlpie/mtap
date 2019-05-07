@@ -26,20 +26,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+@Internal
 public class EventsClientImpl implements EventsClient, AutoCloseable {
 
   private final EventsGrpc.EventsBlockingStub stub;
   private final ManagedChannel channel;
-  private final ProtoLabelAdapter<GenericLabel> distinctAdapter;
-  private final ProtoLabelAdapter<GenericLabel> standardAdapter;
 
-  EventsClientImpl(ManagedChannel channel,
-                   ProtoLabelAdapter<GenericLabel> distinctAdapter,
-                   ProtoLabelAdapter<GenericLabel> standardAdapter) {
+  EventsClientImpl(ManagedChannel channel) {
     stub = EventsGrpc.newBlockingStub(channel);
     this.channel = channel;
-    this.distinctAdapter = distinctAdapter;
-    this.standardAdapter = standardAdapter;
   }
 
   @Override
@@ -146,24 +141,6 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
         .build();
     EventsOuterClass.GetLabelsResponse response = stub.getLabels(request);
     return adapter.createIndexFromResponse(response);
-  }
-
-  @Override
-  public @NotNull LabelIndex<GenericLabel> getLabels(@NotNull String eventID,
-                                                     @NotNull String documentName,
-                                                     @NotNull String indexName) {
-    EventsOuterClass.GetLabelsRequest request = EventsOuterClass.GetLabelsRequest.newBuilder()
-        .setEventId(eventID)
-        .setDocumentName(documentName)
-        .setIndexName(indexName)
-        .build();
-    EventsOuterClass.GetLabelsResponse response = stub.getLabels(request);
-    EventsOuterClass.JsonLabels jsonLabels = response.getJsonLabels();
-    if (jsonLabels.getIsDistinct()) {
-      return distinctAdapter.createIndexFromResponse(response);
-    } else {
-      return standardAdapter.createIndexFromResponse(response);
-    }
   }
 
   @Override

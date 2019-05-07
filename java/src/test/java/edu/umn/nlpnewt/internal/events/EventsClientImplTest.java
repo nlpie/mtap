@@ -35,8 +35,6 @@ class EventsClientImplTest {
 
   private EventsClientImpl tested;
   private ProtoLabelAdapter adapter;
-  private ProtoLabelAdapter distinctAdapter;
-  private ProtoLabelAdapter standardLabelAdapter;
 
   @BeforeEach
   void setUp() throws IOException {
@@ -47,10 +45,7 @@ class EventsClientImplTest {
 
     ManagedChannel channel = grpcCleanup.register(InProcessChannelBuilder.forName(name).directExecutor().build());
 
-    distinctAdapter = mock(ProtoLabelAdapter.class);
-    standardLabelAdapter = mock(ProtoLabelAdapter.class);
-
-    tested = new EventsClientImpl(channel, distinctAdapter, standardLabelAdapter);
+    tested = new EventsClientImpl(channel);
 
     adapter = mock(ProtoLabelAdapter.class);
   }
@@ -230,47 +225,5 @@ class EventsClientImplTest {
     assertEquals("plaintext", request.getDocumentName());
     assertEquals("index", request.getIndexName());
     verify(adapter).createIndexFromResponse(any());
-  }
-
-  @Test
-  void getLabelsDistinct() {
-    doAnswer((Answer<Void>) invocation -> {
-      StreamObserver<GetLabelsResponse> observer = invocation.getArgument(1);
-      observer.onNext(GetLabelsResponse.newBuilder().setJsonLabels(JsonLabels.newBuilder()
-          .setIsDistinct(true).build()).build());
-      observer.onCompleted();
-      return null;
-    }).when(eventsService).getLabels(any(), any());
-    when(distinctAdapter.createIndexFromResponse(any()))
-        .thenReturn(NewtEvents.standardLabelIndex(Arrays.asList(Span.of(0, 5))));
-    LabelIndex index = tested.getLabels("1", "plaintext", "index");
-    ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
-    verify(eventsService).getLabels(captor.capture(), any());
-    GetLabelsRequest request = captor.getValue();
-    assertEquals("1", request.getEventId());
-    assertEquals("plaintext", request.getDocumentName());
-    assertEquals("index", request.getIndexName());
-    verify(distinctAdapter).createIndexFromResponse(any());
-  }
-
-  @Test
-  void getLabelsStandard() {
-    doAnswer((Answer<Void>) invocation -> {
-      StreamObserver<GetLabelsResponse> observer = invocation.getArgument(1);
-      observer.onNext(GetLabelsResponse.newBuilder().setJsonLabels(JsonLabels.newBuilder()
-          .setIsDistinct(false).build()).build());
-      observer.onCompleted();
-      return null;
-    }).when(eventsService).getLabels(any(), any());
-    when(standardLabelAdapter.createIndexFromResponse(any()))
-        .thenReturn(NewtEvents.standardLabelIndex(Arrays.asList(Span.of(0, 5))));
-    LabelIndex index = tested.getLabels("1", "plaintext", "index");
-    ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
-    verify(eventsService).getLabels(captor.capture(), any());
-    GetLabelsRequest request = captor.getValue();
-    assertEquals("1", request.getEventId());
-    assertEquals("plaintext", request.getDocumentName());
-    assertEquals("index", request.getIndexName());
-    verify(standardLabelAdapter).createIndexFromResponse(any());
   }
 }

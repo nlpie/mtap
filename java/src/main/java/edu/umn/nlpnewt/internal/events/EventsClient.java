@@ -52,10 +52,6 @@ interface EventsClient extends AutoCloseable {
                                                      @NotNull String indexName,
                                                      @NotNull ProtoLabelAdapter<L> adapter);
 
-  @NotNull LabelIndex<GenericLabel> getLabels(@NotNull String eventID,
-                                              @NotNull String documentName,
-                                              @NotNull String indexName);
-
   @Override
   void close();
 }

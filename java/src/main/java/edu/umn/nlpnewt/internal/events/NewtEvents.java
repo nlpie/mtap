@@ -82,7 +82,7 @@ public class NewtEvents {
 
   public EventsClient getEventsClient() {
     if (eventsClient == null) {
-      eventsClient = new EventsClientImpl(getEventsChannel(), getDistinctAdapter(), getStandardAdapter());
+      eventsClient = new EventsClientImpl(getEventsChannel());
     }
     return eventsClient;
   }
@@ -94,12 +94,13 @@ public class NewtEvents {
 
   public DocumentFactory getDocumentFactory() {
     if (documentFactory == null) {
-      documentFactory = new DocumentFactory() {
-        @Override
-        public Document createDocument(EventsClient client, Event event, String documentName) {
-          return new DocumentImpl(client, event, documentName);
-        }
-      };
+      documentFactory = (client, event, documentName) -> new DocumentImpl(
+          client,
+          event,
+          documentName,
+          getStandardAdapter(),
+          getDistinctAdapter()
+      );
     }
     return documentFactory;
   }

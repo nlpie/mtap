@@ -37,7 +37,6 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
    */
   public static final ProtoLabelAdapter<GenericLabel> NOT_DISTINCT_ADAPTER = new GenericLabelAdapter(false);
 
-
   private final boolean isDistinct;
 
   GenericLabelAdapter(boolean isDistinct) {
@@ -53,6 +52,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   @Override
   public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response) {
     JsonLabels jsonLabels = response.getJsonLabels();
+    boolean isDistinct = jsonLabels.getIsDistinct();
 
     List<GenericLabel> labels = new ArrayList<>();
     for (Struct struct : jsonLabels.getLabelsList()) {
@@ -61,7 +61,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
       labels.add(new GenericLabel(builder.build()));
     }
 
-    return isDistinct ? Newt.distinctLabelIndex(labels) : Newt.standardLabelIndex(labels);
+    return isDistinct ? new DistinctLabelIndex<>(labels) : new StandardLabelIndex<>(labels);
   }
 
   @Override

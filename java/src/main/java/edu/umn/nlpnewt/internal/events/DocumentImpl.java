@@ -28,25 +28,28 @@ import java.util.*;
  */
 @Internal
 final class DocumentImpl implements Document {
-
   private final EventsClient client;
-
   private final Event event;
-
   private final String documentName;
+  private final ProtoLabelAdapter<GenericLabel> standardLabelAdapter;
+  private final ProtoLabelAdapter<GenericLabel> distinctLabelAdapter;
 
-  private final Map<String, Labeler<?>> labelers = new HashMap<>();
+  private transient String text = null;
+  private transient Map<String, LabelIndex<?>> labelIndexMap = null;
+  private transient Map<String, Labeler<?>> labelers = null;
+  private transient List<String> createdIndices = null;
 
-  private final Map<String, LabelIndex<?>> labelIndexMap = new HashMap<>();
 
-  private final List<String> createdIndices = new ArrayList<>();
-
-  private String text = null;
-
-  DocumentImpl(EventsClient client, Event event, String documentName) {
+  DocumentImpl(EventsClient client,
+               Event event,
+               String documentName,
+               ProtoLabelAdapter<GenericLabel> standardLabelAdapter,
+               ProtoLabelAdapter<GenericLabel> distinctLabelAdapter) {
     this.client = client;
     this.event = event;
     this.documentName = documentName;
+    this.standardLabelAdapter = standardLabelAdapter;
+    this.distinctLabelAdapter = distinctLabelAdapter;
   }
 
   @Override
@@ -73,46 +76,57 @@ final class DocumentImpl implements Document {
       @NotNull String labelIndexName,
       @NotNull ProtoLabelAdapter<L> labelAdapter
   ) {
-    LabelIndex<?> index = labelIndexMap.get(labelIndexName);
+    LabelIndex<?> index = getLabelIndexMap().get(labelIndexName);
     if (index == null) {
       index = client.getLabels(event.getEventID(), documentName, labelIndexName, labelAdapter);
-      labelIndexMap.put(labelIndexName, index);
+      getLabelIndexMap().put(labelIndexName, index);
     }
     return (LabelIndex<L>) index;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public @NotNull LabelIndex<GenericLabel> getLabelIndex(@NotNull String labelIndexName) {
-    LabelIndex<?> index = labelIndexMap.get(labelIndexName);
-    if (index == null) {
-      index = client.getLabels(event.getEventID(), documentName, labelIndexName);
-    }
-    return (LabelIndex<GenericLabel>) index;
+    return getLabelIndex(labelIndexName, standardLabelAdapter);
   }
 
   @Override
   public @NotNull <L extends Label> Labeler<L> getLabeler(@NotNull String labelIndexName,
                                                           @NotNull ProtoLabelAdapter<L> adapter) {
     @SuppressWarnings("unchecked")
-    Labeler<L> existing = (Labeler<L>) labelers.get(labelIndexName);
+    Labeler<L> existing = (Labeler<L>) getLabelers().get(labelIndexName);
     if (existing == null) {
       existing = new LabelerImpl<>(labelIndexName, adapter);
-      labelers.put(labelIndexName, existing);
+      getLabelers().put(labelIndexName, existing);
     }
     return existing;
   }
 
   @Override
-  public @NotNull List<@NotNull String> getCreatedIndices() {
-    return Collections.unmodifiableList(createdIndices);
+  public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName,
+                                                   boolean isDistinct) {
+    return getLabeler(labelIndexName, isDistinct ? distinctLabelAdapter : standardLabelAdapter);
   }
 
   @Override
-  public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName,
-                                                   boolean isDistinct) {
-    return getLabeler(labelIndexName,
-        isDistinct ? GenericLabelAdapter.DISTINCT_ADAPTER : GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
+  public @NotNull List<@NotNull String> getCreatedIndices() {
+    if (createdIndices == null) {
+      createdIndices = new ArrayList<>();
+    }
+    return createdIndices;
+  }
+
+  private Map<String, LabelIndex<?>> getLabelIndexMap() {
+    if (labelIndexMap == null) {
+      labelIndexMap = new HashMap<>();
+    }
+    return labelIndexMap;
+  }
+
+  private Map<String, Labeler<?>> getLabelers() {
+    if (labelers == null) {
+      labelers = new HashMap<>();
+    }
+    return labelers;
   }
 
   private class LabelerImpl<L extends Label> implements Labeler<L> {
@@ -142,10 +156,10 @@ final class DocumentImpl implements Document {
 
         labels.sort((Comparator<Label>) Label::compareLocation);
 
-        labelIndexMap.put(labelIndexName, labelAdapter.createLabelIndex(labels));
+        getLabelIndexMap().put(labelIndexName, labelAdapter.createLabelIndex(labels));
 
         client.addLabels(event.getEventID(), documentName, labelIndexName, labels, labelAdapter);
-        createdIndices.add(labelIndexName);
+        getCreatedIndices().add(labelIndexName);
       }
     }
 
