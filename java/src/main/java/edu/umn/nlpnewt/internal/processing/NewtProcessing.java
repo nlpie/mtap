@@ -138,9 +138,9 @@ public class NewtProcessing {
             processor = constructor.newInstance(getContextManager().getContext());
           } catch (NoSuchMethodException ignored) {
             // fall back to default constructor
-            processor = processorClass.newInstance();
+            processor = processorClass.getConstructor().newInstance();
           }
-        } catch (IllegalAccessException | InstantiationException | InvocationTargetException e) {
+        } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
           throw new IllegalArgumentException("Unable to instantiate processor.", e);
         }
       }

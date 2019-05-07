@@ -281,7 +281,7 @@ class NewtProcessingTest {
   }
 
   @Processor("newt-test-processor")
-  static class TestProcessor implements EventProcessor {
+  public static class TestProcessor implements EventProcessor {
 
     @Override
     public void process(@NotNull Event event, @NotNull JsonObject params, @NotNull JsonObjectBuilder result) {
@@ -290,14 +290,14 @@ class NewtProcessingTest {
   }
 
   @Processor("newt-test-processor")
-  static class TestProcessorWithInit extends TestProcessor {
-    TestProcessorWithInit() {
+  public static class TestProcessorWithInit extends TestProcessor {
+    public TestProcessorWithInit() {
 
     }
   }
 
   @Processor("newt-test-processor-with-context")
-  static class TestProcessorWithContext extends TestProcessor {
+  public static class TestProcessorWithContext extends TestProcessor {
     final ProcessorContext context;
 
     public TestProcessorWithContext(ProcessorContext context) {
