@@ -20,10 +20,10 @@ import (
 	"context"
 	"github.com/golang/glog"
 	"github.com/hashicorp/consul/api"
-	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc/resolver"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -39,15 +39,17 @@ type consulBuilder struct {
 }
 
 type consulResolver struct {
-	t         *time.Ticker
-	service   string
-	tags      []string
-	ctx       context.Context
-	cancel    context.CancelFunc
-	updating  bool
-	cc        resolver.ClientConn
-	client    *api.Client
-	semaphore *semaphore.Weighted
+	freq       time.Duration
+	t          *time.Timer
+	service    string
+	tags       []string
+	ctx        context.Context
+	cancel     context.CancelFunc
+	updating   bool
+	cc         resolver.ClientConn
+	client     *api.Client
+	wg         sync.WaitGroup
+	rn         chan struct{}
 }
 
 func NewBuilder() resolver.Builder {
@@ -66,15 +68,16 @@ func (*consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts
 
 	split := strings.Split(target.Endpoint, "/")
 	r := &consulResolver{
-		t:         time.NewTicker(defaultFreq),
-		service:   split[0],
-		tags:      split[1:],
-		cc:        cc,
-		client:    client,
-		semaphore: semaphore.NewWeighted(1),
+		freq:    defaultFreq,
+		t:       time.NewTimer(defaultFreq),
+		service: split[0],
+		tags:    split[1:],
+		cc:      cc,
+		client:  client,
+		rn:      make(chan struct{}, 1),
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())
-
+	r.wg.Add(1)
 	go r.watcher()
 
 	return r, nil
@@ -85,20 +88,16 @@ func (*consulBuilder) Scheme() string {
 }
 
 func (r *consulResolver) ResolveNow(opts resolver.ResolveNowOption) {
-	glog.V(3).Infof("ResolveNow called for \"%v\" tags %v", r.service, r.tags)
-	r.doUpdate()
+	select {
+	case r.rn <- struct{}{}:
+	default:
+	}
 }
 
-func (r *consulResolver) doUpdate() {
-	if !r.semaphore.TryAcquire(1) {
-		return
-	}
-	defer r.semaphore.Release(1)
-	glog.V(3).Infof("Updating addresses for service \"%v\" tags %v", r.service, r.tags)
+func (r *consulResolver) lookup() []resolver.Address {
 	entries, _, e := r.client.Health().ServiceMultipleTags(r.service, r.tags, true, nil)
 	if e != nil {
-		glog.Error("Error getting service health from consul")
-		return
+		return []resolver.Address{}
 	}
 	addresses := make([]resolver.Address, 0, 10)
 	for _, entry := range entries {
@@ -106,26 +105,30 @@ func (r *consulResolver) doUpdate() {
 		service := entry.Service
 		addresses = append(addresses, resolver.Address{Addr: node.Address + ":" + strconv.Itoa(service.Port)})
 	}
-	if len(addresses) > 0 {
-		glog.V(3).Infof("Found addresses for service \"%v\" tags %v", r.service, r.tags)
-		r.cc.NewAddress(addresses)
-	} else {
-		glog.V(3).Infof("Did not find addresses for service \"%v\" tags %v", r.service, r.tags)
-	}
+	return addresses
 }
 
 func (r *consulResolver) watcher() {
+	defer r.wg.Done()
 	for {
 		select {
 		case <-r.ctx.Done():
 			return
 		case <-r.t.C:
+		case <-r.rn:
 		}
-		r.doUpdate()
+		addrs := r.lookup()
+		r.t.Reset(r.freq)
+
+		r.cc.UpdateState(resolver.State{
+			Addresses:     addrs,
+			ServiceConfig: "",
+		})
 	}
 }
 
 func (r *consulResolver) Close() {
-	glog.V(3).Infof("Closing resolver for service \"%v\" tags %v", r.service, r.tags)
 	r.cancel()
+	r.wg.Wait()
+	r.t.Stop()
 }

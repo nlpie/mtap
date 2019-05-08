@@ -1,0 +1,13 @@
+discovery: consul
+consul:
+  host: localhost
+  port: 8500
+  scheme: http
+  # Python uses {python_naming_scheme}:address[:port][,address[:port],...] as grpc targets
+  python_naming_scheme: ipv4
+
+gateway:
+  port: 50503
+  refresh_interval: 10
+  events: null
+  processors: []

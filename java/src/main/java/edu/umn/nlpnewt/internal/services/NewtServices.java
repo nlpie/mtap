@@ -51,10 +51,10 @@ public class NewtServices {
   }
 
   public HealthStatusManager getHealthStatusManager() {
-    if (healthStatusManager != null) {
-      return healthStatusManager;
+    if (healthStatusManager == null) {
+      healthStatusManager = new HealthStatusManager();
     }
-    return new HealthStatusManager();
+    return healthStatusManager;
   }
 
   public void setHealthStatusManager(HealthStatusManager healthStatusManager) {

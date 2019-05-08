@@ -102,7 +102,7 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     subprocess.call(['make', 'proto'], cwd=cwd)
     subprocess.call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
-    p = subprocess.Popen(['nlpnewt-gateway', '-logtostderr', '-v=2'],
+    p = subprocess.Popen(['nlpnewt-gateway', '-logtostderr', '-v=3'],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          cwd=cwd, env=env)
     try:
@@ -135,6 +135,7 @@ neural pathways have become accustomed to your sensory input patterns. Mr. Worf,
 how to fire phasers?"""
 
 
+@pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
     with nlpnewt.Events('127.0.0.1:50500') as events, nlpnewt.Pipeline() as pipeline:
         pipeline.add_processor('nlpnewt-example-processor-python', address='localhost:50501',
@@ -157,6 +158,7 @@ def test_pipeline(python_events, python_processor, java_processor):
             assert thes[0].end_index == 124
 
 
+@pytest.mark.integration
 def test_api_gateway(python_events, python_processor, java_processor, api_gateway):
     resp = requests.get("http://localhost:50503/v1/processors")
     assert resp.status_code == 200

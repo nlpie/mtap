@@ -113,8 +113,10 @@ func run() error {
 	var eventsAddr string
 	if eventsLookup != nil {
 		eventsAddr = cast.ToString(eventsLookup)
+		glog.Infof("Using events address: %s", eventsAddr)
 	} else {
-		eventsAddr = "consul://" + consulAddr + "/nlpnewt-events/v1"
+		eventsAddr = fmt.Sprintf("consul://%s/nlpnewt-events/v1", consulAddr)
+		glog.Info("Using consul service discovery for events: ", eventsAddr)
 	}
 	err = nlpnewt_api_v1.RegisterEventsHandlerFromEndpoint(
 		ctx,

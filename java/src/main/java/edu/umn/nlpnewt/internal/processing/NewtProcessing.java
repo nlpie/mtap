@@ -98,11 +98,10 @@ public class NewtProcessing {
 
   public String getProcessorId() {
     if (processorId == null) {
-      String processorId = options.getIdentifier();
+      processorId = options.getIdentifier();
       if (processorId == null) {
         processorId = getProcessorName();
       }
-      return processorId;
     }
     return processorId;
   }

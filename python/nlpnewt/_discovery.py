@@ -14,6 +14,7 @@
 """Internal service discovery magic."""
 
 import abc
+from uuid import UUID, uuid4, uuid1
 
 from . import constants
 
@@ -77,7 +78,9 @@ class ConsulDiscovery(Discovery):
         return f"ipv4:{','.join(addresses)}"
 
     def register_processor_service(self, address, port, processor_id, version):
+        uuid = str(uuid1())
         self.c.agent.service.register(processor_id,
+                                      service_id=uuid,
                                       port=port,
                                       check={
                                           'grpc': f"{address}:{port}/{processor_id}",
@@ -87,7 +90,7 @@ class ConsulDiscovery(Discovery):
                                       tags=[constants.PROCESSING_SERVICE_TAG])
 
         def deregister():
-            self.c.agent.service.deregister(service_id=processor_id)
+            self.c.agent.service.deregister(service_id=uuid)
 
         return deregister
 
