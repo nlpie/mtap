@@ -12,6 +12,9 @@ public class NewtServices {
   private HealthStatusManager healthStatusManager = null;
 
   public NewtServices(Config config) {
+    if (config == null) {
+      throw new IllegalArgumentException("Config is null.");
+    }
     this.config = config;
   }
 

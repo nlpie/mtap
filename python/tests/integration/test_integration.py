@@ -27,9 +27,11 @@ import nlpnewt
 @pytest.fixture(name='python_events')
 def fixture_python_events():
     cwd = Path(__file__).parents[2]
+    env = dict(os.environ)
+    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = subprocess.Popen(['python', 'nlpnewt', 'events', '-p', '50500'],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         cwd=cwd)
+                         cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50500") as channel:
             future = grpc.channel_ready_future(channel)
@@ -46,12 +48,14 @@ def fixture_python_events():
 @pytest.fixture(name='python_processor')
 def fixture_python_processor(python_events):
     cwd = Path(__file__).parents[2]
+    env = dict(os.environ)
+    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = subprocess.Popen(['python', 'nlpnewt', 'processor', '-p', '50501',
                           '--events', '127.0.0.1:50500',
                           '--name', 'nlpnewt-example-processor-python',
                           '-m', 'nlpnewt.examples.example_processor'],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         cwd=cwd)
+                         cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50501") as channel:
             future = grpc.channel_ready_future(channel)
@@ -68,12 +72,14 @@ def fixture_python_processor(python_events):
 @pytest.fixture(name="java_processor")
 def fixture_java_processor(python_events):
     cwd = Path(__file__).parents[3] / 'java'
+    env = dict(os.environ)
+    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = subprocess.Popen(['./gradlew', 'newt',
                           '--args',
                           "processor -p 50502 -e 127.0.0.1:50500 "
                           "edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor"],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         cwd=cwd)
+                         cwd=cwd, env=env)
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch java processor")
@@ -94,6 +100,7 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
     cwd = Path(__file__).parents[3] / 'go'
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    subprocess.call(['make', 'proto'], cwd=cwd)
     subprocess.call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
     p = subprocess.Popen(['nlpnewt-gateway', '-logtostderr', '-v=2'],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -145,6 +152,9 @@ def test_pipeline(python_events, python_processor, java_processor):
             b_counts = letter_counts[1]
             assert b_counts.count == 6
             pipeline.print_times()
+            thes = document.get_label_index("nlpnewt.examples.thes")
+            assert thes[0].start_index == 121
+            assert thes[0].end_index == 124
 
 
 def test_api_gateway(python_events, python_processor, java_processor, api_gateway):
@@ -177,7 +187,105 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
         'text': PHASERS
     }
     resp = requests.post("http://localhost:50503/v1/events/1/documents/plaintext", json=body)
+    assert resp.status_code == 200
 
+    resp = requests.get("http://localhost:50503/v1/events/1/documents")
+    assert resp.status_code == 200
+    documents = resp.json()["document_names"]
+    assert documents == ['plaintext']
 
+    resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext")
+    assert resp.status_code == 200
+    text = resp.json()['text']
+    assert text == PHASERS
 
+    body = {
+        'json_labels': {
+            'is_distinct': True,
+            'labels': [
+                {
+                    'start_index': 4,
+                    'end_index': 10,
+                    'foo': 'bar'
+                },
+                {
+                    'start_index': 10,
+                    'end_index': 20,
+                    'foo': 'baz'
+                }
+            ]
+        }
+    }
+    resp = requests.post(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels", json=body)
+    assert resp.status_code == 200
 
+    resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
+    assert resp.status_code == 200
+    labels = resp.json()
+    json_labels = labels['json_labels']
+    assert json_labels['is_distinct']
+    assert json_labels['labels'] == body['json_labels']['labels']
+
+    body = {
+        'processor_id': 'nlpnewt-example-processor-python',
+        'params': {
+            'document_name': 'plaintext',
+            'do_work': True,
+        }
+    }
+    resp = requests.post(
+        "http://localhost:50503/v1/processors/nlpnewt-example-processor-python/process/1",
+        json=body
+    )
+    assert resp.status_code == 200
+    python_process = resp.json()
+    assert python_process['result']['answer'] == 42
+
+    resp = requests.get(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.letter_counts"
+    )
+    assert resp.status_code == 200
+    labels = resp.json()
+    json_labels = labels['json_labels']
+    assert json_labels['labels'] == [
+        {
+            'start_index': 0,
+            'end_index': len(PHASERS),
+            'letter': 'a',
+            'count': 23
+        },
+        {
+            'start_index': 0,
+            'end_index': len(PHASERS),
+            'letter': 'b',
+            'count': 6
+        }
+    ]
+
+    body = {
+        'processor_id': 'nlpnewt-example-processor-java',
+        'params': {
+            'document_name': 'plaintext',
+            'do_work': True,
+        }
+    }
+    resp = requests.post(
+        "http://localhost:50503/v1/processors/nlpnewt-example-processor-java/process/1",
+        json=body
+    )
+    assert resp.status_code == 200
+    java_process = resp.json()
+    assert java_process['result']['answer'] == 42
+
+    resp = requests.get(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.thes"
+    )
+    assert resp.status_code == 200
+    labels = resp.json()['json_labels']['labels']
+    assert labels == [
+        {
+            'start_index': 121,
+            'end_index': 124
+        }
+    ]
