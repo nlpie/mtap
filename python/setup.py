@@ -135,7 +135,8 @@ setup(
     ],
     tests_require=[
         'pytest',
-        'grpcio-testing'
+        'grpcio-testing',
+        'requests'
     ],
     extras_require={
         'grpc_tools': ['grpcio-tools'],

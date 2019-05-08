@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/benknoll-umn/nlpnewt/go/nlpnewt/api/v1"
 	_ "github.com/benknoll-umn/nlpnewt/go/nlpnewt/consul"
 	"github.com/benknoll-umn/nlpnewt/go/nlpnewt/processors"
@@ -32,8 +33,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func serveSwagger(r *mux.Router) {
@@ -126,7 +129,30 @@ func run() error {
 	port := strconv.Itoa(viper.GetInt("gateway.port"))
 	glog.V(1).Infoln("Serving on port " + port)
 
-	return http.ListenAndServe(":"+port, handlers.CORS(handlers.AllowedOrigins([]string{"*"}))(m))
+	srv := &http.Server{
+		Addr: ":"+port,
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
+		Handler: m,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			glog.Error(err)
+		}
+	}()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	<-c
+
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second * 10)
+	defer cancel2()
+	_ = srv.Shutdown(ctx2)
+	_ = fmt.Errorf("shutting down")
+	return nil
 }
 
 func main() {
