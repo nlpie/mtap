@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -29,8 +30,9 @@ def fixture_python_events():
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', 'nlpnewt', 'events', '-p', '50500'],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'events', '-p', '50500'],
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50500") as channel:
@@ -38,11 +40,13 @@ def fixture_python_events():
             future.result(timeout=10)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("python events exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for python events to terminate")
 
 
 @pytest.fixture(name='python_processor')
@@ -50,11 +54,12 @@ def fixture_python_processor(python_events):
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', 'nlpnewt', 'processor', '-p', '50501',
+    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'processor', '-p', '50501',
                           '--events', '127.0.0.1:50500',
                           '--name', 'nlpnewt-example-processor-python',
                           '-m', 'nlpnewt.examples.example_processor'],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50501") as channel:
@@ -62,11 +67,13 @@ def fixture_python_processor(python_events):
             future.result(timeout=10)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("python processor exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for python processor to terminate")
 
 
 @pytest.fixture(name="java_processor")
@@ -78,7 +85,8 @@ def fixture_java_processor(python_events):
                           '--args',
                           "processor -p 50502 -e 127.0.0.1:50500 "
                           "edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor"],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         if p.returncode is not None:
@@ -88,11 +96,13 @@ def fixture_java_processor(python_events):
             future.result(timeout=10)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("java processor exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for java processor to terminate")
 
 
 @pytest.fixture(name="api_gateway")
@@ -103,7 +113,8 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
     subprocess.call(['make', 'proto'], cwd=cwd)
     subprocess.call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
     p = subprocess.Popen(['nlpnewt-gateway', '-logtostderr', '-v=3'],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         if p.returncode is not None:
@@ -112,19 +123,21 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
             if i == 5:
                 raise ValueError("Failed to connect to go gateway")
             try:
+                time.sleep(3)
                 resp = requests.get("http://localhost:50503/v1/processors")
-                if resp.status_code == 200:
+                if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
                     break
             except RequestException:
                 pass
-            time.sleep(0.5)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("api gateway exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for api gateway to terminate")
 
 
 PHASERS = """

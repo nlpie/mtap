@@ -49,6 +49,7 @@ import static org.mockito.Mockito.*;
 class ProcessorServiceImplTest {
   @Rule
   public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+
   private ServiceLifecycle serviceLifecycle;
   private Runner runner;
   private TimesCollector timesCollector;
