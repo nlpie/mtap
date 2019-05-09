@@ -11,11 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import atexit
 import logging
+import signal
+import threading
+import time
 
-from nlpnewt import Config
-from nlpnewt import EventsServer
-from nlpnewt import ProcessorServer
+from nlpnewt._config import Config
+from nlpnewt._events_service import EventsServer
+from nlpnewt.processing import ProcessorServer
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -28,20 +32,19 @@ def run_events_server(args):
     args
         Command line arguments.
     """
-    import time
     with Config() as c:
         if args.config is not None:
             c.update_from_yaml(args.config)
         server = EventsServer(args.address, args.port, register=args.register, workers=args.workers)
         server.start()
+        e = threading.Event()
 
-        while True:
-            try:
-                time.sleep(_ONE_DAY_IN_SECONDS)
-            except KeyboardInterrupt:
-                print('stopping server')
-                server.stop()
-                return
+        def handler(sig, frame):
+            print("Shutting down", flush=True)
+            server.stop()
+            e.set()
+        signal.signal(signal.SIGINT, handler)
+        e.wait()
 
 
 def run_processor_service(args):
@@ -53,7 +56,6 @@ def run_processor_service(args):
         Command line arguments.
     """
     import importlib
-    import time
     if args.module is not None:
         importlib.import_module(args.module)
 
@@ -70,13 +72,14 @@ def run_processor_service(args):
                                  events_address=args.events_address,
                                  args=args.args)
         server.start()
-        while True:
-            try:
-                time.sleep(_ONE_DAY_IN_SECONDS)
-            except KeyboardInterrupt:
-                print('stopping server')
-                server.stop()
-                return
+        e = threading.Event()
+
+        def handler(sig, frame):
+            print("Shutting down", flush=True)
+            server.stop()
+            e.set()
+        signal.signal(signal.SIGINT, handler)
+        e.wait()
 
 
 def main(args=None):

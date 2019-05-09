@@ -32,7 +32,7 @@ func init() {
 }
 
 const (
-	defaultFreq = time.Second * 30
+	defaultFreq = time.Minute * 1
 )
 
 type consulBuilder struct {
@@ -69,7 +69,7 @@ func (*consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts
 	split := strings.Split(target.Endpoint, "/")
 	r := &consulResolver{
 		freq:    defaultFreq,
-		t:       time.NewTimer(defaultFreq),
+		t:       time.NewTimer(0),
 		service: split[0],
 		tags:    split[1:],
 		cc:      cc,
@@ -88,6 +88,7 @@ func (*consulBuilder) Scheme() string {
 }
 
 func (r *consulResolver) ResolveNow(opts resolver.ResolveNowOption) {
+	print("resolve now called")
 	select {
 	case r.rn <- struct{}{}:
 	default:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -29,8 +30,9 @@ def fixture_disc_python_events():
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', 'nlpnewt', 'events', '-p', '50500', '--register'],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'events', '-p', '50500', '--register'],
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50500") as channel:
@@ -38,11 +40,13 @@ def fixture_disc_python_events():
             future.result(timeout=10)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("python events exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for python events to terminate")
 
 
 @pytest.fixture(name='disc_python_processor')
@@ -50,10 +54,11 @@ def fixture_disc_python_processor(disc_python_events):
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', 'nlpnewt', 'processor', '-p', '50501', '--register',
+    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'processor', '-p', '50501', '--register',
                           '--name', 'nlpnewt-example-processor-python',
                           '-m', 'nlpnewt.examples.example_processor'],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50501") as channel:
@@ -61,11 +66,13 @@ def fixture_disc_python_processor(disc_python_events):
             future.result(timeout=10)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("python processor exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for python processor to terminate")
 
 
 @pytest.fixture(name="disc_java_processor")
@@ -77,7 +84,8 @@ def fixture_disc_java_processor(disc_python_events):
                           '--args',
                           "processor -p 50502 -e 127.0.0.1:50500 --register "
                           "edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor"],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         if p.returncode is not None:
@@ -87,11 +95,13 @@ def fixture_disc_java_processor(disc_python_events):
             future.result(timeout=10)
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("java processor exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for java processor to terminate")
 
 
 @pytest.fixture(name="disc_api_gateway")
@@ -102,7 +112,8 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
     subprocess.call(['make', 'proto'], cwd=cwd)
     subprocess.call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
     p = subprocess.Popen(['nlpnewt-gateway', '-logtostderr', '-v', '3'],
-                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         start_new_session=True, stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
         if p.returncode is not None:
@@ -119,11 +130,13 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
                 pass
         yield
     finally:
-        p.terminate()
-        p.wait(5)
-        stdout, stderr = p.communicate()
-        print(stdout.decode('utf-8'))
-        print(stderr.decode('utf-8'))
+        p.send_signal(signal.SIGINT)
+        try:
+            stdout, _ = p.communicate(timeout=1)
+            print("api gateway exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
+        except subprocess.TimeoutExpired:
+            print("timed out waiting for api gateway to terminate")
 
 
 PHASERS = """
@@ -158,140 +171,135 @@ def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_proc
 
 
 @pytest.mark.consul
-def test_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor, disc_api_gateway):
-    try:
-        time.sleep(10)
-        resp = requests.get("http://localhost:50503/v1/processors")
-        assert resp.status_code == 200
-        processors = resp.json()
-        all_ids = []
-        for processor in processors['Processors']:
-            all_ids.append(processor['Identifier'])
-        assert 'nlpnewt-example-processor-python' in all_ids
-        assert 'nlpnewt-example-processor-java' in all_ids
+def test_disc_api_gateway(disc_api_gateway):
+    resp = requests.get("http://localhost:50503/v1/processors")
+    assert resp.status_code == 200
+    processors = resp.json()
+    all_ids = []
+    for processor in processors['Processors']:
+        all_ids.append(processor['Identifier'])
+    assert 'nlpnewt-example-processor-python' in all_ids
+    assert 'nlpnewt-example-processor-java' in all_ids
 
-        resp = requests.post("http://localhost:50503/v1/events/1")
-        assert resp.status_code == 200
-        create_event = resp.json()
-        assert create_event['created'] is True
+    resp = requests.post("http://localhost:50503/v1/events/1")
+    assert resp.status_code == 200
+    create_event = resp.json()
+    assert create_event['created'] is True
 
-        body = {
-            'value': 'bar'
+    body = {
+        'value': 'bar'
+    }
+    resp = requests.post("http://localhost:50503/v1/events/1/metadata/foo", json=body)
+    assert resp.status_code == 200
+
+    resp = requests.get("http://localhost:50503/v1/events/1/metadata")
+    assert resp.status_code == 200
+    metadata = resp.json()['metadata']
+    assert metadata['foo'] == 'bar'
+
+    body = {
+        'text': PHASERS
+    }
+    resp = requests.post("http://localhost:50503/v1/events/1/documents/plaintext", json=body)
+    assert resp.status_code == 200
+
+    resp = requests.get("http://localhost:50503/v1/events/1/documents")
+    assert resp.status_code == 200
+    documents = resp.json()["document_names"]
+    assert documents == ['plaintext']
+
+    resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext")
+    assert resp.status_code == 200
+    text = resp.json()['text']
+    assert text == PHASERS
+
+    body = {
+        'json_labels': {
+            'is_distinct': True,
+            'labels': [
+                {
+                    'start_index': 4,
+                    'end_index': 10,
+                    'foo': 'bar'
+                },
+                {
+                    'start_index': 10,
+                    'end_index': 20,
+                    'foo': 'baz'
+                }
+            ]
         }
-        resp = requests.post("http://localhost:50503/v1/events/1/metadata/foo", json=body)
-        assert resp.status_code == 200
+    }
+    resp = requests.post(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels", json=body)
+    assert resp.status_code == 200
 
-        resp = requests.get("http://localhost:50503/v1/events/1/metadata")
-        assert resp.status_code == 200
-        metadata = resp.json()['metadata']
-        assert metadata['foo'] == 'bar'
+    resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
+    assert resp.status_code == 200
+    labels = resp.json()
+    json_labels = labels['json_labels']
+    assert json_labels['is_distinct']
+    assert json_labels['labels'] == body['json_labels']['labels']
 
-        body = {
-            'text': PHASERS
+    body = {
+        'processor_id': 'nlpnewt-example-processor-python',
+        'params': {
+            'document_name': 'plaintext',
+            'do_work': True,
         }
-        resp = requests.post("http://localhost:50503/v1/events/1/documents/plaintext", json=body)
-        assert resp.status_code == 200
+    }
+    resp = requests.post(
+        "http://localhost:50503/v1/processors/nlpnewt-example-processor-python/process/1",
+        json=body
+    )
+    assert resp.status_code == 200
+    python_process = resp.json()
+    assert python_process['result']['answer'] == 42
 
-        resp = requests.get("http://localhost:50503/v1/events/1/documents")
-        assert resp.status_code == 200
-        documents = resp.json()["document_names"]
-        assert documents == ['plaintext']
-
-        resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext")
-        assert resp.status_code == 200
-        text = resp.json()['text']
-        assert text == PHASERS
-
-        body = {
-            'json_labels': {
-                'is_distinct': True,
-                'labels': [
-                    {
-                        'start_index': 4,
-                        'end_index': 10,
-                        'foo': 'bar'
-                    },
-                    {
-                        'start_index': 10,
-                        'end_index': 20,
-                        'foo': 'baz'
-                    }
-                ]
-            }
+    resp = requests.get(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.letter_counts"
+    )
+    assert resp.status_code == 200
+    labels = resp.json()
+    json_labels = labels['json_labels']
+    assert json_labels['labels'] == [
+        {
+            'start_index': 0,
+            'end_index': len(PHASERS),
+            'letter': 'a',
+            'count': 23
+        },
+        {
+            'start_index': 0,
+            'end_index': len(PHASERS),
+            'letter': 'b',
+            'count': 6
         }
-        resp = requests.post(
-            "http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels", json=body)
-        assert resp.status_code == 200
+    ]
 
-        resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
-        assert resp.status_code == 200
-        labels = resp.json()
-        json_labels = labels['json_labels']
-        assert json_labels['is_distinct']
-        assert json_labels['labels'] == body['json_labels']['labels']
-
-        body = {
-            'processor_id': 'nlpnewt-example-processor-python',
-            'params': {
-                'document_name': 'plaintext',
-                'do_work': True,
-            }
+    body = {
+        'processor_id': 'nlpnewt-example-processor-java',
+        'params': {
+            'document_name': 'plaintext',
+            'do_work': True,
         }
-        resp = requests.post(
-            "http://localhost:50503/v1/processors/nlpnewt-example-processor-python/process/1",
-            json=body
-        )
-        assert resp.status_code == 200
-        python_process = resp.json()
-        assert python_process['result']['answer'] == 42
+    }
+    resp = requests.post(
+        "http://localhost:50503/v1/processors/nlpnewt-example-processor-java/process/1",
+        json=body
+    )
+    assert resp.status_code == 200
+    java_process = resp.json()
+    assert java_process['result']['answer'] == 42
 
-        resp = requests.get(
-            "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.letter_counts"
-        )
-        assert resp.status_code == 200
-        labels = resp.json()
-        json_labels = labels['json_labels']
-        assert json_labels['labels'] == [
-            {
-                'start_index': 0,
-                'end_index': len(PHASERS),
-                'letter': 'a',
-                'count': 23
-            },
-            {
-                'start_index': 0,
-                'end_index': len(PHASERS),
-                'letter': 'b',
-                'count': 6
-            }
-        ]
-
-        body = {
-            'processor_id': 'nlpnewt-example-processor-java',
-            'params': {
-                'document_name': 'plaintext',
-                'do_work': True,
-            }
+    resp = requests.get(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.thes"
+    )
+    assert resp.status_code == 200
+    labels = resp.json()['json_labels']['labels']
+    assert labels == [
+        {
+            'start_index': 121,
+            'end_index': 124
         }
-        resp = requests.post(
-            "http://localhost:50503/v1/processors/nlpnewt-example-processor-java/process/1",
-            json=body
-        )
-        assert resp.status_code == 200
-        java_process = resp.json()
-        assert java_process['result']['answer'] == 42
-
-        resp = requests.get(
-            "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.thes"
-        )
-        assert resp.status_code == 200
-        labels = resp.json()['json_labels']['labels']
-        assert labels == [
-            {
-                'start_index': 121,
-                'end_index': 124
-            }
-        ]
-    except RequestException as e:
-        print(e)
-        pytest.fail(e.strerror)
+    ]

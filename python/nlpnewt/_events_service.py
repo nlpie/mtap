@@ -101,12 +101,13 @@ class EventsServer:
         threading.Event
             A shutdown event for the server.
         """
+        LOGGER.info("Stopping events server on address: %s:%d", self._address, self._port)
         try:
             self._deregister()
         except AttributeError:
             pass
         shutdown_event = self._server.stop(grace=grace)
-        return shutdown_event
+        shutdown_event.wait()
 
 
 class EventsServicer(events_pb2_grpc.EventsServicer):
