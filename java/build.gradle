@@ -104,6 +104,10 @@ sourceSets {
     }
 }
 
+test {
+    useJUnitPlatform()
+}
+
 startScripts.enabled = false
 
 task newt(type: JavaExec) {
