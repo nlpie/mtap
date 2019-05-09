@@ -15,7 +15,6 @@
 
 import contextlib
 import logging
-import math
 import threading
 from abc import ABCMeta, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -23,6 +22,7 @@ from datetime import datetime, timedelta
 from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional
 
 import grpc
+import math
 from grpc_health.v1 import health, health_pb2_grpc
 
 from . import _structs, _discovery
@@ -50,6 +50,7 @@ __all__ = [
 
 class ProcessorContext:
     """A processing context which gets passed to processors."""
+
     def __init__(self, processor_id, health_servicer, args: List[str]):
         self._processor_id = processor_id
         self._health_servicer = health_servicer
@@ -139,6 +140,7 @@ def processor(name: str):
     These are all valid ways of registering processors.
 
     """
+
     def decorator(func):
         _processors[name] = func
         return func
@@ -506,6 +508,8 @@ class Pipeline:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+        if exc_val is not None:
+            raise exc_val
 
     def close(self):
         """Closes any open connections to remote processors.
@@ -594,13 +598,14 @@ class ProcessorServer:
             events_address=events_address,
             args=args
         )
-        prefix = self.processor_id + "-worker-"
+        prefix = self.processor_id + "-worker"
         workers = workers or 10
         thread_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix)
         self._server = grpc.server(thread_pool)
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
         self._port = self._server.add_insecure_port(f"{self.address}:{port}")
+        self._stopped_event = threading.Event()
 
     @property
     def port(self) -> int:
@@ -641,9 +646,11 @@ class ProcessorServer:
         threading.Event
             A shutdown event for the server.
         """
+        _logger.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
+                     self.processor_id, self.address, self.port)
         self._servicer.shutdown()
         shutdown_event = self._server.stop(grace=grace)
-        return shutdown_event
+        shutdown_event.wait()
 
 
 @contextlib.contextmanager
@@ -695,12 +702,11 @@ class _ProcessorRunner:
         self.processed += 1
         p = dict(self.params)
         p.update(params)
-        with _enter_context(self.component_id) as context, self.events.open_event(
-                event_id) as event:
+        with _enter_context(self.component_id) as c, self.events.open_event(event_id) as e:
             try:
-                with context.stopwatch('process_method'):
-                    result = self.processor.process(event, p)
-                return result, context.times, event.created_indices
+                with c.stopwatch('process_method'):
+                    result = self.processor.process(e, p)
+                return result, c.times, e.created_indices
             except Exception as e:
                 self.failure_count += 1
                 raise e
@@ -882,12 +888,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
                     created_index.index_name = index_name
             return response
         except Exception as e:
-            try:
-                context.set_code(grpc.StatusCode.INTERNAL)
-                context.set_details(str(e))
-            except AttributeError:
-                pass
-            raise e
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
 
     def GetStats(self, request, context):
         r = processing_pb2.GetStatsResponse(processed=self._runner.processed,
@@ -902,7 +904,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         return r
 
     def GetInfo(self, request, context):
-        return processing_pb2.GetInfoResponse(name=self.processor_name, identifier=self.processor_id)
+        return processing_pb2.GetInfoResponse(name=self.processor_name,
+                                              identifier=self.processor_id)
 
 
 class _TimerStatsAggregator:

@@ -17,6 +17,8 @@ package edu.umn.nlpnewt;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -58,6 +60,7 @@ import java.util.Map;
  * </pre>
  */
 public final class ConfigImpl implements Config {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ConfigImpl.class);
 
   private final Map<String, Object> config;
 
@@ -102,9 +105,9 @@ public final class ConfigImpl implements Config {
   ) throws IOException {
     String envVarPath = System.getenv("NEWT-CONFIG");
     List<Path> searchPaths = Arrays.asList(
-        Paths.get("."),
-        Paths.get(System.getProperty("user.home")).resolve(".newt"),
-        Paths.get("/etc/newt/"));
+        Paths.get("./newtConfig.yaml"),
+        Paths.get(System.getProperty("user.home")).resolve(".newt/newtConfig.yaml"),
+        Paths.get("/etc/newt/newtConfig.yaml"));
     if (envVarPath != null) {
       searchPaths.add(0, Paths.get(envVarPath));
     }
@@ -112,9 +115,9 @@ public final class ConfigImpl implements Config {
       searchPaths.add(0, configPath);
     }
     for (Path path : searchPaths) {
-      Path configFile = path.resolve("newtConfig.yaml");
-      if (Files.exists(configFile)) {
-        return loadConfig(configFile);
+      if (Files.exists(path)) {
+        LOGGER.info("Using configuration file: {}", path.toString());
+        return loadConfig(path);
       }
     }
     return defaultConfig();

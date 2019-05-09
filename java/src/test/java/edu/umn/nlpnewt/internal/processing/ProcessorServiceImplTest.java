@@ -25,6 +25,7 @@ import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
 import edu.umn.nlpnewt.internal.services.ServiceInfo;
 import edu.umn.nlpnewt.internal.services.ServiceLifecycle;
 import edu.umn.nlpnewt.internal.timing.TimesCollector;
+import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -40,6 +41,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
 import static org.junit.jupiter.api.Assertions.*;
@@ -49,6 +51,7 @@ import static org.mockito.Mockito.*;
 class ProcessorServiceImplTest {
   @Rule
   public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
+
   private ServiceLifecycle serviceLifecycle;
   private Runner runner;
   private TimesCollector timesCollector;
@@ -107,7 +110,7 @@ class ProcessorServiceImplTest {
   }
 
   @Test
-  void processFailure() throws IOException {
+  void processFailure() throws IOException, InterruptedException {
     when(runner.process(eq("1"), any(JsonObjectImpl.class))).thenThrow(new IllegalStateException("foo"));
 
     ProcessorService service = createProcessorService(true);
@@ -115,16 +118,23 @@ class ProcessorServiceImplTest {
     String name = InProcessServerBuilder.generateName();
     InProcessServerBuilder.forName(name).directExecutor().addService(service).build().start();
 
-    ProcessorGrpc.ProcessorBlockingStub stub = ProcessorGrpc.newBlockingStub(
-        grpcCleanup.register(InProcessChannelBuilder.forName(name).directExecutor().build())
-    );
+    ManagedChannel channel = InProcessChannelBuilder.forName(name).directExecutor().build();
+    try {
 
-    StatusRuntimeException exception = assertThrows(StatusRuntimeException.class, () -> stub.process(Processing.ProcessRequest.newBuilder()
-        .setEventId("1")
-        .setParams(Struct.newBuilder().putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
-        .build()
-    ));
-    assertEquals("INTERNAL: java.lang.IllegalStateException: foo", exception.getMessage());
+      ProcessorGrpc.ProcessorBlockingStub stub = ProcessorGrpc.newBlockingStub(
+          channel
+      );
+      StatusRuntimeException exception = assertThrows(StatusRuntimeException.class, () -> stub.process(Processing.ProcessRequest.newBuilder()
+          .setEventId("1")
+          .setParams(Struct.newBuilder().putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
+          .build()
+      ));
+      assertEquals("INTERNAL: java.lang.IllegalStateException: foo", exception.getMessage());
+    } finally {
+      channel.shutdownNow();
+      channel.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
   }
 
   @Test

@@ -26,11 +26,11 @@ import java.util.regex.Pattern;
  * An example document processor.
  */
 @Processor("nlpnewt-example-processor-java")
-public class TheOccurrencesExampleProcessorBase extends DocumentProcessorBase {
+public class TheOccurrencesExampleProcessor extends DocumentProcessorBase {
   private final Pattern pattern = Pattern.compile("\\w+");
   private final ProcessorContext context;
 
-  public TheOccurrencesExampleProcessorBase(ProcessorContext context) {
+  public TheOccurrencesExampleProcessor(ProcessorContext context) {
     this.context = context;
   }
 

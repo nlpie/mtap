@@ -161,7 +161,7 @@ func (ps *ProcessorsServer) doUpdate() error {
 	glog.V(3).Info("Retrieving processors from consul")
 	services, _, err := ps.client.Catalog().Services(nil)
 	if err != nil {
-		glog.Errorf("Error getting processing services from consul %v", err)
+		glog.Warningf("Error getting processing services from consul %v", err)
 		return err
 	}
 	availableProcessors := make([]string, 0, 10)

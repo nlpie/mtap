@@ -16,6 +16,13 @@ python setup.py build_py
 
 First install go, then follow installation instructions on https://github.com/grpc-ecosystem/grpc-gateway
 
+First time setup:
+```bash
+go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
+go get -u github.com/golang/protobuf/protoc-gen-go
+```
+
 ```bash
 cd go
 go generate ./...

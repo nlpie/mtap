@@ -12,21 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-import time
-
-import grpc
 import pytest
-from grpc_health.v1 import health_pb2_grpc, health_pb2
-
-import nlpnewt
-import nlpnewt.constants
-from nlpnewt.api.v1 import events_pb2_grpc
 
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--consul", action="store_true", default=False, help="runs tests that require consul"
+        "--consul", action="store_true", default=False,
+        help="runs integration tests that require consul",
+    )
+    parser.addoption(
+        "--integration", action="store_true", default=False, help="runs integration tests"
     )
 
 
@@ -36,31 +31,8 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "consul" in item.keywords:
                 item.add_marker(skip_consul)
-
-
-@pytest.fixture
-def events():
-    logger = logging.getLogger()
-    logger.info('Starting document service')
-
-    server = nlpnewt.EventsServer('localhost', 0, workers=5)
-    server.start()
-
-    for i in range(10):
-        try:
-            address = f'127.0.0.1:{server.port}'
-            with grpc.insecure_channel(address) as channel:
-                stub = health_pb2_grpc.HealthStub(channel)
-                request = health_pb2.HealthCheckRequest(service=nlpnewt.constants.EVENTS_SERVICE_NAME)
-                response = stub.Check(request)
-                if response.status == health_pb2.HealthCheckResponse.SERVING:
-                    yield address, events_pb2_grpc.EventsStub(channel)
-            event = server.stop()
-            event.wait()
-            return
-        except Exception as e:
-            logging.error(e)
-            logger.warning(f"Failed to connect try {i}/10. Retrying in .05 seconds.")
-            time.sleep(.05)
-
-    raise ValueError('Unable to connect to documents service.')
+    if not config.getoption("--integration"):
+        skip_integration = pytest.mark.skip("need --integration option to run")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip_integration)

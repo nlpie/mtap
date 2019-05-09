@@ -12,6 +12,9 @@ public class NewtServices {
   private HealthStatusManager healthStatusManager = null;
 
   public NewtServices(Config config) {
+    if (config == null) {
+      throw new IllegalArgumentException("Config is null.");
+    }
     this.config = config;
   }
 
@@ -31,15 +34,16 @@ public class NewtServices {
   }
 
   public DiscoveryMechanism getDiscoveryMechanism() {
-    if (discoveryMechanism != null) {
-      return discoveryMechanism;
+    if (discoveryMechanism == null) {
+      switch (config.getStringValue("discovery")) {
+        case "consul":
+          discoveryMechanism = new ConsulDiscoveryMechanism(config);
+          break;
+        default:
+          throw new IllegalArgumentException("Unrecognized discovery key.");
+      }
     }
-    switch (config.getStringValue("discovery")) {
-      case "consul":
-        discoveryMechanism = new ConsulDiscoveryMechanism(config);
-      default:
-        throw new IllegalArgumentException("Unrecognized discovery key.");
-    }
+    return discoveryMechanism;
   }
 
   public void setDiscoveryMechanism(DiscoveryMechanism discoveryMechanism) {
@@ -47,10 +51,10 @@ public class NewtServices {
   }
 
   public HealthStatusManager getHealthStatusManager() {
-    if (healthStatusManager != null) {
-      return healthStatusManager;
+    if (healthStatusManager == null) {
+      healthStatusManager = new HealthStatusManager();
     }
-    return new HealthStatusManager();
+    return healthStatusManager;
   }
 
   public void setHealthStatusManager(HealthStatusManager healthStatusManager) {

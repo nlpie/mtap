@@ -36,6 +36,7 @@ final class ServiceLifecycleImpl implements ServiceLifecycle {
 
   @Override
   public void startedService(ServiceInfo serviceInfo) {
+
     healthStatusManager.setStatus(serviceInfo.getName(), HealthCheckResponse.ServingStatus.SERVING);
     if (serviceInfo.isRegister()) {
       discoveryMechanism.register(serviceInfo);

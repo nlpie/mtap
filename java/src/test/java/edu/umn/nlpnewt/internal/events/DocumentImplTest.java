@@ -77,7 +77,7 @@ assertSame(event, tested.getEvent());
     when(eventsClient.getLabels(anyString(), anyString(), anyString(), any())).thenReturn(labelIndex);
     tested.getLabelIndex("index", labelAdapter);
     verify(eventsClient).getLabels("1", "plaintext", "index", labelAdapter);
-    tested.getLabelIndex("index", null);
+    tested.getLabelIndex("index", labelAdapter);
     verifyNoMoreInteractions(eventsClient);
   }
 

@@ -12,20 +12,26 @@ import java.net.URL;
 import java.util.List;
 
 public class ConsulDiscoveryMechanism implements DiscoveryMechanism {
-  private final AgentClient agent;
   private final String host;
   private final int port;
+  private AgentClient agent = null;
 
   ConsulDiscoveryMechanism(Config config) {
     host = config.getStringValue("consul.host");
     port = config.getIntegerValue("consul.port");
-    try {
-      this.agent = Consul.builder()
-          .withUrl(new URL("http", host, port, ""))
-          .build().agentClient();
-    } catch (MalformedURLException e) {
-      throw new IllegalArgumentException(e);
+  }
+
+  public AgentClient getAgent() {
+    if (agent == null) {
+      try {
+        this.agent = Consul.builder()
+            .withUrl(new URL("http", host, port, ""))
+            .build().agentClient();
+      } catch (MalformedURLException e) {
+        throw new IllegalStateException(e);
+      }
     }
+    return agent;
   }
 
   @Override
@@ -60,12 +66,12 @@ public class ConsulDiscoveryMechanism implements DiscoveryMechanism {
         .check(grpcCheck)
         .addTags(tags.toArray(new String[0]))
         .build();
-    agent.register(registration);
+    getAgent().register(registration);
   }
 
   @Override
   public void deregister(ServiceInfo serviceInfo) {
-    agent.deregister(serviceInfo.getIdentifier());
+    getAgent().deregister(serviceInfo.getIdentifier());
   }
 
   @Override

@@ -281,6 +281,7 @@ public final class Newt {
     NewtServices newtServices = new NewtServices(config);
     NewtTiming newtTiming = new NewtTiming();
     NewtEvents newtEvents = new NewtEvents(newtServices);
+    newtEvents.setAddress(options.getEventsTarget());
     NewtProcessing processing = new NewtProcessing(options, newtServices,
         newtEvents, newtTiming);
     return processing.getProcessorServer();
