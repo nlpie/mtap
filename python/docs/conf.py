@@ -17,16 +17,18 @@ import sys
 
 sys.path.insert(0, os.path.abspath('../'))
 
+import nlpnewt
+
 # -- Project information -----------------------------------------------------
 
 project = 'nlpnewt'
-copyright = '2019, NLP-IE Group'
+copyright = '2019, Regents of the University of Minnesota'
 author = 'NLP-IE Group'
 
 # The short X.Y version
-version = ''
+version = nlpnewt.__version__
 # The full version, including alpha/beta/rc tags
-release = ''
+release = nlpnewt.__version__
 
 # -- General configuration ---------------------------------------------------
 
