@@ -20,9 +20,6 @@ Welcome to nlpnewt's documentation!
    :caption: Contents:
 
    nlpnewt
-   tutorial
-   java
-   discovery
 
 Overview
 ========
@@ -36,5 +33,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
