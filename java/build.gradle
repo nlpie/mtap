@@ -118,3 +118,14 @@ task newt(type: JavaExec) {
 task version() {
     printf(version)
 }
+
+task fatJar(type: Jar) {
+	manifest {
+        attributes 'Implementation-Title': 'NLP-NEWT',
+        	'Implementation-Version': version,
+        	'Main-Class': 'edu.umn.nlpnewt.Newt'
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
