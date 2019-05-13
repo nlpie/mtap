@@ -115,7 +115,7 @@ task newt(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 }
 
-task version() {
+task printVersion() {
     printf(version)
 }
 

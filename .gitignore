@@ -378,6 +378,7 @@ gradle-app.setting
 # go generated code
 go/nlpnewt/api/v1/
 
+python/nlpnewt/version.py
 python/docs/_build
 
 .project

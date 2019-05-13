@@ -45,13 +45,6 @@ L = TypeVar('L', bound=Label)
 class Events:
     """Creates an object that can be used for making requests to an events service.
 
-    Parameters
-    ----------
-    address: str, optional
-        The events service target e.g. 'localhost:9090' or omit/None to use service discovery.
-    stub: EventsStub
-        An existing events service client stub to use.
-
     Examples
     --------
     Use service discovery to create connection:
@@ -63,6 +56,13 @@ class Events:
 
     >>> with nlpnewt.Events('localhost:9090') as events:
     >>>     # use events
+
+    Parameters
+    ----------
+    address: str, optional
+        The events service target e.g. 'localhost:9090' or omit/None to use service discovery.
+    stub: EventsStub
+        An existing events service client stub to use.
 
     """
 
@@ -139,6 +139,16 @@ class Event(Mapping[str, 'Document']):
     >>> with events.open_event('id') as event:
     >>>     # use event
 
+    Attributes
+    ----------
+    event_id: str
+        The globally unique identifier for this event.
+    metadata: MutableMapping[str, str]
+        An object that can be used to query and add metadata to the object.
+    created_indices: dict[str, list[str]]
+        A map of document names to the names of label indices that have been
+        added to the document.
+
     """
 
     def __init__(self, client: '_EventsClient', event_id):
@@ -150,25 +160,10 @@ class Event(Mapping[str, 'Document']):
 
     @property
     def event_id(self) -> str:
-        """Returns the globally unique identifier for this event.
-
-        Returns
-        -------
-        str
-            The event ID.
-        """
         return self._event_id
 
     @property
     def metadata(self) -> MutableMapping[str, str]:
-        """Returns an object that can be used to query and add metadata to the object.
-
-        Returns
-        -------
-        typing.MutableMapping[str, str]
-            An object containing the metadata
-
-        """
         self.ensure_open()
         try:
             return self._metadata
@@ -177,15 +172,7 @@ class Event(Mapping[str, 'Document']):
             return self._metadata
 
     @property
-    def created_indices(self) -> Dict[AnyStr, List[AnyStr]]:
-        """Returns a map of label indices that have been added to any document on this event.
-
-        Returns
-        -------
-        dict[str, list[str]]
-            A dictionary of string ``document_name`` to lists of string ``index_name``.
-
-        """
+    def created_indices(self) -> Dict[str, List[str]]:
         return {document_name: document.created_indices
                 for document_name, document in self._documents.items()}
 
@@ -319,6 +306,18 @@ class Document:
     parallelization and distribution of processing, and to prevent changes to upstream data that
     has already been used in the creation of downstream data.
 
+    Attributes
+    ----------
+    event: Event
+        The parent event of this document.
+    document_name: str
+        The unique indentfier for this document on the event.
+    text: str
+        The document text.
+    created_indices: list[str]
+        A list of all of the label index names that have created on this
+        document using a labeler.
+
     """
 
     def __init__(self, client: '_EventsClient', event: Event, document_name: str):
@@ -335,38 +334,15 @@ class Document:
 
     @property
     def event(self) -> Event:
-        """Returns the parent event of this document.
-
-        Returns
-        -------
-        Event
-            The event object which contains this document.
-
-        """
         return self._event
 
     @property
     def document_name(self) -> str:
-        """The event-unique identifier.
-
-        Returns
-        -------
-        str
-
-        """
         self._event.ensure_open()
         return self._document_name
 
     @property
     def text(self):
-        """Returns the document text, fetching if it is not cached locally.
-
-        Returns
-        -------
-        str
-            The text that the document was created
-
-        """
         self._event.ensure_open()
         if self._text is None:
             self._text = self._client.get_document_text(self._event_id, self._document_name)
@@ -374,13 +350,6 @@ class Document:
 
     @property
     def created_indices(self) -> List[str]:
-        """Returns the newly created label indices on this document using a labeler.
-
-        Returns
-        -------
-        list[str]
-            A list of all of the label indices that have created on this document using a labeler.
-        """
         return list(self._created_indices)
 
     def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
