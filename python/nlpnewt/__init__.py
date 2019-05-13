@@ -20,6 +20,7 @@ from . import events
 from . import labels
 from . import label_indices
 from . import processing
+from . import version
 from ._config import Config
 from ._events_service import EventsServer
 from .events import Events
@@ -31,10 +32,7 @@ from .processing import Pipeline
 from .processing import processor
 from .processing import ProcessorServer
 
-try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    __version__ = "development0"
+__version__ = version.version
 
 __all__ = [
     '__version__',
