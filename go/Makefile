@@ -46,7 +46,7 @@ os = $(word 1, $@)
 .PHONY: $(PLATFORMS)
 $(PLATFORMS):
 	mkdir -p release
-	GOOS=$(os) GOARCH=amd64 go build -o release/$(BINARY)-$(VERSION)-$(os)-amd64 nlpnewt-gateway/main.go
+	GOOS=$(os) GOARCH=amd64 go build -o release/$(BINARY)-$(VERSION)-$(os)-amd64 nlpnewt-gateway/nlpnewt-gateway.go
 
 .PHONY: release
 release:  proto linux darwin
