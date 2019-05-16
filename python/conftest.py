@@ -15,6 +15,15 @@
 import pytest
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "consul"
+    )
+    config.addinivalue_line(
+        "markers", "integration"
+    )
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--consul", action="store_true", default=False,

@@ -13,24 +13,22 @@
 # limitations under the License.
 """Public API and access points for the nlpnewt Framework."""
 
-from pkg_resources import get_distribution, DistributionNotFound
-
 from . import constants
 from . import events
-from . import labels
 from . import label_indices
+from . import labels
 from . import processing
 from . import version
 from ._config import Config
 from ._events_service import EventsServer
 from .events import Events
 from .events import proto_label_adapter
+from .label_indices import label_index
 from .labels import GenericLabel
 from .labels import Location
-from .label_indices import label_index
 from .processing import Pipeline
-from .processing import processor
 from .processing import ProcessorServer
+from .processing import processor
 
 __version__ = version.version
 

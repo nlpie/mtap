@@ -14,12 +14,12 @@
 """A framework for developing NLP pipeline components."""
 
 import os
-import sys
-from distutils.command.build_py import build_py as _build_py
-from distutils.command.clean import clean as _clean
 
 import pkg_resources
+import sys
+from distutils.command.clean import clean as _clean
 from setuptools import setup, find_packages
+from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.test import test as _test
 
 
@@ -31,7 +31,7 @@ def generate_proto(source, require=True):
     if not require and not os.path.exists(source):
         return
 
-    output = source.replace(".proto", "_pb2.py").replace("../proto/", "")
+    output = source.replace(".proto", "_pb2.py").replace("proto/", "")
 
     if (not os.path.exists(output) or
             (os.path.exists(source) and
@@ -51,17 +51,17 @@ def generate_proto(source, require=True):
         proto_include = pkg_resources.resource_filename('grpc_tools', '_proto')
         grpc_tools.protoc.main(["-I.",
                                 "-I{}".format(proto_include),
-                                "-I../third_party/api-common-protos-0.1.0",
-                                "-I../proto",
-                                "--python_out=.",
-                                "--grpc_python_out=.",
+                                "-Ithird_party/api-common-protos-0.1.0",
+                                "-Iproto",
+                                "--python_out=python",
+                                "--grpc_python_out=python",
                                 source])
 
 
 class clean(_clean):
     def run(self):
         # Delete generated files in the code tree.
-        for (dirpath, dirnames, filenames) in os.walk("."):
+        for (dirpath, dirnames, filenames) in os.walk("python"):
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
                 if filepath.endswith("_pb2.py") or filepath.endswith(".pyc") or \
@@ -72,8 +72,9 @@ class clean(_clean):
 
 class build_py(_build_py):
     def run(self):
-        generate_proto('../proto/nlpnewt/api/v1/events.proto')
-        generate_proto('../proto/nlpnewt/api/v1/processing.proto')
+        generate_proto('proto/nlpnewt/api/v1/events.proto')
+        generate_proto('proto/nlpnewt/api/v1/processing.proto')
+        super(build_py, self).run()
 
 
 class test(_test):
@@ -95,9 +96,7 @@ class test(_test):
 
 setup(
     name='nlpnewt',
-    use_scm_version = {
-        "root": "..",
-        "relative_to": __file__,
+    use_scm_version={
         "fallback_version": "development0",
         "write_to": "python/nlpnewt/version.py"
     },
@@ -114,7 +113,8 @@ setup(
         'Programming Language :: Python :: 3.7',
     ],
     keywords='nlp grpc microservices',
-    packages=find_packages(exclude=['tests', ]),
+    package_dir={'': 'python'},
+    packages=find_packages(where='python', exclude=['tests']),
     install_requires=[
         'grpcio>=1.20.0',
         'grpcio-health-checking>=1.20.0',
