@@ -53,7 +53,7 @@ class EventsServer:
         health_servicer.set('', 'SERVING')
         health_servicer.set(constants.EVENTS_SERVICE_NAME, 'SERVING')
         health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
-        self._port = server.add_insecure_port(address + str(port))
+        self._port = server.add_insecure_port(address + ':' + str(port))
         self._server = server
         self._address = address
         self._config = Config()
