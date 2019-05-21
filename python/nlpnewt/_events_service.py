@@ -42,6 +42,7 @@ class EventsServer:
     workers: int, optional
         The number of workers that should handle requests.
     """
+
     def __init__(self, address, port, register=False, workers=10):
         prefix = constants.EVENTS_SERVICE_NAME + "-worker"
         thread_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix)
@@ -52,7 +53,7 @@ class EventsServer:
         health_servicer.set('', 'SERVING')
         health_servicer.set(constants.EVENTS_SERVICE_NAME, 'SERVING')
         health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
-        self._port = server.add_insecure_port(f'{address}:{port}')
+        self._port = server.add_insecure_port(address + str(port))
         self._server = server
         self._address = address
         self._config = Config()
@@ -121,7 +122,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             event = self.events[event_id]
         except KeyError as e:
             _set_error_context(context, grpc.StatusCode.NOT_FOUND,
-                               f"Did not find event_id: '{event_id}'")
+                               "Did not find event_id: '{}'".format(event_id))
             raise e
         return event, event_id
 
@@ -132,7 +133,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             document = event.documents[document_name]
         except KeyError as e:
             _set_error_context(context, grpc.StatusCode.NOT_FOUND,
-                               f"Event: '{event_id}' does not have document: '{document_name}'")
+                               "Event: '{}' does not have document: '{}'".format(event_id,
+                                                                                 document_name))
             raise e
         return document
 
@@ -141,8 +143,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         if event_id == '':
             msg = "event_id was not set."
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-            return 
-        create_event = False
+            return
+        created_event = False
         try:
             event = self.events[event_id]
         except KeyError:
@@ -150,17 +152,16 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 try:
                     event = self.events[event_id]
                 except KeyError:
-                    create_event = True
-                if create_event:
+                    created_event = True
                     event = _Event()
                     self.events[event_id] = event
 
-        if not create_event and request.only_create_new:
-            msg = f'Event already exists: "{event_id}"'
+        if not created_event and request.only_create_new:
+            msg = 'Event already exists: "{}"'.format(event_id)
             _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
             return
         event.clients += 1
-        return events_pb2.OpenEventResponse(created=create_event)
+        return events_pb2.OpenEventResponse(created=created_event)
 
     def CloseEvent(self, request, context):
         try:
@@ -186,7 +187,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             return
         key = request.key
         if key == '':
-            msg = f'event_id cannot be null or empty'
+            msg = 'event_id cannot be null or empty'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
             return
         event.metadata[key] = request.value
@@ -205,7 +206,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
 
         with event.d_lock:
             if document_name in event.documents:
-                msg = f"Document '{document_name}' already exists."
+                msg = "Document '{}' already exists.".format(document_name)
                 _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
                 return
             event.documents[document_name] = _Document(request.text)
@@ -253,8 +254,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             labels_type, labels = document.labels[request.index_name]
         except KeyError:
-            msg = f"Event: '{request.event_id}' document: '{request.document_name} " \
-                f"does not have label index: {request.index_name}'"
+            msg = "Event: '{}' document: '{} does not have label index: {}'".format(
+                request.event_id, request.document_name, request.index_name)
             _set_error_context(context, grpc.StatusCode.NOT_FOUND, msg)
             return
         response = events_pb2.GetLabelsResponse()

@@ -38,6 +38,7 @@ class LabelIndex(Sequence[L], Generic[L]):
     Document.get_labeler : Method for adding new label indexes to documents.
     Labeler : Object for adding new label indices to documents.
     """
+
     @abstractmethod
     def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
         """Returns the label at the specified index/slice.
@@ -264,7 +265,9 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def beginning_inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def beginning_inside(self,
+                         x: Union[Label, float],
+                         end: Optional[float] = None) -> 'LabelIndex[L]':
         """A label index containing all labels whose begin index is inside the specified span of
         text.
 
@@ -552,12 +555,12 @@ class _LabelIndex(LabelIndex[L]):
     def __init__(self, distinct: bool,
                  view: _View,
                  ascending: bool = True,
-                 reversed: '_LabelIndex[L]' = None):
+                 reversed_index: '_LabelIndex[L]' = None):
         self._distinct = distinct
         self._view = view
         self._ascending = ascending
-        if reversed is not None:
-            self.__reversed = reversed
+        if reversed_index is not None:
+            self.__reversed = reversed_index
 
     @property
     def distinct(self) -> bool:
@@ -571,7 +574,7 @@ class _LabelIndex(LabelIndex[L]):
             reversed_label_index = _LabelIndex(distinct=self.distinct,
                                                view=self._view.reversed(),
                                                ascending=False,
-                                               reversed=self)
+                                               reversed_index=self)
             self.__reversed = reversed_label_index
         return reversed_label_index
 
@@ -637,7 +640,8 @@ class _LabelIndex(LabelIndex[L]):
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(start, end - 1, start, end)
 
-    def beginning_inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def beginning_inside(self, x: Union[Label, float],
+                         end: Optional[float] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(min_start=start, max_start=end - 1)
 
@@ -714,10 +718,14 @@ class _Empty(LabelIndex):
     def covering(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
-    def inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def inside(self,
+               x: Union[Label, float],
+               end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
-    def beginning_inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def beginning_inside(self,
+                         x: Union[Label, float],
+                         end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
     def ascending(self) -> 'LabelIndex[L]':

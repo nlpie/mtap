@@ -15,6 +15,7 @@
 
 import contextlib
 import logging
+import math
 import threading
 from abc import ABCMeta, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -22,7 +23,6 @@ from datetime import datetime, timedelta
 from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional
 
 import grpc
-import math
 from grpc_health.v1 import health, health_pb2_grpc
 
 from . import _structs, _discovery
@@ -205,7 +205,9 @@ class DocumentProcessor(metaclass=ABCMeta):
     Examples
     --------
     >>> class ExampleProcessor(DocumentProcessor):
-    >>>     def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    >>>     def process(self,
+    >>>                 document: Document,
+    >>>                 params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     >>>          pass
     >>>
 
@@ -214,7 +216,9 @@ class DocumentProcessor(metaclass=ABCMeta):
     >>>     def __init__(self, processor_context: ProcessorContext):
     >>>         self.context = processor_context
     >>>
-    >>>     def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    >>>     def process(self,
+    >>>                 document: Document,
+    >>>                 params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     >>>          with self.context.stopwatch('key'):
     >>>               # use stopwatch
 
@@ -258,56 +262,63 @@ class DocumentProcessor(metaclass=ABCMeta):
         return _DocumentProcessorAdapter(self)
 
 
-class ProcessingResult(NamedTuple):
-    """The result of processing one document or event."""
-    identifier: str
-    results: Dict
-    timing_info: Dict
-    created_indices: Dict[str, List[str]]
+ProcessingResult = NamedTuple('ProcessingResult',
+                              [('identifier', str),
+                               ('results', Dict),
+                               ('timing_info', Dict),
+                               ('created_indices', Dict[str, List[str]])])
 
+ProcessingResult.__doc__ = """The result of processing one document or event."""
+ProcessingResult.identifier.__doc__ = \
+    "str: The id of the processor with respect to the pipeline."
+ProcessingResult.results.__doc__ = \
+    "dict[str, typing.Any]: The json object returned by the processor as its results."
+ProcessingResult.timing_info.__doc__ = \
+    "dict[str, datetime.timedelta]: A dictionary of the times taken processing this document"
+ProcessingResult.created_indices.__doc__ = \
+    "dict[str, list[str]]: Any indices that have been added to documents by this processor."
 
-ProcessingResult.identifier.__doc__ = "str: The id of the processor with respect to the pipeline."
-ProcessingResult.results.__doc__ = "dict[str, typing.Any]: The json object returned by the processor as its results."
-ProcessingResult.timing_info.__doc__ = "dict[str, datetime.timedelta]: A dictionary of the times taken processing this document"
-ProcessingResult.created_indices.__doc__ = "dict[str, list[str]]: Any indices that have been added to documents by this processor."
-
-
-class TimerStats(NamedTuple):
-    """Statistics about a labeled runtime."""
-    mean: timedelta
-    std: timedelta
-    min: timedelta
-    max: timedelta
-    sum: timedelta
-
-
+TimerStats = NamedTuple('TimerStats',
+                        [('mean', timedelta),
+                         ('std', timedelta),
+                         ('min', timedelta),
+                         ('max', timedelta),
+                         ('sum', timedelta)])
+TimerStats.__doc__ = """Statistics about a labeled runtime."""
 TimerStats.mean.__doc__ = "datetime.timedelta: The mean duration."
 TimerStats.std.__doc__ = "datetime.timedelta: The standard deviation of all times."
 TimerStats.max.__doc__ = "datetime.timedelta: The minimum of all times."
 TimerStats.min.__doc__ = "datetime.timedelta: The maximum of all times."
 TimerStats.sum.__doc__ = "datetime.timedelta: The sum of all times."
 
+_AggregateTimingInfo = NamedTuple('AggregateTimingInfo',
+                                  [('identifier', str),
+                                   ('timing_info', Dict[str, TimerStats])])
 
-class AggregateTimingInfo(NamedTuple):
+_AggregateTimingInfo.identifier.__doc__ = \
+    "str: The ID of the processor with respect to the pipeline."
+_AggregateTimingInfo.timing_info.__doc__ = \
+    "dict[str, TimerStats]: A map from all of the timer labels to their aggregate values."
+
+
+class AggregateTimingInfo(_AggregateTimingInfo):
     """Collection of all of the timing info for a specific processor."""
-    identifier: str
-    timing_info: Dict[str, TimerStats]
 
     def print_times(self):
+        """Prints the aggregate timing info for all processing components using ``print``.
+
+        """
         print(self.identifier)
         print("-------------------------------------")
         for key, stats in self.timing_info.items():
-            print(f"  [{key}]\n"
-                  f"    mean: {str(stats.mean)}\n"
-                  f"    std: {str(stats.std)}\n"
-                  f"    min: {str(stats.min)}\n"
-                  f"    max: {str(stats.max)}\n"
-                  f"    sum: {str(stats.sum)}")
+            print("  [{}]\n"
+                  "    mean: {}\n"
+                  "    std: {}\n"
+                  "    min: {}\n"
+                  "    max: {}\n"
+                  "    sum: {}".format(key, stats.mean, stats.std, stats.min,
+                                       stats.max, stats.sum))
         print("")
-
-
-AggregateTimingInfo.identifier.__doc__ = "str: The ID of the processor with respect to the pipeline."
-AggregateTimingInfo.timing_info.__doc__ = "dict[str, TimerStats]: A map from all of the timer labels to their aggregate values."
 
 
 class Pipeline:
@@ -490,12 +501,12 @@ class Pipeline:
         return timing_infos
 
     def pipeline_timer_stats(self) -> AggregateTimingInfo:
-        """The aggregated statistics for the runtime of the pipeline on the whole.
+        """The aggregated statistics for the global runtime of the pipeline.
 
         Returns
         -------
         AggregateTimingInfo
-            The timing stats for the pipeline specfically.
+            The timing stats for the global runtime of the pipeline.
 
         """
         pipeline_id = 'pipeline:'
@@ -545,7 +556,7 @@ class ProcessorServer:
     Parameters
     ----------
     processor_name: str
-        The name of the processor as regsitered with :func:`processor`.
+        The name of the processor as registered with :func:`processor`.
     address: str
         The address / hostname / IP to host the server on.
     port: int
@@ -604,7 +615,7 @@ class ProcessorServer:
         self._server = grpc.server(thread_pool)
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
-        self._port = self._server.add_insecure_port(f"{self.address}:{port}")
+        self._port = self._server.add_insecure_port("{}:{}".format(self.address, self.port))
         self._stopped_event = threading.Event()
 
     @property
@@ -754,11 +765,11 @@ class _RemoteRunner:
                 created_indices = {}
                 for created_index in response.created_indices:
                     try:
-                        l = created_indices[created_index.document_name]
+                        doc_created_indices = created_indices[created_index.document_name]
                     except KeyError:
-                        l = []
-                        created_indices[created_index.document_name] = l
-                    l.append(created_index.index_name)
+                        doc_created_indices = []
+                        created_indices[created_index.document_name] = doc_created_indices
+                    doc_created_indices.append(created_index.index_name)
 
                 return r, context.times, created_indices
             except Exception as e:
