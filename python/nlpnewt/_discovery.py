@@ -14,7 +14,7 @@
 """Internal service discovery magic."""
 
 import abc
-from uuid import UUID, uuid4, uuid1
+from uuid import uuid1
 
 from . import constants
 
@@ -55,7 +55,7 @@ class ConsulDiscovery(Discovery):
         self.c.agent.service.register(name,
                                       port=port,
                                       check={
-                                          'grpc': f"{address}:{port}/{name}",
+                                          'grpc': "{}:{}/{}".format(address, port, name),
                                           'interval': "10s",
                                           'status': 'passing'
                                       },
@@ -74,8 +74,8 @@ class ConsulDiscovery(Discovery):
         _, services = self.c.health.service(name, tag='v1')
         addresses = []
         for service in services:
-            addresses.append(f"{service['Node']['Address']}:{service['Service']['Port']}")
-        return f"ipv4:{','.join(addresses)}"
+            addresses.append("{}:{}".format(service['Node']['Address'], service['Service']['Port']))
+        return "ipv4:" + ','.join(addresses)
 
     def register_processor_service(self, address, port, processor_id, version):
         uuid = str(uuid1())
@@ -83,7 +83,7 @@ class ConsulDiscovery(Discovery):
                                       service_id=uuid,
                                       port=port,
                                       check={
-                                          'grpc': f"{address}:{port}/{processor_id}",
+                                          'grpc': "{}:{}/{}".format(address, port, processor_id),
                                           'interval': "10s",
                                           'status': 'passing'
                                       },
@@ -99,5 +99,5 @@ class ConsulDiscovery(Discovery):
         _, services = self.c.health.service(processor_name, tag=tag)
         addresses = []
         for service in services:
-            addresses.append(f"{service['Node']['Address']}:{service['Service']['Port']}")
-        return f"ipv4:{','.join(addresses)}"
+            addresses.append("{}:{}".format(service['Node']['Address'], service['Service']['Port']))
+        return "ipv4:" + ','.join(addresses)

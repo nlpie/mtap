@@ -59,4 +59,4 @@ if __name__ == '__main__':
         pipeline.print_times()
 
     total_time = datetime.now() - start_time
-    print(f"Total time: {total_time}")
+    print("Total time: " + str(total_time))

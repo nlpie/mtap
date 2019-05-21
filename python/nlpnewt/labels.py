@@ -15,39 +15,51 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence
 
+_Location = NamedTuple('Location',
+                       [('start_index', float),
+                        ('end_index', float)])
+_Location.start_index.__doc__ = "int or float: The start index inclusive of the location in text."
+_Location.end_index.__doc__ = "int or float: The end index exclusive of the location in text."
 
-class Location(NamedTuple):
+
+class Location(_Location):
     """A location in text.
 
     Used to perform comparison of labels based on their locations.
     """
-    start_index: float
-    end_index: float
 
     def covers(self, other):
-        return self.start_index <= other.start_index and self.end_index >= other.end_index
+        """Whether the span of text covered by this label completely overlaps the span of text
+        covered by the ``other`` label or location.
 
-Location.start_index.__doc__ = "int or float: The start index inclusive of the location in text."
-Location.end_index.__doc__ = "int or float: The end index exclusive of the location in text."
+        Parameters
+        ----------
+        other: Location or Label
+            A location or label to compare against.
+
+        Returns
+        -------
+        bool
+            ``True`` if ``other`` is completely overlapped/covered ``False`` otherwise.
+
+        """
+        return self.start_index <= other.start_index and self.end_index >= other.end_index
 
 
 class Label(ABC):
     """An abstract base class for a label of attributes on text.
-
-    Attributes
-    ==========
-    start_index: int
-        The index of the first character of the text covered by this label.
-    end_index: int
-        The index after the last character of the text covered by this label.
-    location: Location
-        A tuple of (start_index, end_index) used to perform sorting and
-        comparison first based on start_index, then based on end_index.
     """
 
     @property
     @abstractmethod
     def start_index(self) -> int:
+        """
+        Returns
+        -------
+        int
+           The index of the first character of the text covered by this label.
+        """
+
         ...
 
     @start_index.setter
@@ -58,6 +70,12 @@ class Label(ABC):
     @property
     @abstractmethod
     def end_index(self) -> int:
+        """
+        Returns
+        -------
+        int
+            The index after the last character of the text covered by this label.
+        """
         ...
 
     @end_index.setter
@@ -67,6 +85,13 @@ class Label(ABC):
 
     @property
     def location(self) -> Location:
+        """
+        Returns
+        -------
+        Location
+            A tuple of (start_index, end_index) used to perform sorting and
+            comparison first based on start_index, then based on end_index.
+        """
         return Location(self.start_index, self.end_index)
 
     def get_covered_text(self, text: str):

@@ -18,7 +18,7 @@ import contextlib
 import threading
 import uuid
 from abc import abstractmethod, ABC
-from typing import Iterator, AnyStr, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable
+from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable
 
 import grpc
 
@@ -138,17 +138,6 @@ class Event(Mapping[str, 'Document']):
     --------
     >>> with events.open_event('id') as event:
     >>>     # use event
-
-    Attributes
-    ----------
-    event_id: str
-        The globally unique identifier for this event.
-    metadata: MutableMapping[str, str]
-        An object that can be used to query and add metadata to the object.
-    created_indices: dict[str, list[str]]
-        A map of document names to the names of label indices that have been
-        added to the document.
-
     """
 
     def __init__(self, client: '_EventsClient', event_id):
@@ -160,10 +149,23 @@ class Event(Mapping[str, 'Document']):
 
     @property
     def event_id(self) -> str:
+        """
+        Returns
+        -------
+        str
+            The globally unique identifier for this event.
+        """
         return self._event_id
 
     @property
     def metadata(self) -> MutableMapping[str, str]:
+        """
+
+        Returns
+        -------
+        MutableMapping[str, str]
+            An object that can be used to query and add metadata to the object.
+        """
         self.ensure_open()
         try:
             return self._metadata
@@ -173,6 +175,13 @@ class Event(Mapping[str, 'Document']):
 
     @property
     def created_indices(self) -> Dict[str, List[str]]:
+        """
+        Returns
+        -------
+        dict[str, list[str]]
+            A map of document names to the names of label indices that have been
+            added to the document.
+        """
         return {document_name: document.created_indices
                 for document_name, document in self._documents.items()}
 
@@ -305,19 +314,6 @@ class Document:
     Both label indices, once added, and the document text are immutable. This is to enable
     parallelization and distribution of processing, and to prevent changes to upstream data that
     has already been used in the creation of downstream data.
-
-    Attributes
-    ----------
-    event: Event
-        The parent event of this document.
-    document_name: str
-        The unique indentfier for this document on the event.
-    text: str
-        The document text.
-    created_indices: list[str]
-        A list of all of the label index names that have created on this
-        document using a labeler.
-
     """
 
     def __init__(self, client: '_EventsClient', event: Event, document_name: str):
@@ -334,15 +330,34 @@ class Document:
 
     @property
     def event(self) -> Event:
+        """
+        Returns
+        -------
+        Event
+            The parent event of this document.
+        """
         return self._event
 
     @property
     def document_name(self) -> str:
+        """
+
+        Returns
+        -------
+        str
+            The unique identifier for this document on the event.
+        """
         self._event.ensure_open()
         return self._document_name
 
     @property
     def text(self):
+        """
+        Returns
+        -------
+        str
+            The document text.
+        """
         self._event.ensure_open()
         if self._text is None:
             self._text = self._client.get_document_text(self._event_id, self._document_name)
@@ -350,6 +365,13 @@ class Document:
 
     @property
     def created_indices(self) -> List[str]:
+        """
+        Returns
+        -------
+        List[str]
+            A list of all of the label index names that have created on this
+            document using a labeler.
+        """
         return list(self._created_indices)
 
     def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
@@ -749,7 +771,7 @@ _generic_adapter = _GenericLabelAdapter(False)
 
 _distinct_generic_adapter = _GenericLabelAdapter(True)
 
-_label_adapters: Dict[str, ProtoLabelAdapter] = {
+_label_adapters = {
     constants.DISTINCT_GENERIC_LABEL_ID: _distinct_generic_adapter,
     constants.GENERIC_LABEL_ID: _generic_adapter
 }
