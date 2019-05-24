@@ -16,11 +16,13 @@
 import contextlib
 import logging
 import math
+import signal
 import threading
 from abc import ABCMeta, abstractmethod
+from argparse import ArgumentParser
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional
+from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional, Type
 
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc
@@ -29,13 +31,14 @@ from . import _structs, _discovery
 from ._config import Config
 from .api.v1 import processing_pb2_grpc, processing_pb2
 from .events import Event, Document, Events
+from .utils import service_parser
 
-_logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
-_processors = {}  # processors registry
-_processor_local = threading.local()  # processor context thread local
+PROCESSOR_LOCAL = threading.local()  # processor context thread local
 
 __all__ = [
+    'run_processor',
     'ProcessorContext',
     'processor',
     'EventProcessor',
@@ -48,13 +51,54 @@ __all__ = [
 ]
 
 
+def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'], args=None):
+    """Runs a processor, blocking until keyboard interrupt
+
+    Parameters
+    ----------
+    processor:
+    args
+        Command line arguments.
+    """
+    if isinstance(processor, DocumentProcessor):
+        processor = _DocumentProcessorAdapter(document_processor=processor)
+
+    processors_parser = ArgumentParser(parents=[service_parser()])
+    processors_parser.add_argument('--events-address', '--events', '-e', default=None,
+                                   help='address of the events service to use, '
+                                        'omit to use discovery')
+    processors_parser.add_argument('--identifier', '-i',
+                                   help="Optional argument if you want the processor to register "
+                                        "under a different identifier than its name.")
+    args = processors_parser.parse_args(args)
+
+    with Config() as c:
+        if args.config is not None:
+            c.update_from_yaml(args.config)
+        server = ProcessorServer(processor=processor,
+                                 address=args.address,
+                                 port=args.port,
+                                 register=args.register,
+                                 workers=args.workers,
+                                 processor_id=args.identifier,
+                                 events_address=args.events_address)
+        server.start()
+        e = threading.Event()
+
+        def handler(sig, frame):
+            print("Shutting down", flush=True)
+            server.stop()
+            e.set()
+        signal.signal(signal.SIGINT, handler)
+        e.wait()
+
+
 class ProcessorContext:
     """A processing context which gets passed to processors."""
 
-    def __init__(self, processor_id, health_servicer, args: List[str]):
+    def __init__(self, processor_id, health_servicer):
         self._processor_id = processor_id
         self._health_servicer = health_servicer
-        self._args = args
 
     def update_serving_status(self, status: str):
         """Updates the serving status of the processor for health checking.
@@ -88,18 +132,7 @@ class ProcessorContext:
         >>>
 
         """
-        return _processor_local.context.stopwatch(key)
-
-    def args(self) -> List[str]:
-        """Additional arguments from startup.
-
-        Returns
-        -------
-        list
-            List of string arguments.
-
-        """
-        return self._args
+        return PROCESSOR_LOCAL.context.stopwatch(key)
 
 
 def processor(name: str):
@@ -121,29 +154,27 @@ def processor(name: str):
     Returns
     -------
     decorator
-        This decorator should be applied to a 0-arg or 1-arg functions.
+        To be applied to instances of EventProcessor or DocumentProcessor. This decorator sets
+        the attribute 'name' on the processor.
 
     Examples
     --------
     >>> @processor('example-text-converter')
     >>> class TextConverter(EventProcessor):
-    >>>     def __init__(self):
-    >>>         # not necessary to have arguments parameter.
+    >>>
 
     or
 
     >>> @processor('example-sentence-detector')
     >>> class SentenceDetector(DocumentProcessor):
-    >>>     def __init__(self, processor_context):
-    >>>         # parse and use args
+    >>>
 
     These are all valid ways of registering processors.
 
     """
-
-    def decorator(func):
-        _processors[name] = func
-        return func
+    def decorator(f: Type[Union[EventProcessor, DocumentProcessor]]) -> Type:
+        f.metadata = {'name': name}
+        return f
 
     return decorator
 
@@ -171,7 +202,6 @@ class EventProcessor(metaclass=ABCMeta):
     >>>               # use stopwatch
 
     """
-
     @abstractmethod
     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Performs processing on an event.
@@ -249,17 +279,6 @@ class DocumentProcessor(metaclass=ABCMeta):
 
         """
         pass
-
-    def as_processor(self) -> EventProcessor:
-        """Adapts this Document processor as event processor by returning an object which has an
-        event processing method that retrieves the document name using the 'document_name'
-        parameter.
-
-        Returns
-        -------
-
-        """
-        return _DocumentProcessorAdapter(self)
 
 
 ProcessingResult = NamedTuple('ProcessingResult',
@@ -555,7 +574,7 @@ class ProcessorServer:
 
     Parameters
     ----------
-    processor_name: str
+    processor: EventProcessor
         The name of the processor as registered with :func:`processor`.
     address: str
         The address / hostname / IP to host the server on.
@@ -579,7 +598,7 @@ class ProcessorServer:
     """
 
     def __init__(self,
-                 processor_name: str,
+                 processor: EventProcessor,
                  address: str,
                  port: int,
                  *,
@@ -587,12 +606,11 @@ class ProcessorServer:
                  events_address: str = None,
                  processor_id: str = None,
                  workers: int = None,
-                 params: Dict[str, Any] = None,
-                 args: List[str] = None):
-        self.processor_name = processor_name
+                 params: Dict[str, Any] = None):
+        self.processor = processor
         self.address = address
         self._port = port
-        self.processor_id = processor_id or processor_name
+        self.processor_id = processor_id or processor.metadata['name']
         self.params = params or {}
         self.events_address = events_address
 
@@ -600,14 +618,13 @@ class ProcessorServer:
         self._health_servicer.set('', 'SERVING')
         self._servicer = _ProcessorServicer(
             config=Config(),
-            processor_name=processor_name,
+            pr=processor,
             address=address,
             health_servicer=self._health_servicer,
             register=register,
             processor_id=processor_id,
             params=params,
-            events_address=events_address,
-            args=args
+            events_address=events_address
         )
         prefix = self.processor_id + "-worker"
         workers = workers or 10
@@ -635,8 +652,8 @@ class ProcessorServer:
         """
         self._server.start()
         self._servicer.start(self.port)
-        _logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
-                     self.processor_id, self.address, self.port)
+        LOGGER.info('Started processor server with id: "%s"  on address: "%s:%d"',
+                    self.processor_id, self.address, self.port)
 
     def stop(self, *, grace=None):
         """De-registers (if registered with service discovery) the service and immediately stops
@@ -657,8 +674,8 @@ class ProcessorServer:
         threading.Event
             A shutdown event for the server.
         """
-        _logger.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
-                     self.processor_id, self.address, self.port)
+        LOGGER.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
+                    self.processor_id, self.address, self.port)
         self._servicer.shutdown()
         shutdown_event = self._server.stop(grace=grace)
         shutdown_event.wait()
@@ -667,18 +684,18 @@ class ProcessorServer:
 @contextlib.contextmanager
 def _enter_context(identifier: str) -> ContextManager['_ProcessorThreadContext']:
     try:
-        old_context = _processor_local.context
+        old_context = PROCESSOR_LOCAL.context
         identifier = old_context.identifier + '.' + identifier
     except AttributeError:
         old_context = None
     try:
         context = _ProcessorThreadContext(identifier)
-        _processor_local.context = context
+        PROCESSOR_LOCAL.context = context
         yield context
     finally:
-        del _processor_local.context
+        del PROCESSOR_LOCAL.context
         if old_context is not None:
-            _processor_local.context = old_context
+            PROCESSOR_LOCAL.context = old_context
 
 
 class _ProcessorThreadContext:
@@ -792,7 +809,7 @@ class _PipelineProcessor(EventProcessor):
         for _, component_times, _ in results:
             times.update(component_times)
         for k, v in times.items():
-            _processor_local.context.add_time(k, v)
+            PROCESSOR_LOCAL.context.add_time(k, v)
 
         return {'component_results': [result[0] for result in results]}
 
@@ -815,48 +832,33 @@ def _unique_component_id(component_ids, component_id):
 class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
                  config: Config,
-                 processor_name: str,
+                 pr: EventProcessor,
                  address: str,
                  health_servicer: health.HealthServicer,
                  events_address=None,
                  register: bool = False,
                  processor_id=None,
-                 params: Dict[str, Any] = None,
-                 args: List[str] = None
-                 ):
+                 params: Dict[str, Any] = None):
         self.config = config
-        self.processor_name = processor_name
+        self.pr = pr
         self.address = address
-        self.processor_id = processor_id or processor_name
+        self.processor_id = processor_id or pr.metadata['name']
         self.events_address = events_address
         self.register = register
         self.params = params
 
         self.health_servicer = health_servicer
 
-        self._context = ProcessorContext(self.processor_id, self.health_servicer, args)
+        self._context = ProcessorContext(self.processor_id, self.health_servicer)
+        self.pr.context = self._context
         self._runner = None
 
         self._times_collector = _ProcessingTimesCollector()
 
     def start(self, port: int):
-        # instantiate processor
-        func = _processors.get(self.processor_name)
-        try:
-            processor = func(self._context)
-        except TypeError:
-            processor = func()
-
-        if not isinstance(processor, EventProcessor):
-            try:
-                processor = processor.as_processor()
-            except AttributeError:
-                raise TypeError('Processor type is not of type EventProcessor '
-                                'and does not have as_processor method.')
-
         # instantiate runner
         events = Events(address=self.events_address)
-        self._runner = _ProcessorRunner(processor, events=events, identifier=self.processor_id,
+        self._runner = _ProcessorRunner(self.pr, events=events, identifier=self.processor_id,
                                         params=self.params)
 
         self.health_servicer.set(self.processor_id, 'SERVING')
@@ -915,7 +917,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         return r
 
     def GetInfo(self, request, context):
-        return processing_pb2.GetInfoResponse(name=self.processor_name,
+        return processing_pb2.GetInfoResponse(name=self.pr.name,
                                               identifier=self.processor_id)
 
 
@@ -984,6 +986,17 @@ class _ProcessingTimesCollector:
 class _DocumentProcessorAdapter(EventProcessor):
     def __init__(self, document_processor: 'DocumentProcessor'):
         self.document_processor = document_processor
+        self._context = None
+        self.metadata = document_processor.metadata
+
+    @property
+    def context(self):
+        return self._context
+
+    @context.setter
+    def context(self, value):
+        self._context = value
+        self.document_processor.context = value
 
     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Calls the subclass's implementation of :func:`process_document` """

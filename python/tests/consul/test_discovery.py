@@ -54,9 +54,9 @@ def fixture_disc_python_processor(disc_python_events):
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'processor', '-p', '50501', '--register',
-                          '--name', 'nlpnewt-example-processor-python',
-                          '-m', 'nlpnewt.examples.example_processor'],
+    p = subprocess.Popen(['python', '-m', 'nlpnewt.examples.example_processor',
+                          '-p', '50501',
+                          '--register'],
                          start_new_session=True, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)

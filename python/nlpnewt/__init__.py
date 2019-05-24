@@ -29,6 +29,7 @@ from .labels import Location
 from .processing import Pipeline
 from .processing import ProcessorServer
 from .processing import processor
+from .processing import run_processor
 
 __version__ = version.version
 
@@ -48,5 +49,6 @@ __all__ = [
     'label_index',
     'Pipeline',
     'processor',
-    'ProcessorServer'
+    'ProcessorServer',
+    'run_processor'
 ]

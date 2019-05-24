@@ -73,6 +73,8 @@ class ConsulDiscovery(Discovery):
         name = constants.EVENTS_SERVICE_NAME
         _, services = self.c.health.service(name, tag='v1')
         addresses = []
+        if len(services) == 0:
+            raise ValueError('No addresses found for events service')
         for service in services:
             addresses.append("{}:{}".format(service['Node']['Address'], service['Service']['Port']))
         return "ipv4:" + ','.join(addresses)

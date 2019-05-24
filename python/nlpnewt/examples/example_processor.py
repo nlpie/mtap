@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional
 
 import nlpnewt
 from nlpnewt.events import Document
-from nlpnewt.processing import DocumentProcessor, ProcessorContext
+from nlpnewt.processing import DocumentProcessor, ProcessorContext, run_processor
 
 
 @nlpnewt.processor('nlpnewt-example-processor-python')
@@ -25,10 +25,6 @@ class ExampleProcessor(DocumentProcessor):
     """Does some labeling of the counts of the letter 'a' and 'b' in a document, and all of the
     times the word 'the' occurs.
     """
-
-    def __init__(self, context: ProcessorContext):
-        self.context = context
-
     def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if params['do_work']:
             with self.context.stopwatch('fetch_time'):
@@ -44,3 +40,7 @@ class ExampleProcessor(DocumentProcessor):
                                    count=b_count)
 
         return {'answer': 42}
+
+
+if __name__ == '__main__':
+    run_processor(ExampleProcessor())
