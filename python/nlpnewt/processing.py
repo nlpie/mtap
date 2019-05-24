@@ -31,7 +31,6 @@ from . import _structs, _discovery
 from ._config import Config
 from .api.v1 import processing_pb2_grpc, processing_pb2
 from .events import Event, Document, Events
-from .utils import service_parser
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +38,7 @@ PROCESSOR_LOCAL = threading.local()  # processor context thread local
 
 __all__ = [
     'run_processor',
+    'processor_parser',
     'ProcessorContext',
     'processor',
     'EventProcessor',
@@ -52,29 +52,16 @@ __all__ = [
 
 
 def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'], args=None):
-    """Runs a processor, blocking until keyboard interrupt
-
-    Parameters
-    ----------
-    processor:
-    args
-        Command line arguments.
-    """
+    if args is None:
+        processors_parser = processor_parser()
+        processors_parser.add_help = True
+        args = processors_parser.parse_args(args)
     if isinstance(processor, DocumentProcessor):
         processor = _DocumentProcessorAdapter(document_processor=processor)
 
-    processors_parser = ArgumentParser(parents=[service_parser()])
-    processors_parser.add_argument('--events-address', '--events', '-e', default=None,
-                                   help='address of the events service to use, '
-                                        'omit to use discovery')
-    processors_parser.add_argument('--identifier', '-i',
-                                   help="Optional argument if you want the processor to register "
-                                        "under a different identifier than its name.")
-    args = processors_parser.parse_args(args)
-
     with Config() as c:
-        if args.config is not None:
-            c.update_from_yaml(args.config)
+        if args.newt_config is not None:
+            c.update_from_yaml(args.newt_config)
         server = ProcessorServer(processor=processor,
                                  address=args.address,
                                  port=args.port,
@@ -89,8 +76,31 @@ def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'], args=
             print("Shutting down", flush=True)
             server.stop()
             e.set()
+
         signal.signal(signal.SIGINT, handler)
         e.wait()
+
+
+def processor_parser():
+    processors_parser = ArgumentParser(add_help=False)
+    processors_parser.add_argument('--address', '-a', default="127.0.0.1", metavar="HOST",
+                                   help='the address to serve the service on')
+    processors_parser.add_argument('--port', '-p', type=int, default=0, metavar="PORT",
+                                   help='the port to serve the service on')
+    processors_parser.add_argument('--workers', '-w', type=int, default=10,
+                                   help='number of worker threads to handle requests')
+    processors_parser.add_argument('--register', '-r', action='store_true',
+                                   help='whether to register the service with the configured '
+                                        'service discovery')
+    processors_parser.add_argument("--newt-config", default=None,
+                                   help="path to newt config file")
+    processors_parser.add_argument('--events-address', '--events', '-e', default=None,
+                                   help='address of the events service to use, '
+                                        'omit to use discovery')
+    processors_parser.add_argument('--identifier', '-i',
+                                   help="Optional argument if you want the processor to register "
+                                        "under a different identifier than its name.")
+    return processors_parser
 
 
 class ProcessorContext:
@@ -172,6 +182,7 @@ def processor(name: str):
     These are all valid ways of registering processors.
 
     """
+
     def decorator(f: Type[Union[EventProcessor, DocumentProcessor]]) -> Type:
         f.metadata = {'name': name}
         return f
@@ -202,6 +213,7 @@ class EventProcessor(metaclass=ABCMeta):
     >>>               # use stopwatch
 
     """
+
     @abstractmethod
     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Performs processing on an event.

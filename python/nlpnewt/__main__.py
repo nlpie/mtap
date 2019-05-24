@@ -17,8 +17,6 @@ import threading
 
 from nlpnewt._config import Config
 from nlpnewt._events_service import EventsServer
-from nlpnewt.processing import ProcessorServer
-from nlpnewt.utils import service_parser
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -32,8 +30,8 @@ def run_events_server(args):
         Command line arguments.
     """
     with Config() as c:
-        if args.config is not None:
-            c.update_from_yaml(args.config)
+        if args.newt_config is not None:
+            c.update_from_yaml(args.newt_config)
         server = EventsServer(args.address, args.port, register=args.register, workers=args.workers)
         server.start()
         e = threading.Event()
@@ -42,6 +40,7 @@ def run_events_server(args):
             print("Shutting down", flush=True)
             server.stop()
             e.set()
+
         signal.signal(signal.SIGINT, handler)
         e.wait()
 
@@ -54,9 +53,19 @@ def main(args=None):
     subparsers = parser.add_subparsers(title='sub-commands', description='valid sub-commands')
 
     # Documents service sub-command
-    documents_parser = subparsers.add_parser('events', parents=[service_parser()],
-                                             help='starts a events service')
-    documents_parser.set_defaults(func=run_events_server)
+    events_parser = subparsers.add_parser('events', help='starts a events service')
+    events_parser.add_argument('--address', '-a', default="127.0.0.1", metavar="HOST",
+                               help='the address to serve the service on')
+    events_parser.add_argument('--port', '-p', type=int, default=0, metavar="PORT",
+                               help='the port to serve the service on')
+    events_parser.add_argument('--workers', '-w', type=int, default=10,
+                               help='number of worker threads to handle requests')
+    events_parser.add_argument('--register', '-r', action='store_true',
+                               help='whether to register the service with the configured '
+                                    'service discovery')
+    events_parser.add_argument("--newt-config", default=None,
+                               help="path to newt config file")
+    events_parser.set_defaults(func=run_events_server)
 
     # parse and execute
     args = parser.parse_args(args)
