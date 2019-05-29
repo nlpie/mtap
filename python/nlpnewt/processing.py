@@ -16,6 +16,8 @@
 import contextlib
 import logging
 import math
+import traceback
+
 import signal
 import threading
 from abc import ABCMeta, abstractmethod
@@ -32,9 +34,9 @@ from ._config import Config
 from .api.v1 import processing_pb2_grpc, processing_pb2
 from .events import Event, Document, Events
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
-PROCESSOR_LOCAL = threading.local()  # processor context thread local
+processor_local = threading.local()  # processor context thread local
 
 __all__ = [
     'run_processor',
@@ -142,7 +144,7 @@ class ProcessorContext:
         >>>
 
         """
-        return PROCESSOR_LOCAL.context.stopwatch(key)
+        return processor_local.context.stopwatch(key)
 
 
 def processor(name: str):
@@ -664,7 +666,7 @@ class ProcessorServer:
         """
         self._server.start()
         self._servicer.start(self.port)
-        LOGGER.info('Started processor server with id: "%s"  on address: "%s:%d"',
+        logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.address, self.port)
 
     def stop(self, *, grace=None):
@@ -686,7 +688,7 @@ class ProcessorServer:
         threading.Event
             A shutdown event for the server.
         """
-        LOGGER.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
+        logger.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.address, self.port)
         self._servicer.shutdown()
         shutdown_event = self._server.stop(grace=grace)
@@ -696,18 +698,18 @@ class ProcessorServer:
 @contextlib.contextmanager
 def _enter_context(identifier: str) -> ContextManager['_ProcessorThreadContext']:
     try:
-        old_context = PROCESSOR_LOCAL.context
+        old_context = processor_local.context
         identifier = old_context.identifier + '.' + identifier
     except AttributeError:
         old_context = None
     try:
         context = _ProcessorThreadContext(identifier)
-        PROCESSOR_LOCAL.context = context
+        processor_local.context = context
         yield context
     finally:
-        del PROCESSOR_LOCAL.context
+        del processor_local.context
         if old_context is not None:
-            PROCESSOR_LOCAL.context = old_context
+            processor_local.context = old_context
 
 
 class _ProcessorThreadContext:
@@ -821,7 +823,7 @@ class _PipelineProcessor(EventProcessor):
         for _, component_times, _ in results:
             times.update(component_times)
         for k, v in times.items():
-            PROCESSOR_LOCAL.context.add_time(k, v)
+            processor_local.context.add_time(k, v)
 
         return {'component_results': [result[0] for result in results]}
 
@@ -913,6 +915,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
                     created_index.index_name = index_name
             return response
         except Exception as e:
+            logger.error(str(e))
+            logger.error(traceback.format_exc())
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
 
