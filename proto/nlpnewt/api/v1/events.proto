@@ -168,6 +168,43 @@ message GetDocumentTextResponse {
   string text = 1;
 }
 
+/* Request to get information about the label indices on a document.
+ */
+message GetLabelIndicesInfoRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The document name on the event.
+   */
+  string document_name = 2;
+}
+
+/* Response of information about the label indices on a document.
+ */
+message GetLabelIndicesInfoResponse {
+  message LabelIndexInfo {
+    /* A document-unique identifier for the index on the document.
+     */
+    string index_name = 1;
+    enum LabelIndexType {
+      /* Default, no labels field set or not known.
+       */
+      UNKNOWN = 0;
+      /* Has the "json_labels" field set.
+       */
+      JSON = 1;
+      /* Has the "other_labels" field set.
+       */
+      OTHER = 2;
+    }
+    LabelIndexType type = 2;
+  }
+  /* Info about each label index on the document.
+   */
+  repeated LabelIndexInfo label_index_infos = 1;
+}
+
 /* Request to add labels to a document.
  */
 message AddLabelsRequest {
@@ -318,6 +355,14 @@ service Events {
   rpc GetDocumentText (GetDocumentTextRequest) returns (GetDocumentTextResponse) {
     option (google.api.http) = {
       get: "/v1/events/{event_id}/documents/{document_name}"
+    };
+  }
+
+  /* Returns the names keys of all label indices that are stored on a document.
+   */
+  rpc GetLabelIndicesInfo (GetLabelIndicesInfoRequest) returns (GetLabelIndicesInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/documents/{document_names}/labels"
     };
   }
 
