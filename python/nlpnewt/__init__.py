@@ -13,24 +13,24 @@
 # limitations under the License.
 """Public API and access points for the nlpnewt Framework."""
 
-from . import constants
-from . import events
-from . import label_indices
-from . import labels
-from . import processing
-from . import version
-from ._config import Config
-from ._events_service import EventsServer
-from .events import Events
-from .events import proto_label_adapter
-from .label_indices import label_index
-from .labels import GenericLabel
-from .labels import Location
-from .processing import Pipeline
-from .processing import ProcessorServer
-from .processing import processor
-from .processing import processor_parser
-from .processing import run_processor
+from nlpnewt import constants
+from nlpnewt import events
+from nlpnewt import label_indices
+from nlpnewt import labels
+from nlpnewt import processing
+from nlpnewt import version
+from nlpnewt._config import Config
+from nlpnewt._events_service import EventsServer
+from nlpnewt.events import Events
+from nlpnewt.events import proto_label_adapter
+from nlpnewt.label_indices import label_index
+from nlpnewt.labels import GenericLabel
+from nlpnewt.labels import Location
+from nlpnewt.processing import Pipeline
+from nlpnewt.processing import ProcessorServer
+from nlpnewt.processing import processor
+from nlpnewt.processing import processor_parser
+from nlpnewt.processing import run_processor
 
 __version__ = version.version
 

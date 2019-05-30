@@ -22,13 +22,13 @@ from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeV
 
 import grpc
 
-from . import _discovery
-from . import _structs
-from . import constants
-from ._config import Config
-from .api.v1 import events_pb2_grpc, events_pb2
-from .label_indices import label_index, LabelIndex
-from .labels import GenericLabel, Label
+from nlpnewt import _discovery
+from nlpnewt import _structs
+from nlpnewt import constants
+from nlpnewt._config import Config
+from nlpnewt.api.v1 import events_pb2_grpc, events_pb2
+from nlpnewt.label_indices import label_index, LabelIndex
+from nlpnewt.labels import GenericLabel, Label
 
 __all__ = [
     'Events',

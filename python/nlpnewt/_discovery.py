@@ -16,7 +16,7 @@
 import abc
 from uuid import uuid1
 
-from . import constants
+from nlpnewt import constants
 
 
 class Discovery(abc.ABC):

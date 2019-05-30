@@ -160,11 +160,11 @@ class GenericLabel(Label, Mapping[str, Any]):
 
     @property
     def start_index(self):
-        return self.fields['start_index']
+        return int(self.fields['start_index'])
 
     @property
     def end_index(self):
-        return self.fields['end_index']
+        return int(self.fields['end_index'])
 
     def __getattr__(self, item):
         fields = self.__dict__['fields']

@@ -136,3 +136,8 @@ def test_obj_attr():
     with pytest.raises(TypeError):
         label.b = object()
 
+
+def test_float_to_int():
+    label = GenericLabel(0.0, 4.0)
+    assert isinstance(label.start_index, int)
+    assert isinstance(label.end_index, int)
