@@ -21,9 +21,9 @@ import grpc
 from grpc_health.v1 import health
 from grpc_health.v1 import health_pb2_grpc
 
-from . import constants
-from ._config import Config
-from .api.v1 import events_pb2, events_pb2_grpc
+from nlpnewt import constants
+from nlpnewt._config import Config
+from nlpnewt.api.v1 import events_pb2, events_pb2_grpc
 
 LOGGER = logging.getLogger(__name__)
 

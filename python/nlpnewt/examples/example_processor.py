@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional
 
 import nlpnewt
 from nlpnewt.events import Document
-from nlpnewt.processing import DocumentProcessor, ProcessorContext, run_processor
+from nlpnewt.processing import DocumentProcessor, run_processor
 
 
 @nlpnewt.processor('nlpnewt-example-processor-python')

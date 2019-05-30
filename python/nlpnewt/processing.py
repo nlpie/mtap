@@ -29,10 +29,10 @@ from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional,
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc
 
-from . import _structs, _discovery
-from ._config import Config
-from .api.v1 import processing_pb2_grpc, processing_pb2
-from .events import Event, Document, Events
+from nlpnewt import _structs, _discovery
+from nlpnewt._config import Config
+from nlpnewt.api.v1 import processing_pb2_grpc, processing_pb2
+from nlpnewt.events import Event, Document, Events
 
 logger = logging.getLogger(__name__)
 
