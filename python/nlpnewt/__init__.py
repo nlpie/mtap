@@ -18,6 +18,7 @@ from nlpnewt import events
 from nlpnewt import label_indices
 from nlpnewt import labels
 from nlpnewt import processing
+from nlpnewt import serialization
 from nlpnewt import version
 from nlpnewt._config import Config
 from nlpnewt._events_service import EventsServer
@@ -41,6 +42,7 @@ __all__ = [
     'labels',
     'label_indices',
     'processing',
+    'serialization',
     'Config',
     'EventsServer',
     'Events',

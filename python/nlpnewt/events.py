@@ -404,7 +404,7 @@ class Document:
 
         Returns
         -------
-        List[LabelIndexInfo]
+        list of LabelIndexInfo
             The list of label index information objects.
         """
         return self._client.get_label_index_info(self._event_id, self._document_name)
