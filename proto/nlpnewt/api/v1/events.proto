@@ -362,7 +362,7 @@ service Events {
    */
   rpc GetLabelIndicesInfo (GetLabelIndicesInfoRequest) returns (GetLabelIndicesInfoResponse) {
     option (google.api.http) = {
-      get: "/v1/events/{event_id}/documents/{document_names}/labels"
+      get: "/v1/events/{event_id}/documents/{document_name}/labels"
     };
   }
 
