@@ -421,6 +421,77 @@ def test_GetDocumentText(events_server):
     assert response.text == PHASERS
 
 
+def test_GetLabelIndicesInfo_bad_event(events_server):
+    request = events_pb2.GetLabelIndicesInfoRequest(event_id='1', document_name='plaintext')
+
+    _, _, status_code, _ = events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabelIndicesInfo'],
+        {},
+        request,
+        None
+    ).termination()
+    assert status_code == grpc.StatusCode.NOT_FOUND
+
+
+def test_GetLabelIndicesInfo_bad_document(events_server):
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
+        {},
+        events_pb2.OpenEventRequest(event_id='1'),
+        None
+    )
+    request = events_pb2.GetLabelIndicesInfoRequest(event_id='1', document_name='plaintext')
+
+    _, _, status_code, _ = events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabelIndicesInfo'],
+        {},
+        request,
+        None
+    ).termination()
+    assert status_code == grpc.StatusCode.NOT_FOUND
+
+
+def test_GetLabelIndicesInfo(events_server):
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
+        {},
+        events_pb2.OpenEventRequest(event_id='1'),
+        None
+    )
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
+        {},
+        events_pb2.AddDocumentRequest(event_id='1',
+                                      document_name='plaintext',
+                                      text=PHASERS),
+        None
+    )
+    request = events_pb2.AddLabelsRequest(event_id='1',
+                                          document_name='plaintext',
+                                          index_name='labels')
+    s = request.json_labels.labels.add()
+    s['start_index'] = 15
+    s['end_index'] = 20
+    s['some_other_field'] = 'blah'
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
+        {},
+        request,
+        None
+    )
+    request = events_pb2.GetLabelIndicesInfoRequest(event_id='1', document_name='plaintext')
+    res, _, status_code, _ = events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabelIndicesInfo'],
+        {},
+        request,
+        None
+    ).termination()
+    assert status_code == grpc.StatusCode.OK
+    assert len(res.label_index_infos) == 1
+    assert res.label_index_infos[0].index_name == 'labels'
+    assert res.label_index_infos[0].type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON
+
+
 def test_AddLabels_bad_event(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',

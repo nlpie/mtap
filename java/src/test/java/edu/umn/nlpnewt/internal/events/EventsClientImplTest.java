@@ -1,16 +1,16 @@
 package edu.umn.nlpnewt.internal.events;
 
-import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
-import edu.umn.nlpnewt.LabelIndex;
+import edu.umn.nlpnewt.LabelIndexInfo;
 import edu.umn.nlpnewt.ProtoLabelAdapter;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
+import edu.umn.nlpnewt.api.v1.EventsOuterClass.GetLabelIndicesInfoResponse.LabelIndexInfo.LabelIndexType;
 import io.grpc.ManagedChannel;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
+import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -51,6 +51,7 @@ class EventsClientImplTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void openEvent() {
     doAnswer((Answer<Void>) invocation -> {
       StreamObserver<OpenEventResponse> observer = invocation.getArgument(1);
@@ -188,6 +189,34 @@ class EventsClientImplTest {
   }
 
   @Test
+  void getLabelIndicesInfo() {
+    doAnswer((Answer<Void>) invocation -> {
+      StreamObserver<GetLabelIndicesInfoResponse> observer = invocation.getArgument(1);
+      GetLabelIndicesInfoResponse.Builder builder = GetLabelIndicesInfoResponse.newBuilder();
+      builder.addLabelIndexInfosBuilder().setIndexName("foo").setType(LabelIndexType.JSON).build();
+      builder.addLabelIndexInfosBuilder().setIndexName("bar").setType(LabelIndexType.OTHER).build();
+      builder.addLabelIndexInfosBuilder().setIndexName("baz").setType(LabelIndexType.UNKNOWN)
+          .build();
+      observer.onNext(builder.build());
+      observer.onCompleted();
+      return null;
+    }).when(eventsService).getLabelIndicesInfo(any(), any());
+
+    List<@NotNull LabelIndexInfo> infos = tested.getLabelIndicesInfos("1", "plaintext");
+    ArgumentCaptor<GetLabelIndicesInfoRequest> captor = ArgumentCaptor
+        .forClass(GetLabelIndicesInfoRequest.class);
+    verify(eventsService).getLabelIndicesInfo(captor.capture(), any());
+    assertEquals(3, infos.size());
+    assertEquals(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.JSON), infos.get(0));
+    assertEquals(new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.OTHER), infos.get(1));
+    assertEquals(new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN), infos.get(2));
+    GetLabelIndicesInfoRequest req = captor.getValue();
+    assertEquals("1", req.getEventId());
+    assertEquals("plaintext", req.getDocumentName());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void addLabels() {
     doAnswer((Answer<Void>) invocation -> {
       StreamObserver<AddLabelsResponse> observer = invocation.getArgument(1);
@@ -208,6 +237,7 @@ class EventsClientImplTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void getLabelsWithAdapter() {
     doAnswer((Answer<Void>) invocation -> {
       StreamObserver<GetLabelsResponse> observer = invocation.getArgument(1);
@@ -216,8 +246,8 @@ class EventsClientImplTest {
       return null;
     }).when(eventsService).getLabels(any(), any());
     when(adapter.createIndexFromResponse(any()))
-        .thenReturn(NewtEvents.standardLabelIndex(Arrays.asList(Span.of(0, 5))));
-    LabelIndex index = tested.getLabels("1", "plaintext", "index", adapter);
+        .thenReturn(NewtEvents.standardLabelIndex(Collections.singletonList(Span.of(0, 5))));
+    tested.getLabels("1", "plaintext", "index", adapter);
     ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
     verify(eventsService).getLabels(captor.capture(), any());
     GetLabelsRequest request = captor.getValue();

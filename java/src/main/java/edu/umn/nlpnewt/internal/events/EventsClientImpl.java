@@ -18,10 +18,11 @@ package edu.umn.nlpnewt.internal.events;
 
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
-import edu.umn.nlpnewt.api.v1.EventsOuterClass;
+import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
 import io.grpc.ManagedChannel;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +40,7 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
 
   @Override
   public void openEvent(@NotNull String eventID, boolean onlyCreateNew) {
-    EventsOuterClass.OpenEventRequest request = EventsOuterClass.OpenEventRequest.newBuilder()
+    OpenEventRequest request = OpenEventRequest.newBuilder()
         .setEventId(eventID)
         .setOnlyCreateNew(onlyCreateNew)
         .build();
@@ -49,7 +50,7 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
 
   @Override
   public void closeEvent(@NotNull String eventID) {
-    EventsOuterClass.CloseEventRequest request = EventsOuterClass.CloseEventRequest.newBuilder()
+    CloseEventRequest request = CloseEventRequest.newBuilder()
         .setEventId(eventID)
         .build();
     //noinspection ResultOfMethodCallIgnored
@@ -59,16 +60,16 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
   @Override
   @NotNull
   public Map<String, String> getAllMetadata(@NotNull String eventID) {
-    EventsOuterClass.GetAllMetadataRequest request = EventsOuterClass.GetAllMetadataRequest.newBuilder()
+    GetAllMetadataRequest request = GetAllMetadataRequest.newBuilder()
         .setEventId(eventID)
         .build();
-    EventsOuterClass.GetAllMetadataResponse response = stub.getAllMetadata(request);
+    GetAllMetadataResponse response = stub.getAllMetadata(request);
     return response.getMetadataMap();
   }
 
   @Override
   public void addMetadata(@NotNull String eventID, @NotNull String key, @NotNull String value) {
-    EventsOuterClass.AddMetadataRequest req = EventsOuterClass.AddMetadataRequest.newBuilder()
+    AddMetadataRequest req = AddMetadataRequest.newBuilder()
         .setEventId(eventID)
         .setKey(key)
         .setValue(value)
@@ -80,11 +81,11 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
   @Override
   @NotNull
   public Collection<String> getAllDocuments(@NotNull String eventID) {
-    EventsOuterClass.GetAllDocumentNamesRequest request = EventsOuterClass.GetAllDocumentNamesRequest
+    GetAllDocumentNamesRequest request = GetAllDocumentNamesRequest
         .newBuilder()
         .setEventId(eventID)
         .build();
-    EventsOuterClass.GetAllDocumentNamesResponse response = stub.getAllDocumentNames(request);
+    GetAllDocumentNamesResponse response = stub.getAllDocumentNames(request);
     return response.getDocumentNamesList();
   }
 
@@ -92,7 +93,7 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
   public void addDocument(@NotNull String eventID,
                           @NotNull String documentName,
                           @NotNull String text) {
-    EventsOuterClass.AddDocumentRequest request = EventsOuterClass.AddDocumentRequest.newBuilder()
+    AddDocumentRequest request = AddDocumentRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
         .setText(text)
@@ -104,12 +105,39 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
   @Override
   @NotNull
   public String getDocumentText(@NotNull String eventID, @NotNull String documentName) {
-    EventsOuterClass.GetDocumentTextRequest request = EventsOuterClass.GetDocumentTextRequest.newBuilder()
+    GetDocumentTextRequest request = GetDocumentTextRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
         .build();
-    EventsOuterClass.GetDocumentTextResponse response = stub.getDocumentText(request);
+    GetDocumentTextResponse response = stub.getDocumentText(request);
     return response.getText();
+  }
+
+  @Override
+  public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfos(@NotNull String eventID,
+                                                                     @NotNull String documentName) {
+    GetLabelIndicesInfoRequest request = GetLabelIndicesInfoRequest.newBuilder()
+        .setEventId(eventID)
+        .setDocumentName(documentName)
+        .build();
+    GetLabelIndicesInfoResponse response = stub.getLabelIndicesInfo(request);
+    List<LabelIndexInfo> result = new ArrayList<>();
+    for (GetLabelIndicesInfoResponse.LabelIndexInfo info : response.getLabelIndexInfosList()) {
+      LabelIndexInfo.LabelIndexType type;
+      switch (info.getType()) {
+        case OTHER:
+          type = LabelIndexInfo.LabelIndexType.OTHER;
+          break;
+        case JSON:
+          type = LabelIndexInfo.LabelIndexType.JSON;
+          break;
+        default:
+          type = LabelIndexInfo.LabelIndexType.UNKNOWN;
+          break;
+      }
+      result.add(new LabelIndexInfo(info.getIndexName(), type));
+    }
+    return result;
   }
 
   @Override
@@ -118,12 +146,12 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
                                           @NotNull String indexName,
                                           @NotNull List<L> labels,
                                           @NotNull ProtoLabelAdapter<L> adapter) {
-    EventsOuterClass.AddLabelsRequest.Builder requestBuilder = EventsOuterClass.AddLabelsRequest.newBuilder()
+    AddLabelsRequest.Builder requestBuilder = AddLabelsRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
         .setIndexName(indexName);
     adapter.addToMessage(labels, requestBuilder);
-    EventsOuterClass.AddLabelsRequest request = requestBuilder.build();
+    AddLabelsRequest request = requestBuilder.build();
 
     //noinspection ResultOfMethodCallIgnored
     stub.addLabels(request);
@@ -134,12 +162,12 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
                                                             @NotNull String documentName,
                                                             @NotNull String indexName,
                                                             @NotNull ProtoLabelAdapter<L> adapter) {
-    EventsOuterClass.GetLabelsRequest request = EventsOuterClass.GetLabelsRequest.newBuilder()
+    GetLabelsRequest request = GetLabelsRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
         .setIndexName(indexName)
         .build();
-    EventsOuterClass.GetLabelsResponse response = stub.getLabels(request);
+    GetLabelsResponse response = stub.getLabels(request);
     return adapter.createIndexFromResponse(response);
   }
 

@@ -303,3 +303,17 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
             'end_index': 124
         }
     ]
+
+    resp = requests.get(
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels"
+    )
+    assert resp.status_code == 200
+    indices = resp.json()['label_index_infos']
+    assert {
+               'index_name': 'nlpnewt.examples.letter_counts',
+               'type': 'JSON'
+           } in indices
+    assert {
+               'index_name': 'nlpnewt.examples.thes',
+               'type': 'JSON'
+           } in indices

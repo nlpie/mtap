@@ -87,6 +87,11 @@ protobuf {
     }
 }
 
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:unchecked'
+    options.deprecation = true
+}
+
 javadoc {
     exclude "edu/umn/nlpnewt/api/**"
     exclude "edu/umn/nlpnewt/internal/**"

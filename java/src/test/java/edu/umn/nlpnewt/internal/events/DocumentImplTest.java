@@ -1,9 +1,7 @@
 package edu.umn.nlpnewt.internal.events;
 
-import edu.umn.nlpnewt.Event;
-import edu.umn.nlpnewt.LabelIndex;
-import edu.umn.nlpnewt.Labeler;
-import edu.umn.nlpnewt.ProtoLabelAdapter;
+import edu.umn.nlpnewt.*;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +24,7 @@ class DocumentImplTest {
   private LabelIndex labelIndex;
 
   @BeforeEach
+  @SuppressWarnings("unchecked")
   void setUp() {
     eventsClient = mock(EventsClient.class);
     event = mock(Event.class);
@@ -66,6 +65,25 @@ assertSame(event, tested.getEvent());
   }
 
   @Test
+  void getLabelIndicesInfos() {
+    when(eventsClient.getLabelIndicesInfos(anyString(), anyString())).thenReturn(
+        Arrays.asList(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.JSON),
+            new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.OTHER),
+            new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN))
+    );
+    List<@NotNull LabelIndexInfo> infos = tested.getLabelIndicesInfo();
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
+    assertEquals(3, infos.size());
+    assertEquals(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.JSON),
+        infos.get(0));
+    assertEquals(new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.OTHER),
+        infos.get(1));
+    assertEquals(new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN),
+        infos.get(2));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void getLabelIndex() {
     when(eventsClient.getLabels(anyString(), anyString(), anyString(), any())).thenReturn(labelIndex);
     assertSame(labelIndex, tested.getLabelIndex("index", labelAdapter));
@@ -73,6 +91,7 @@ assertSame(event, tested.getEvent());
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void getLabelIndexCaches() {
     when(eventsClient.getLabels(anyString(), anyString(), anyString(), any())).thenReturn(labelIndex);
     tested.getLabelIndex("index", labelAdapter);
@@ -82,6 +101,7 @@ assertSame(event, tested.getEvent());
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void getGenericLabelIndex() {
     when(eventsClient.getLabels(anyString(), anyString(), anyString(), same(standardLabelAdapter))).thenReturn(labelIndex);
     assertSame(labelIndex, tested.getLabelIndex("index"));
@@ -89,6 +109,7 @@ assertSame(event, tested.getEvent());
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void getGenericLabelIndexCaches() {
     when(eventsClient.getLabels(anyString(), anyString(), anyString(), same(standardLabelAdapter))).thenReturn(labelIndex);
     tested.getLabelIndex("index");
@@ -98,6 +119,7 @@ assertSame(event, tested.getEvent());
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void getLabeler() {
     when(labelAdapter.createLabelIndex(anyList())).thenReturn(labelIndex);
     try (Labeler labeler = tested.getLabeler("index", labelAdapter)) {
@@ -114,6 +136,7 @@ assertSame(event, tested.getEvent());
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void genericDistinct() {
     when(distinctLabelAdapter.createLabelIndex(anyList())).thenReturn(labelIndex);
     try (Labeler labeler = tested.getLabeler("index", true)) {

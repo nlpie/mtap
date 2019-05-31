@@ -18,7 +18,9 @@ import contextlib
 import threading
 import uuid
 from abc import abstractmethod, ABC
-from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable
+from enum import Enum
+from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable, \
+    NamedTuple
 
 import grpc
 
@@ -33,10 +35,13 @@ from nlpnewt.labels import GenericLabel, Label
 __all__ = [
     'Events',
     'Event',
+    'LabelIndexType',
+    'LabelIndexInfo',
     'Document',
     'Labeler',
     'proto_label_adapter',
-    'ProtoLabelAdapter'
+    'ProtoLabelAdapter',
+    '_EventsClient'
 ]
 
 L = TypeVar('L', bound=Label)
@@ -302,6 +307,26 @@ class Event(Mapping[str, 'Document']):
                 pass
 
 
+class LabelIndexType(Enum):
+    """The type of serialized labels contained in the label index.
+    """
+    UNKNOWN = 0
+    JSON = 1
+    OTHER = 2
+
+
+LabelIndexType.UNKNOWN.__doc__ = """Label index not set or type not known."""
+LabelIndexType.JSON.__doc__ = """JSON / Generic Label index"""
+LabelIndexType.OTHER.__doc__ = """Other / custom protobuf label index"""
+
+LabelIndexInfo = NamedTuple('LabelIndexInfo',
+                            [('index_name', str),
+                             ('type', LabelIndexType)])
+LabelIndexInfo.__doc__ = """Information about a label index contained on a document."""
+LabelIndexInfo.index_name.__doc__ = """str: the name of the label index."""
+LabelIndexInfo.type.__doc__ = """LabelIndexType: the type of the label index."""
+
+
 class Document:
     """An object returned by :func:`~Event.__getitem__` or :func:`~Event.add_document`
     for accessing document data.
@@ -373,6 +398,16 @@ class Document:
             document using a labeler.
         """
         return list(self._created_indices)
+
+    def get_label_indices_info(self) -> List[LabelIndexInfo]:
+        """Gets information about the label indices currently contained on this document.
+
+        Returns
+        -------
+        List[LabelIndexInfo]
+            The list of label index information objects.
+        """
+        return self._client.get_label_index_info(self._event_id, self._document_name)
 
     def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
         """Gets the document's label index with the specified key, fetching it from the
@@ -617,7 +652,7 @@ def proto_label_adapter(label_type_id: str):
 
 
 class _EventsClient:
-    def __init__(self, address=None, *, stub=None):
+    def __init__(self, address: str = None, *, stub: events_pb2_grpc.EventsStub = None):
         if stub is None:
             if address is None:
                 discovery = _discovery.Discovery(Config())
@@ -672,6 +707,21 @@ class _EventsClient:
                                                     document_name=document_name)
         response = self.stub.GetDocumentText(request)
         return response.text
+
+    def get_label_index_info(self, event_id: str, document_name: str) -> List[LabelIndexInfo]:
+        request = events_pb2.GetLabelIndicesInfoRequest(event_id=event_id,
+                                                        document_name=document_name)
+        response = self.stub.GetLabelIndicesInfo(request)
+        result = []
+        for index in response.label_index_infos:
+            if index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON:
+                index_type = LabelIndexType.JSON
+            elif index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.OTHER:
+                index_type = LabelIndexType.OTHER
+            else:
+                index_type = LabelIndexType.UNKNOWN
+            result.append(LabelIndexInfo(index.index_name, index_type))
+        return result
 
     def add_labels(self, event_id, document_name, index_name, labels, adapter):
         request = events_pb2.AddLabelsRequest(event_id=event_id, document_name=document_name,

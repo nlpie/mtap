@@ -228,6 +228,22 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             return
         return events_pb2.GetDocumentTextResponse(text=document.text)
 
+    def GetLabelIndicesInfo(self, request, context):
+        try:
+            document = self._get_document(request, context)
+        except KeyError:
+            return
+        response = events_pb2.GetLabelIndicesInfoResponse()
+        for k, v in document.labels.items():
+            labels_type, _ = v
+            info = response.label_index_infos.add()
+            info.index_name = k
+            if labels_type == 'json_labels':
+                info.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON
+            elif labels_type == 'other_labels':
+                info.type = 'OTHER'
+        return response
+
     def AddLabels(self, request, context):
         try:
             document = self._get_document(request, context)

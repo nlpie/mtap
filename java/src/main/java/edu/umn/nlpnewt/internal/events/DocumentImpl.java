@@ -70,6 +70,11 @@ final class DocumentImpl implements Document {
     return text;
   }
 
+  @Override
+  public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfo() {
+    return client.getLabelIndicesInfos(event.getEventID(), documentName);
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public @NotNull <L extends Label> LabelIndex<L> getLabelIndex(

@@ -57,6 +57,13 @@ public interface Document {
   @NotNull String getText();
 
   /**
+   * Gets information about the label indices in this document.
+   *
+   * @return A list of objects containing information about the label indices.
+   */
+  @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfo();
+
+  /**
    * Gets a label index containing {@link GenericLabel} from the document service.
    *
    * @param labelIndexName The name identifier of the label index.
