@@ -12,20 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from abc import ABC, abstractmethod
+
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable
+
+from nlpnewt.events import Event
 
 _serializers = {}
 
 
 class Serializer(ABC):
-    @abstractmethod
     @property
+    @abstractmethod
     def extension(self) -> str:
         ...
 
     @abstractmethod
-    def dict_to_file(self, d: Dict, filepath: Path):
+    def event_to_file(self, event: Event, filepath: Path):
         ...
 
 

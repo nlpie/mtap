@@ -17,17 +17,16 @@ import contextlib
 import logging
 import math
 import traceback
-
-import signal
-import threading
 from abc import ABCMeta, abstractmethod
-from argparse import ArgumentParser
 from concurrent.futures.thread import ThreadPoolExecutor
-from datetime import datetime, timedelta
-from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional, Type
 
 import grpc
+import signal
+import threading
+from argparse import ArgumentParser, Namespace
+from datetime import datetime, timedelta
 from grpc_health.v1 import health, health_pb2_grpc
+from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional, Type
 
 from nlpnewt import _structs, _discovery
 from nlpnewt._config import Config
@@ -53,24 +52,38 @@ __all__ = [
 ]
 
 
-def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'], args=None):
-    if args is None:
-        processors_parser = processor_parser()
+def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'],
+                  namespace: Namespace = None,
+                  args: List[str] = None):
+    """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
+
+    Parameters
+    ----------
+    processor: EventProcessor or DocumentProcessor
+        The processor to host.
+    namespace: optional, Namespace
+        The parsed arguments from the parser returned by :func:`processor_parser`.
+    args: optional, list of str
+        Arguments to parse server settings from if ``namespace`` was not supplied.
+
+    """
+    if namespace is None:
+        processors_parser = ArgumentParser(parents=[processor_parser()])
         processors_parser.add_help = True
-        args = processors_parser.parse_args(args)
+        namespace = processors_parser.parse_args(args)
     if isinstance(processor, DocumentProcessor):
         processor = _DocumentProcessorAdapter(document_processor=processor)
 
     with Config() as c:
-        if args.newt_config is not None:
-            c.update_from_yaml(args.newt_config)
+        if namespace.newt_config is not None:
+            c.update_from_yaml(namespace.newt_config)
         server = ProcessorServer(processor=processor,
-                                 address=args.address,
-                                 port=args.port,
-                                 register=args.register,
-                                 workers=args.workers,
-                                 processor_id=args.identifier,
-                                 events_address=args.events_address)
+                                 address=namespace.address,
+                                 port=namespace.port,
+                                 register=namespace.register,
+                                 workers=namespace.workers,
+                                 processor_id=namespace.identifier,
+                                 events_address=namespace.events_address)
         server.start()
         e = threading.Event()
 
@@ -83,7 +96,26 @@ def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'], args=
         e.wait()
 
 
-def processor_parser():
+def processor_parser() -> ArgumentParser:
+    """An :obj:`ArgumentParser` that can be used to parse the settings for :func:`run_processor`.
+
+    Returns
+    -------
+    ArgumentParser
+        A parser containing server settings.
+
+    Examples
+    --------
+    Using this as a parent parser:
+
+    >>> parser = ArgumentParser(parents=[processor_parser()])
+    >>> parser.add_argument('--my-arg-1')
+    >>> parser.add_argument('--my-arg-2')
+    >>> args = parser.parse_args()
+    >>> processor = MyProcessor(args.my_arg_1, args.my_arg_2)
+    >>> run_processor
+
+    """
     processors_parser = ArgumentParser(add_help=False)
     processors_parser.add_argument('--address', '-a', default="127.0.0.1", metavar="HOST",
                                    help='the address to serve the service on')

@@ -11,27 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Serializer for JSON."""
-from pathlib import Path
+from typing import List
 
-from nlpnewt.events import Event
-from nlpnewt.serialization.serializers import Serializer, serializer
-from nlpnewt.serialization.shared import event_to_dict
+from nlpnewt.events import Document, LabelIndexInfo, LabelIndexType
 
 
-@serializer('json')
-class JsonSerializer(Serializer):
+class MockEvent(dict):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.event_id = '1'
+        self.metadata = {}
+
+
+class MockDocument(Document):
     def __init__(self):
-        import json
-        self.json = json
+        self.document_name = 'plaintext'
+        self.text = 'some text'
+        self.label_indices = {}
 
-    @property
-    def extension(self) -> str:
-        return '.json'
+    def get_label_indices_info(self) -> List[LabelIndexInfo]:
+        return [LabelIndexInfo(k, LabelIndexType.JSON) for k in self.label_indices.keys()]
 
-    def event_to_file(self, event: Event, filepath: Path):
-        d = event_to_dict(event)
-        if isinstance(filepath, str):
-            filepath = Path(filepath)
-        with filepath.open('w') as f:
-            self.json.dump(d, f)

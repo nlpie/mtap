@@ -15,7 +15,7 @@
 import logging
 from typing import Dict
 
-from nlpnewt import GenericLabel
+from nlpnewt.labels import GenericLabel
 from nlpnewt.events import Event, Document, LabelIndexType
 from nlpnewt.label_indices import LabelIndex
 
@@ -54,7 +54,7 @@ def document_to_dict(document: Document) -> Dict:
     return d
 
 
-def label_index_to_dict(index_name: str, label_index: LabelIndex[GenericLabel]):
+def label_index_to_dict(index_name: str, label_index: LabelIndex[GenericLabel]) -> Dict:
     d = {
         'index_name': index_name,
         'json_labels': [label.fields for label in label_index]
