@@ -41,6 +41,9 @@ interface EventsClient extends AutoCloseable {
 
   @NotNull String getDocumentText(@NotNull String eventID, @NotNull String documentName);
 
+  @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfos(@NotNull String eventID,
+                                                              @NotNull String documentName);
+
   <L extends Label> void addLabels(@NotNull String eventID,
                                    @NotNull String documentName,
                                    @NotNull String indexName,

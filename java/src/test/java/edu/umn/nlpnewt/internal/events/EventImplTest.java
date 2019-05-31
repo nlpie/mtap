@@ -43,6 +43,7 @@ class EventImplTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void metadataRefetch() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
@@ -85,6 +86,7 @@ class EventImplTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void metadataContainsRefetch() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
@@ -94,6 +96,7 @@ class EventImplTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void metadataEntrySet() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
