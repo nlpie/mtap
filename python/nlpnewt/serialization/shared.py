@@ -15,14 +15,27 @@
 import logging
 from typing import Dict
 
-from nlpnewt.labels import GenericLabel
 from nlpnewt.events import Event, Document, LabelIndexType
 from nlpnewt.label_indices import LabelIndex
+from nlpnewt.labels import GenericLabel
 
 logger = logging.getLogger(__name__)
 
 
 def event_to_dict(event: Event) -> Dict:
+    """Turns the event into a python dictionary.
+
+    Parameters
+    ----------
+    event: Event
+        The event object.
+
+    Returns
+    -------
+    dict
+        A dictionary object suitable for serialization.
+
+    """
     d = {
         'event_id': event.event_id,
         'metadata': {},
@@ -36,27 +49,53 @@ def event_to_dict(event: Event) -> Dict:
 
 
 def document_to_dict(document: Document) -> Dict:
+    """Turns the document into a python dictionary.
+
+    Parameters
+    ----------
+    document: Document
+        The document object.
+
+    Returns
+    -------
+    dict
+        A dictionary object suitable for serialization.
+
+    """
     d = {
         'document_name': document.document_name,
         'text': document.text,
-        'label_indices': []
+        'label_indices': {}
     }
 
     for index_info in document.get_label_indices_info():
         if index_info.type == LabelIndexType.OTHER or index_info.type == LabelIndexType.UNKNOWN:
             logger.warning(
-                'Index %s of type %s will not be included in serialization.'
-                .format(index_info.index_name, index_info.type.name))
+                'Index %s of type %s will not be included in serialization.'.format(
+                    index_info.index_name, index_info.type.name
+                )
+            )
             continue
-        d['label_indices'].append(
-            label_index_to_dict(index_info.index_name,
-                                document.get_label_index(index_info.index_name)))
+        d['label_indices'][index_info.index_name] = label_index_to_dict(
+            document.get_label_index(index_info.index_name)
+        )
     return d
 
 
-def label_index_to_dict(index_name: str, label_index: LabelIndex[GenericLabel]) -> Dict:
+def label_index_to_dict(label_index: LabelIndex[GenericLabel]) -> Dict:
+    """Turns the label index into a dictionary representation.
+
+    Parameters
+    ----------
+    label_index: LabelIndex[GenericLabel]
+        The label index itself.
+
+    Returns
+    -------
+    dict
+        A dictionary representing the label index.
+    """
     d = {
-        'index_name': index_name,
         'json_labels': [label.fields for label in label_index]
     }
     return d

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Serialization of events as a pipeline component."""
 from argparse import ArgumentParser
 from pathlib import Path
 from typing import Dict, Any
@@ -23,6 +24,9 @@ from nlpnewt.serialization.serializers import Serializer, get_serializer
 
 @processor('nlpnewt-serializer')
 class SerializationProcessor(EventProcessor):
+    """NLP-Newt processor that serializes events to a specific directory.
+
+    """
     def __init__(self, serializer: Serializer, output_dir: str):
         self.serializer = serializer
         self.output_dir = output_dir

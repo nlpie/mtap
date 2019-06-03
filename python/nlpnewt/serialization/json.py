@@ -21,6 +21,8 @@ from nlpnewt.serialization.shared import event_to_dict
 
 @serializer('json')
 class JsonSerializer(Serializer):
+    """Serializer implementation that performs serialization to JSON.
+    """
     def __init__(self):
         import json
         self.json = json
@@ -29,9 +31,12 @@ class JsonSerializer(Serializer):
     def extension(self) -> str:
         return '.json'
 
-    def event_to_file(self, event: Event, filepath: Path):
+    def event_to_file(self, event: Event, f: Path):
         d = event_to_dict(event)
-        if isinstance(filepath, str):
-            filepath = Path(filepath)
-        with filepath.open('w') as f:
+        try:
             self.json.dump(d, f)
+        except AttributeError:
+            if isinstance(f, str):
+                f = Path(f)
+            with f.open('w') as f:
+                self.json.dump(d, f)
