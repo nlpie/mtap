@@ -127,9 +127,9 @@ setup(
     package_dir={'': 'python'},
     packages=find_packages(where='python', exclude=['tests']),
     install_requires=[
-        'grpcio~=1.20.0',
-        'grpcio-health-checking~=1.20.0',
-        'protobuf~=3.7.0',
+        'grpcio>=1.20.0',
+        'grpcio-health-checking>=1.20.0',
+        'protobuf>=3.7.0',
         'pyyaml',
         'python-consul',
         'googleapis-common-protos',
