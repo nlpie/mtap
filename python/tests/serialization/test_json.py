@@ -18,7 +18,7 @@ from typing import List
 import nlpnewt
 from nlpnewt.events import LabelIndexInfo, LabelIndexType
 from nlpnewt.label_indices import LabelIndex
-from nlpnewt.serialization.serializers import get_serializer
+from nlpnewt.io.serialization import get_serializer
 
 
 class Event(dict):

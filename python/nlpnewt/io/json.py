@@ -12,17 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Serializer for JSON."""
+import io
 from pathlib import Path
+from typing import Union
 
+from nlpnewt import Events
 from nlpnewt.events import Event
-from nlpnewt.serialization.serializers import Serializer, serializer
-from nlpnewt.serialization.shared import event_to_dict
+from nlpnewt.io.serialization import Serializer, serializer, event_to_dict
 
 
 @serializer('json')
 class JsonSerializer(Serializer):
     """Serializer implementation that performs serialization to JSON.
     """
+
     def __init__(self):
         import json
         self.json = json
@@ -40,3 +43,6 @@ class JsonSerializer(Serializer):
                 f = Path(f)
             with f.open('w') as f:
                 self.json.dump(d, f)
+
+    def file_to_event(self, f: Union[Path, str, io.IOBase], events: Events) -> Event:
+
