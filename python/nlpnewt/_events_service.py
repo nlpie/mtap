@@ -116,7 +116,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         self.lock = threading.RLock()
         self.events = {}
 
-    def _get_event(self, request, context):
+    def _get_event(self, request, context=None):
         event_id = request.event_id
         try:
             event = self.events[event_id]
@@ -126,7 +126,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             raise e
         return event, event_id
 
-    def _get_document(self, request, context):
+    def _get_document(self, request, context=None):
         event, event_id = self._get_event(request, context)
         document_name = request.document_name
         try:
@@ -138,7 +138,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             raise e
         return document
 
-    def OpenEvent(self, request, context):
+    def OpenEvent(self, request, context=None):
         event_id = request.event_id
         if event_id == '':
             msg = "event_id was not set."
@@ -163,7 +163,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         event.clients += 1
         return events_pb2.OpenEventResponse(created=created_event)
 
-    def CloseEvent(self, request, context):
+    def CloseEvent(self, request, context=None):
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -176,11 +176,11 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 deleted = True
         return events_pb2.CloseEventResponse(deleted=deleted)
 
-    def GetAllMetadata(self, request, context):
+    def GetAllMetadata(self, request, context=None):
         event, _ = self._get_event(request, context)
         return events_pb2.GetAllMetadataResponse(metadata=event.metadata)
 
-    def AddMetadata(self, request, context):
+    def AddMetadata(self, request, context=None):
         try:
             event, _ = self._get_event(request, context)
         except KeyError:
@@ -193,7 +193,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         event.metadata[key] = request.value
         return events_pb2.AddMetadataResponse()
 
-    def AddDocument(self, request, context):
+    def AddDocument(self, request, context=None):
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -213,7 +213,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
 
         return events_pb2.AddDocumentResponse()
 
-    def GetAllDocumentNames(self, request, context):
+    def GetAllDocumentNames(self, request, context=None):
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -221,14 +221,14 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         names = list(event.documents.keys())
         return events_pb2.GetAllDocumentNamesResponse(document_names=names)
 
-    def GetDocumentText(self, request, context):
+    def GetDocumentText(self, request, context=None):
         try:
             document = self._get_document(request, context)
         except KeyError:
             return
         return events_pb2.GetDocumentTextResponse(text=document.text)
 
-    def GetLabelIndicesInfo(self, request, context):
+    def GetLabelIndicesInfo(self, request, context=None):
         try:
             document = self._get_document(request, context)
         except KeyError:
@@ -244,7 +244,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 info.type = 'OTHER'
         return response
 
-    def AddLabels(self, request, context):
+    def AddLabels(self, request, context=None):
         try:
             document = self._get_document(request, context)
         except KeyError:
@@ -262,7 +262,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()
 
-    def GetLabels(self, request, context):
+    def GetLabels(self, request, context=None):
         try:
             document = self._get_document(request, context)
         except KeyError:

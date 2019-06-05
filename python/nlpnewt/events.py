@@ -699,8 +699,7 @@ class _EventsClient:
         request = events_pb2.AddDocumentRequest(event_id=event_id,
                                                 document_name=document_name,
                                                 text=text)
-        response, call = self.stub.AddDocument.with_call(request)
-        print(response)
+        self.stub.AddDocument(request)
 
     def get_document_text(self, event_id, document_name):
         request = events_pb2.GetDocumentTextRequest(event_id=event_id,
