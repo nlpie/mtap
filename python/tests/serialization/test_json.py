@@ -141,13 +141,13 @@ def test_deserialization():
     ]
     assert d.get_label_index("two") == [
         GenericLabel(start_index=0, end_index=10, x=1),
-        GenericLabel(start_index=4, end_index=25, x=2),
         GenericLabel(start_index=3, end_index=9, x=3),
+        GenericLabel(start_index=4, end_index=25, x=2),
         GenericLabel(start_index=5, end_index=25, x=4),
     ]
     assert d.get_label_index("three") == [
         GenericLabel(start_index=0, end_index=10, x=True),
-        GenericLabel(start_index=4, end_index=25, x=False),
         GenericLabel(start_index=3, end_index=9, x=True),
+        GenericLabel(start_index=4, end_index=25, x=False),
         GenericLabel(start_index=5, end_index=25, x=False),
     ]
