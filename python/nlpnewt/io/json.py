@@ -38,8 +38,8 @@ class JsonSerializer(Serializer):
         try:
             self.json.dump(d, f)
         except AttributeError:
-            if isinstance(f, str):
-                f = Path(f)
+            f = Path(f)
+            f.parent.mkdir(parents=True, exist_ok=True)
             with f.open('w') as f:
                 self.json.dump(d, f)
 
