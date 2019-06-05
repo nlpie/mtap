@@ -12,3 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """NLP-NEWT input/output and serialization"""
+
+from nlpnewt.io import json
+from nlpnewt.io import serialization

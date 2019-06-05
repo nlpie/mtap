@@ -18,11 +18,12 @@ from argparse import ArgumentParser
 from pathlib import Path
 from typing import Callable, Union, Dict, Any
 
-from nlpnewt import processor, processor_parser, run_processor, GenericLabel
 from nlpnewt.events import Event, Document, LabelIndexType, Events
 from nlpnewt.label_indices import LabelIndex
-from nlpnewt.processing import EventProcessor
+from nlpnewt.labels import GenericLabel
+from nlpnewt.processing import EventProcessor, processor, processor_parser, run_processor
 
+_serializer_fs = {}
 _serializers = {}
 logger = logging.getLogger(__name__)
 
@@ -113,10 +114,13 @@ def dict_to_event(events: Events, d: Dict) -> Event:
     ----------
     events: Events
         An events service to create the event on.
-    d:
+    d: dict
+        The dictionary representation of the event.
 
     Returns
     -------
+    Event
+        The deserialized event object.
 
     """
     event = events.create_event(event_id=d['event_id'])
@@ -128,6 +132,23 @@ def dict_to_event(events: Events, d: Dict) -> Event:
 
 
 def dict_to_document(event: Event, document_name: str, d: Dict) -> Document:
+    """Turns a serialized dictionary into a Document.
+
+    Parameters
+    ----------
+    event: Event
+        The parent event of the document.
+    document_name: str
+        The name identifier of the document on the event.
+    d: dict
+        The dictionary representation of the document.
+
+    Returns
+    -------
+    Document
+        The deserialized Document object.
+
+    """
     document = event.add_document(document_name=document_name, text=d['text'])
     for k, v in d['label_indices'].items():
         dict_to_label_index(document, index_name=k, d=v)
@@ -135,6 +156,18 @@ def dict_to_document(event: Event, document_name: str, d: Dict) -> Document:
 
 
 def dict_to_label_index(document: Document, index_name: str, d: Dict):
+    """Deserializes a label index from its dictionary form.
+
+    Parameters
+    ----------
+    document: Document
+        The document object to place the label index on.
+    index_name: str
+        The index name on the document.
+    d: dict
+        The dictionary representation of the label index.
+
+    """
     with document.get_labeler(label_index_name=index_name, distinct=d['distinct']) as labeler:
         for l in d['json_labels']:
             labeler(**l)
@@ -206,13 +239,13 @@ def serializer(name: str) -> Callable[[Callable[[], Serializer]], Callable[[], S
     """
 
     def decorator(func: Callable[[], Serializer]) -> Callable[[], Serializer]:
-        _serializers[name] = func
+        _serializer_fs[name] = func
         return func
 
     return decorator
 
 
-def get_serializer(name: str) -> Callable[[], Serializer]:
+def get_serializer(name: str) -> Serializer:
     """Gets a callable which creates a serializer for the specific name.
 
     Parameters
@@ -226,7 +259,13 @@ def get_serializer(name: str) -> Callable[[], Serializer]:
         Function that can be used to create a :obj:`Serializer`.
 
     """
-    return _serializers[name]
+    try:
+        return _serializers[name]
+    except KeyError:
+        # Maybe lock here depending on how heavy serializer instantiation is?
+        s = _serializer_fs[name]()
+        _serializers[name] = s
+        return s
 
 
 @processor('nlpnewt-serializer')
@@ -234,6 +273,7 @@ class SerializationProcessor(EventProcessor):
     """NLP-Newt processor that serializes events to a specific directory.
 
     """
+
     def __init__(self, serializer: Serializer, output_dir: str):
         self.serializer = serializer
         self.output_dir = output_dir
@@ -250,8 +290,8 @@ def main(args=None):
     parser.add_argument('--output-dir', '-o', default=".",
                         help="Directory to write serialized files to.")
     ns = parser.parse_args(args)
-    cls = get_serializer(ns.serializer)
-    proc = SerializationProcessor(cls(), ns.output_dir)
+    serializer = get_serializer(ns.serializer)
+    proc = SerializationProcessor(serializer, ns.output_dir)
     run_processor(proc, ns)
 
 

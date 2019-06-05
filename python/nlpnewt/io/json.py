@@ -16,9 +16,8 @@ import io
 from pathlib import Path
 from typing import Union
 
-from nlpnewt import Events
-from nlpnewt.events import Event
-from nlpnewt.io.serialization import Serializer, serializer, event_to_dict
+from nlpnewt.events import Event, Events
+from nlpnewt.io.serialization import Serializer, serializer, event_to_dict, dict_to_event
 
 
 @serializer('json')
@@ -45,4 +44,11 @@ class JsonSerializer(Serializer):
                 self.json.dump(d, f)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase], events: Events) -> Event:
-
+        try:
+            d = self.json.load(f)
+        except AttributeError:
+            if isinstance(f, str):
+                f = Path(f)
+            with f.open('r') as f:
+                d = self.json.load(f)
+        return dict_to_event(events, d)
