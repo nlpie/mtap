@@ -13,5 +13,6 @@
 # limitations under the License.
 """NLP-NEWT input/output and serialization"""
 
+from nlpnewt.io import brat
 from nlpnewt.io import json
 from nlpnewt.io import serialization

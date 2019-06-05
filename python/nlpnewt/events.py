@@ -20,7 +20,7 @@ import uuid
 from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable, \
-    NamedTuple
+    NamedTuple, ContextManager, Iterable
 
 import grpc
 
@@ -441,7 +441,6 @@ class Document:
         self._label_indices[label_index_name] = label_index
         return label_index
 
-    @contextlib.contextmanager
     def get_labeler(self,
                     label_index_name: str,
                     *,
@@ -464,9 +463,9 @@ class Document:
 
         Returns
         -------
-        typing.ContextManager
-            A contextmanager for the labeler, which when used in conjunction with the 'with'
-            keyword will automatically handle uploading any added labels to the server
+        Labeler
+            A callable when used in conjunction with the 'with' keyword will automatically handle
+            uploading any added labels to the server.
 
         Examples
         --------
@@ -488,17 +487,23 @@ class Document:
 
         labeler = Labeler(self._client, self, label_index_name, label_type_id)
         self._labelers.append(label_index_name)
-        yield labeler
+        return labeler
         # this isn't in a try-finally block because it is not cleanup, we do not want
         # the labeler to send labels after a processing failure.
-        labeler.done()
-        self._created_indices.append(label_index_name)
 
-    def add_created_indices(self, created_indices):
+    def add_created_indices(self, created_indices: Iterable[str]):
+        """Used by labelers or by pipelines when indices are added to the document.
+
+        Parameters
+        ----------
+        created_indices: Iterable of str
+            The label index names.
+
+        """
         return self._created_indices.extend(created_indices)
 
 
-class Labeler(Generic[L]):
+class Labeler(Generic[L], ContextManager['Labeler']):
     """Object provided by :func:`~Document.get_labeler` which is responsible for adding labels to a
     label index on a document.
 
@@ -514,6 +519,7 @@ class Labeler(Generic[L]):
         self._label_adapter = _label_adapters[label_type_id]
         self.is_done = False
         self._current_labels = []
+        self._lock = threading.Lock()
 
     def __call__(self, *args, **kwargs) -> L:
         """Calls the constructor for the label type adding it to the list of labels to be uploaded.
@@ -540,16 +546,26 @@ class Labeler(Generic[L]):
         self._current_labels.append(label)
         return label
 
+    def __enter__(self) -> 'Labeler':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            return False
+        self.done()
+
     def done(self):
         self._document.event.ensure_open()
-        if self.is_done:
-            return
+        with self._lock:
+            if self.is_done:
+                return
+            self.is_done = True
         self._client.add_labels(event_id=self._document.event.event_id,
                                 document_name=self._document.document_name,
                                 index_name=self._label_index_name,
                                 labels=self._current_labels,
                                 adapter=self._label_adapter)
-        self.is_done = True
+        self._document.add_created_indices([self._label_index_name])
 
 
 class ProtoLabelAdapter(ABC, Generic[L]):
