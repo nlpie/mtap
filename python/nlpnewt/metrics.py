@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 from nlpnewt.events import Document
 from nlpnewt.label_indices import LabelIndex
@@ -20,10 +20,7 @@ from nlpnewt.processing import DocumentProcessor, processor
 
 
 class Metric(ABC):
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        ...
+    name = None
 
     @abstractmethod
     def update(self, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
@@ -47,13 +44,10 @@ class Metrics(DocumentProcessor):
 
 
 class Accuracy(Metric):
-    def __init__(self):
+    def __init__(self, name: str):
         self.correct = 0
         self.total = 0
-
-    @property
-    def name(self) -> str:
-        return 'accuracy'
+        self.name = name
 
     def update(self, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
         correct = 0
@@ -66,5 +60,5 @@ class Accuracy(Metric):
         self.total += total
         return correct / total
 
-    def value(self):
+    def value(self) -> float:
         return self.correct / self.total
