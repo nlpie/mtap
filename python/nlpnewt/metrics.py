@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 
 from nlpnewt.events import Document
 from nlpnewt.label_indices import LabelIndex
@@ -44,17 +44,20 @@ class Metrics(DocumentProcessor):
 
 
 class Accuracy(Metric):
-    def __init__(self, name: str):
+    def __init__(self, name: str, mode: str = 'equals'):
         self.correct = 0
         self.total = 0
         self.name = name
+        self.mode = mode
 
     def update(self, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
         correct = 0
         total = 0
         for target_label in target_index:
             total += 1
-            if target_label in tested_index:
+            if self.mode == 'equals' and target_label in tested_index:
+                correct += 1
+            if self.mode == 'location' and len(tested_index.at(target_label)) > 0:
                 correct += 1
         self.correct += correct
         self.total += total
@@ -62,3 +65,4 @@ class Accuracy(Metric):
 
     def value(self) -> float:
         return self.correct / self.total
+
