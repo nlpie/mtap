@@ -44,11 +44,15 @@ class Metrics(DocumentProcessor):
 
 
 class Accuracy(Metric):
-    def __init__(self, name: str, mode: str = 'equals'):
+    def __init__(self, name: str = 'accuracy', mode: str = 'equals'):
         self.correct = 0
         self.total = 0
         self.name = name
         self.mode = mode
+
+    @property
+    def value(self) -> float:
+        return self.correct / self.total
 
     def update(self, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
         correct = 0
@@ -62,7 +66,4 @@ class Accuracy(Metric):
         self.correct += correct
         self.total += total
         return correct / total
-
-    def value(self) -> float:
-        return self.correct / self.total
 

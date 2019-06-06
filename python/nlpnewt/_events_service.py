@@ -14,8 +14,11 @@
 """Internal events service client"""
 
 import logging
+import os
 import threading
 from concurrent.futures.thread import ThreadPoolExecutor
+from contextlib import contextmanager, closing
+from pathlib import Path
 
 import grpc
 from grpc_health.v1 import health
