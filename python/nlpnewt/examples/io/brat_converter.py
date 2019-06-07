@@ -42,7 +42,8 @@ class BratConverter(Namespace):
         with Events(self.events_address) as events:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             for event in read_brat_documents(self.input_dir, events, self.document_name,
-                                             self.label_index_name_prefix, self.input_encoding):
+                                             self.label_index_name_prefix, self.input_encoding,
+                                             self.create_indices):
                 output_path = self.output_dir.joinpath(event.event_id + self.serializer.extension)
                 self.serializer.event_to_file(event, output_path)
 
@@ -53,6 +54,8 @@ def main(args=None):
                         help="The input directory of BRAT .ann and .txt files")
     parser.add_argument('output_dir', type=Path,
                         help="The output directory of serialized files.")
+    parser.add_argument('create_indices', nargs='*', default=[],
+                        help='Indices to create, even if empty.')
     parser.add_argument('--serializer', type=get_serializer, default='json')
     parser.add_argument('--events-address', default=None,
                         help='Address of the events service to use.')

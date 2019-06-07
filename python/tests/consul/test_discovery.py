@@ -23,30 +23,15 @@ import requests
 from requests import RequestException
 
 import nlpnewt
+from nlpnewt.utils import subprocess_events_server
 
 
 @pytest.fixture(name='disc_python_events')
 def fixture_disc_python_events():
-    cwd = Path(__file__).parents[2]
-    env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'events', '-p', '50500', '--register'],
-                         start_new_session=True, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         cwd=cwd, env=env)
-    try:
-        with grpc.insecure_channel("127.0.0.1:50500") as channel:
-            future = grpc.channel_ready_future(channel)
-            future.result(timeout=10)
-        yield
-    finally:
-        p.send_signal(signal.SIGINT)
-        try:
-            stdout, _ = p.communicate(timeout=1)
-            print("python events exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except subprocess.TimeoutExpired:
-            print("timed out waiting for python events to terminate")
+    config_path = Path(__file__).parent / 'integrationConfig.yaml'
+    with subprocess_events_server(port=50500, cwd=Path(__file__).parents[2],
+                                  config_path=config_path, register=True) as address:
+        yield address
 
 
 @pytest.fixture(name='disc_python_processor')

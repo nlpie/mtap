@@ -22,7 +22,8 @@ def read_brat_documents(directory: Union[Path, str],
                         events: Events,
                         document_name: str = 'plaintext',
                         label_index_name_prefix: str = '',
-                        encoding: Optional[str] = None) -> Iterable[Event]:
+                        encoding: Optional[str] = None,
+                        create_indices: Optional[Iterable[str]] = None) -> Iterable[Event]:
     """Reads a directory full of BRAT-annotated ".txt" and ".ann" files, creating events for each
     .txt containing labels created from the annotations in its ".ann" counterpart.
 
@@ -38,7 +39,8 @@ def read_brat_documents(directory: Union[Path, str],
         A prefix to append to the brat annotation names.
     encoding: optional str
         The encoding to use when reading the files.
-
+    create_indices: optional iterable of str
+        These indices will be created no matter what, even if empty.
 
     Returns
     -------
@@ -54,9 +56,10 @@ def read_brat_documents(directory: Union[Path, str],
     """
     directory = Path(directory)
     for txt_file in directory.glob('**/*.txt'):
-        yield read_brat_document(txt_file, events=events, document_name=document_name,
-                                 label_index_name_prefix=label_index_name_prefix, encoding=encoding,
-                                 relative_to=directory)
+        with read_brat_document(txt_file, events=events, document_name=document_name,
+                                label_index_name_prefix=label_index_name_prefix, encoding=encoding,
+                                relative_to=directory, create_indices=create_indices) as event:
+            yield event
 
 
 def read_brat_document(txt_file: Union[Path, str],
@@ -64,7 +67,8 @@ def read_brat_document(txt_file: Union[Path, str],
                        document_name: str = 'plaintext',
                        label_index_name_prefix: str = '',
                        encoding: Optional[str] = None,
-                       relative_to: Optional[Union[Path, str]] = None) -> Event:
+                       relative_to: Optional[Union[Path, str]] = None,
+                       create_indices: Optional[Iterable[str]] = None) -> Event:
     """Reads a BRAT .txt and .ann file pair into an Event.
 
     Parameters
@@ -81,6 +85,8 @@ def read_brat_document(txt_file: Union[Path, str],
     relative_to: optional str or Path
         A str of a path or a Path object for which the event_id will be relative to, if this is
         omitted then the file's name without extension will be used.
+    create_indices: optional iterable of str
+        These indices will be created no matter what, even if empty.
 
     Returns
     -------
@@ -100,14 +106,15 @@ def read_brat_document(txt_file: Union[Path, str],
         txt = f.read()
     document = event.add_document(document_name=document_name, text=txt)
     ann_to_labels(ann_file, document, label_index_name_prefix=label_index_name_prefix,
-                  encoding=encoding)
+                  encoding=encoding, create_indices=create_indices)
     return event
 
 
 def ann_to_labels(ann_file: Union[str, Path],
                   document: Document,
                   label_index_name_prefix: str,
-                  encoding: Optional[str]):
+                  encoding: Optional[str],
+                  create_indices: Optional[Iterable[str]] = None):
     """Reads all of the annotations in a brat annotations file into a document.
 
     Parameters
@@ -120,8 +127,13 @@ def ann_to_labels(ann_file: Union[str, Path],
         A prefix to append to the brat annotation names.
     encoding: optional str
         The encoding to use when reading the ann file.
+    create_indices: optional iterable of str
+        These indices will be created no matter what, even if empty.
     """
     labelers = {}
+    if create_indices is not None:
+        for index in create_indices:
+            labelers[index] = document.get_labeler(index)
     ann_file = Path(ann_file)
     with ann_file.open('r', encoding=encoding) as f:
         for line in f.readlines():

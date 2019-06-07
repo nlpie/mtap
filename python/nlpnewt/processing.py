@@ -15,18 +15,18 @@
 
 import contextlib
 import logging
-import math
-import traceback
-from abc import ABCMeta, abstractmethod
-from concurrent.futures.thread import ThreadPoolExecutor
-
-import grpc
 import signal
 import threading
+import traceback
+from abc import ABCMeta, abstractmethod
 from argparse import ArgumentParser, Namespace
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from grpc_health.v1 import health, health_pb2_grpc
 from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional, Type
+
+import grpc
+import math
+from grpc_health.v1 import health, health_pb2_grpc
 
 from nlpnewt import _structs, _discovery
 from nlpnewt._config import Config
@@ -40,7 +40,6 @@ processor_local = threading.local()  # processor context thread local
 __all__ = [
     'run_processor',
     'processor_parser',
-    'ProcessorContext',
     'processor',
     'EventProcessor',
     'DocumentProcessor',
@@ -52,14 +51,14 @@ __all__ = [
 ]
 
 
-def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'],
+def run_processor(proc: 'EventProcessor',
                   namespace: Namespace = None,
                   args: List[str] = None):
     """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
 
     Parameters
     ----------
-    processor: EventProcessor or DocumentProcessor
+    proc: EventProcessor
         The processor to host.
     namespace: optional, Namespace
         The parsed arguments from the parser returned by :func:`processor_parser`.
@@ -71,13 +70,11 @@ def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'],
         processors_parser = ArgumentParser(parents=[processor_parser()])
         processors_parser.add_help = True
         namespace = processors_parser.parse_args(args)
-    if isinstance(processor, DocumentProcessor):
-        processor = _DocumentProcessorAdapter(document_processor=processor)
 
     with Config() as c:
         if namespace.newt_config is not None:
             c.update_from_yaml(namespace.newt_config)
-        server = ProcessorServer(processor=processor,
+        server = ProcessorServer(proc=proc,
                                  address=namespace.address,
                                  port=namespace.port,
                                  register=namespace.register,
@@ -87,7 +84,7 @@ def run_processor(processor: Union['EventProcessor', 'DocumentProcessor'],
         server.start()
         e = threading.Event()
 
-        def handler(sig, frame):
+        def handler(_a, _b):
             print("Shutting down", flush=True)
             server.stop()
             e.set()
@@ -137,48 +134,6 @@ def processor_parser() -> ArgumentParser:
     return processors_parser
 
 
-class ProcessorContext:
-    """A processing context which gets passed to processors."""
-
-    def __init__(self, processor_id, health_servicer):
-        self._processor_id = processor_id
-        self._health_servicer = health_servicer
-
-    def update_serving_status(self, status: str):
-        """Updates the serving status of the processor for health checking.
-
-        Parameters
-        ----------
-        status: str
-            One of "SERVING", "NOT_SERVING", "UNKNOWN".
-
-        """
-        self._health_servicer.set(self._processor_id, status)
-
-    def stopwatch(self, key: str) -> ContextManager:
-        """An object that can be used to time aspects of processing.
-
-        Parameters
-        ----------
-        key: str
-            The key to store the time under
-
-        Returns
-        -------
-        ContextManager
-            A context manager object that is used to do the timing.
-
-        Examples
-        --------
-        >>> # In a process method
-        >>> with context.stopwatch('something'):
-        >>>     # do work
-        >>>
-
-        """
-        return processor_local.context.stopwatch(key)
-
-
 def processor(name: str):
     """Decorator which attaches a service name to a processor for launching with the nlpnewt command
     line
@@ -217,14 +172,21 @@ def processor(name: str):
 
     """
 
-    def decorator(f: Type[Union[EventProcessor, DocumentProcessor]]) -> Type:
-        f.metadata = {'name': name}
+    def decorator(f: Type[EventProcessor]) -> Type[EventProcessor]:
+        f.metadata['name'] = name
         return f
 
     return decorator
 
 
-class EventProcessor(metaclass=ABCMeta):
+class ProcessorMeta(ABCMeta):
+    def __new__(mcs, name, bases, namespace, **kwargs):
+        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
+        cls.metadata = {}
+        return cls
+
+
+class EventProcessor(metaclass=ProcessorMeta):
     """Abstract base class for an event processor.
 
     Implementation should either have the default constructor or one which takes a single argument
@@ -239,14 +201,15 @@ class EventProcessor(metaclass=ABCMeta):
 
 
     >>> class ExampleProcessor(EventProcessor):
-    >>>     def __init__(self, processor_context: ProcessorContext):
-    >>>         self.context = processor_context
-    >>>
     >>>     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     >>>          with self.context.stopwatch('key'):
     >>>               # use stopwatch
 
     """
+    def __new__(cls, *args, **kwargs):
+        instance = super().__new__(cls)
+        instance._health_callback = None
+        return instance
 
     @abstractmethod
     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -268,6 +231,42 @@ class EventProcessor(metaclass=ABCMeta):
         """
         ...
 
+    def update_serving_status(self, status: str):
+        """Updates the serving status of the processor for health checking.
+
+        Parameters
+        ----------
+        status: str
+            One of "SERVING", "NOT_SERVING", "UNKNOWN".
+
+        """
+        if self._health_callback is not None:
+            self._health_callback(status)
+
+    @staticmethod
+    def stopwatch(key: str) -> ContextManager:
+        """An object that can be used to time aspects of processing.
+
+        Parameters
+        ----------
+        key: str
+            The key to store the time under
+
+        Returns
+        -------
+        ContextManager
+            A context manager object that is used to do the timing.
+
+        Examples
+        --------
+        >>> # In a process method
+        >>> with context.stopwatch('something'):
+        >>>     # do work
+        >>>
+
+        """
+        return processor_local.context.stopwatch(key)
+
     def close(self):
         """Used for cleaning up anything that needs to be cleaned up.
 
@@ -275,7 +274,7 @@ class EventProcessor(metaclass=ABCMeta):
         pass
 
 
-class DocumentProcessor(metaclass=ABCMeta):
+class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
     """Abstract base class for a document processor.
 
     Examples
@@ -289,9 +288,6 @@ class DocumentProcessor(metaclass=ABCMeta):
 
 
     >>> class ExampleProcessor(DocumentProcessor):
-    >>>     def __init__(self, processor_context: ProcessorContext):
-    >>>         self.context = processor_context
-    >>>
     >>>     def process(self,
     >>>                 document: Document,
     >>>                 params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -301,7 +297,7 @@ class DocumentProcessor(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def process_document(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Implemented by the subclass, your processor.
 
         Parameters
@@ -320,11 +316,10 @@ class DocumentProcessor(metaclass=ABCMeta):
         """
         ...
 
-    def close(self):
-        """Used for cleaning up anything that needs to be cleaned up.
-
-        """
-        pass
+    def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Calls the subclass's implementation of :func:`process_document` """
+        document = event[params['document_name']]
+        return self.process_document(document, params)
 
 
 ProcessingResult = NamedTuple('ProcessingResult',
@@ -439,7 +434,8 @@ class Pipeline:
             self.__times_collector = _ProcessingTimesCollector()
             return self.__times_collector
 
-    def add_processor(self, name, address=None, *, identifier=None, params=None):
+    def add_processor(self, name: str, address: Optional[str] = None, *,
+                      identifier: Optional[str] = None, params: Optional[str] = None):
         """Adds a processor in serial to the pipeline.
 
         Parameters
@@ -465,13 +461,15 @@ class Pipeline:
                                params=params)
         self._components.append(runner)
 
-    def add_local_processor(self, processor, identifier, events, *, params=None):
+    def add_local_processor(self, proc: EventProcessor,
+                            identifier: str, events: Events, *,
+                            params: Optional[Dict[str, Any]] = None):
         """Adds a processor to the pipeline which will run locally (in the same process as the
         pipeline).
 
         Parameters
         ----------
-        processor: EventProcessor
+        proc: EventProcessor
             The processor instance to run with the pipeline.
         identifier: str
             An identifier for processor in the context of the pipeline.
@@ -482,13 +480,15 @@ class Pipeline:
             with every document.
         """
         identifier = _unique_component_id(self._component_ids, identifier)
-        runner = _ProcessorRunner(processor=processor,
+
+        runner = _ProcessorRunner(proc=proc,
                                   events=events,
                                   identifier=identifier,
                                   params=params)
         self._components.append(runner)
 
-    def run(self, target, *, params=None) -> List[ProcessingResult]:
+    def run(self, target: Union[Event, Document], *,
+            params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
         """Processes the event/document using all of the processors in the pipeline.
 
         Parameters
@@ -620,7 +620,7 @@ class ProcessorServer:
 
     Parameters
     ----------
-    processor: EventProcessor
+    proc: EventProcessor
         The name of the processor as registered with :func:`processor`.
     address: str
         The address / hostname / IP to host the server on.
@@ -637,14 +637,11 @@ class ProcessorServer:
         The number of workers that should handle requests.
     params: Dict[str, Any]
         A set of default parameters that will be passed to the processor every time it runs.
-    args: List[str]
-        Any additional command line arguments that should be passed to the processor on
-        instantiation.
 
     """
 
     def __init__(self,
-                 processor: EventProcessor,
+                 proc: EventProcessor,
                  address: str,
                  port: int,
                  *,
@@ -653,10 +650,10 @@ class ProcessorServer:
                  processor_id: str = None,
                  workers: int = None,
                  params: Dict[str, Any] = None):
-        self.processor = processor
+        self.pr = proc
         self.address = address
         self._port = port
-        self.processor_id = processor_id or processor.metadata['name']
+        self.processor_id = processor_id or proc.metadata['name']
         self.params = params or {}
         self.events_address = events_address
 
@@ -664,7 +661,7 @@ class ProcessorServer:
         self._health_servicer.set('', 'SERVING')
         self._servicer = _ProcessorServicer(
             config=Config(),
-            pr=processor,
+            pr=proc,
             address=address,
             health_servicer=self._health_servicer,
             register=register,
@@ -764,8 +761,9 @@ class _ProcessorThreadContext:
 
 
 class _ProcessorRunner:
-    def __init__(self, processor, events, identifier=None, params=None):
-        self.processor = processor
+    def __init__(self, proc: EventProcessor, events: Events, identifier: Optional[str] = None,
+                 params: Optional[Dict[str, Any]] = None):
+        self.processor = proc
         self.events = events
         self.component_id = identifier
         self.processed = 0
@@ -888,18 +886,19 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         self.config = config
         self.pr = pr
         self.address = address
+        self.pr._health_callback = self.update_serving_status
         self.processor_id = processor_id or pr.metadata['name']
         self.events_address = events_address
         self.register = register
         self.params = params
-
         self.health_servicer = health_servicer
-
-        self._context = ProcessorContext(self.processor_id, self.health_servicer)
-        self.pr.context = self._context
         self._runner = None
 
         self._times_collector = _ProcessingTimesCollector()
+        self._deregister = None
+
+    def update_serving_status(self, status):
+        self.health_servicer.set(self.processor_id, status)
 
     def start(self, port: int):
         # instantiate runner
@@ -921,10 +920,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
     def shutdown(self):
         self.health_servicer.set(self.processor_id, 'NOT_SERVING')
-        try:
+        if self._deregister is not None:
             self._deregister()
-        except AttributeError:
-            pass
         self._runner.close()
         self._times_collector.close()
 
@@ -965,7 +962,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         return r
 
     def GetInfo(self, request, context):
-        return processing_pb2.GetInfoResponse(name=self.pr.name,
+        return processing_pb2.GetInfoResponse(name=self.pr.metadata['name'],
                                               identifier=self.processor_id)
 
 
@@ -1029,27 +1026,3 @@ class _ProcessingTimesCollector:
 
     def close(self):
         self._executor.shutdown(wait=True)
-
-
-class _DocumentProcessorAdapter(EventProcessor):
-    def __init__(self, document_processor: 'DocumentProcessor'):
-        self.document_processor = document_processor
-        self._context = None
-        self.metadata = document_processor.metadata
-
-    @property
-    def context(self):
-        return self._context
-
-    @context.setter
-    def context(self, value):
-        self._context = value
-        self.document_processor.context = value
-
-    def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Calls the subclass's implementation of :func:`process_document` """
-        document = event[params['document_name']]
-        return self.document_processor.process(document, params)
-
-    def close(self):
-        self.document_processor.close()

@@ -23,5 +23,5 @@ def test_accuracy():
 
             acc = Accuracy()
             metrics = Metrics(acc, tested='tested', target='target')
-            metrics.process(doc, params={})
+            metrics.process_document(doc, params={})
             assert abs(acc.value - 0.8) < 1e-6

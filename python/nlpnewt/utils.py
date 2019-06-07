@@ -53,7 +53,7 @@ def subprocess_events_server(port: Optional[int] = None,
     env = dict(os.environ)
     if config_path is not None:
         env['NEWT_CONFIG'] = config_path
-    if port is not None:
+    if port is None:
         port = find_free_port()
     address = '127.0.0.1:' + str(port)
     cmd = ['python', '-m', 'nlpnewt', 'events', '-p', str(port)]
