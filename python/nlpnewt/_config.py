@@ -133,7 +133,7 @@ class Config(MutableMapping[str, Any]):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._context.config = None
         if exc_val is not None:
-            raise exc_val
+            return False
 
     def _load_default_config(self):
         self.update(_load_default_config())
