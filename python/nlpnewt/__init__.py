@@ -17,6 +17,7 @@ from nlpnewt import constants
 from nlpnewt import events
 from nlpnewt import label_indices
 from nlpnewt import labels
+from nlpnewt import metrics
 from nlpnewt import processing
 from nlpnewt import io
 from nlpnewt import version
@@ -40,6 +41,7 @@ __all__ = [
     'constants',
     'events',
     'labels',
+    'metrics',
     'label_indices',
     'processing',
     'io',

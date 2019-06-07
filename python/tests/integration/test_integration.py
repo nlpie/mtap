@@ -23,30 +23,15 @@ import requests
 from requests import RequestException
 
 import nlpnewt
+from nlpnewt.utils import subprocess_events_server
 
 
 @pytest.fixture(name='python_events')
 def fixture_python_events():
-    cwd = Path(__file__).parents[2]
-    env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', '-m', 'nlpnewt', 'events', '-p', '50500'],
-                         start_new_session=True, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         cwd=cwd, env=env)
-    try:
-        with grpc.insecure_channel("127.0.0.1:50500") as channel:
-            future = grpc.channel_ready_future(channel)
-            future.result(timeout=10)
-        yield
-    finally:
-        p.send_signal(signal.SIGINT)
-        try:
-            stdout, _ = p.communicate(timeout=1)
-            print("python events exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except subprocess.TimeoutExpired:
-            print("timed out waiting for python events to terminate")
+    config_path = Path(__file__).parent / 'integrationConfig.yaml'
+    with subprocess_events_server(port=50500, cwd=Path(__file__).parents[2],
+                                  config_path=config_path) as address:
+        yield address
 
 
 @pytest.fixture(name='python_processor')
@@ -56,7 +41,7 @@ def fixture_python_processor(python_events):
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = subprocess.Popen(['python', '-m', 'nlpnewt.examples.example_processor',
                           '-p', '50501',
-                          '--events', '127.0.0.1:50500'],
+                          '--events', python_events],
                          start_new_session=True, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
@@ -79,11 +64,12 @@ def fixture_python_processor(python_events):
 def fixture_java_processor(python_events):
     cwd = Path(__file__).parents[3] / 'java'
     env = dict(os.environ)
+
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = subprocess.Popen(['./gradlew', 'newt',
                           '--args',
-                          "processor -p 50502 -e 127.0.0.1:50500 "
-                          "edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor"],
+                          "processor -p 50502 -e " + python_events +
+                          " edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor"],
                          start_new_session=True, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)

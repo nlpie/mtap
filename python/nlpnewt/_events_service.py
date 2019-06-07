@@ -14,8 +14,11 @@
 """Internal events service client"""
 
 import logging
+import os
 import threading
 from concurrent.futures.thread import ThreadPoolExecutor
+from contextlib import contextmanager, closing
+from pathlib import Path
 
 import grpc
 from grpc_health.v1 import health
@@ -251,7 +254,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             return
         labels_field = request.WhichOneof('labels')
         if labels_field is None:
-            labels = (None, None)
+            labels = ('json_labels', events_pb2.JsonLabels())
         else:
             index_name = request.index_name
             if index_name == '':

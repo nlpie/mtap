@@ -286,6 +286,10 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
+    @abstractmethod
+    def overlapping(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+        ...
+
     def before(self, x: Union[Label, float]) -> 'LabelIndex[L]':
         """A label index containing all labels that are before a label's location in text or
         an index in text.
@@ -636,6 +640,10 @@ class _LabelIndex(LabelIndex[L]):
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(max_start=start, min_end=end)
 
+    def overlapping(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+        start, end = _start_and_end(x, end)
+        return self._bounded_or_empty(max_start=end - 1, min_end=start + 1)
+
     def inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(start, end - 1, start, end)
@@ -721,6 +729,9 @@ class _Empty(LabelIndex):
     def inside(self,
                x: Union[Label, float],
                end: Optional[float] = None) -> 'LabelIndex[L]':
+        return self
+
+    def overlapping(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
     def beginning_inside(self,

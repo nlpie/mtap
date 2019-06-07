@@ -25,9 +25,11 @@ class ExampleProcessor(DocumentProcessor):
     """Does some labeling of the counts of the letter 'a' and 'b' in a document, and all of the
     times the word 'the' occurs.
     """
-    def process(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def process_document(self,
+                         document: Document,
+                         params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if params['do_work']:
-            with self.context.stopwatch('fetch_time'):
+            with self.stopwatch('fetch_time'):
                 text = document.text
 
             a_count = text.count('a')
