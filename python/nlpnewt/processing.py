@@ -585,7 +585,7 @@ class Pipeline:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         if exc_val is not None:
-            raise exc_val
+            return False
 
     def close(self):
         """Closes any open connections to remote processors.
