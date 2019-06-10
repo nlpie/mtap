@@ -18,6 +18,9 @@ from nlpnewt.processing.base import DocumentProcessor
 from nlpnewt.processing.base import ProcessingResult
 from nlpnewt.processing.base import TimerStats
 from nlpnewt.processing.base import AggregateTimingInfo
+from nlpnewt.processing.pipeline import ProcessingComponent
+from nlpnewt.processing.pipeline import RemoteProcessor
+from nlpnewt.processing.pipeline import LocalProcessor
 from nlpnewt.processing.pipeline import Pipeline
 from nlpnewt.processing.service import run_processor
 from nlpnewt.processing.service import processor_parser
@@ -30,6 +33,9 @@ __all__ = [
     'ProcessingResult',
     'TimerStats',
     'AggregateTimingInfo',
+    'ProcessingComponent',
+    'RemoteProcessor',
+    'LocalProcessor',
     'Pipeline',
     'run_processor',
     'processor_parser',

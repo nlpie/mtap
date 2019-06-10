@@ -11,15 +11,94 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Union, List, NamedTuple
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Optional, Dict, Any, Union, List
 
 from nlpnewt._config import Config
 from nlpnewt.events import Event, Events, Document
-from nlpnewt.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector
+from nlpnewt.processing._context import processor_local
+from nlpnewt.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
+    ProcessingComponent
 from nlpnewt.processing._utils import unique_component_id
 from nlpnewt.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
-from nlpnewt.processing._context import processor_local
+
+
+class ComponentDescriptor(ABC):
+    @abstractmethod
+    def create_pipeline_component(self, config: Config,
+                                  component_ids: Dict[str, int]) -> ProcessingComponent:
+        pass
+
+
+class RemoteProcessor(ComponentDescriptor):
+    """A remote processor that the pipeline will connect to in order to perform processing.
+
+    Parameters
+    ----------
+    processor_id: str
+        The identifier that the processor was deployed as, used for health checking and discovery.
+    address: str, optional
+        Optionally an address to use, will use service discovery configuration to locate
+        processors if this is None / omitted.
+    component_id: str
+        How the processor's results will be identified locally.
+    params: dict, optional
+        An optional parameter dictionary that will be passed to the processor as parameters
+        with every document.
+
+
+    """
+
+    def __init__(self, processor_id: str, address: Optional[str] = None, *,
+                 component_id: Optional[str] = None, params: Optional[Dict[str, Any]] = None):
+        self.processor_id = processor_id
+        self.address = address
+        self.component_id = component_id
+        self.params = params
+
+    def create_pipeline_component(self, config: Config,
+                                  component_ids: Dict[str, int]) -> ProcessingComponent:
+        component_id = self.component_id or self.processor_id
+        component_id = unique_component_id(component_ids, component_id)
+        return RemoteRunner(config=config,
+                            processor_id=self.processor_id,
+                            address=self.address,
+                            component_id=component_id,
+                            params=self.params)
+
+
+class LocalProcessor(ComponentDescriptor):
+    """Runs a processor locally.
+
+    Parameters
+    ----------
+    proc: EventProcessor
+        The processor instance to run with the pipeline.
+    component_id: str
+        An identifier for processor in the context of the pipeline.
+    events: Events
+        The events object that will be used to open copies of the event.
+    params: dict, optional
+        An optional parameter dictionary that will be passed to the processor as parameters
+        with every document.
+    """
+
+    def __init__(self, proc: EventProcessor,
+                 component_id: str, events: Events, *,
+                 params: Optional[Dict[str, Any]] = None):
+        self.proc = proc
+        self.component_id = component_id
+        self.events = events
+        self.params = params
+
+    def create_pipeline_component(self, config: Config,
+                                  component_ids: Dict[str, int]) -> ProcessingComponent:
+        identifier = unique_component_id(component_ids, self.component_id)
+        return ProcessorRunner(proc=self.proc,
+                               events=self.events,
+                               identifier=identifier,
+                               params=self.params)
 
 
 class Pipeline:
@@ -29,10 +108,11 @@ class Pipeline:
     --------
     Remote pipeline with name discovery:
 
-    >>> with nlpnewt.Pipeline() as pipeline, nlpnewt.Events() as events:
-    >>>     pipeline.add_processor('processor-1-id')
-    >>>     pipeline.add_processor('processor-2-id')
-    >>>     pipeline.add_processor('processor-3-id')
+    >>> with nlpnewt.Events() as events, nlpnewt.Pipeline(
+    >>>         RemoteProcessor('processor-1-id'),
+    >>>         RemoteProcessor('processor-2-id'),
+    >>>         RemoteProcessor('processor-3-id')
+    >>>     ) as pipeline:
     >>>     for txt in txts:
     >>>         with events.open_event() as event:
     >>>             document = event.add_document('plaintext', txt)
@@ -40,10 +120,11 @@ class Pipeline:
 
     Remote pipeline using addresses:
 
-    >>> with nlpnewt.Pipeline() as pipeline, nlpnewt.Events('localhost:50051') as events:
-    >>>     pipeline.add_processor('processor-1-name', 'localhost:50052')
-    >>>     pipeline.add_processor('processor-2-name', 'localhost:50053')
-    >>>     pipeline.add_processor('processor-3-name', 'localhost:50054')
+    >>> with nlpnewt.Events(address='localhost:50051') as events, nlpnewt.Pipeline(
+    >>>         RemoteProcessor('processor-1-name', address='localhost:50052'),
+    >>>         RemoteProcessor('processor-2-id', address='localhost:50053'),
+    >>>         RemoteProcessor('processor-3-id', address='localhost:50054')
+    >>>     ) as pipeline:
     >>>     for txt in txts:
     >>>         event = events.open_event()
     >>>         document = event.add_document('plaintext', txt)
@@ -62,10 +143,11 @@ class Pipeline:
 
     """
 
-    def __init__(self):
-        self._config = Config()
-        self._component_ids = {}
-        self._components = []
+    def __init__(self, *components: ComponentDescriptor, config: Optional[Config] = None):
+        self._config = config or Config()
+        component_ids = {}
+        self._components = [desc.create_pipeline_component(self._config, component_ids)
+                            for desc in components]
 
     @property
     def _times_collector(self):
@@ -74,59 +156,6 @@ class Pipeline:
         except AttributeError:
             self.__times_collector = ProcessingTimesCollector()
             return self.__times_collector
-
-    def add_processor(self, name: str, address: Optional[str] = None, *,
-                      identifier: Optional[str] = None, params: Optional[Dict[str, Any]] = None):
-        """Adds a processor in serial to the pipeline.
-
-        Parameters
-        ----------
-        name: str
-            The processor as declared using the :func:`processor` decorator.
-        address: str, optional
-            Optionally an address to use, will use service discovery configuration to locate
-            processors if this is None / omitted.
-        identifier: str
-            How the processor's results will be identified locally.
-        params: dict, optional
-            An optional parameter dictionary that will be passed to the processor as parameters
-            with every document.
-
-        """
-        processor_id = identifier or name
-        component_id = unique_component_id(self._component_ids, processor_id)
-        runner = RemoteRunner(config=self._config,
-                              processor_id=processor_id,
-                              address=address,
-                              component_id=component_id,
-                              params=params)
-        self._components.append(runner)
-
-    def add_local_processor(self, proc: EventProcessor,
-                            identifier: str, events: Events, *,
-                            params: Optional[Dict[str, Any]] = None):
-        """Adds a processor to the pipeline which will run locally (in the same process as the
-        pipeline).
-
-        Parameters
-        ----------
-        proc: EventProcessor
-            The processor instance to run with the pipeline.
-        identifier: str
-            An identifier for processor in the context of the pipeline.
-        events: Events
-            The events object that will be used to open copies of the event.
-        params: dict, optional
-            An optional parameter dictionary that will be passed to the processor as parameters
-            with every document.
-        """
-        identifier = unique_component_id(self._component_ids, identifier)
-
-        runner = ProcessorRunner(proc=proc,
-                                 events=events,
-                                 identifier=identifier,
-                                 params=params)
-        self._components.append(runner)
 
     def run(self, target: Union[Event, Document], *,
             params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
@@ -257,7 +286,7 @@ class Pipeline:
 
 
 class _PipelineProcessor(EventProcessor):
-    def __init__(self, components: List[Union[ProcessorRunner, RemoteRunner]]):
+    def __init__(self, components: List[ProcessingComponent]):
         self._components = components
 
     def process(self,

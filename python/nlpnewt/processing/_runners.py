@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from abc import ABC, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 import grpc
 import math
@@ -26,7 +27,32 @@ from nlpnewt.processing._context import enter_context
 from nlpnewt.processing.base import EventProcessor, TimerStats
 
 
-class ProcessorRunner:
+class ProcessingComponent(ABC):
+    @abstractmethod
+    def call_process(self, event_id: str, params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
+        """Calls a processor.
+
+        Parameters
+        ----------
+        event_id: str
+            The event to process.
+        params: Dict
+            The processor parameters.
+
+        Returns
+        -------
+        tuple of dict, dict, dict
+            A tuple of the processing result dictionary, the processor times dictionary, and the
+            created indices dictionary.
+
+        """
+        pass
+
+    def close(self):
+        pass
+
+
+class ProcessorRunner(ProcessingComponent):
     def __init__(self, proc: EventProcessor, events: Events, identifier: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = proc
@@ -54,7 +80,7 @@ class ProcessorRunner:
         self.processor.close()
 
 
-class RemoteRunner:
+class RemoteRunner(ProcessingComponent):
     def __init__(self, config, processor_id, component_id, address=None, params=None):
         self._processor_id = processor_id
         self.component_id = component_id
