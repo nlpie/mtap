@@ -16,20 +16,11 @@
 import sys
 
 import nlpnewt
+from nlpnewt import RemoteProcessor
 
 TEXT_COLUMN = 1
 
 ID_COLUMN = 0
-
-
-@nlpnewt.processor('example-pipeline')
-def create_pipeline():
-    pipeline = nlpnewt.Pipeline()
-
-    pipeline.add_processor('nlpnewt-example-processor-python')
-    pipeline.add_processor('nlpnewt-example-processor-java')
-
-    return pipeline
 
 
 if __name__ == '__main__':
@@ -45,9 +36,10 @@ if __name__ == '__main__':
     print("Starting....")
     start_time = datetime.now()
 
-    with nlpnewt.Events() as events, nlpnewt.Pipeline() as pipeline:
-        pipeline.add_processor('nlpnewt-example-processor-python', params={'do_work': True})
-        pipeline.add_processor('nlpnewt-example-processor-java', params={'do_work': True})
+    with nlpnewt.Events() as events, nlpnewt.Pipeline(
+        RemoteProcessor('nlpnewt-example-processor-python', params={'do_work': True}),
+        RemoteProcessor('nlpnewt-example-processor-java', params={'do_work': True})
+    ) as pipeline:
         for i, row in enumerate(source_documents):
             source_id = str(row[ID_COLUMN])
             source_text = str(row[TEXT_COLUMN])

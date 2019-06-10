@@ -28,6 +28,8 @@ from nlpnewt.events import proto_label_adapter
 from nlpnewt.label_indices import label_index
 from nlpnewt.labels import GenericLabel
 from nlpnewt.labels import Location
+from nlpnewt.processing import RemoteProcessor
+from nlpnewt.processing import LocalProcessor
 from nlpnewt.processing import Pipeline
 from nlpnewt.processing import ProcessorServer
 from nlpnewt.processing import processor
@@ -52,6 +54,8 @@ __all__ = [
     'GenericLabel',
     'Location',
     'label_index',
+    'RemoteProcessor',
+    'LocalProcessor',
     'Pipeline',
     'processor',
     'processor_parser',
