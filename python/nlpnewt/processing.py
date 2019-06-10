@@ -26,7 +26,7 @@ from typing import List, Union, ContextManager, Any, Dict, NamedTuple, Optional,
 
 import grpc
 import math
-from grpc_health.v1 import health, health_pb2_grpc
+from grpc_health.v1 import health, health_pb2_grpc, health_pb2
 
 from nlpnewt import _structs, _discovery
 from nlpnewt._config import Config
@@ -802,6 +802,13 @@ class _RemoteRunner:
             discovery = _discovery.Discovery(config)
             address = discovery.discover_processor_service(processor_id, 'v1')
         self._channel = grpc.insecure_channel(address)
+
+        health = health_pb2_grpc.HealthStub(self._channel)
+        hcr = health.Check(health_pb2.HealthCheckRequest(service=processor_id))
+        if hcr.status != health_pb2.HealthCheckResponse.SERVING:
+            raise ValueError('Failed to find healthy processor "{}" at "{}"'.format(processor_id,
+                                                                                    address))
+
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
     def call_process(self, event_id, params):

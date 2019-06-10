@@ -23,12 +23,14 @@ from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeV
     NamedTuple, ContextManager, Iterable
 
 import grpc
+from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 from nlpnewt import _discovery
 from nlpnewt import _structs
 from nlpnewt import constants
 from nlpnewt._config import Config
 from nlpnewt.api.v1 import events_pb2_grpc, events_pb2
+from nlpnewt.constants import EVENTS_SERVICE_NAME
 from nlpnewt.label_indices import label_index, LabelIndex
 from nlpnewt.labels import GenericLabel, Label
 
@@ -675,6 +677,12 @@ class _EventsClient:
                 address = discovery.discover_events_service('v1')
 
             channel = grpc.insecure_channel(address)
+
+            health = health_pb2_grpc.HealthStub(channel)
+            hcr = health.Check(health_pb2.HealthCheckRequest(service=EVENTS_SERVICE_NAME))
+            if hcr.status != health_pb2.HealthCheckResponse.SERVING:
+                raise ValueError('Failed to connect to events service. Status:')
+
             self._channel = channel
             self.stub = events_pb2_grpc.EventsStub(channel)
         else:
