@@ -76,7 +76,7 @@ def document_to_dict(document: Document) -> Dict:
     for index_info in document.get_label_indices_info():
         if index_info.type == LabelIndexType.OTHER or index_info.type == LabelIndexType.UNKNOWN:
             logger.warning(
-                'Index %s of type %s will not be included in serialization.'.format(
+                'Index {} of type {} will not be included in serialization.'.format(
                     index_info.index_name, index_info.type.name
                 )
             )
