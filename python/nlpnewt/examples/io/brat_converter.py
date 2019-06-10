@@ -15,7 +15,7 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
-from nlpnewt import Events
+from nlpnewt.events import Events
 from nlpnewt.io.brat import read_brat_documents
 from nlpnewt.io.serialization import get_serializer
 

@@ -16,6 +16,7 @@
 import sys
 
 import nlpnewt
+import nlpnewt.pipeline
 
 TEXT_COLUMN = 1
 
@@ -24,7 +25,7 @@ ID_COLUMN = 0
 
 @nlpnewt.processor('example-pipeline')
 def create_pipeline():
-    pipeline = nlpnewt.Pipeline()
+    pipeline = nlpnewt.pipeline.Pipeline()
 
     pipeline.add_processor('nlpnewt-example-processor-python')
     pipeline.add_processor('nlpnewt-example-processor-java')
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     print("Starting....")
     start_time = datetime.now()
 
-    with nlpnewt.Events() as events, nlpnewt.Pipeline() as pipeline:
+    with nlpnewt.Events() as events, nlpnewt.pipeline.Pipeline() as pipeline:
         pipeline.add_processor('nlpnewt-example-processor-python', params={'do_work': True})
         pipeline.add_processor('nlpnewt-example-processor-java', params={'do_work': True})
         for i, row in enumerate(source_documents):
