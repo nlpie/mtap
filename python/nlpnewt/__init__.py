@@ -15,27 +15,29 @@
 
 from nlpnewt import constants
 from nlpnewt import events
+from nlpnewt import io
 from nlpnewt import label_indices
 from nlpnewt import labels
 from nlpnewt import metrics
 from nlpnewt import processing
-from nlpnewt import io
 from nlpnewt import version
 from nlpnewt._config import Config
 from nlpnewt._events_service import EventsServer
-from nlpnewt.events import EventsClient
-from nlpnewt.events import Event
 from nlpnewt.events import Document
+from nlpnewt.events import Event
+from nlpnewt.events import EventsClient
 from nlpnewt.events import proto_label_adapter
 from nlpnewt.label_indices import label_index
 from nlpnewt.labels import GenericLabel
 from nlpnewt.labels import Location
-from nlpnewt.processing import RemoteProcessor
 from nlpnewt.processing import LocalProcessor
 from nlpnewt.processing import Pipeline
 from nlpnewt.processing import ProcessorServer
+from nlpnewt.processing import RemoteProcessor
+from nlpnewt.processing import label_description
 from nlpnewt.processing import processor
 from nlpnewt.processing import processor_parser
+from nlpnewt.processing import property_description
 from nlpnewt.processing import run_processor
 
 __version__ = version.version
@@ -58,11 +60,13 @@ __all__ = [
     'GenericLabel',
     'Location',
     'label_index',
-    'RemoteProcessor',
     'LocalProcessor',
+    'RemoteProcessor',
+    'label_description',
     'Pipeline',
     'processor',
     'processor_parser',
+    'property_description',
     'ProcessorServer',
     'run_processor'
 ]
