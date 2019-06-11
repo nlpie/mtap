@@ -15,13 +15,12 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
-from nlpnewt.events import Events
 from nlpnewt.io.brat import read_brat_documents
 from nlpnewt.io.serialization import get_serializer
 
 
 class BratConverter(Namespace):
-    """
+    """Reads brat documents and writes them to a file using a serializer.
 
     Attributes
     ----------
@@ -39,13 +38,13 @@ class BratConverter(Namespace):
 
     """
     def convert_files(self):
-        with Events(self.events_address) as events:
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-            for event in read_brat_documents(self.input_dir, events, self.document_name,
-                                             self.label_index_name_prefix, self.input_encoding,
-                                             self.create_indices):
-                output_path = self.output_dir.joinpath(event.event_id + self.serializer.extension)
-                self.serializer.event_to_file(event, output_path)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        for event in read_brat_documents(self.input_dir, document_name=self.document_name,
+                                         label_index_name_prefix=self.label_index_name_prefix,
+                                         encoding=self.input_encoding,
+                                         create_indices=self.create_indices):
+            output_path = self.output_dir.joinpath(event.event_id + self.serializer.extension)
+            self.serializer.event_to_file(event, output_path)
 
 
 def main(args=None):

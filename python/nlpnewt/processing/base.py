@@ -21,6 +21,8 @@ from nlpnewt.events import Event, Document
 from nlpnewt.processing._context import processor_local
 
 __all__ = [
+    'property_description',
+    'label_description',
     'processor',
     'EventProcessor',
     'DocumentProcessor',
@@ -29,8 +31,84 @@ __all__ = [
     'AggregateTimingInfo'
 ]
 
+PropertyDescription = NamedTuple('PropertyDescription',
+                                 [('name', str),
+                                  ('description', Optional[str]),
+                                  ('type', Optional[str])])
 
-def processor(name: str):
+
+def property_description(name: str,
+                         description: Optional[str] = None,
+                         type: Optional[str] = None) -> PropertyDescription:
+    """Creates a description for a property on a label.
+
+    Parameters
+    ----------
+    name: str
+        The property's name.
+    description: optional str
+        A short description of the property.
+    type: optional str
+        The data type of the property.
+
+    Returns
+    -------
+    PropertyDescription
+        An object describing a label's property.
+
+    """
+    return PropertyDescription(name, description, type)
+
+
+LabelDescription = NamedTuple('LabelIndexDescription',
+                              [('name', str),
+                               ('description', Optional[str]),
+                               ('properties', List[PropertyDescription])])
+
+
+def label_description(name: str,
+                      description: Optional[str] = None,
+                      properties: Optional[List[PropertyDescription]] = None):
+    """Creates a description for a label type.
+
+    Parameters
+    ----------
+    name: str
+        The label index name.
+    description: optional str
+        A short description of the label index.
+    properties: optional list of PropertyDescription
+
+    Returns
+    -------
+    LabelDescription
+        An object describing a label.
+
+    """
+    if properties is None:
+        properties = []
+    return LabelDescription(name, description, properties)
+
+
+def _desc_to_dict(description: LabelDescription) -> dict:
+    return {
+        'name': description.name,
+        'description': description.description,
+        'properties': [
+            {
+                'name': p.name,
+                'description': p.description,
+                'type': p.type
+            } for p in description.properties
+        ]
+    }
+
+
+def processor(name: str,
+              description: Optional[str] = None,
+              inputs: Optional[List[LabelDescription]] = None,
+              outputs: Optional[List[LabelDescription]] = None,
+              additional_metadata: Optional[Dict[str, Any]] = None):
     """Decorator which attaches a service name to a processor for launching with the nlpnewt command
     line
 
@@ -45,6 +123,15 @@ def processor(name: str):
 
         This can be modified for service registration at runtime by overriding
         :func:'Processor.registration_processor_name'.
+    description: optional str
+        A short description of the processor and what it does.
+    inputs: optional list of LabelDescription
+        The label indices this processor uses as inputs.
+    outputs: optional list of LabelDescription
+        The label indices this processor outputs.
+    additional_metadata: dict
+        Any other data that should be added to the processor's metadata, should be serializable to
+        yaml and json.
 
     Returns
     -------
@@ -64,12 +151,19 @@ def processor(name: str):
     >>> class SentenceDetector(DocumentProcessor):
     >>>
 
-    These are all valid ways of registering processors.
-
     """
+    if inputs is None:
+        inputs = []
+    if outputs is None:
+        outputs = []
 
     def decorator(f: Type[EventProcessor]) -> Type[EventProcessor]:
         f.metadata['name'] = name
+        f.metadata['description'] = description
+        f.metadata['inputs'] = [_desc_to_dict(desc) for desc in inputs]
+        f.metadata['outputs'] = [_desc_to_dict(desc) for desc in outputs]
+        if additional_metadata is not None:
+            f.metadata.update(additional_metadata)
         return f
 
     return decorator
@@ -78,7 +172,11 @@ def processor(name: str):
 class ProcessorMeta(ABCMeta):
     def __new__(mcs, name, bases, namespace, **kwargs):
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        cls.metadata = {}
+        cls.metadata = {
+            'description': None,
+            'inputs': [],
+            'outputs': []
+        }
         return cls
 
 
@@ -102,6 +200,7 @@ class EventProcessor(metaclass=ProcessorMeta):
     >>>               # use stopwatch
 
     """
+
     def __new__(cls, *args, **kwargs):
         instance = super().__new__(cls)
         instance._health_callback = None
@@ -193,7 +292,8 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
     """
 
     @abstractmethod
-    def process_document(self, document: Document, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def process_document(self, document: Document, params: Dict[str, Any]) -> Optional[
+        Dict[str, Any]]:
         """Implemented by the subclass, your processor.
 
         Parameters

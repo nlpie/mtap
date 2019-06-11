@@ -17,14 +17,21 @@ from typing import Dict, Any, Optional
 
 import nlpnewt
 from nlpnewt.events import Document
-from nlpnewt.processing import DocumentProcessor, run_processor
+from nlpnewt.processing import DocumentProcessor, run_processor, label_description, \
+    property_description
 
 
-@nlpnewt.processor('nlpnewt-example-processor-python')
+@nlpnewt.processor('nlpnewt-example-processor-python',
+                   description='counts the number of times the letters a and b occur in a document',
+                   outputs=[
+                       label_description('nlpnewt.examples.letter_counts',
+                                         properties=[property_description('letter', type='str'),
+                                                     property_description('count', type='int')])
+                   ])
 class ExampleProcessor(DocumentProcessor):
-    """Does some labeling of the counts of the letter 'a' and 'b' in a document, and all of the
-    times the word 'the' occurs.
+    """Does some labeling of the counts of the letter 'a' and 'b' in a document.
     """
+
     def process_document(self,
                          document: Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
