@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, Union, List
 
 from nlpnewt._config import Config
-from nlpnewt.events import Event, Events, Document
+from nlpnewt.events import Event, Document, EventsClient
 from nlpnewt.processing._context import processor_local
 from nlpnewt.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
     ProcessingComponent
@@ -77,26 +77,26 @@ class LocalProcessor(ComponentDescriptor):
         The processor instance to run with the pipeline.
     component_id: str
         An identifier for processor in the context of the pipeline.
-    events: Events
-        The events object that will be used to open copies of the event.
+    client: EventsClient
+        The client to an events service to retrieve and store events information.
     params: dict, optional
         An optional parameter dictionary that will be passed to the processor as parameters
         with every document.
     """
 
     def __init__(self, proc: EventProcessor,
-                 component_id: str, events: Events, *,
+                 component_id: str, client: EventsClient, *,
                  params: Optional[Dict[str, Any]] = None):
         self.proc = proc
         self.component_id = component_id
-        self.events = events
+        self.client = client
         self.params = params
 
     def create_pipeline_component(self, config: Config,
                                   component_ids: Dict[str, int]) -> ProcessingComponent:
         identifier = unique_component_id(component_ids, self.component_id)
         return ProcessorRunner(proc=self.proc,
-                               events=self.events,
+                               client=self.client,
                                identifier=identifier,
                                params=self.params)
 

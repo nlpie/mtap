@@ -14,9 +14,9 @@
 """Serializer for JSON."""
 import io
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional
 
-from nlpnewt.events import Event, Events
+from nlpnewt.events import Event, EventsClient
 from nlpnewt.io.serialization import Serializer, serializer, event_to_dict, dict_to_event
 
 
@@ -43,7 +43,8 @@ class JsonSerializer(Serializer):
             with f.open('w') as f:
                 self.json.dump(d, f)
 
-    def file_to_event(self, f: Union[Path, str, io.IOBase], events: Events) -> Event:
+    def file_to_event(self, f: Union[Path, str, io.IOBase],
+                      client: Optional[EventsClient] = None) -> Event:
         try:
             d = self.json.load(f)
         except AttributeError:
@@ -51,4 +52,4 @@ class JsonSerializer(Serializer):
                 f = Path(f)
             with f.open('r') as f:
                 d = self.json.load(f)
-        return dict_to_event(events, d)
+        return dict_to_event(d, client=client)

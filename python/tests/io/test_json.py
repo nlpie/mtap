@@ -124,10 +124,9 @@ def test_json_serializer():
 
 
 def test_deserialization():
-    events = nlpnewt.Events(stub=EventsServicer())
     serializer = get_serializer('json')
     f = Path(__file__).parent / 'event.json'
-    event = serializer.file_to_event(f, events)
+    event = serializer.file_to_event(f)
     assert event.event_id == '12345'
     assert event.metadata['foo'] == 'bar'
     d = event['plaintext']

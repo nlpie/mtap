@@ -21,7 +21,7 @@ import math
 from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 from nlpnewt import _discovery, _structs
-from nlpnewt.events import Events
+from nlpnewt.events import EventsClient, Event
 from nlpnewt.api.v1 import processing_pb2_grpc, processing_pb2
 from nlpnewt.processing._context import enter_context
 from nlpnewt.processing.base import EventProcessor, TimerStats
@@ -29,7 +29,8 @@ from nlpnewt.processing.base import EventProcessor, TimerStats
 
 class ProcessingComponent(ABC):
     @abstractmethod
-    def call_process(self, event_id: str, params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
+    def call_process(self, event_id: str,
+                     params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
         """Calls a processor.
 
         Parameters
@@ -53,10 +54,10 @@ class ProcessingComponent(ABC):
 
 
 class ProcessorRunner(ProcessingComponent):
-    def __init__(self, proc: EventProcessor, events: Events, identifier: Optional[str] = None,
+    def __init__(self, proc: EventProcessor, client: EventsClient, identifier: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = proc
-        self.events = events
+        self.client = client
         self.component_id = identifier
         self.processed = 0
         self.failure_count = 0
@@ -66,17 +67,18 @@ class ProcessorRunner(ProcessingComponent):
         self.processed += 1
         p = dict(self.params)
         p.update(params)
-        with enter_context(self.component_id) as c, self.events.open_event(event_id) as e:
+        with enter_context(self.component_id) as c, \
+                Event(event_id=event_id, client=self.client) as event:
             try:
                 with c.stopwatch('process_method'):
-                    result = self.processor.process(e, p)
-                return result, c.times, e.created_indices
+                    result = self.processor.process(event, p)
+                return result, c.times, event.created_indices
             except Exception as e:
                 self.failure_count += 1
                 raise e
 
     def close(self):
-        self.events.close()
+        self.client.close()
         self.processor.close()
 
 

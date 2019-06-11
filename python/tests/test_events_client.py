@@ -11,15 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import threading
 from concurrent.futures.thread import ThreadPoolExecutor
 
-import pytest
 import grpc_testing
+import pytest
 from grpc import StatusCode
 
 from nlpnewt.api.v1 import events_pb2, events_pb2_grpc
-from nlpnewt.events import _EventsClient, LabelIndexType
+from nlpnewt.events import EventsClient, LabelIndexType
 
 
 @pytest.fixture(name='events_channel')
@@ -41,7 +40,7 @@ def fixture_events_client_executor():
 
 def test_get_label_index_info(events_channel, events_client_executor):
     def call():
-        client = _EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
         result = client.get_label_index_info(event_id='1', document_name='plaintext')
         return result
 

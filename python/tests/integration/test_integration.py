@@ -23,7 +23,7 @@ import requests
 from requests import RequestException
 
 import nlpnewt
-from nlpnewt import RemoteProcessor
+from nlpnewt import RemoteProcessor, EventsClient, Event
 from nlpnewt.utils import subprocess_events_server
 
 
@@ -136,15 +136,15 @@ how to fire phasers?"""
 
 @pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
-    with nlpnewt.Events('127.0.0.1:50500') as events, nlpnewt.Pipeline(
+    with EventsClient(address=python_events) as client, nlpnewt.Pipeline(
         RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
                         params={'do_work': True}),
         RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
                         params={'do_work': True})
     ) as pipeline:
-        with events.open_event('1') as event:
+        with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
-            document = event.add_document('plaintext', PHASERS)
+            document = event.create_document('plaintext', PHASERS)
             results = pipeline.run(document)
             letter_counts = document.get_label_index('nlpnewt.examples.letter_counts')
             a_counts = letter_counts[0]

@@ -23,7 +23,9 @@ from nlpnewt import io
 from nlpnewt import version
 from nlpnewt._config import Config
 from nlpnewt._events_service import EventsServer
-from nlpnewt.events import Events
+from nlpnewt.events import EventsClient
+from nlpnewt.events import Event
+from nlpnewt.events import Document
 from nlpnewt.events import proto_label_adapter
 from nlpnewt.label_indices import label_index
 from nlpnewt.labels import GenericLabel
@@ -49,7 +51,9 @@ __all__ = [
     'io',
     'Config',
     'EventsServer',
-    'Events',
+    'EventsClient',
+    'Event',
+    'Document',
     'proto_label_adapter',
     'GenericLabel',
     'Location',
