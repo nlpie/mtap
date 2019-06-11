@@ -16,9 +16,9 @@ import logging
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Callable, Union, Dict, Any
+from typing import Callable, Union, Dict, Any, Optional
 
-from nlpnewt.events import Event, Document, LabelIndexType, Events
+from nlpnewt.events import Event, Document, LabelIndexType, EventsClient
 from nlpnewt.label_indices import LabelIndex
 from nlpnewt.labels import GenericLabel
 from nlpnewt.processing import EventProcessor, processor, processor_parser, run_processor
@@ -107,15 +107,15 @@ def label_index_to_dict(label_index: LabelIndex[GenericLabel]) -> Dict:
     return d
 
 
-def dict_to_event(events: Events, d: Dict) -> Event:
+def dict_to_event(d: Dict, client: Optional[EventsClient] = None) -> Event:
     """Turns a serialized dictionary into an Event.
 
     Parameters
     ----------
-    events: Events
-        An events service to create the event on.
     d: dict
         The dictionary representation of the event.
+    client: optional EventsClient
+        An events service to create the event on.
 
     Returns
     -------
@@ -123,7 +123,7 @@ def dict_to_event(events: Events, d: Dict) -> Event:
         The deserialized event object.
 
     """
-    event = events.create_event(event_id=d['event_id'])
+    event = Event(event_id=d['event_id'], client=client)
     for k, v in d['metadata'].items():
         event.metadata[k] = v
     for k, v in d['documents'].items():
@@ -149,7 +149,7 @@ def dict_to_document(event: Event, document_name: str, d: Dict) -> Document:
         The deserialized Document object.
 
     """
-    document = event.add_document(document_name=document_name, text=d['text'])
+    document = event.create_document(document_name=document_name, text=d['text'])
     for k, v in d['label_indices'].items():
         dict_to_label_index(document, index_name=k, d=v)
     return document
@@ -203,14 +203,15 @@ class Serializer(ABC):
         ...
 
     @abstractmethod
-    def file_to_event(self, f: Union[Path, str, io.IOBase], events: Events) -> Event:
+    def file_to_event(self, f: Union[Path, str, io.IOBase],
+                      client: Optional[EventsClient] = None) -> Event:
         """Loads an event from a serialized file.
 
         Parameters
         ----------
         f: Path or str path or file-like object
             The file to load from.
-        events: Events
+        client: optional EventsClient
             The events service to load the event into.
 
         Returns
@@ -274,8 +275,8 @@ class SerializationProcessor(EventProcessor):
 
     """
 
-    def __init__(self, serializer: Serializer, output_dir: str):
-        self.serializer = serializer
+    def __init__(self, ser: Serializer, output_dir: str):
+        self.serializer = ser
         self.output_dir = output_dir
 
     def process(self, event: Event, params: Dict[str, Any]):
@@ -290,8 +291,8 @@ def main(args=None):
     parser.add_argument('--output-dir', '-o', default=".",
                         help="Directory to write serialized files to.")
     ns = parser.parse_args(args)
-    serializer = get_serializer(ns.serializer)
-    proc = SerializationProcessor(serializer, ns.output_dir)
+    ser = get_serializer(ns.serializer)
+    proc = SerializationProcessor(ser, ns.output_dir)
     run_processor(proc, ns)
 
 

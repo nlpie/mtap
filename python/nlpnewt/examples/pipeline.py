@@ -45,7 +45,7 @@ if __name__ == '__main__':
             source_text = str(row[TEXT_COLUMN])
             with events.open_event(source_id) as event:
                 event.metadata['source'] = 'example pipeline'
-                doc = event.add_document('plaintext', source_text)
+                doc = event.create_document('plaintext', source_text)
                 pipeline.run(doc)
 
         pipeline.print_times()

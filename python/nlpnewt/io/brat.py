@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tools for reading in files annotated using BRAT (https://brat.nlplab.org/)."""
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Union, Iterable, Optional
 
-from nlpnewt.events import Event, Events, Document
+from nlpnewt.events import Event, EventsClient, Document
 
 
 def read_brat_documents(directory: Union[Path, str],
-                        events: Events,
+                        client: Optional[EventsClient] = None,
                         document_name: str = 'plaintext',
                         label_index_name_prefix: str = '',
                         encoding: Optional[str] = None,
@@ -31,7 +32,7 @@ def read_brat_documents(directory: Union[Path, str],
     ----------
     directory: Path or str
         The directory containing the files or sub-directories containing the files.
-    events: Events
+    client: EventsClient
         The client to the events server to add the documents to.
     document_name: str
         The document name to create on each event containing the brat data.
@@ -56,14 +57,15 @@ def read_brat_documents(directory: Union[Path, str],
     """
     directory = Path(directory)
     for txt_file in directory.glob('**/*.txt'):
-        with read_brat_document(txt_file, events=events, document_name=document_name,
+        with read_brat_document(txt_file, client=client, document_name=document_name,
                                 label_index_name_prefix=label_index_name_prefix, encoding=encoding,
                                 relative_to=directory, create_indices=create_indices) as event:
             yield event
 
 
+@contextmanager
 def read_brat_document(txt_file: Union[Path, str],
-                       events: Events,
+                       client: Optional[EventsClient] = None,
                        document_name: str = 'plaintext',
                        label_index_name_prefix: str = '',
                        encoding: Optional[str] = None,
@@ -74,7 +76,7 @@ def read_brat_document(txt_file: Union[Path, str],
     Parameters
     ----------
     txt_file
-    events: Events
+    client: optional EventsClient
         The client to the events server to add the documents to.
     document_name: str
         The document name to create on the event to hold the brat data.
@@ -101,13 +103,13 @@ def read_brat_document(txt_file: Union[Path, str],
         event_id = str(txt_file.with_suffix('').relative_to(relative_to))
     else:
         event_id = txt_file.stem
-    event = events.create_event(event_id=event_id)
-    with txt_file.open('r', encoding=encoding) as f:
-        txt = f.read()
-    document = event.add_document(document_name=document_name, text=txt)
-    ann_to_labels(ann_file, document, label_index_name_prefix=label_index_name_prefix,
-                  encoding=encoding, create_indices=create_indices)
-    return event
+    with Event(event_id=event_id, client=client) as event:
+        with txt_file.open('r', encoding=encoding) as f:
+            txt = f.read()
+        document = event.create_document(document_name=document_name, text=txt)
+        ann_to_labels(ann_file, document, label_index_name_prefix=label_index_name_prefix,
+                      encoding=encoding, create_indices=create_indices)
+        yield event
 
 
 def ann_to_labels(ann_file: Union[str, Path],

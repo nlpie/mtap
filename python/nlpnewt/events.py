@@ -11,16 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Internal events client."""
+"""Events service client API and wrapper classes."""
 
 import collections
-import contextlib
 import threading
 import uuid
 from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable, \
-    NamedTuple, ContextManager, Iterable
+    NamedTuple, ContextManager, Iterable, Optional
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2
@@ -35,7 +34,6 @@ from nlpnewt.label_indices import label_index, LabelIndex
 from nlpnewt.labels import GenericLabel, Label
 
 __all__ = [
-    'Events',
     'Event',
     'LabelIndexType',
     'LabelIndexInfo',
@@ -43,95 +41,10 @@ __all__ = [
     'Labeler',
     'proto_label_adapter',
     'ProtoLabelAdapter',
-    '_EventsClient'
+    'EventsClient'
 ]
 
 L = TypeVar('L', bound=Label)
-
-
-class Events:
-    """Creates an object that can be used for making requests to an events service.
-
-    Examples
-    --------
-    Use service discovery to create connection:
-
-    >>> with nlpnewt.Events() as events:
-    >>>     # use events
-
-    Use address to create connection:
-
-    >>> with nlpnewt.Events('localhost:9090') as events:
-    >>>     # use events
-
-    Parameters
-    ----------
-    address: str, optional
-        The events service target e.g. 'localhost:9090' or omit/None to use service discovery.
-    stub: EventsStub
-        An existing events service client stub to use.
-
-    """
-
-    def __init__(self, address=None, *, stub=None, client=None):
-        if client:
-            self._client = client
-        else:
-            self._client = _EventsClient(address, stub=stub)
-
-    def open_event(self, event_id: str = None) -> 'Event':
-        """Opens or creates an event on the events service and returns an Event object that can be
-        used to access and manipulate data.
-
-        Parameters
-        ----------
-        event_id : str, optional
-            A globally-unique identifier for the event, or omit / none for a random UUID.
-
-        Returns
-        -------
-        Event
-            An Event object for interacting with the event.
-
-        """
-        event_id = event_id or uuid.uuid1()
-        self._client.open_event(event_id, only_create_new=False)
-        return Event(self._client, event_id)
-
-    def create_event(self, event_id: str = None) -> 'Event':
-        """Creates an event on the events service, failing if an event already exists with the
-        specified ID, returns an :obj:`Event` object that can be used to access and manipulate data.
-
-        Parameters
-        ----------
-        event_id : str, optional
-            A globally-unique identifier for the event, or omit / none for a random UUID.
-
-        Returns
-        -------
-        Event
-            A newly initialized event.
-
-        Raises
-        ------
-        ValueError
-            If the event already exists on the server.
-
-        """
-        event_id = event_id or uuid.uuid1()
-        self._client.open_event(event_id, only_create_new=True)
-        return Event(self._client, event_id)
-
-    def __enter__(self) -> 'Events':
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-        if exc_val is not None:
-            return False
-
-    def close(self):
-        self._client.close()
 
 
 class Event(Mapping[str, 'Document']):
@@ -141,18 +54,35 @@ class Event(Mapping[str, 'Document']):
     The Event object functions as a map from string document names to :obj:`Document` objects that
     can be used to access document data from the events server.
 
+    Parameters
+    ----------
+    event_id : str, optional
+        A globally-unique identifier for the event, or omit / none for a random UUID.
+    client: EventsClient
+        A client for an events service to push any changes to the event to.
+    only_create_new: bool
+        Fails if the event already exists on the events service.
+
     Examples
     --------
-    >>> with events.open_event('id') as event:
+    >>> with Event('id', client=client) as event:
     >>>     # use event
+
     """
 
-    def __init__(self, client: '_EventsClient', event_id):
+    def __init__(self, event_id: Optional[str] = None, client: Optional['EventsClient'] = None,
+                 only_create_new: bool = False):
+        self._event_id = event_id or str(uuid.uuid4())
         self._client = client
-        self._event_id = event_id
         self._documents = {}
-        self._open = True
         self._lock = threading.RLock()
+        if client is not None:
+            client.open_event(self._event_id, only_create_new=only_create_new)
+        self._open = True
+
+    @property
+    def client(self) -> Optional['EventsClient']:
+        return self._client
 
     @property
     def event_id(self) -> str:
@@ -173,11 +103,10 @@ class Event(Mapping[str, 'Document']):
         MutableMapping[str, str]
             An object that can be used to query and add metadata to the object.
         """
-        self.ensure_open()
         try:
             return self._metadata
         except AttributeError:
-            self._metadata = _Metadata(self._client, self)
+            self._metadata = _Metadata(self, self.client)
             return self._metadata
 
     @property
@@ -196,14 +125,14 @@ class Event(Mapping[str, 'Document']):
         """Closes this event. Lets the event service know that we are done with the event,
         allowing to clean up the event if everyone is done with it.
         """
-        if self._open is True:
+        if self.client is not None and self._open is True:
             with self._lock:
                 # using double locking here to ensure that the event does not
                 if self._open:
                     self._client.close_event(self._event_id)
                     self._open = False
 
-    def add_document(self, document_name: str, text: str):
+    def create_document(self, document_name: str, text: str) -> 'Document':
         """Adds a document to the event keyed by the document_name and
         containing the specified text.
 
@@ -221,18 +150,32 @@ class Event(Mapping[str, 'Document']):
             An object that is set up to connect to the events service to retrieve data and
             modify the document with the `document_name` on this event.
         """
-        self.ensure_open()
         if not isinstance(document_name, str):
             raise TypeError('Document name is not string.')
         if not isinstance(text, str):
             raise ValueError('text is not string.')
-        self._client.add_document(self._event_id, document_name, text)
-        document = Document(self._client, self, document_name)
+        if self._client is not None:
+            self._client.add_document(self._event_id, document_name, text)
+        document = Document(document_name, text)
+        document.event = self
         self._documents[document_name] = document
         return document
 
+    def add_document(self, document: 'Document'):
+        """Adds the document to this event, first uploading to events service if this event has a
+        ``EventsClient`` object.
+
+        Parameters
+        ----------
+        document: Document
+            The document to add to this event.
+        """
+        if self._client is not None:
+            self._client.add_document(self._event_id, document.document_name, document.text)
+        document.event = self
+        self._documents[document.document_name] = document
+
     def __contains__(self, document_name: str) -> bool:
-        self.ensure_open()
         if not isinstance(document_name, str):
             return False
         if document_name in self._documents:
@@ -240,7 +183,7 @@ class Event(Mapping[str, 'Document']):
         self._refresh_documents()
         return document_name in self._documents
 
-    def __getitem__(self, document_name):
+    def __getitem__(self, document_name) -> 'Document':
         """Retrieves an object for interacting with an existing document on this event.
 
         Parameters
@@ -261,7 +204,6 @@ class Event(Mapping[str, 'Document']):
         'The quick brown fox jumped over the lazy dog.'
 
         """
-        self.ensure_open()
         if not isinstance(document_name, str):
             raise KeyError
         try:
@@ -272,12 +214,10 @@ class Event(Mapping[str, 'Document']):
         return self._documents[document_name]
 
     def __len__(self) -> int:
-        self.ensure_open()
         self._refresh_documents()
         return len(self._documents)
 
     def __iter__(self) -> Iterator[str]:
-        self.ensure_open()
         self._refresh_documents()
         return iter(self._documents)
 
@@ -290,15 +230,13 @@ class Event(Mapping[str, 'Document']):
             raise exc_val
 
     def _refresh_documents(self):
-        document_names = self._client.get_all_document_names(self._event_id)
-        for name in document_names:
-            if name not in self._documents:
-                self._documents[name] = Document(self._client, self, name)
-
-    def ensure_open(self):
-        self._client.ensure_open()
-        if not self._open:
-            raise ValueError("Event has been closed.")
+        if self.client is not None:
+            document_names = self._client.get_all_document_names(self._event_id)
+            for name in document_names:
+                if name not in self._documents:
+                    document = Document(name)
+                    document.event = self
+                    self._documents[name] = document
 
     def add_created_indices(self, created_indices):
         for k, v in created_indices.items():
@@ -341,19 +279,25 @@ class Document:
     Both label indices, once added, and the document text are immutable. This is to enable
     parallelization and distribution of processing, and to prevent changes to upstream data that
     has already been used in the creation of downstream data.
+
+    Parameters
+    ----------
+    document_name: str
+        The document name identifier.
+    text: optional str
+        The document text, can be omitted if this is an existing document and text needs to be
+        retrieved from the events service.
     """
 
-    def __init__(self, client: '_EventsClient', event: Event, document_name: str):
-        self._client = client
+    def __init__(self, document_name: str, text: Optional[str] = None):
         self._document_name = document_name
-        self._event = event
-        self._event_id = event.event_id
-
-        self._text = None
-
-        self._label_indices = {}
+        self._text = text
+        self.label_indices = {}
         self._labelers = []
         self._created_indices = []
+        self._event = None
+        self._client = None
+        self._event_id = None
 
     @property
     def event(self) -> Event:
@@ -365,6 +309,12 @@ class Document:
         """
         return self._event
 
+    @event.setter
+    def event(self, event: Event):
+        self._event = event
+        self._event_id = event.event_id
+        self._client = event.client
+
     @property
     def document_name(self) -> str:
         """
@@ -374,7 +324,6 @@ class Document:
         str
             The unique identifier for this document on the event.
         """
-        self._event.ensure_open()
         return self._document_name
 
     @property
@@ -385,8 +334,7 @@ class Document:
         str
             The document text.
         """
-        self._event.ensure_open()
-        if self._text is None:
+        if self._text is None and self._client is not None:
             self._text = self._client.get_document_text(self._event_id, self._document_name)
         return self._text
 
@@ -402,14 +350,15 @@ class Document:
         return list(self._created_indices)
 
     def get_label_indices_info(self) -> List[LabelIndexInfo]:
-        """Gets information about the label indices currently contained on this document.
-
+        """
         Returns
         -------
         list of LabelIndexInfo
             The list of label index information objects.
         """
-        return self._client.get_label_index_info(self._event_id, self._document_name)
+        if self._client is not None:
+            return self._client.get_label_index_info(self._event_id, self._document_name)
+        return [LabelIndexInfo(k, LabelIndexType.JSON) for k, v in self.label_indices.items()]
 
     def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
         """Gets the document's label index with the specified key, fetching it from the
@@ -430,18 +379,20 @@ class Document:
             LabelIndex object containing the labels.
 
         """
-        self._event.ensure_open()
-        if label_index_name in self._label_indices:
-            return self._label_indices[label_index_name]
+        if label_index_name in self.label_indices:
+            return self.label_indices[label_index_name]
         if label_type_id is None:
             label_type_id = constants.GENERIC_LABEL_ID
 
-        label_adapter = _label_adapters[label_type_id]
-
-        label_index = self._client.get_labels(self._event_id, self._document_name, label_index_name,
-                                              adapter=label_adapter)
-        self._label_indices[label_index_name] = label_index
-        return label_index
+        if self._client is not None:
+            label_adapter = _label_adapters[label_type_id]
+            index = self._client.get_labels(self._event_id, self._document_name,
+                                            label_index_name,
+                                            adapter=label_adapter)
+            self.label_indices[label_index_name] = index
+            return index
+        else:
+            raise KeyError('Document does not have label index:', label_index_name)
 
     def get_labeler(self,
                     label_index_name: str,
@@ -477,7 +428,6 @@ class Document:
         >>>     sentence.sentence_type = 'FRAGMENT'
 
         """
-        self._event.ensure_open()
         if label_index_name in self._labelers:
             raise KeyError("Labeler already in use: " + label_index_name)
         if label_type_id is not None and distinct is not None:
@@ -490,8 +440,6 @@ class Document:
         labeler = Labeler(self._client, self, label_index_name, label_type_id)
         self._labelers.append(label_index_name)
         return labeler
-        # this isn't in a try-finally block because it is not cleanup, we do not want
-        # the labeler to send labels after a processing failure.
 
     def add_created_indices(self, created_indices: Iterable[str]):
         """Used by labelers or by pipelines when indices are added to the document.
@@ -514,7 +462,11 @@ class Labeler(Generic[L], ContextManager['Labeler']):
     GenericLabel : The default Label type used if another registered label type is not specified.
     """
 
-    def __init__(self, client, document, label_index_name, label_type_id):
+    def __init__(self,
+                 client: 'EventsClient',
+                 document: Document,
+                 label_index_name: str,
+                 label_type_id: str):
         self._client = client
         self._document = document
         self._label_index_name = label_index_name
@@ -543,7 +495,6 @@ class Labeler(Generic[L], ContextManager['Labeler']):
         >>> labeler(0, 25, some_field='some_value', x=3)
         GenericLabel(start_index=0, end_index=25, some_field='some_value', x=3)
         """
-        self._document.event.ensure_open()
         label = self._label_adapter.create_label(*args, **kwargs)
         self._current_labels.append(label)
         return label
@@ -557,17 +508,19 @@ class Labeler(Generic[L], ContextManager['Labeler']):
         self.done()
 
     def done(self):
-        self._document.event.ensure_open()
         with self._lock:
             if self.is_done:
                 return
             self.is_done = True
-        self._client.add_labels(event_id=self._document.event.event_id,
-                                document_name=self._document.document_name,
-                                index_name=self._label_index_name,
-                                labels=self._current_labels,
-                                adapter=self._label_adapter)
+        if self._client is not None:
+            self._client.add_labels(event_id=self._document.event.event_id,
+                                    document_name=self._document.document_name,
+                                    index_name=self._label_index_name,
+                                    labels=self._current_labels,
+                                    adapter=self._label_adapter)
         self._document.add_created_indices([self._label_index_name])
+        self._document.label_indices[self._label_index_name] = self._label_adapter.create_index(
+            self._current_labels)
 
 
 class ProtoLabelAdapter(ABC, Generic[L]):
@@ -614,6 +567,23 @@ class ProtoLabelAdapter(ABC, Generic[L]):
         -------
         LabelIndex[L]
             A label index containing all the labels from the events service.
+
+        """
+        ...
+
+    @abstractmethod
+    def create_index(self, labels: List[L]):
+        """Creates a LabelIndex from an iterable of label objects.
+
+        Parameters
+        ----------
+        labels: iterable of L
+            The labels to create a label index from.
+
+        Returns
+        -------
+        LabelIndex[L]
+            A label index containing all of the labels in the list.
 
         """
         ...
@@ -669,7 +639,24 @@ def proto_label_adapter(label_type_id: str):
     return decorator
 
 
-class _EventsClient:
+class EventsClient:
+    """A client object for interacting with the events service.
+
+    Parameters
+    ----------
+    address: str, optional
+        The events service target e.g. 'localhost:9090' or omit/None to use service discovery.
+    stub: EventsStub
+        An existing events service client stub to use.
+
+    Examples
+    --------
+    >>> with EventsClient(address='localhost:50000' as client:
+    >>>     with Event(event_id='1', client=client) as event:
+    >>>         document = event.add_document(document_name='plaintext',
+    >>>                                       text='The quick brown fox jumps over the lazy dog.')
+    """
+
     def __init__(self, address: str = None, *, stub: events_pb2_grpc.EventsStub = None):
         if stub is None:
             if address is None:
@@ -689,11 +676,32 @@ class _EventsClient:
             self.stub = stub
         self._is_open = True
 
+    def __enter__(self) -> 'EventsClient':
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        if exc_type is not None:
+            return False
+
     def ensure_open(self):
+        """Makes sure the events client has not been closed.
+
+        """
         if not self._is_open:
             raise ValueError("Client to events service is not open")
 
-    def open_event(self, event_id, only_create_new):
+    def open_event(self, event_id: str, only_create_new: bool):
+        """Opens the event for use.
+
+        Parameters
+        ----------
+        event_id: str
+            The unique event identifier.
+        only_create_new: bool
+            If true, will fail if the event already exists.
+
+        """
         request = events_pb2.OpenEventRequest(event_id=event_id, only_create_new=only_create_new)
         try:
             self.stub.OpenEvent(request)
@@ -702,6 +710,14 @@ class _EventsClient:
                 raise ValueError("Event already exists")
 
     def close_event(self, event_id):
+        """Closes the event.
+
+        Parameters
+        ----------
+        event_id: str
+            The unique event identifier.
+
+        """
         request = events_pb2.CloseEventRequest(event_id=event_id)
         self.stub.CloseEvent(request)
 
@@ -768,28 +784,26 @@ class _EventsClient:
 
 
 class _Metadata(collections.abc.MutableMapping):
-    def __init__(self, client: _EventsClient, event: Event):
+    def __init__(self, event: Event, client: Optional[EventsClient] = None):
         self._client = client
         self._event = event
         self._event_id = event.event_id
         self._metadata = {}
 
     def __contains__(self, key):
-        self._event.ensure_open()
         if key in self._metadata:
             return True
         self._refresh_metadata()
         return key in self._metadata
 
     def __setitem__(self, key, value):
-        self._event.ensure_open()
         if key in self:
             raise KeyError("Metadata already exists with key: " + key)
         self._metadata[key] = value
-        self._client.add_metadata(self._event_id, key, value)
+        if self._client is not None:
+            self._client.add_metadata(self._event_id, key, value)
 
     def __getitem__(self, key):
-        self._event.ensure_open()
         try:
             return self._metadata[key]
         except KeyError:
@@ -800,19 +814,17 @@ class _Metadata(collections.abc.MutableMapping):
         raise NotImplementedError
 
     def __iter__(self) -> Iterator[str]:
-        self._event.ensure_open()
         self._refresh_metadata()
         return iter(self._metadata)
 
     def __len__(self) -> int:
-        self._event.ensure_open()
         self._refresh_metadata()
         return len(self._metadata)
 
     def _refresh_metadata(self):
-        self._event.ensure_open()
-        response = self._client.get_all_metadata(self._event_id)
-        self._metadata.update(response)
+        if self._client is not None:
+            response = self._client.get_all_metadata(self._event_id)
+            self._metadata.update(response)
 
 
 class _GenericLabelAdapter(ProtoLabelAdapter):
@@ -822,6 +834,9 @@ class _GenericLabelAdapter(ProtoLabelAdapter):
 
     def create_label(self, *args, **kwargs):
         return GenericLabel(*args, **kwargs)
+
+    def create_index(self, labels: List[L]):
+        return label_index(labels, self.distinct)
 
     def create_index_from_response(self, response):
         json_labels = response.json_labels

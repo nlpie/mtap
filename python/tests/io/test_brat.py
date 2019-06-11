@@ -11,19 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from pathlib import Path
 
-import nlpnewt
 from nlpnewt import GenericLabel
-from nlpnewt._events_service import EventsServicer
 from nlpnewt.io.brat import read_brat_documents
 
 
 def test_read_brat_documents():
     d = Path(__file__).parent / 'brat'
-    events_client = nlpnewt.Events(stub=EventsServicer())
-    for event in read_brat_documents(d, events=events_client,
-                                     document_name='the_gold',
+    for event in read_brat_documents(d, document_name='the_gold',
                                      label_index_name_prefix='brat-',
                                      encoding='utf8'):
         doc = event['the_gold']

@@ -24,8 +24,8 @@ from grpc_health.v1 import health, health_pb2_grpc
 
 from nlpnewt import _structs
 from nlpnewt._config import Config
-from nlpnewt.events import Events
 from nlpnewt.api.v1 import processing_pb2_grpc, processing_pb2
+from nlpnewt.events import EventsClient
 from nlpnewt.processing._runners import ProcessorRunner, ProcessingTimesCollector
 from nlpnewt.processing.base import EventProcessor
 
@@ -144,8 +144,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
     def start(self, port: int):
         # instantiate runner
-        events = Events(address=self.events_address)
-        self._runner = ProcessorRunner(self.pr, events=events, identifier=self.processor_id,
+        client = EventsClient(address=self.events_address)
+        self._runner = ProcessorRunner(self.pr, client=client, identifier=self.processor_id,
                                        params=self.params)
 
         self.health_servicer.set(self.processor_id, 'SERVING')
