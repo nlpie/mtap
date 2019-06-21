@@ -270,6 +270,7 @@ public final class Newt {
    *
    * @param options The options object.
    *
+   * @throws IOException if there was an exception loading configuration.
    * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
   public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
