@@ -243,6 +243,62 @@ def test_GetAllMetadata(events_server):
     assert d == {'foo': 'bar', 'baz': 'buh'}
 
 
+def test_GetAllBinaryDataNames(events_server):
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
+        {},
+        events_pb2.OpenEventRequest(event_id='1'),
+        None
+    )
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData'],
+        {},
+        events_pb2.AddBinaryDataRequest(event_id='1',
+                                        binary_data_name='a',
+                                        binary_data=b'\xBF\xAF'),
+        None
+    )
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData'],
+        {},
+        events_pb2.AddBinaryDataRequest(event_id='1',
+                                        binary_data_name='b',
+                                        binary_data=b'\xAF\xBF'),
+        None
+    )
+    response, _, _, _ = events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetAllBinaryDataNames'],
+        {},
+        events_pb2.GetAllBinaryDataNamesRequest(event_id='1'),
+        None
+    ).termination()
+    assert list(response.binary_data_names) == ['a', 'b']
+
+
+def test_AddGetBinaryData(events_server):
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
+        {},
+        events_pb2.OpenEventRequest(event_id='1'),
+        None
+    )
+    events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData'],
+        {},
+        events_pb2.AddBinaryDataRequest(event_id='1',
+                                        binary_data_name='a',
+                                        binary_data=b'\xBF\xAF'),
+        None
+    )
+    response, _, _, _ = events_server.invoke_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetBinaryData'],
+        {},
+        events_pb2.GetBinaryDataRequest(event_id='1', binary_data_name='a'),
+        None
+    ).termination()
+    assert response.binary_data == b'\xBF\xAF'
+
+
 def test_AddDocument_bad_event(events_server):
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],

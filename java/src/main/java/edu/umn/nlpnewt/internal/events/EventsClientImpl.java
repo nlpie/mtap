@@ -16,6 +16,7 @@
 
 package edu.umn.nlpnewt.internal.events;
 
+import com.google.protobuf.ByteString;
 import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
@@ -79,8 +80,38 @@ public class EventsClientImpl implements EventsClient, AutoCloseable {
   }
 
   @Override
+  public @NotNull Collection<String> getAllBinaryDataNames(@NotNull String eventID) {
+    GetAllBinaryDataNamesRequest request = GetAllBinaryDataNamesRequest.newBuilder()
+        .setEventId(eventID)
+        .build();
+    GetAllBinaryDataNamesResponse response = stub.getAllBinaryDataNames(request);
+    return response.getBinaryDataNamesList();
+  }
+
+  @Override
+  public void addBinaryData(@NotNull String eventID, @NotNull String binaryDataName, @NotNull byte[] bytes) {
+    AddBinaryDataRequest request = AddBinaryDataRequest.newBuilder()
+        .setEventId(eventID)
+        .setBinaryDataName(binaryDataName)
+        .setBinaryData(ByteString.copyFrom(bytes))
+        .build();
+    //noinspection ResultOfMethodCallIgnored
+    stub.addBinaryData(request);
+  }
+
+  @Override
+  public byte[] getBinaryData(@NotNull String eventID, @NotNull String binaryDataName) {
+    GetBinaryDataRequest request = GetBinaryDataRequest.newBuilder()
+        .setEventId(eventID)
+        .setBinaryDataName(binaryDataName)
+        .build();
+    GetBinaryDataResponse response = stub.getBinaryData(request);
+    return response.getBinaryData().toByteArray();
+  }
+
+  @Override
   @NotNull
-  public Collection<String> getAllDocuments(@NotNull String eventID) {
+  public Collection<String> getAllDocumentNames(@NotNull String eventID) {
     GetAllDocumentNamesRequest request = GetAllDocumentNamesRequest
         .newBuilder()
         .setEventId(eventID)

@@ -1,5 +1,6 @@
 package edu.umn.nlpnewt.internal.events;
 
+import com.google.protobuf.ByteString;
 import edu.umn.nlpnewt.LabelIndexInfo;
 import edu.umn.nlpnewt.ProtoLabelAdapter;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
@@ -21,8 +22,7 @@ import org.mockito.stubbing.Answer;
 import java.io.IOException;
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -131,6 +131,59 @@ class EventsClientImplTest {
   }
 
   @Test
+  void getAllBinaryDataNames() {
+    doAnswer((Answer<Void>) invocation -> {
+      StreamObserver<GetAllBinaryDataNamesResponse> observer = invocation.getArgument(1);
+      observer.onNext(GetAllBinaryDataNamesResponse.newBuilder().addBinaryDataNames("a")
+      .addBinaryDataNames("b").build());
+      observer.onCompleted();
+      return null;
+    }).when(eventsService).getAllBinaryDataNames(any(), any());
+    Collection<String> response = tested.getAllBinaryDataNames("1");
+    ArgumentCaptor<GetAllBinaryDataNamesRequest> captor = ArgumentCaptor.forClass(GetAllBinaryDataNamesRequest.class);
+    verify(eventsService).getAllBinaryDataNames(captor.capture(), any());
+    GetAllBinaryDataNamesRequest request = captor.getValue();
+    assertEquals("1", request.getEventId());
+    assertEquals(2, response.size());
+    assertTrue(response.contains("a"));
+    assertTrue(response.contains("b"));
+  }
+
+  @Test
+  void addBinaryData() {
+    doAnswer((Answer<Void>) invocation -> {
+      StreamObserver<AddBinaryDataResponse> observer = invocation.getArgument(1);
+      observer.onNext(AddBinaryDataResponse.newBuilder().build());
+      observer.onCompleted();
+      return null;
+    }).when(eventsService).addBinaryData(any(), any());
+    tested.addBinaryData("1", "a", new byte[] {(byte) 0xBF, (byte) 0xFF});
+    ArgumentCaptor<AddBinaryDataRequest> captor = ArgumentCaptor.forClass(AddBinaryDataRequest.class);
+    verify(eventsService).addBinaryData(captor.capture(), any());
+    AddBinaryDataRequest request = captor.getValue();
+    assertArrayEquals(request.getBinaryData().toByteArray(), new byte[]{(byte) 0xBF, (byte) 0xFF});
+  }
+
+  @Test
+  void getBinaryData() {
+    doAnswer((Answer<Void>) invocation -> {
+      StreamObserver<GetBinaryDataResponse> observer = invocation.getArgument(1);
+      observer.onNext(GetBinaryDataResponse.newBuilder().setBinaryData(ByteString.copyFrom(
+          new byte[] {(byte) 0xBF, (byte) 0xFF}
+      )).build());
+      observer.onCompleted();
+      return null;
+    }).when(eventsService).getBinaryData(any(), any());
+    byte[] b = tested.getBinaryData("1", "a");
+    ArgumentCaptor<GetBinaryDataRequest> captor = ArgumentCaptor.forClass(GetBinaryDataRequest.class);
+    verify(eventsService).getBinaryData(captor.capture(), any());
+    GetBinaryDataRequest request = captor.getValue();
+    assertArrayEquals(new byte[] {(byte) 0xBF, (byte) 0xFF}, b);
+    assertEquals("1", request.getEventId());
+    assertEquals("a", request.getBinaryDataName());
+  }
+
+  @Test
   void getAllDocuments() {
     doAnswer((Answer<Void>) invocation -> {
       StreamObserver<GetAllDocumentNamesResponse> observer = invocation.getArgument(1);
@@ -140,7 +193,7 @@ class EventsClientImplTest {
       return null;
     }).when(eventsService).getAllDocumentNames(any(), any());
 
-    Collection<String> documents = tested.getAllDocuments("1");
+    Collection<String> documents = tested.getAllDocumentNames("1");
     ArgumentCaptor<GetAllDocumentNamesRequest> captor = ArgumentCaptor
         .forClass(GetAllDocumentNamesRequest.class);
     verify(eventsService).getAllDocumentNames(captor.capture(), any());

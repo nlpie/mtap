@@ -120,7 +120,7 @@ class EventImplTest {
   void addDocumentCache() {
     tested.addDocument("plaintext", "Some text.");
     tested.get("plaintext");
-    verify(client).getAllDocuments("1");
+    verify(client).getAllDocumentNames("1");
     verify(client).addDocument("1", "plaintext", "Some text.");
     verify(documentFactory).createDocument(client, tested, "plaintext");
     verifyNoMoreInteractions(client);
@@ -128,7 +128,7 @@ class EventImplTest {
 
   @Test
   void addDocumentExisting() {
-    when(client.getAllDocuments("1")).thenReturn(Collections.singletonList("plaintext"));
+    when(client.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     assertThrows(IllegalArgumentException.class,
         () -> tested.addDocument("plaintext", "Some text."));
   }
@@ -140,21 +140,21 @@ class EventImplTest {
 
   @Test
   void getDocumentFetch() {
-    when(client.getAllDocuments("1")).thenReturn(Collections.singletonList("plaintext"));
+    when(client.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     tested.get("plaintext");
-    verify(client).getAllDocuments("1");
+    verify(client).getAllDocumentNames("1");
     verify(documentFactory).createDocument(client, tested, "plaintext");
   }
 
   @Test
   void getDocumentMissing() {
-    when(client.getAllDocuments("1")).thenReturn(Collections.emptyList());
+    when(client.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
     assertNull(tested.get("plaintext"));
   }
 
   @Test
   void emptyEntrySetIterator() {
-    when(client.getAllDocuments("1")).thenReturn(Collections.emptyList());
+    when(client.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
     for (Map.Entry<String, Document> ignored : tested.entrySet()) {
       fail();
     }
@@ -162,7 +162,7 @@ class EventImplTest {
 
   @Test
   void entrySet() {
-    when(client.getAllDocuments("1")).thenReturn(Collections.singletonList("plaintext"));
+    when(client.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     Set<Map.Entry<String, Document>> entries = tested.entrySet();
     assertEquals(1, entries.size());
     assertEquals("plaintext", entries.iterator().next().getKey());

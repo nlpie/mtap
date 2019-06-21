@@ -112,6 +112,58 @@ message AddMetadataRequest {
  */
 message AddMetadataResponse {}
 
+/* Request to get the keys for all binary data stored on the event.
+ */
+message GetAllBinaryDataNamesRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+}
+
+/* Response of all the binary names on the event.
+ */
+message GetAllBinaryDataNamesResponse {
+  repeated string binary_data_names = 1;
+}
+
+/* Request to attach binary data to the event.
+ */
+message AddBinaryDataRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The binary data key.
+   */
+  string binary_data_name = 2;
+
+  /* The binary data.
+   */
+  bytes binary_data = 3;
+}
+
+/* Response after attaching binary data to the event.
+ */
+message AddBinaryDataResponse {}
+
+/* Request for binary data on an event associated with a specific name.
+ */
+message GetBinaryDataRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The binary data key.
+   */
+  string binary_data_name = 2;
+}
+
+message GetBinaryDataResponse {
+  /* The binary data.
+   */
+  bytes binary_data = 1;
+}
+
 /* Request to add a document to an event.
  */
 message AddDocumentRequest {
@@ -380,6 +432,25 @@ service Events {
   rpc GetLabels (GetLabelsRequest) returns (GetLabelsResponse) {
     option (google.api.http) = {
       get: "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}"
+    };
+  }
+
+  rpc GetAllBinaryDataNames (GetAllBinaryDataNamesRequest) returns (GetAllBinaryDataNamesResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/binaries"
+    };
+  }
+
+  rpc AddBinaryData (AddBinaryDataRequest) returns (AddBinaryDataResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/{event_id}/binaries/{binary_data_name}",
+      body: "*"
+    };
+  }
+
+  rpc GetBinaryData (GetBinaryDataRequest) returns (GetBinaryDataResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/binaries/{binary_data_name}"
     };
   }
 }

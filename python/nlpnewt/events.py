@@ -101,13 +101,29 @@ class Event(Mapping[str, 'Document']):
         Returns
         -------
         MutableMapping[str, str]
-            An object that can be used to query and add metadata to the object.
+            An object that can be used to query and add metadata to the event.
         """
         try:
             return self._metadata
         except AttributeError:
             self._metadata = _Metadata(self, self.client)
             return self._metadata
+
+    @property
+    def binaries(self) -> MutableMapping[str, bytes]:
+        """
+
+        Returns
+        -------
+        MutableMapping[str, bytes]
+            An object that can be used to query and add binary data to the event.
+
+        """
+        try:
+            return self._binaries
+        except AttributeError:
+            self._binaries = _Binaries(self, self.client)
+            return self._binaries
 
     @property
     def created_indices(self) -> Dict[str, List[str]]:
@@ -730,6 +746,23 @@ class EventsClient:
         request = events_pb2.AddMetadataRequest(event_id=event_id, key=key, value=value)
         self.stub.AddMetadata(request)
 
+    def get_all_binary_data_names(self, event_id: str) -> List[str]:
+        request = events_pb2.GetAllBinaryDataNamesRequest(event_id=event_id)
+        response = self.stub.GetAllBinaryDataNames(request)
+        return list(response.binary_data_names)
+
+    def add_binary_data(self, event_id: str, binary_data_name: str, binary_data: bytes):
+        request = events_pb2.AddBinaryDataRequest(event_id=event_id,
+                                                  binary_data_name=binary_data_name,
+                                                  binary_data=binary_data)
+        self.stub.AddBinaryData(request)
+
+    def get_binary_data(self, event_id: str, binary_data_name: str) -> bytes:
+        request = events_pb2.GetBinaryDataRequest(event_id=event_id,
+                                                  binary_data_name=binary_data_name)
+        response = self.stub.GetBinaryData(request)
+        return response.binary_data
+
     def get_all_document_names(self, event_id):
         request = events_pb2.GetAllDocumentNamesRequest(event_id=event_id)
         response = self.stub.GetAllDocumentNames(request)
@@ -825,6 +858,56 @@ class _Metadata(collections.abc.MutableMapping):
         if self._client is not None:
             response = self._client.get_all_metadata(self._event_id)
             self._metadata.update(response)
+
+
+class _Binaries(collections.abc.MutableMapping):
+    def __init__(self, event: Event, client: Optional[EventsClient] = None):
+        self._client = client
+        self._event = event
+        self._event_id = event.event_id
+        self._names = set()
+        self._binaries = {}
+
+    def __contains__(self, key):
+        if key in self._names:
+            return True
+        self._refresh_binaries()
+        return key in self._names
+
+    def __setitem__(self, key, value):
+        if key in self:
+            raise KeyError("Binary already exists with name: " + key)
+        self._names.add(key)
+        self._binaries[key] = value
+        if self._client is not None:
+            self._client.add_binary_data(self._event_id, key, value)
+
+    def __getitem__(self, key):
+        try:
+            return self._binaries[key]
+        except KeyError:
+            pass
+        if self._client is not None:
+            b = self._client.get_binary_data(event_id=self._event_id, binary_data_name=key)
+            self._names.add(b)
+            self._binaries[key] = b
+        return self._binaries[key]
+
+    def __delitem__(self, v) -> None:
+        raise NotImplementedError
+
+    def __iter__(self) -> Iterator[str]:
+        self._refresh_binaries()
+        return iter(self._names)
+
+    def __len__(self) -> int:
+        self._refresh_binaries()
+        return len(self._names)
+
+    def _refresh_binaries(self):
+        if self._client is not None:
+            response = self._client.get_all_binary_data_names(self._event_id)
+            self._names.update(response)
 
 
 class _GenericLabelAdapter(ProtoLabelAdapter):
