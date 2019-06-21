@@ -33,6 +33,7 @@ final class EventImpl extends AbstractMap<@NotNull String, @NotNull Document> im
 
   private transient List<Document> documents = null;
   private transient Metadata metadata = null;
+  private transient BinaryData binaryData = null;
   private transient EntrySet entrySet = null;
 
   EventImpl(EventsClient client, String eventID, DocumentFactory documentFactory) {
@@ -52,6 +53,14 @@ final class EventImpl extends AbstractMap<@NotNull String, @NotNull Document> im
       metadata = new Metadata();
     }
     return metadata;
+  }
+
+  @Override
+  public @NotNull Map<@NotNull String, byte[]> getBinaryData() {
+    if (binaryData == null) {
+      binaryData = new BinaryData();
+    }
+    return binaryData;
   }
 
   @Override
@@ -172,6 +181,59 @@ final class EventImpl extends AbstractMap<@NotNull String, @NotNull Document> im
 
     private void refreshMetadata() {
       metadata = client.getAllMetadata(eventID);
+    }
+  }
+
+  private class BinaryData extends AbstractMap<String, byte[]> {
+    private Map<String, byte[]> binaryData = new HashMap<>();
+
+    @Override
+    public byte[] get(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      byte[] bytes = binaryData.get(key);
+      if (bytes == null && client != null) {
+        bytes = client.getBinaryData(eventID, (String) key);
+        binaryData.put((String) key, bytes);
+      }
+      return bytes;
+    }
+
+    @Override
+    public byte[] put(String key, byte[] value) {
+      binaryData.put(key, value);
+      if (client != null) {
+        client.addBinaryData(eventID, key, value);
+      }
+      return null;
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
+      if (binaryData.containsKey(key)) {
+        return true;
+      }
+      if (client != null) {
+        Collection<String> names = client.getAllBinaryDataNames(eventID);
+        return names.contains(key);
+      }
+      return false;
+    }
+
+    @Override
+    public Set<Entry<String, byte[]>> entrySet() {
+      if (client != null) {
+        Collection<String> names = client.getAllBinaryDataNames(eventID);
+        for (String name : names) {
+          byte[] bytes = client.getBinaryData(eventID, name);
+          binaryData.put(name, bytes);
+        }
+      }
+      return binaryData.entrySet();
     }
   }
 

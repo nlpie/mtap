@@ -48,6 +48,13 @@ public interface Event extends Map<@NotNull String, @NotNull Document>, AutoClos
   @NotNull Map<@NotNull String, @NotNull String> getMetadata();
 
   /**
+   * Returns a map used to manipulate and retrieve the binary data stored with the event.
+   *
+   * @return A map view of the binary data on the event.
+   */
+  @NotNull Map<@NotNull String, byte[]> getBinaryData();
+
+  /**
    * Adds a document keyed by {@code documentName} and containing {@code text}.
    *
    * @param documentName The key to store the document under.
