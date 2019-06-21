@@ -29,6 +29,8 @@ public interface JsonObjectBuilder<T extends JsonObjectBuilder, R extends JsonOb
    * Copies the contents of a protobuf struct to this builder.
    *
    * @param struct The protobuf struct message.
+   *
+   * @return A new json object containing all of the information from the struct.
    */
   T copyStruct(Struct struct);
 
@@ -99,7 +101,7 @@ public interface JsonObjectBuilder<T extends JsonObjectBuilder, R extends JsonOb
   /**
    * Creates the concrete json object type.
    *
-   * @return
+   * @return The json object implementation type.
    */
   R build();
 }

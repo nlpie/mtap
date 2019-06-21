@@ -32,6 +32,8 @@ public interface JsonObject extends Map<@NotNull String, @Nullable Object> {
    * Copies a json object to a protobuf struct newBuilder.
    *
    * @param structBuilder The protobuf struct newBuilder.
+   *
+   * @return A struct builder containing all of the fields from the json object.
    */
   Struct.Builder copyToStruct(Struct.Builder structBuilder);
 
