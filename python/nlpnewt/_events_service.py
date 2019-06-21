@@ -190,11 +190,44 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             return
         key = request.key
         if key == '':
-            msg = 'event_id cannot be null or empty'
+            msg = 'metadata key cannot be null or empty'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
             return
         event.metadata[key] = request.value
         return events_pb2.AddMetadataResponse()
+
+    def GetAllBinaryDataNames(self, request, context):
+        try:
+            event, event_id = self._get_event(request, context)
+        except KeyError:
+            return
+        names = list(event.binaries.keys())
+        return events_pb2.GetAllBinaryDataNamesResponse(binary_data_names=names)
+
+    def AddBinaryData(self, request, context):
+        try:
+            event, event_id = self._get_event(request, context)
+        except KeyError:
+            return
+        name = request.binary_data_name
+        if name == '':
+            msg = 'binary_data_name cannot be null or empty'
+            _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
+            return
+        event.binaries[name] = request.binary_data
+        return events_pb2.AddBinaryDataResponse()
+
+    def GetBinaryData(self, request, context):
+        try:
+            event, event_id = self._get_event(request, context)
+        except KeyError:
+            return
+        name = request.binary_data_name
+        if name == '':
+            msg = 'binary_data_name cannot be null or empty'
+            _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
+            return
+        return events_pb2.GetBinaryDataResponse(binary_data=event.binaries[name])
 
     def AddDocument(self, request, context=None):
         try:
@@ -289,6 +322,7 @@ class _Event:
         self.clients = 0
         self.metadata = {}
         self.documents = {}
+        self.binaries = {}
         self.d_lock = threading.RLock()
 
 

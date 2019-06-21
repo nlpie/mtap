@@ -72,3 +72,55 @@ def test_get_label_index_info(events_channel, events_client_executor):
     assert infos[2].index_name == 'baz'
     assert infos[2].type == LabelIndexType.UNKNOWN
 
+
+def test_get_binary_data_names(events_channel, events_client_executor):
+    def call():
+        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        result = client.get_all_binary_data_names(event_id='1')
+        return result
+
+    future = events_client_executor.submit(call)
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetAllBinaryDataNames']
+    )
+    rpc.send_initial_metadata(())
+    response = events_pb2.GetAllBinaryDataNamesResponse(binary_data_names=['a', 'b', 'c'])
+    rpc.terminate(response, None, StatusCode.OK, '')
+
+    assert future.result(5) == ['a', 'b', 'c']
+
+
+def test_add_binary_data(events_channel, events_client_executor):
+    def call():
+        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        result = client.add_binary_data(event_id='1', binary_data_name='foo', binary_data=b'\xFF')
+        return result
+
+    future = events_client_executor.submit(call)
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData']
+    )
+    rpc.send_initial_metadata(())
+    response = events_pb2.AddBinaryDataResponse()
+    rpc.terminate(response, None, StatusCode.OK, '')
+    assert req.binary_data == b'\xFF'
+
+
+def test_get_binary_data(events_channel, events_client_executor):
+    def call():
+        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        result = client.get_binary_data(event_id='1', binary_data_name='foo')
+        return result
+
+    future = events_client_executor.submit(call)
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetBinaryData']
+    )
+    assert req.event_id == '1'
+    assert req.binary_data_name == 'foo'
+    rpc.send_initial_metadata(())
+    response = events_pb2.GetBinaryDataResponse(binary_data=b'\xFF')
+    rpc.terminate(response, None, StatusCode.OK, '')
+
+    result = future.result(5)
+    assert result == b'\xFF'

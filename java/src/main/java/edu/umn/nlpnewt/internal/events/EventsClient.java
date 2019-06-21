@@ -16,10 +16,12 @@
 
 package edu.umn.nlpnewt.internal.events;
 
+import com.google.protobuf.ByteString;
 import edu.umn.nlpnewt.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +35,16 @@ interface EventsClient extends AutoCloseable {
 
   void addMetadata(@NotNull String eventID, @NotNull String key, @NotNull String value);
 
-  @NotNull Collection<String> getAllDocuments(@NotNull String eventID);
+  @NotNull Collection<String> getAllBinaryDataNames(@NotNull String eventID);
+
+  void addBinaryData(@NotNull String eventID,
+                     @NotNull String binaryDataName,
+                     @NotNull byte[] bytes);
+
+  byte[] getBinaryData(@NotNull String eventID,
+                       @NotNull String binaryDataName);
+
+  @NotNull Collection<String> getAllDocumentNames(@NotNull String eventID);
 
   void addDocument(@NotNull String eventID,
                    @NotNull String documentName,

@@ -18,12 +18,9 @@ package edu.umn.nlpnewt.internal.events;
 import com.google.common.collect.AbstractIterator;
 import edu.umn.nlpnewt.Document;
 import edu.umn.nlpnewt.Event;
-import edu.umn.nlpnewt.Events;
 import edu.umn.nlpnewt.Internal;
 import org.jetbrains.annotations.NotNull;
 
-import javax.print.Doc;
-import javax.swing.event.DocumentEvent;
 import java.util.*;
 
 @Internal
@@ -124,7 +121,7 @@ final class EventImpl extends AbstractMap<@NotNull String, @NotNull Document> im
   }
 
   private void refreshDocuments() {
-    Collection<String> allDocuments = client.getAllDocuments(eventID);
+    Collection<String> allDocuments = client.getAllDocumentNames(eventID);
     DOCUMENT_NAMES:
     for (String documentName : allDocuments) {
       for (Document document : getDocuments()) {
