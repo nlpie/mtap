@@ -27,30 +27,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class ProcessorServerOptionsTest {
 
   @Processor("test-processor")
-  public static class TestProcessorBase extends DocumentProcessorBase {
+  public static class TestProcessor extends DocumentProcessor {
 
     @Override
     protected void process(@NotNull Document document, @NotNull JsonObject params, @NotNull JsonObjectBuilder result) {
 
     }
-  }
-
-  @Test
-  void noProcessorClassThrows() {
-    assertThrows(CmdLineException.class, () -> {
-      ProcessorServerOptions options = new ProcessorServerOptions();
-      CmdLineParser parser = new CmdLineParser(options);
-      parser.parseArgument();
-    });
-  }
-
-  @Test
-  void shouldHandleProcessorClass() throws CmdLineException {
-    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessorBase"};
-    ProcessorServerOptions options = new ProcessorServerOptions();
-    CmdLineParser parser = new CmdLineParser(options);
-    parser.parseArgument(args);
-    assertEquals(TestProcessorBase.class, options.getProcessorClass());
   }
 
   @Test
@@ -63,7 +45,7 @@ class ProcessorServerOptionsTest {
 
   @Test
   void hasDefaultPort0() throws CmdLineException {
-    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessorBase"};
+    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessor"};
     ProcessorServerOptions options = new ProcessorServerOptions();
     CmdLineParser parser = new CmdLineParser(options);
     parser.parseArgument(args);
@@ -72,7 +54,7 @@ class ProcessorServerOptionsTest {
 
   @Test
   void hasDefaultAddress() throws CmdLineException {
-    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessorBase"};
+    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessor"};
     ProcessorServerOptions options = new ProcessorServerOptions();
     CmdLineParser parser = new CmdLineParser(options);
     parser.parseArgument(args);
@@ -80,30 +62,8 @@ class ProcessorServerOptionsTest {
   }
 
   @Test
-  void setProcessorClass() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
-    options.setProcessorClass(TestProcessorBase.class);
-    assertEquals(TestProcessorBase.class, options.getProcessorClass());
-  }
-
-  @Test
-  void withProcessorClass() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
-        .withProcessorClass(TestProcessorBase.class);
-    assertEquals(TestProcessorBase.class, options.getProcessorClass());
-  }
-
-  @Test
-  void withProcessorThenProcessorClass() {
-    TestProcessorBase processor = new TestProcessorBase();
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions().withProcessor(processor);
-    assertThrows(IllegalStateException.class,
-        () -> options.withProcessorClass(TestProcessorBase.class));
-  }
-
-  @Test
   void setProcessor() {
-    TestProcessorBase processor = new TestProcessorBase();
+    TestProcessor processor = new TestProcessor();
     ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
     options.setProcessor(processor);
     assertEquals(processor, options.getProcessor());
@@ -111,19 +71,10 @@ class ProcessorServerOptionsTest {
 
   @Test
   void withProcessor() {
-    TestProcessorBase processor = new TestProcessorBase();
+    TestProcessor processor = new TestProcessor();
     ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
         .withProcessor(processor);
     assertEquals(processor, options.getProcessor());
-  }
-
-  @Test
-  void withProcessorClassThenProcessor() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
-        .withProcessorClass(TestProcessorBase.class);
-    TestProcessorBase processor = new TestProcessorBase();
-    assertThrows(IllegalStateException.class,
-        () -> options.withProcessor(processor));
   }
 
   @Test

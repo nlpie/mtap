@@ -66,11 +66,10 @@ def fixture_disc_java_processor(disc_python_events):
     cwd = Path(__file__).parents[3] / 'java'
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['./gradlew', 'newt',
-                          '--args',
-                          "processor -p 50502 -e 127.0.0.1:50500 --register "
-                          "edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor"],
-                         start_new_session=True, stdin=subprocess.PIPE,
+    p = subprocess.Popen(['./gradlew '
+                          '-PmainClass=edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor '
+                          'execute --args="-p 50502 --register"'],
+                         start_new_session=True, shell=True, stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)
     try:
@@ -136,10 +135,10 @@ how to fire phasers?"""
 @pytest.mark.consul
 def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_processor):
     with EventsClient(address=disc_python_events) as client, nlpnewt.Pipeline(
-        RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
-                        params={'do_work': True}),
-        RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
-                        params={'do_work': True})
+            RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
+                            params={'do_work': True}),
+            RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
+                            params={'do_work': True})
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'

@@ -19,7 +19,7 @@ package edu.umn.nlpnewt;
 import java.lang.annotation.*;
 
 /**
- * Annotation which marks a {@link EventProcessor} or {@link DocumentProcessorBase} as
+ * Annotation which marks a {@link EventProcessor} or {@link DocumentProcessor} as
  * available for service discovery registration.
  */
 @Documented

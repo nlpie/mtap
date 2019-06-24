@@ -18,7 +18,9 @@ package edu.umn.nlpnewt.examples;
 
 import edu.umn.nlpnewt.*;
 import org.jetbrains.annotations.NotNull;
+import org.kohsuke.args4j.CmdLineException;
 
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,13 +28,8 @@ import java.util.regex.Pattern;
  * An example document processor.
  */
 @Processor("nlpnewt-example-processor-java")
-public class TheOccurrencesExampleProcessor extends DocumentProcessorBase {
+public class TheOccurrencesExampleProcessor extends DocumentProcessor {
   private final Pattern pattern = Pattern.compile("\\w+");
-  private final ProcessorContext context;
-
-  public TheOccurrencesExampleProcessor(ProcessorContext context) {
-    this.context = context;
-  }
 
   @Override
   protected void process(@NotNull Document document,
@@ -45,7 +42,7 @@ public class TheOccurrencesExampleProcessor extends DocumentProcessorBase {
     }
 
     // Example of using a timer to do timing of operations
-    Timer timer = context.startTimer("fetch_time");
+    Timer timer = getContext().startTimer("fetch_time");
     String text = document.getText();
     timer.stop();
 
@@ -61,5 +58,22 @@ public class TheOccurrencesExampleProcessor extends DocumentProcessorBase {
 
     // Example of returning process level results.
     result.setProperty("answer", 42);
+  }
+
+  public static void main(String[] args) {
+    try {
+      ProcessorServerOptions options = ProcessorServerOptions.parseArgs(args);
+      options.setProcessor(new TheOccurrencesExampleProcessor());
+      Newt newt = new Newt();
+      Server server = newt.createProcessorServer(options);
+      server.start();
+      server.blockUntilShutdown();
+    } catch (IOException e) {
+      System.err.println("Failed to start server: " + e.getMessage());
+    } catch (InterruptedException e) {
+      System.err.println("Server interrupted.");
+    } catch (CmdLineException e) {
+      // pass
+    }
   }
 }
