@@ -25,18 +25,14 @@ import org.kohsuke.args4j.spi.Setter;
 import java.nio.file.Path;
 import java.util.UUID;
 
+import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
+
 /**
  * Options bean used to start a processor server.
  * <p>
  * Which processor to launch is specified via either processor or processorClass.
  */
 public class ProcessorServerOptions {
-
-  @Nullable
-  @Argument(required = true, metaVar = "PROCESSOR_CLASS", handler = ProcessorOptionHandler.class,
-      usage = "Processor full class name")
-  private Class<? extends EventProcessor> processorClass = null;
-
   @Nullable
   private EventProcessor processor = null;
 
@@ -87,7 +83,6 @@ public class ProcessorServerOptions {
    * @param options Options to copy from.
    */
   public ProcessorServerOptions(ProcessorServerOptions options) {
-    processorClass = options.getProcessorClass();
     processor = options.getProcessor();
     address = options.getAddress();
     port = options.getPort();
@@ -107,44 +102,30 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * A processor class to instantiate and host. Exclusive with {@link #getProcessor()}.
+   * Parses the command line arguments for launching a processor.
    *
-   * @return processorClass or {@code null} if not set.
+   * @param args
+   * @return
+   * @throws CmdLineException
    */
-  public @Nullable Class<? extends EventProcessor> getProcessorClass() {
-    return processorClass;
-  }
+  public static @NotNull ProcessorServerOptions parseArgs(String[] args) throws CmdLineException {
+    ProcessorServerOptions processorServerOptions = new ProcessorServerOptions();
+    CmdLineParser parser = new CmdLineParser(processorServerOptions);
 
-  /**
-   * Sets the processor class to instantiate and host.
-   *
-   * @param processorClass processorClass or {@code null} if it should be unset.
-   */
-  public void setProcessorClass(
-      @Nullable Class<? extends EventProcessor> processorClass
-  ) {
-    if (processor != null && processorClass != null) {
-      throw new IllegalStateException("Processor already set to processor instance.");
+    try {
+      parser.parseArgument(args);
+    } catch (CmdLineException e) {
+      System.err.println(e.getMessage());
+      // print the list of available options
+      parser.printUsage(System.err);
+      System.err.println();
+      throw e;
     }
-    this.processorClass = processorClass;
+    return processorServerOptions;
   }
 
   /**
-   * Builder method that sets the processor class to instantiate and host.
-   *
-   * @param processorClass processorClass or {@code null} if it should be unset.
-   *
-   * @return This options object.
-   */
-  public ProcessorServerOptions withProcessorClass(
-      @Nullable Class<? extends EventProcessor> processorClass
-  ) {
-    setProcessorClass(processorClass);
-    return this;
-  }
-
-  /**
-   * A processor to instantiate and host. Exclusive with {@link #getProcessorClass()}.
+   * A processor to host.
    *
    * @return processor or {@code null} if it is unset.
    */
@@ -158,9 +139,6 @@ public class ProcessorServerOptions {
    * @param processor processor or {@code null} if it should be unset.
    */
   public void setProcessor(@Nullable EventProcessor processor) {
-    if (processorClass != null && processor != null) {
-      throw new IllegalStateException("Processor already defined by class.");
-    }
     this.processor = processor;
   }
 

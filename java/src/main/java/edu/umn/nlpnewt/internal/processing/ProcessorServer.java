@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 /**
- * A server that hosts {@link DocumentProcessorBase} and {@link EventProcessor}.
+ * A server that hosts {@link DocumentProcessor} and {@link EventProcessor}.
  * <p>
  * This class is for internal use, users should either use the command line or
  * {@link Newt#createProcessorServer(ProcessorServerOptions)}.

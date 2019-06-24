@@ -68,12 +68,6 @@ public class NewtProcessing {
       EventProcessor eventProcessor = options.getProcessor();
       if (eventProcessor != null) {
         processorClass = eventProcessor.getClass();
-      } else {
-        Class<? extends EventProcessor> processorClass = options.getProcessorClass();
-        if (processorClass == null) {
-          throw new IllegalArgumentException("Neither processor nor processorClass was set");
-        }
-        this.processorClass = processorClass;
       }
     }
     return processorClass;
@@ -130,19 +124,9 @@ public class NewtProcessing {
     if (processor == null) {
       EventProcessor processor = options.getProcessor();
       if (processor == null) {
-        try {
-          Class<? extends EventProcessor> processorClass = getProcessorClass();
-          try {
-            Constructor<? extends EventProcessor> constructor = processorClass.getConstructor(ProcessorContext.class);
-            processor = constructor.newInstance(getContextManager().getContext());
-          } catch (NoSuchMethodException ignored) {
-            // fall back to default constructor
-            processor = processorClass.getConstructor().newInstance();
-          }
-        } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
-          throw new IllegalArgumentException("Unable to instantiate processor.", e);
-        }
+        throw new IllegalStateException("Processor must be specified");
       }
+      processor.setContext(getContextManager().getContext());
       this.processor = processor;
     }
     return processor;

@@ -21,17 +21,12 @@ import edu.umn.nlpnewt.internal.services.NewtServices;
 import edu.umn.nlpnewt.internal.timing.NewtTiming;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
 /**
  * The main class and entry points for the NLP-NEWT framework.
@@ -129,64 +124,6 @@ public final class Newt {
   }
 
   /**
-   * A command-line main method for launching processing servers.
-   *
-   * @param args The command line arguments for launching the processor server.
-   */
-  public static void processorServerMain(@NotNull List<@NotNull String> args) {
-    ProcessorServerOptions processorServerOptions = new ProcessorServerOptions();
-
-    CmdLineParser parser = new CmdLineParser(processorServerOptions);
-
-    try {
-      parser.parseArgument(args);
-    } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
-      System.err.println("java edu.umn.nlpnewt.internal.ProcessorServer [options...] fully.qualified.ProcessorClassName");
-      // print the list of available options
-      parser.printUsage(System.err);
-      System.err.println();
-
-      // print option sample. This is useful some time
-      System.err.println("Example: java edu.umn.nlpnewt.internal.ProcessorServer" + parser.printExample(ALL));
-      return;
-    }
-
-    try {
-      Newt newt = new Newt();
-      Server server = newt.createProcessorServer(processorServerOptions);
-      server.start();
-      server.blockUntilShutdown();
-    } catch (IOException e) {
-      System.err.println("Failed to start server: " + e.getMessage());
-    } catch (InterruptedException e) {
-      System.err.println("Server interrupted.");
-    }
-  }
-
-  /**
-   * A command-line main method for all of the functionality of the newt Java framework.
-   *
-   * @param args Array of command line arguments.
-   */
-  public static void main(@NotNull String[] args) {
-    if (args.length > 0) {
-      String mode = args[0];
-      if (mode.startsWith("-h")) {
-        System.out.println("Usage: java -jar Newt.jar MODE");
-        System.out.println("Modes: one of {\"processor\", \"-h\", \"--help\"}");
-      } else if (mode.startsWith("pr")) {
-        processorServerMain(Arrays.asList(args).subList(1, args.length));
-      }
-      return;
-    }
-
-    System.err.println(
-        "Incorrect or missing mode argument. Must be one of {\"processor\", \"-h\", \"--help\"}"
-    );
-  }
-
-  /**
    * Creates an object for interacting with a newt events service.
    *
    * <pre>
@@ -253,17 +190,16 @@ public final class Newt {
 
   /**
    * Creates a {@code Server} object that can be used to start hosting an
-   * {@link EventProcessor} or an {@link DocumentProcessorBase}.
+   * {@link EventProcessor} or an {@link DocumentProcessor}.
    * <p>
    * Example:
    * <pre>
    *   {@code
    *   ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
-   *       .emptyOptions()
    *       .withProcessor(new SomeProcessor())
    *       .withPort(9090)
    *       .register();
-   *   Server server = newt.getProcessorServer(options);
+   *   Server server = newt.createProcessorServer(options);
    *   server.start();
    *   }
    * </pre>
