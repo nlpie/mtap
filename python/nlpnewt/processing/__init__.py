@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import nlpnewt.processing.base as base
+from nlpnewt.processing import base
 from nlpnewt.processing._utils import write_processors_metadata
 from nlpnewt.processing.base import AggregateTimingInfo
 from nlpnewt.processing.base import DocumentProcessor

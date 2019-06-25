@@ -66,7 +66,8 @@ class ProcessorRunner(ProcessingComponent):
     def call_process(self, event_id, params):
         self.processed += 1
         p = dict(self.params)
-        p.update(params)
+        if params is not None:
+            p.update(params)
         with enter_context(self.component_id) as c, \
                 Event(event_id=event_id, client=self.client) as event:
             try:
@@ -108,7 +109,8 @@ class RemoteRunner(ProcessingComponent):
     def call_process(self, event_id, params):
         self.processed += 1
         p = dict(self.params or {})
-        p.update(params)
+        if params is not None:
+            p.update(params)
 
         with enter_context(self.component_id) as context:
             try:
