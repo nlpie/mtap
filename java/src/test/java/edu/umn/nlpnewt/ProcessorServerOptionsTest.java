@@ -36,17 +36,9 @@ class ProcessorServerOptionsTest {
   }
 
   @Test
-  void badProcessorClassName() {
-    String[] args = new String[] {"foo"};
-    ProcessorServerOptions options = new ProcessorServerOptions();
-    CmdLineParser parser = new CmdLineParser(options);
-    assertThrows(CmdLineException.class, () -> parser.parseArgument(args));
-  }
-
-  @Test
   void hasDefaultPort0() throws CmdLineException {
-    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessor"};
-    ProcessorServerOptions options = new ProcessorServerOptions();
+    String[] args = new String[] {};
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     CmdLineParser parser = new CmdLineParser(options);
     parser.parseArgument(args);
     assertEquals(0, options.getPort());
@@ -54,114 +46,97 @@ class ProcessorServerOptionsTest {
 
   @Test
   void hasDefaultAddress() throws CmdLineException {
-    String[] args = new String[] {"edu.umn.nlpnewt.ProcessorServerOptionsTest$TestProcessor"};
-    ProcessorServerOptions options = new ProcessorServerOptions();
+    String[] args = new String[] {};
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     CmdLineParser parser = new CmdLineParser(options);
     parser.parseArgument(args);
     assertEquals("127.0.0.1", options.getAddress());
   }
 
   @Test
-  void setProcessor() {
-    TestProcessor processor = new TestProcessor();
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
-    options.setProcessor(processor);
-    assertEquals(processor, options.getProcessor());
-  }
-
-  @Test
-  void withProcessor() {
-    TestProcessor processor = new TestProcessor();
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
-        .withProcessor(processor);
-    assertEquals(processor, options.getProcessor());
-  }
-
-  @Test
   void setAddress() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.setAddress("localhost");
     assertEquals("localhost", options.getAddress());
   }
 
   @Test
   void withAddress() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.withAddress("localhost");
     assertEquals("localhost", options.getAddress());
   }
 
   @Test
   void setPort() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.setPort(50555);
     assertEquals(50555, options.getPort());
   }
 
   @Test
   void withPort() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions().withPort(50555);
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor()).withPort(50555);
     assertEquals(50555, options.getPort());
   }
 
   @Test
   void defaultRegisterFalse() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     assertFalse(options.getRegister());
   }
 
   @Test
   void setRegister() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.setRegister(true);
     assertTrue(options.getRegister());
   }
 
   @Test
   void register() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
-        .register();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor()).register();
     assertTrue(options.getRegister());
   }
 
   @Test
   void setEventsTarget() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.setEventsTarget("localhost:9090");
     assertEquals("localhost:9090", options.getEventsTarget());
   }
 
   @Test
   void withEventsTarget() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor())
         .withEventsTarget("localhost:9090");
     assertEquals("localhost:9090", options.getEventsTarget());
   }
 
   @Test
   void setConfigFile() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.setConfigFile(Paths.get("blub"));
     assertEquals(Paths.get("blub"), options.getConfigFile());
   }
 
   @Test
   void withConfigFile() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor())
         .withConfigFile(Paths.get("blub"));
     assertEquals(Paths.get("blub"), options.getConfigFile());
   }
 
   @Test
   void setIdentifier() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions();
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor());
     options.setIdentifier("foo");
     assertEquals("foo", options.getIdentifier());
   }
 
   @Test
   void withIdentifier() {
-    ProcessorServerOptions options = ProcessorServerOptions.emptyOptions()
+    ProcessorServerOptions options = new ProcessorServerOptions(new TestProcessor())
         .withIdentifier("foo");
     assertEquals("foo", options.getIdentifier());
   }

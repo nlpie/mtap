@@ -13,17 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package edu.umn.nlpnewt;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
+import java.util.*;
+
 
 /**
  * A document of text and labels in the NEWT system.
  * <p>
  * Documents are stored on accessed via creation or retrieval on an {@link Event} object using
- * {@link Event#addDocument(String, String)} or {@link Event#get(Object)}.
+ * {@link Event#addDocument(String, String)} or {@link Event#getDocuments()}.
  * <p>
  * Documents are keyed by their name, this is to allow pipelines to store different pieces of
  * related text on a single processing event. An example would be storing the text of one language
@@ -34,43 +37,86 @@ import java.util.List;
  * parallelization and distribution of processing, and to prevent changes to upstream data that
  * has already been used in the creation of downstream data.
  */
-public interface Document {
+public class Document {
+  private final String documentName;
+
+  @Nullable
+  private transient EventsClient client;
+
+  private transient Event event;
+
+  private transient String text;
+
+  private transient Map<String, LabelIndex<?>> labelIndexMap = null;
+
+  private transient Map<String, Labeler<?>> labelers = null;
+
+  private transient List<String> createdIndices = null;
+
+
+  Document(String documentName, String text) {
+    this.documentName = documentName;
+    this.text = text;
+  }
+
+  public EventsClient getClient() {
+    return client;
+  }
+
+  public void setClient(EventsClient client) {
+    this.client = client;
+  }
+
   /**
    * Get the parent event.
    *
    * @return Event object.
    */
-  @NotNull Event getEvent();
+  public Event getEvent() {
+    return event;
+  }
+
+  public void setEvent(Event event) {
+    this.event = event;
+  }
 
   /**
    * Gets the event-unique document name of this document.
    *
    * @return String document name.
    */
-  @NotNull String getName();
+  public @NotNull String getName() {
+    return documentName;
+  }
 
   /**
    * Get the text of the document.
    *
    * @return String entire text of the document.
    */
-  @NotNull String getText();
+  public String getText() {
+    if (text == null && client != null) {
+      text = client.getDocumentText(event.getEventID(), documentName);
+    }
+    return text;
+  }
 
   /**
    * Gets information about the label indices in this document.
    *
    * @return A list of objects containing information about the label indices.
    */
-  @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfo();
+  public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfo() {
+    if (client != null) {
+      return client.getLabelIndicesInfos(event.getEventID(), documentName);
+    }
 
-  /**
-   * Gets a label index containing {@link GenericLabel} from the document service.
-   *
-   * @param labelIndexName The name identifier of the label index.
-   *
-   * @return The existing label index with the specified name.
-   */
-  @NotNull LabelIndex<GenericLabel> getLabelIndex(@NotNull String labelIndexName);
+    ArrayList<LabelIndexInfo> list = new ArrayList<>();
+    for (Map.Entry<String, LabelIndex<?>> entry : labelIndexMap.entrySet()) {
+      list.add(new LabelIndexInfo(entry.getKey(), LabelIndexInfo.LabelIndexType.JSON));
+    }
+    return list;
+  }
 
   /**
    * Gets a label index from the events service.
@@ -82,10 +128,68 @@ public interface Document {
    * @return The existing label index with the specified name.
    */
   @ExperimentalApi
-  <L extends Label> @NotNull LabelIndex<L> getLabelIndex(
+  @SuppressWarnings("unchecked")
+  public @NotNull <L extends Label> LabelIndex<L> getLabelIndex(
       @NotNull String labelIndexName,
       @NotNull ProtoLabelAdapter<L> labelAdapter
-  );
+  ) {
+    LabelIndex<?> index = getLabelIndexMap().get(labelIndexName);
+    if (index == null && client != null) {
+      index = client.getLabels(event.getEventID(), documentName, labelIndexName, labelAdapter);
+      getLabelIndexMap().put(labelIndexName, index);
+    }
+    if (index == null) {
+      throw new NoSuchElementException();
+    }
+    return (LabelIndex<L>) index;
+  }
+
+  /**
+   * Gets a label index containing {@link GenericLabel} from the document service.
+   *
+   * @param labelIndexName The name identifier of the label index.
+   *
+   * @return The existing label index with the specified name.
+   */
+  public @NotNull LabelIndex<GenericLabel> getLabelIndex(@NotNull String labelIndexName) {
+    return getLabelIndex(labelIndexName, GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
+  }
+
+  /**
+   * Returns a labeler for the type specified by {@code <L>} to the label index keyed by
+   * {@code labelIndexName} using {@code adapter} to perform message adapting.
+   * <p>
+   * Example:
+   * <pre>
+   *     {@code
+   *     try (Labeler<GenericLabel> labeler = document.getLabeler("sentences", Sentence.ADAPTER)) {
+   *        labeler.add(GenericLabel.newBuilder(0, 22).build());
+   *        labeler.add(GenericLabel.newBuilder(33, 55).build());
+   *        labeler.add(GenericLabel.newBuilder(56, 88).build());
+   *     }
+   *     }
+   * </pre>
+   *
+   * @param labelIndexName The label index name that the labels will be uploaded to.
+   * @param adapter        The adapter.
+   * @param <L>            The label type.
+   *
+   * @return Labeler object.
+   *
+   * @see ProtoLabelAdapter
+   */
+  @ExperimentalApi
+  public @NotNull <L extends Label> Labeler<L> getLabeler(@NotNull String labelIndexName,
+                                                          @NotNull ProtoLabelAdapter<L> adapter) {
+    @SuppressWarnings("unchecked")
+    Labeler<L> existing = (Labeler<L>) getLabelers().get(labelIndexName);
+    if (existing == null) {
+      existing = new LabelerImpl<>(labelIndexName, adapter);
+      getLabelers().put(labelIndexName, existing);
+    }
+    return existing;
+  }
+
 
   /**
    * Returns a labeler for non-distinct {@link GenericLabel} objects stored on
@@ -105,8 +209,7 @@ public interface Document {
    *
    * @return Labeler object, must be "closed" to send labels to server.
    */
-  @NotNull
-  default Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName) {
+  public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName) {
     return getLabeler(labelIndexName, false);
   }
 
@@ -135,42 +238,84 @@ public interface Document {
    *
    * @return Labeler object.
    */
-  @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName, boolean isDistinct);
-
-  /**
-   * Returns a labeler for the type specified by {@code <L>} to the label index keyed by
-   * {@code labelIndexName} using {@code adapter} to perform message adapting.
-   * <p>
-   * Example:
-   * <pre>
-   *     {@code
-   *     try (Labeler<GenericLabel> labeler = document.getLabeler("sentences", Sentence.ADAPTER)) {
-   *        labeler.add(GenericLabel.newBuilder(0, 22).build());
-   *        labeler.add(GenericLabel.newBuilder(33, 55).build());
-   *        labeler.add(GenericLabel.newBuilder(56, 88).build());
-   *     }
-   *     }
-   * </pre>
-   *
-   * @param labelIndexName The label index name that the labels will be uploaded to.
-   * @param adapter        The adapter.
-   * @param <L>            The label type.
-   *
-   * @return Labeler object.
-   *
-   * @see ProtoLabelAdapter
-   */
-  @ExperimentalApi
-  <L extends Label> @NotNull Labeler<L> getLabeler(
-      @NotNull String labelIndexName,
-      @NotNull ProtoLabelAdapter<L> adapter
-  );
+  public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName,
+                                                   boolean isDistinct) {
+    return getLabeler(labelIndexName, isDistinct ? GenericLabelAdapter.DISTINCT_ADAPTER : GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
+  }
 
   /**
    * The list of the names of all label indices that have been added to this document locally.
    *
    * @return An unmodifiable list of index names that have been added to this document.
    */
-  @NotNull List<@NotNull String> getCreatedIndices();
+  public @NotNull List<@NotNull String> getCreatedIndices() {
+    if (createdIndices == null) {
+      createdIndices = new ArrayList<>();
+    }
+    return createdIndices;
+  }
 
+  public void addCreatedIndices(@NotNull Collection<@NotNull String> createdIndices) {
+    getCreatedIndices().addAll(createdIndices);
+  }
+
+  private Map<String, LabelIndex<?>> getLabelIndexMap() {
+    if (labelIndexMap == null) {
+      labelIndexMap = new HashMap<>();
+    }
+    return labelIndexMap;
+  }
+
+  private Map<String, Labeler<?>> getLabelers() {
+    if (labelers == null) {
+      labelers = new HashMap<>();
+    }
+    return labelers;
+  }
+
+  private class LabelerImpl<L extends Label> implements Labeler<L> {
+    private final String labelIndexName;
+
+    private final ProtoLabelAdapter<L> labelAdapter;
+
+    private final List<L> labels = new ArrayList<>();
+
+    private boolean done = false;
+
+    LabelerImpl(String labelIndexName, ProtoLabelAdapter<L> labelAdapter) {
+      this.labelIndexName = labelIndexName;
+      this.labelAdapter = labelAdapter;
+    }
+
+    @Override
+    public void add(L label) {
+      if (done) throw new IllegalStateException("Labeler has already been finalized");
+      labels.add(label);
+    }
+
+    @Override
+    public void done() {
+      if (!done) {
+        done = true;
+
+        labels.sort((Comparator<Label>) Label::compareLocation);
+
+        getLabelIndexMap().put(labelIndexName, labelAdapter.createLabelIndex(labels));
+        if (client != null) {
+          client.addLabels(event.getEventID(), documentName, labelIndexName, labels, labelAdapter);
+        }
+        getCreatedIndices().add(labelIndexName);
+      }
+    }
+
+    @Override
+    public @NotNull Class<L> getLabelType() {
+      return labelAdapter.getLabelType();
+    }
+
+    @Override
+    public void close() {
+      done();
+    }
+  }
 }

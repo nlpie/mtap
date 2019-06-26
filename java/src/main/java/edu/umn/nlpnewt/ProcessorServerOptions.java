@@ -33,8 +33,7 @@ import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
  * Which processor to launch is specified via either processor or processorClass.
  */
 public class ProcessorServerOptions {
-  @Nullable
-  private EventProcessor processor = null;
+  private final EventProcessor processor;
 
   @NotNull
   @Option(name = "-a", aliases = {"--address"}, metaVar = "ADDRESS",
@@ -74,7 +73,8 @@ public class ProcessorServerOptions {
   /**
    * Creates an empty processor server options.
    */
-  public ProcessorServerOptions() {
+  public ProcessorServerOptions(EventProcessor processor) {
+    this.processor = processor;
   }
 
   /**
@@ -93,24 +93,14 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * Creates an empty processor server options.
-   *
-   * @return Processor server options object.
-   */
-  public static @NotNull ProcessorServerOptions emptyOptions() {
-    return new ProcessorServerOptions();
-  }
-
-  /**
    * Parses the command line arguments for launching a processor.
    *
    * @param args
    * @return
    * @throws CmdLineException
    */
-  public static @NotNull ProcessorServerOptions parseArgs(String[] args) throws CmdLineException {
-    ProcessorServerOptions processorServerOptions = new ProcessorServerOptions();
-    CmdLineParser parser = new CmdLineParser(processorServerOptions);
+  public @NotNull ProcessorServerOptions parseArgs(String[] args) throws CmdLineException {
+    CmdLineParser parser = new CmdLineParser(this);
 
     try {
       parser.parseArgument(args);
@@ -121,7 +111,7 @@ public class ProcessorServerOptions {
       System.err.println();
       throw e;
     }
-    return processorServerOptions;
+    return this;
   }
 
   /**
@@ -129,29 +119,8 @@ public class ProcessorServerOptions {
    *
    * @return processor or {@code null} if it is unset.
    */
-  public @Nullable EventProcessor getProcessor() {
+  public EventProcessor getProcessor() {
     return processor;
-  }
-
-  /**
-   * Set a processor to instantiate and host.
-   *
-   * @param processor processor or {@code null} if it should be unset.
-   */
-  public void setProcessor(@Nullable EventProcessor processor) {
-    this.processor = processor;
-  }
-
-  /**
-   * Builder method that sets a processor to instantiate and host.
-   *
-   * @param processor processor or {@code null} if it should be unset.
-   *
-   * @return This options object.
-   */
-  public ProcessorServerOptions withProcessor(@Nullable EventProcessor processor) {
-    setProcessor(processor);
-    return this;
   }
 
   /**

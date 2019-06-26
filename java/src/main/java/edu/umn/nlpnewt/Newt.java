@@ -15,10 +15,11 @@
  */
 package edu.umn.nlpnewt;
 
-import edu.umn.nlpnewt.internal.events.NewtEvents;
-import edu.umn.nlpnewt.internal.processing.NewtProcessing;
-import edu.umn.nlpnewt.internal.services.NewtServices;
-import edu.umn.nlpnewt.internal.timing.NewtTiming;
+import edu.umn.nlpnewt.processing.NewtProcessing;
+import edu.umn.nlpnewt.services.DiscoveryMechanism;
+import edu.umn.nlpnewt.services.NewtServices;
+import edu.umn.nlpnewt.timing.NewtTiming;
+import io.grpc.ManagedChannelBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,7 +27,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The main class and entry points for the NLP-NEWT framework.
@@ -45,53 +45,6 @@ public final class Newt {
    */
   public static final String PROCESSOR_SERVICE_TAG = "v1-nlpnewt-processor";
 
-  private final Config config;
-
-  /**
-   * Creates a {@code Newt} object using configuration loaded from the standard locations.
-   *
-   * @throws IOException If there is an IOException while loading the configuration.
-   * @see ConfigImpl
-   */
-  public Newt() throws IOException {
-    config = ConfigImpl.loadConfigFromLocationOrDefaults(null);
-  }
-
-  /**
-   * Creates a {@code Newt} object using a configuration loaded from the {@code configPath}
-   * parameter or from the standard locations if {@code configPath} is {@code null}.
-   *
-   * @param configPath The path to load configuration from or {@code null}.
-   *
-   * @throws IOException If there is an {@code IOException} while loading the configuration.
-   * @see ConfigImpl
-   */
-  public Newt(@Nullable Path configPath) throws IOException {
-    config = ConfigImpl.loadConfigFromLocationOrDefaults(configPath);
-  }
-
-  /**
-   * Creates a {@code Newt} object using configuration loaded from the standard loctaions and
-   * updates from the {@code configPath} map.
-   *
-   * @param configUpdates Map of updates to make to configuration.
-   *
-   * @throws IOException If there is an {@code IOException} while loading the configuration.
-   */
-  public Newt(@NotNull Map<@NotNull String, @Nullable Object> configUpdates) throws IOException {
-    config = ConfigImpl.loadConfigFromLocationOrDefaults(null);
-    config.update(configUpdates);
-  }
-
-  /**
-   * Creates a {@code Newt} object using the given configuration.
-   *
-   * @param config configuration object.
-   */
-  public Newt(Config config) {
-    this.config = config;
-  }
-
   /**
    * Creates a standard (capable of handling overlapping labels) label index.
    *
@@ -103,7 +56,7 @@ public final class Newt {
   public static <L extends Label> @NotNull LabelIndex<L> standardLabelIndex(
       @NotNull List<@NotNull L> labels
   ) {
-    return NewtEvents.standardLabelIndex(labels);
+    return new StandardLabelIndex<>(labels);
   }
 
   /**
@@ -120,7 +73,20 @@ public final class Newt {
   public static <L extends Label> @NotNull LabelIndex<L> distinctLabelIndex(
       @NotNull List<@NotNull L> labels
   ) {
-    return NewtEvents.distinctLabelIndex(labels);
+    return new DistinctLabelIndex<L>(labels);
+  }
+
+
+  public static @NotNull EventsClient eventsClient() throws IOException {
+    Config config = ConfigImpl.loadFromDefaultLocations();
+    return eventsClient(config);
+  }
+
+  public static @NotNull EventsClient eventsClient(Config config) {
+    NewtServices services = new NewtServices(config);
+    DiscoveryMechanism discoveryMechanism = services.getDiscoveryMechanism();
+    String eventsTarget = discoveryMechanism.getServiceTarget(EVENTS_SERVICE_NAME, "v1");
+    return new EventsClient(ManagedChannelBuilder.forTarget(eventsTarget).build());
   }
 
   /**
@@ -139,11 +105,11 @@ public final class Newt {
    *
    * @return {@code Events} object connected to the events service.
    */
-  public @NotNull Events events(@Nullable String address) {
-    Config config = ConfigImpl.createByCopying(this.config);
-    NewtServices newtServices = new NewtServices(config);
-    NewtEvents newtEvents = new NewtEvents(newtServices).setAddress(address);
-    return newtEvents.getEvents();
+  public static @NotNull EventsClient eventsClient(@Nullable String address) throws IOException {
+    if (address == null) {
+      return eventsClient();
+    }
+    return new EventsClient(ManagedChannelBuilder.forTarget(address).build());
   }
 
   /**
@@ -162,8 +128,8 @@ public final class Newt {
    *
    * @return {@code Events} object connected to the events service.
    */
-  public @NotNull Events events(@NotNull String host, int port) {
-    return events(host + ":" + port);
+  public static @NotNull EventsClient eventsClient(@NotNull String host, int port) throws IOException {
+    return eventsClient(host + ":" + port);
   }
 
   /**
@@ -183,8 +149,8 @@ public final class Newt {
    *
    * @return {@code Events} object connected to the events service.
    */
-  public @NotNull Events events(@NotNull InetSocketAddress address) {
-    return events(address.getHostString() + ":" + address.getPort());
+  public @NotNull EventsClient eventsClient(@NotNull InetSocketAddress address) throws IOException {
+    return eventsClient(address.getHostString() + ":" + address.getPort());
   }
 
 
@@ -209,18 +175,16 @@ public final class Newt {
    * @throws IOException if there was an exception loading configuration.
    * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
-  public @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
-    Config config = ConfigImpl.createByCopying(this.config);
+  public static @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
+    Config config = ConfigImpl.loadFromDefaultLocations();
     Path configFile = options.getConfigFile();
     if (configFile != null) {
       config.update(ConfigImpl.loadConfig(configFile));
     }
+    EventsClient eventsClient = eventsClient(config);
     NewtServices newtServices = new NewtServices(config);
     NewtTiming newtTiming = new NewtTiming();
-    NewtEvents newtEvents = new NewtEvents(newtServices);
-    newtEvents.setAddress(options.getEventsTarget());
-    NewtProcessing processing = new NewtProcessing(options, newtServices,
-        newtEvents, newtTiming);
+    NewtProcessing processing = new NewtProcessing(options, eventsClient, newtServices, newtTiming);
     return processing.getProcessorServer();
   }
 }
