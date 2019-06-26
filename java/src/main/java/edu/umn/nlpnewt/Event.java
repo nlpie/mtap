@@ -160,7 +160,13 @@ public class Event implements AutoCloseable {
 
 
   private class Metadata extends AbstractMap<String, String> {
-    private Map<String, String> metadata = client.getAllMetadata(eventID);
+    private Map<String, String> metadata = new HashMap<>();
+
+    private Metadata() {
+      if (client != null) {
+        metadata.putAll(client.getAllMetadata(eventID));
+      }
+    }
 
     @Override
     public String get(Object key) {
@@ -175,7 +181,9 @@ public class Event implements AutoCloseable {
     @Override
     public String put(String key, String value) {
       metadata.put(key, value);
-      client.addMetadata(eventID, key, value);
+      if (client != null) {
+        client.addMetadata(eventID, key, value);
+      }
       return null;
     }
 
@@ -196,7 +204,10 @@ public class Event implements AutoCloseable {
     }
 
     private void refreshMetadata() {
-      metadata = client.getAllMetadata(eventID);
+      if (client != null) {
+
+        metadata.putAll(client.getAllMetadata(eventID));
+      }
     }
   }
 
@@ -266,8 +277,10 @@ public class Event implements AutoCloseable {
         }
       }
 
-      client.addDocument(eventID, document.getName(), document.getText());
-      document.setClient(client);
+      if (client != null) {
+        client.addDocument(eventID, document.getName(), document.getText());
+        document.setClient(client);
+      }
       document.setEvent(Event.this);
       documents.add(document);
       return null;
