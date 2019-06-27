@@ -41,50 +41,12 @@ usage:
   --config CONFIG, -c CONFIG
                         path to config file
 
-
-Running Processors
-^^^^^^^^^^^^^^^^^^
-
-usage:
-
-.. code-block:: text
-
- python -m nlpnewt processor [-h] [--address ADDRESS] [--port PORT]
-                             [--workers WORKERS] [--register]
-                             [--config CONFIG]
-                             [--events-address EVENTS_ADDRESS] --name NAME
-                             [--module MODULE]
-                             [args [args ...]]
-
- positional arguments:
-  args                  args that will be passed to the processor
-
- optional arguments:
-  -h, --help            show this help message and exit
-  --address ADDRESS, -a ADDRESS
-                        the address to serve the service on
-  --port PORT, -p PORT  the port to serve the service on
-  --workers WORKERS, -w WORKERS
-                        number of worker threads to handle requests
-  --register, -r        whether to register the service with the configured
-                        service discovery
-  --config CONFIG, -c CONFIG
-                        path to config file
-  --events-address EVENTS_ADDRESS, --events EVENTS_ADDRESS, -e EVENTS_ADDRESS
-                        address of the events service to use, omit to use
-                        discovery
-  --name NAME, -n NAME  The name the processor is registered under using
-                        the processor decorator.
-  --module MODULE, -m MODULE
-                        A python module to load to trigger the
-                        processor decorator
-
 API Documentation
 -----------------
 
 Events service client, documents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: Events
+.. autoclass:: EventsClient
 .. autoclass:: nlpnewt.events.Event
 .. autoclass:: nlpnewt.events.Document
 
@@ -106,7 +68,6 @@ Creating Processors
 .. autofunction:: processor
 .. autoclass:: nlpnewt.processing.EventProcessor
 .. autoclass:: nlpnewt.processing.DocumentProcessor
-.. autoclass:: nlpnewt.processing.ProcessorContext
 
 Running Services
 ^^^^^^^^^^^^^^^^

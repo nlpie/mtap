@@ -17,7 +17,10 @@ package edu.umn.nlpnewt;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.kohsuke.args4j.*;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.OptionDef;
 import org.kohsuke.args4j.spi.OneArgumentOptionHandler;
 import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.kohsuke.args4j.spi.Setter;
@@ -25,16 +28,11 @@ import org.kohsuke.args4j.spi.Setter;
 import java.nio.file.Path;
 import java.util.UUID;
 
-import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
-
 /**
  * Options bean used to start a processor server.
- * <p>
- * Which processor to launch is specified via either processor or processorClass.
  */
 public class ProcessorServerOptions {
-  @Nullable
-  private EventProcessor processor = null;
+  private final EventProcessor processor;
 
   @NotNull
   @Option(name = "-a", aliases = {"--address"}, metaVar = "ADDRESS",
@@ -73,8 +71,11 @@ public class ProcessorServerOptions {
 
   /**
    * Creates an empty processor server options.
+   *
+   * @param processor The processor to host.
    */
-  public ProcessorServerOptions() {
+  public ProcessorServerOptions(EventProcessor processor) {
+    this.processor = processor;
   }
 
   /**
@@ -90,27 +91,20 @@ public class ProcessorServerOptions {
     eventsTarget = options.getEventsTarget();
     configFile = options.getConfigFile();
     identifier = options.getIdentifier();
-  }
-
-  /**
-   * Creates an empty processor server options.
-   *
-   * @return Processor server options object.
-   */
-  public static @NotNull ProcessorServerOptions emptyOptions() {
-    return new ProcessorServerOptions();
+    uniqueServiceId = options.getUniqueServiceId();
   }
 
   /**
    * Parses the command line arguments for launching a processor.
    *
-   * @param args
-   * @return
-   * @throws CmdLineException
+   * @param args The command line arguments.
+   *
+   * @return This options object.
+   *
+   * @throws CmdLineException If there is a failure parsing the command line options.
    */
-  public static @NotNull ProcessorServerOptions parseArgs(String[] args) throws CmdLineException {
-    ProcessorServerOptions processorServerOptions = new ProcessorServerOptions();
-    CmdLineParser parser = new CmdLineParser(processorServerOptions);
+  public @NotNull ProcessorServerOptions parseArgs(String[] args) throws CmdLineException {
+    CmdLineParser parser = new CmdLineParser(this);
 
     try {
       parser.parseArgument(args);
@@ -121,7 +115,7 @@ public class ProcessorServerOptions {
       System.err.println();
       throw e;
     }
-    return processorServerOptions;
+    return this;
   }
 
   /**
@@ -129,29 +123,8 @@ public class ProcessorServerOptions {
    *
    * @return processor or {@code null} if it is unset.
    */
-  public @Nullable EventProcessor getProcessor() {
+  public EventProcessor getProcessor() {
     return processor;
-  }
-
-  /**
-   * Set a processor to instantiate and host.
-   *
-   * @param processor processor or {@code null} if it should be unset.
-   */
-  public void setProcessor(@Nullable EventProcessor processor) {
-    this.processor = processor;
-  }
-
-  /**
-   * Builder method that sets a processor to instantiate and host.
-   *
-   * @param processor processor or {@code null} if it should be unset.
-   *
-   * @return This options object.
-   */
-  public ProcessorServerOptions withProcessor(@Nullable EventProcessor processor) {
-    setProcessor(processor);
-    return this;
   }
 
   /**
@@ -180,6 +153,7 @@ public class ProcessorServerOptions {
    *
    * @return This options object.
    */
+  @NotNull
   public ProcessorServerOptions withAddress(@NotNull String address) {
     setAddress(address);
     return this;
@@ -291,6 +265,12 @@ public class ProcessorServerOptions {
     this.configFile = configFile;
   }
 
+  /**
+   * Builder method for setting a configuration file path.
+   *
+   * @param configFile The configuration file to use.
+   * @return This options object.
+   */
   public ProcessorServerOptions withConfigFile(@Nullable Path configFile) {
     setConfigFile(configFile);
     return this;
@@ -317,7 +297,7 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * Builder method for to set the optional identifier that replaces the processor's default
+   * Builder method for setting the optional identifier that replaces the processor's default
    * identifier for service registration and discovery.
    *
    * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
@@ -336,7 +316,7 @@ public class ProcessorServerOptions {
    *
    * @return String identifier or a random UUID if not set.
    */
-  public String getUniqueServiceId() {
+  public @NotNull String getUniqueServiceId() {
     if (uniqueServiceId == null) {
       uniqueServiceId = UUID.randomUUID().toString();
     }
@@ -350,40 +330,20 @@ public class ProcessorServerOptions {
    *
    * @param uniqueServiceId A string identifier unique to this service instance.
    */
-  public void setUniqueServiceId(String uniqueServiceId) {
+  public void setUniqueServiceId(@NotNull String uniqueServiceId) {
     this.uniqueServiceId = uniqueServiceId;
   }
 
-  public ProcessorServerOptions withUniqueServiceId(String uniqueServiceId) {
+  /**
+   * Builder method for setting the unique service id for the processor.
+   *
+   * @param uniqueServiceId A unique identifier to register the processor.
+   * @return This options object.
+   */
+  @NotNull
+  public ProcessorServerOptions withUniqueServiceId(@NotNull String uniqueServiceId) {
     setUniqueServiceId(uniqueServiceId);
     return this;
   }
 
-  /**
-   * An args4j option handler that will parse a fully qualified class name into a
-   * {@link EventProcessor} class.
-   */
-  public static class ProcessorOptionHandler
-      extends OneArgumentOptionHandler<Class<? extends EventProcessor>> {
-
-    public ProcessorOptionHandler(
-        CmdLineParser parser,
-        OptionDef option,
-        Setter<? super Class<? extends EventProcessor>> setter
-    ) {
-      super(parser, option, setter);
-    }
-
-    @Override
-    protected Class<? extends EventProcessor> parse(
-        String argument
-    ) throws NumberFormatException, CmdLineException {
-      try {
-        return getClass().getClassLoader().loadClass(argument).asSubclass(EventProcessor.class);
-      } catch (ClassNotFoundException e) {
-        e.printStackTrace(System.err);
-        throw new CmdLineException(owner, "Invalid processor class name", e);
-      }
-    }
-  }
 }

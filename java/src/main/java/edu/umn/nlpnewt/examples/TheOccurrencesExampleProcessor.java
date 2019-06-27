@@ -62,10 +62,9 @@ public class TheOccurrencesExampleProcessor extends DocumentProcessor {
 
   public static void main(String[] args) {
     try {
-      ProcessorServerOptions options = ProcessorServerOptions.parseArgs(args);
-      options.setProcessor(new TheOccurrencesExampleProcessor());
-      Newt newt = new Newt();
-      Server server = newt.createProcessorServer(options);
+      ProcessorServerOptions options = new ProcessorServerOptions(new TheOccurrencesExampleProcessor())
+          .parseArgs(args);
+      Server server = Newt.createProcessorServer(options);
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
