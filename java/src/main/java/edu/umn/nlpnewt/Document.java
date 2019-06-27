@@ -41,11 +41,14 @@ public class Document {
   private final String documentName;
 
   @Nullable
-  private transient EventsClient client;
-
-  private transient Event event;
-
   private transient String text;
+
+  @Nullable
+  private transient EventsClient client = null;
+
+  @Nullable
+  private transient Event event = null;
+
 
   private transient Map<String, LabelIndex<?>> labelIndexMap = null;
 
@@ -53,17 +56,33 @@ public class Document {
 
   private transient List<String> createdIndices = null;
 
-
-  Document(String documentName, String text) {
+  /**
+   * Creates a document with the given name and text.
+   *
+   * @param documentName A name for the document.
+   * @param text         The text of the document.
+   */
+  public Document(String documentName, @Nullable String text) {
     this.documentName = documentName;
     this.text = text;
   }
 
-  public EventsClient getClient() {
+  /**
+   * Get the client that is used to publish changes to this Document to the events service
+   * or {@code null} if the document is local-only.
+   *
+   * @return The events client object.
+   */
+  public @Nullable EventsClient getClient() {
     return client;
   }
 
-  public void setClient(EventsClient client) {
+  /**
+   * Sets the client to use to publish changes to this document to the events service.
+   *
+   * @param client The client.
+   */
+  public void setClient(@Nullable EventsClient client) {
     this.client = client;
   }
 
@@ -72,11 +91,16 @@ public class Document {
    *
    * @return Event object.
    */
-  public Event getEvent() {
+  public @Nullable Event getEvent() {
     return event;
   }
 
-  public void setEvent(Event event) {
+  /**
+   * Set the parent event object.
+   *
+   * @param event The event.
+   */
+  public void setEvent(@Nullable Event event) {
     this.event = event;
   }
 

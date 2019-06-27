@@ -17,7 +17,6 @@
 package edu.umn.nlpnewt;
 
 import com.google.protobuf.ByteString;
-import edu.umn.nlpnewt.*;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
 import io.grpc.ManagedChannel;
@@ -28,17 +27,30 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-@Internal
+/**
+ * A client to an events service.
+ */
 public class EventsClient implements AutoCloseable {
 
   private final EventsGrpc.EventsBlockingStub stub;
   private final ManagedChannel channel;
 
+  /**
+   * Creates a client.
+   *
+   * @param channel The GRPC channel to the events service.
+   */
   public EventsClient(ManagedChannel channel) {
     stub = EventsGrpc.newBlockingStub(channel);
     this.channel = channel;
   }
 
+  /**
+   * Opens the event with the ID, if it does not already exist it will be created.
+   *
+   * @param eventID       The unique event identifier.
+   * @param onlyCreateNew Fail if the event already exists.
+   */
   public void openEvent(@NotNull String eventID, boolean onlyCreateNew) {
     OpenEventRequest request = OpenEventRequest.newBuilder()
         .setEventId(eventID)
@@ -48,6 +60,11 @@ public class EventsClient implements AutoCloseable {
     stub.openEvent(request);
   }
 
+  /**
+   * Closes the event with the given ID, releasing a permit on the event.
+   *
+   * @param eventID The event identifier.
+   */
   public void closeEvent(@NotNull String eventID) {
     CloseEventRequest request = CloseEventRequest.newBuilder()
         .setEventId(eventID)
@@ -56,6 +73,13 @@ public class EventsClient implements AutoCloseable {
     stub.closeEvent(request);
   }
 
+  /**
+   * Returns a map of all the metadata on the event.
+   *
+   * @param eventID The unique event identifier.
+   *
+   * @return A map of all the current metadata on the event.
+   */
   @NotNull
   public Map<String, String> getAllMetadata(@NotNull String eventID) {
     GetAllMetadataRequest request = GetAllMetadataRequest.newBuilder()
@@ -65,6 +89,13 @@ public class EventsClient implements AutoCloseable {
     return response.getMetadataMap();
   }
 
+  /**
+   * Adds a metadata entry to the event.
+   *
+   * @param eventID The unique event identifier.
+   * @param key     The metadata's key.
+   * @param value   The metadata's value.
+   */
   public void addMetadata(@NotNull String eventID, @NotNull String key, @NotNull String value) {
     AddMetadataRequest req = AddMetadataRequest.newBuilder()
         .setEventId(eventID)
@@ -75,6 +106,13 @@ public class EventsClient implements AutoCloseable {
     stub.addMetadata(req);
   }
 
+  /**
+   * Get all of the keys that have associated binary data in the event's binaries map.
+   *
+   * @param eventID The unique event identifier.
+   *
+   * @return A collection of all of the binary data names.
+   */
   public @NotNull Collection<String> getAllBinaryDataNames(@NotNull String eventID) {
     GetAllBinaryDataNamesRequest request = GetAllBinaryDataNamesRequest.newBuilder()
         .setEventId(eventID)
@@ -83,6 +121,13 @@ public class EventsClient implements AutoCloseable {
     return response.getBinaryDataNamesList();
   }
 
+  /**
+   * Adds binary data to the event.
+   *
+   * @param eventID        The unique event identifier.
+   * @param binaryDataName The key for the binary data.
+   * @param bytes          The binary data.
+   */
   public void addBinaryData(@NotNull String eventID, @NotNull String binaryDataName, @NotNull byte[] bytes) {
     AddBinaryDataRequest request = AddBinaryDataRequest.newBuilder()
         .setEventId(eventID)
@@ -93,6 +138,14 @@ public class EventsClient implements AutoCloseable {
     stub.addBinaryData(request);
   }
 
+  /**
+   * Gets binary data on the event.
+   *
+   * @param eventID        The unique event identifier.
+   * @param binaryDataName The key for the binary data.
+   *
+   * @return The binary data.
+   */
   public byte[] getBinaryData(@NotNull String eventID, @NotNull String binaryDataName) {
     GetBinaryDataRequest request = GetBinaryDataRequest.newBuilder()
         .setEventId(eventID)
@@ -102,6 +155,13 @@ public class EventsClient implements AutoCloseable {
     return response.getBinaryData().toByteArray();
   }
 
+  /**
+   * Gets all of the names of documents that are stored on an event.
+   *
+   * @param eventID The unique event identifier.
+   *
+   * @return A collection of document name strings.
+   */
   @NotNull
   public Collection<String> getAllDocumentNames(@NotNull String eventID) {
     GetAllDocumentNamesRequest request = GetAllDocumentNamesRequest
@@ -112,6 +172,13 @@ public class EventsClient implements AutoCloseable {
     return response.getDocumentNamesList();
   }
 
+  /**
+   * Attaches a document to the event.
+   *
+   * @param eventID      The unique event identifier.
+   * @param documentName An identifier string for the document relative to the event.
+   * @param text         The document text.
+   */
   public void addDocument(@NotNull String eventID,
                           @NotNull String documentName,
                           @NotNull String text) {
@@ -124,6 +191,14 @@ public class EventsClient implements AutoCloseable {
     stub.addDocument(request);
   }
 
+  /**
+   * Retrieves the text of a document.
+   *
+   * @param eventID      The unique event identifier.
+   * @param documentName The event-unique document identifier.
+   *
+   * @return A string of the document text.
+   */
   @NotNull
   public String getDocumentText(@NotNull String eventID, @NotNull String documentName) {
     GetDocumentTextRequest request = GetDocumentTextRequest.newBuilder()
@@ -134,6 +209,14 @@ public class EventsClient implements AutoCloseable {
     return response.getText();
   }
 
+  /**
+   * Gets information about the label indices on a document and their type.
+   *
+   * @param eventID      The unique event identifier.
+   * @param documentName The event-unique document identifier.
+   *
+   * @return A list of LabelIndexInfo objects which contain the name and type of the label indices.
+   */
   public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfos(@NotNull String eventID,
                                                                      @NotNull String documentName) {
     GetLabelIndicesInfoRequest request = GetLabelIndicesInfoRequest.newBuilder()
@@ -160,6 +243,16 @@ public class EventsClient implements AutoCloseable {
     return result;
   }
 
+  /**
+   * Adds a label index to a document.
+   *
+   * @param eventID      The unique event identifier.
+   * @param documentName The event-unique document identifier.
+   * @param indexName    The label index identifier.
+   * @param labels       The labels to add.
+   * @param adapter      An adapter which transforms the labels into proto messages.
+   * @param <L>          The label type.
+   */
   public <L extends Label> void addLabels(@NotNull String eventID,
                                           @NotNull String documentName,
                                           @NotNull String indexName,
@@ -176,6 +269,17 @@ public class EventsClient implements AutoCloseable {
     stub.addLabels(request);
   }
 
+  /**
+   * Retrieves a label index from a document.
+   *
+   * @param eventID      The unique event identifier.
+   * @param documentName The event-unique document identifier.
+   * @param indexName    The label index identifier.
+   * @param adapter      An adapter which will transform proto messages into labels.
+   * @param <L>          The label type.
+   *
+   * @return A label index containing the specified labels.
+   */
   public <L extends Label> @NotNull LabelIndex<L> getLabels(@NotNull String eventID,
                                                             @NotNull String documentName,
                                                             @NotNull String indexName,
@@ -189,6 +293,9 @@ public class EventsClient implements AutoCloseable {
     return adapter.createIndexFromResponse(response);
   }
 
+  /**
+   * Cleans up by shutting down the channel.
+   */
   @Override
   public void close() {
     channel.shutdown();
