@@ -83,10 +83,8 @@ public final class ConfigImpl implements Config {
    * present.
    *
    * @return Configuration object containing the flattened key-values from the yaml file.
-   *
-   * @throws IOException If the first configuration file it finds fails to load.
    */
-  public static @NotNull Config loadFromDefaultLocations() throws IOException {
+  public static @NotNull Config loadFromDefaultLocations() {
     return loadConfigFromLocationOrDefaults(null);
   }
 
@@ -97,12 +95,8 @@ public final class ConfigImpl implements Config {
    * @param configPath An optional path to a file to attempt to load configuration from.
    *
    * @return Configuration object containing the flattened key-values from the yaml file.
-   *
-   * @throws IOException If the first configuration file it finds fails to load.
    */
-  public static @NotNull Config loadConfigFromLocationOrDefaults(
-      @Nullable Path configPath
-  ) throws IOException {
+  public static @NotNull Config loadConfigFromLocationOrDefaults(@Nullable Path configPath) {
     String envVarPath = System.getenv("NEWT-CONFIG");
     List<Path> searchPaths = Arrays.asList(
         Paths.get("./newtConfig.yaml"),
@@ -129,16 +123,16 @@ public final class ConfigImpl implements Config {
    * @param configFile Path to a configuration yaml file.
    *
    * @return Configuration object containing the flattened key-values from the yaml file.
-   *
-   * @throws IOException If the file fails to load.
    */
-  public static @NotNull ConfigImpl loadConfig(Path configFile) throws IOException {
+  public static @NotNull ConfigImpl loadConfig(Path configFile) {
     try (InputStream inputStream = Files.newInputStream(configFile)) {
       Yaml yaml = new Yaml();
       Map<String, Object> yamlMap = yaml.load(inputStream);
       Map<String, Object> targetMap = new HashMap<>();
       flattenConfig(yamlMap, "", targetMap);
       return new ConfigImpl(targetMap);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to load configuration.", e);
     }
   }
 

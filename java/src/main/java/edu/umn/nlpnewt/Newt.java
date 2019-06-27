@@ -23,7 +23,6 @@ import io.grpc.ManagedChannelBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.util.List;
@@ -76,17 +75,29 @@ public final class Newt {
     return new DistinctLabelIndex<L>(labels);
   }
 
-
-  public static @NotNull EventsClient eventsClient() throws IOException {
+  /**
+   * Creates an events client using service discovery to locate the events service.
+   *
+   * @return Events client object.
+   */
+  public static @NotNull EventsClient eventsClient() {
     Config config = ConfigImpl.loadFromDefaultLocations();
     return eventsClient(config);
   }
 
+  /**
+   * Creates an events client using service discovery to locate the events service.
+   *
+   * @param config The nlpnewt configuration object.
+   *
+   * @return Events client object.
+   */
   public static @NotNull EventsClient eventsClient(Config config) {
     NewtServices services = new NewtServices(config);
     DiscoveryMechanism discoveryMechanism = services.getDiscoveryMechanism();
     String eventsTarget = discoveryMechanism.getServiceTarget(EVENTS_SERVICE_NAME, "v1");
-    return new EventsClient(ManagedChannelBuilder.forTarget(eventsTarget).build());
+    return new EventsClient(ManagedChannelBuilder.forTarget(eventsTarget)
+        .usePlaintext().nameResolverFactory(discoveryMechanism.getNameResolverFactory()).build());
   }
 
   /**
@@ -103,13 +114,29 @@ public final class Newt {
    * @param address The bound address and port of a newt events service. For example:
    *                "localhost:9090" or {@code null} if service discovery should be used.
    *
-   * @return {@code Events} object connected to the events service.
+   * @return {@code EventsClient} object connected to the events service.
    */
-  public static @NotNull EventsClient eventsClient(@Nullable String address) throws IOException {
+  public static @NotNull EventsClient eventsClient(@Nullable String address) {
     if (address == null) {
       return eventsClient();
     }
-    return new EventsClient(ManagedChannelBuilder.forTarget(address).build());
+    return new EventsClient(ManagedChannelBuilder.forTarget(address).usePlaintext().build());
+  }
+
+  /**
+   * Creates an object for interacting with a newt events service.
+   *
+   * @param target The bound address and port of a newt events service. For example:
+   *               "localhost:9090" or {@code null} if service discovery should be used.
+   * @param config The configuration.
+   *
+   * @return {@code EventsClient} object connected to the events service.
+   */
+  public static @NotNull EventsClient eventsClient(@Nullable String target, Config config) {
+    if (target == null) {
+      return eventsClient(config);
+    }
+    return new EventsClient(ManagedChannelBuilder.forTarget(target).usePlaintext().build());
   }
 
   /**
@@ -128,31 +155,9 @@ public final class Newt {
    *
    * @return {@code Events} object connected to the events service.
    */
-  public static @NotNull EventsClient eventsClient(@NotNull String host, int port) throws IOException {
+  public static @NotNull EventsClient eventsClient(@NotNull String host, int port) {
     return eventsClient(host + ":" + port);
   }
-
-  /**
-   * Creates an object for interacting with a newt events service.
-   *
-   * <pre>
-   *   {@code
-   *   InetSocketAddress address = new InetSocketAddress("localhost", 9090);
-   *   try (Events events = newt.events(address)) {
-   *     // interact with events service.
-   *   }
-   *   }
-   * </pre>
-   *
-   * @param address An {@code InetSocketAddress} for the bound address and port of a newt events
-   *                service.
-   *
-   * @return {@code Events} object connected to the events service.
-   */
-  public @NotNull EventsClient eventsClient(@NotNull InetSocketAddress address) throws IOException {
-    return eventsClient(address.getHostString() + ":" + address.getPort());
-  }
-
 
   /**
    * Creates a {@code Server} object that can be used to start hosting an
@@ -172,19 +177,39 @@ public final class Newt {
    *
    * @param options The options object.
    *
-   * @throws IOException if there was an exception loading configuration.
    * @return {@code Server} object that can be used to start and shutdown serving the processor.
    */
-  public static @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) throws IOException {
+  public static @NotNull Server createProcessorServer(@NotNull ProcessorServerOptions options) {
     Config config = ConfigImpl.loadFromDefaultLocations();
     Path configFile = options.getConfigFile();
     if (configFile != null) {
       config.update(ConfigImpl.loadConfig(configFile));
     }
-    EventsClient eventsClient = eventsClient(config);
+    EventsClient eventsClient = eventsClient(options.getEventsTarget(), config);
     NewtServices newtServices = new NewtServices(config);
     NewtTiming newtTiming = new NewtTiming();
     NewtProcessing processing = new NewtProcessing(options, eventsClient, newtServices, newtTiming);
     return processing.getProcessorServer();
+  }
+
+  /**
+   * Creates an object for interacting with a newt events service.
+   *
+   * <pre>
+   *   {@code
+   *   InetSocketAddress address = new InetSocketAddress("localhost", 9090);
+   *   try (Events events = newt.events(address)) {
+   *     // interact with events service.
+   *   }
+   *   }
+   * </pre>
+   *
+   * @param address An {@code InetSocketAddress} for the bound address and port of a newt events
+   *                service.
+   *
+   * @return {@code Events} object connected to the events service.
+   */
+  public @NotNull EventsClient eventsClient(@NotNull InetSocketAddress address) {
+    return eventsClient(address.getHostString() + ":" + address.getPort());
   }
 }
