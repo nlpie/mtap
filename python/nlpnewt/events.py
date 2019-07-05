@@ -19,7 +19,7 @@ import uuid
 from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable, \
-    NamedTuple, ContextManager, Iterable, Optional
+    NamedTuple, ContextManager, Iterable, Optional, Sequence
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2
@@ -308,7 +308,7 @@ class Document:
     def __init__(self, document_name: str, text: Optional[str] = None):
         self._document_name = document_name
         self._text = text
-        self.label_indices = {}
+        self._label_indices = {}
         self._labelers = []
         self._created_indices = []
         self._event = None
@@ -374,7 +374,7 @@ class Document:
         """
         if self._client is not None:
             return self._client.get_label_index_info(self._event_id, self._document_name)
-        return [LabelIndexInfo(k, LabelIndexType.JSON) for k, v in self.label_indices.items()]
+        return [LabelIndexInfo(k, LabelIndexType.JSON) for k, v in self._label_indices.items()]
 
     def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
         """Gets the document's label index with the specified key, fetching it from the
@@ -395,8 +395,8 @@ class Document:
             LabelIndex object containing the labels.
 
         """
-        if label_index_name in self.label_indices:
-            return self.label_indices[label_index_name]
+        if label_index_name in self._label_indices:
+            return self._label_indices[label_index_name]
         if label_type_id is None:
             label_type_id = constants.GENERIC_LABEL_ID
 
@@ -405,7 +405,7 @@ class Document:
             index = self._client.get_labels(self._event_id, self._document_name,
                                             label_index_name,
                                             adapter=label_adapter)
-            self.label_indices[label_index_name] = index
+            self._label_indices[label_index_name] = index
             return index
         else:
             raise KeyError('Document does not have label index:', label_index_name)
@@ -413,22 +413,23 @@ class Document:
     def get_labeler(self,
                     label_index_name: str,
                     *,
-                    distinct: bool = None,
-                    label_type_id: str = None) -> 'Labeler':
+                    distinct: Optional[bool] = None,
+                    label_type_id: Optional[str] = None) -> 'Labeler':
         """Creates a function that can be used to add labels to a label index.
 
-        If the label id is not specified it will use :obj:`GenericLabel`, otherwise it will
-        look for a custom :obj:`ProtoLabelAdapter` registered using :func:`proto_label_adapter`
+        If the ``label_type_id`` parameter is specified it will use a custom
+        :obj:`ProtoLabelAdapter` registered using :func:`proto_label_adapter`.
 
         Parameters
         ----------
         label_index_name : str
             A document-unique identifier for the label index to be created.
-        label_type_id: str
+        label_type_id: str, optional
             Optional, the string identifier that an adapter has been registered under, or None if
             the default, generic labels are being used.
-        distinct: bool
-            Optional, whether to use GenericLabel or DistinctGenericLabel
+        distinct: bool, optional
+            Optional, if using generic labels, whether to use distinct generic labels or
+            non-distinct generic labels, will default to False
 
         Returns
         -------
@@ -447,8 +448,10 @@ class Document:
         if label_index_name in self._labelers:
             raise KeyError("Labeler already in use: " + label_index_name)
         if label_type_id is not None and distinct is not None:
-            raise ValueError("Either distinct or or label_type needs to be set, but not both.")
-        if label_type_id is None:
+            raise ValueError("Either 'distinct' or 'label_type_id' can be set, but not both.")
+        if distinct is None and label_type_id is None:
+            distinct = False
+        if distinct is not None:
             label_type_id = (constants.DISTINCT_GENERIC_LABEL_ID
                              if distinct
                              else constants.GENERIC_LABEL_ID)
@@ -456,6 +459,61 @@ class Document:
         labeler = Labeler(self._client, self, label_index_name, label_type_id)
         self._labelers.append(label_index_name)
         return labeler
+
+    def add_labels(self,
+                   label_index_name: str,
+                   labels: Sequence['Label'],
+                   *,
+                   distinct: Optional[bool] = None,
+                   label_type_id: Optional[str] = None,
+                   label_adapter: Optional['ProtoLabelAdapter'] = None) -> LabelIndex:
+        """Skips using a labeler and adds the sequence of labels as a new label index.
+
+        Parameters
+        ----------
+        label_index_name: str
+            The name of the label index.
+        labels: Sequence[Label]
+            The labels to add.
+        distinct: bool, optional
+            If using generic labels, whether the index is distinct or non-distinct.
+        label_type_id: str, optional
+            If using a custom registered adapter, the label_type_id of the adapter.
+        label_adapter: ProtoLabelAdapter, optional
+            A label adapter to use directly.
+
+        Returns
+        -------
+        LabelIndex
+            The new label index created from the labels.
+
+        """
+        if label_index_name in self._label_indices:
+            raise KeyError("Label index already exists with name: " + label_index_name)
+        count = sum(x is not None for x in (distinct, label_type_id, label_adapter))
+        if count == 0:
+            distinct = False
+        elif count != 1:
+            raise ValueError("Exactly one of 'distinct', 'label_type_id', and 'label_adapter' "
+                             "parameters must be set.")
+        if distinct is not None:
+            label_type_id = (constants.DISTINCT_GENERIC_LABEL_ID
+                             if distinct
+                             else constants.GENERIC_LABEL_ID)
+        if label_type_id is not None:
+            label_adapter = _label_adapters[label_type_id]
+
+        labels = sorted(labels, key=lambda l: l.location)
+        if self._client is not None:
+            self._client.add_labels(event_id=self.event.event_id,
+                                    document_name=self.document_name,
+                                    index_name=label_index_name,
+                                    labels=labels,
+                                    adapter=label_adapter)
+        self._created_indices.append(label_index_name)
+        index = label_adapter.create_index(labels)
+        self._label_indices[label_index_name] = index
+        return index
 
     def add_created_indices(self, created_indices: Iterable[str]):
         """Used by labelers or by pipelines when indices are added to the document.
@@ -528,15 +586,8 @@ class Labeler(Generic[L], ContextManager['Labeler']):
             if self.is_done:
                 return
             self.is_done = True
-        if self._client is not None:
-            self._client.add_labels(event_id=self._document.event.event_id,
-                                    document_name=self._document.document_name,
-                                    index_name=self._label_index_name,
-                                    labels=self._current_labels,
-                                    adapter=self._label_adapter)
-        self._document.add_created_indices([self._label_index_name])
-        self._document.label_indices[self._label_index_name] = self._label_adapter.create_index(
-            self._current_labels)
+            self._document.add_labels(self._label_index_name, self._current_labels,
+                                      label_adapter=self._label_adapter)
 
 
 class ProtoLabelAdapter(ABC, Generic[L]):

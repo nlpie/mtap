@@ -35,3 +35,25 @@ pip3 install sphinx sphinx_rtd_theme
 cd python/docs
 make html 
 ```
+
+# running python unit tests
+
+First activate a virtualenv, then:
+
+```bash
+cd nlpnewt
+pip install .[tests]
+cd python/tests
+pytest
+```
+
+# running python unit tests + integration tests
+
+First activate a virtualenv, launch an instance of consul (`consul agent -dev -ui`), then:
+
+```bash
+cd nlpnewt
+pip install .[tests]
+cd python/tests
+pytest --consul --integration
+```
