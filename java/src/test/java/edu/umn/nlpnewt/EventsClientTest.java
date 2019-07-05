@@ -17,10 +17,6 @@
 package edu.umn.nlpnewt;
 
 import com.google.protobuf.ByteString;
-import edu.umn.nlpnewt.EventsClient;
-import edu.umn.nlpnewt.LabelIndexInfo;
-import edu.umn.nlpnewt.ProtoLabelAdapter;
-import edu.umn.nlpnewt.Span;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.GetLabelIndicesInfoResponse.LabelIndexInfo.LabelIndexType;
@@ -297,10 +293,10 @@ class EventsClientTest {
     }).when(eventsService).addLabels(any(), any());
 
     tested.addLabels("1", "plaintext", "index",
-        Collections.singletonList(Span.of(1, 5)), adapter);
+        Collections.singletonList(GenericLabel.createSpan(1, 5)), adapter);
     ArgumentCaptor<AddLabelsRequest> captor = ArgumentCaptor.forClass(AddLabelsRequest.class);
     verify(eventsService).addLabels(captor.capture(), any());
-    verify(adapter).addToMessage(eq(Collections.singletonList(Span.of(1, 5))), any());
+    verify(adapter).addToMessage(eq(Collections.singletonList(GenericLabel.createSpan(1, 5))), any());
     AddLabelsRequest request = captor.getValue();
     assertEquals("1", request.getEventId());
     assertEquals("plaintext", request.getDocumentName());
@@ -317,7 +313,7 @@ class EventsClientTest {
       return null;
     }).when(eventsService).getLabels(any(), any());
     when(adapter.createIndexFromResponse(any()))
-        .thenReturn(new StandardLabelIndex(Collections.singletonList(Span.of(0, 5))));
+        .thenReturn(new StandardLabelIndex(Collections.singletonList(GenericLabel.createSpan(0, 5))));
     tested.getLabels("1", "plaintext", "index", adapter);
     ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
     verify(eventsService).getLabels(captor.capture(), any());

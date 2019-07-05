@@ -143,6 +143,7 @@ setup(
     ],
     tests_require=[
         'pytest',
+        'pytest-mock',
         'grpcio-testing',
         'requests'
     ],
