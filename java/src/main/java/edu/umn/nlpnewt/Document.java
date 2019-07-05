@@ -264,7 +264,61 @@ public class Document {
    */
   public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName,
                                                    boolean isDistinct) {
-    return getLabeler(labelIndexName, isDistinct ? GenericLabelAdapter.DISTINCT_ADAPTER : GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
+    ProtoLabelAdapter<GenericLabel> adapter;
+    if (isDistinct) {
+      adapter = GenericLabelAdapter.DISTINCT_ADAPTER;
+    } else {
+      adapter = GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
+    }
+    return getLabeler(labelIndexName, adapter);
+  }
+
+  /**
+   * Adds the list of generic labels as a new label index.
+   *
+   * @param labelIndexName The index name.
+   * @param isDistinct     {@code true} if the labels are distinct (non-overlapping), {@code false}
+   *                       otherwise
+   * @param labels         The list of labels.
+   *
+   * @return A label index of the labels.
+   */
+  public @NotNull LabelIndex<GenericLabel> addLabels(@NotNull String labelIndexName,
+                                                     boolean isDistinct,
+                                                     @NotNull List<@NotNull GenericLabel> labels) {
+    ProtoLabelAdapter<GenericLabel> adapter;
+    if (isDistinct) {
+      adapter = GenericLabelAdapter.DISTINCT_ADAPTER;
+    } else {
+      adapter = GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
+    }
+    return addLabels(labelIndexName, adapter, labels);
+  }
+
+  /**
+   * Adds a list of labels as a new label index.
+   *
+   * @param labelIndexName The index name.
+   * @param labelAdapter   The adapter to use to convert the labels to proto messages.
+   * @param labels         The labels.
+   * @param <L>            The label type.
+   *
+   * @return A label index of the labels.
+   */
+  public <L extends Label> @NotNull LabelIndex<L> addLabels(
+      @NotNull String labelIndexName,
+      @NotNull ProtoLabelAdapter<L> labelAdapter,
+      @NotNull List<@NotNull L> labels
+  ) {
+    labels.sort((Comparator<Label>) Label::compareLocation);
+
+    LabelIndex<L> index = labelAdapter.createLabelIndex(labels);
+    getLabelIndexMap().put(labelIndexName, index);
+    if (client != null && event != null) {
+      client.addLabels(event.getEventID(), documentName, labelIndexName, labels, labelAdapter);
+    }
+    getCreatedIndices().add(labelIndexName);
+    return index;
   }
 
   /**
@@ -321,14 +375,7 @@ public class Document {
     public void done() {
       if (!done) {
         done = true;
-
-        labels.sort((Comparator<Label>) Label::compareLocation);
-
-        getLabelIndexMap().put(labelIndexName, labelAdapter.createLabelIndex(labels));
-        if (client != null) {
-          client.addLabels(event.getEventID(), documentName, labelIndexName, labels, labelAdapter);
-        }
-        getCreatedIndices().add(labelIndexName);
+        addLabels(labelIndexName, labelAdapter, labels);
       }
     }
 

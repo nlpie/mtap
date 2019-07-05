@@ -16,7 +16,6 @@
 
 package edu.umn.nlpnewt;
 
-import edu.umn.nlpnewt.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,7 +24,8 @@ import org.mockito.ArgumentCaptor;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.*;
 
 class DocumentTest {
@@ -54,7 +54,7 @@ class DocumentTest {
 
   @Test
   void getEvent() {
-assertSame(event, tested.getEvent());
+    assertSame(event, tested.getEvent());
   }
 
   @Test
@@ -136,15 +136,16 @@ assertSame(event, tested.getEvent());
   @SuppressWarnings("unchecked")
   void getLabeler() {
     when(labelAdapter.createLabelIndex(anyList())).thenReturn(labelIndex);
-    try (Labeler labeler = tested.getLabeler("index", labelAdapter)) {
-      labeler.add(Span.of(10, 20));
-      labeler.add(Span.of(0, 10));
+    try (Labeler<GenericLabel> labeler = tested.getLabeler("index", labelAdapter)) {
+      labeler.add(GenericLabel.createSpan(10, 20));
+      labeler.add(GenericLabel.createSpan(0, 10));
     }
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
         captor.capture(), same(labelAdapter));
     List value = captor.getValue();
-    assertEquals(Arrays.asList(Span.of(0, 10), Span.of(10, 20)), value);
+    assertEquals(Arrays.asList(GenericLabel.createSpan(0, 10), GenericLabel.createSpan(10, 20)),
+        value);
     tested.getLabelIndex("index");
     verifyNoMoreInteractions(eventsClient);
   }
@@ -152,15 +153,37 @@ assertSame(event, tested.getEvent());
   @Test
   @SuppressWarnings("unchecked")
   void genericDistinct() {
-    try (Labeler labeler = tested.getLabeler("index", true)) {
-      labeler.add(Span.of(10, 20));
-      labeler.add(Span.of(0, 10));
+    try (Labeler<GenericLabel> labeler = tested.getLabeler("index", true)) {
+      labeler.add(GenericLabel.newBuilder(10, 20).build());
+      labeler.add(GenericLabel.newBuilder(0, 10).build());
     }
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
         captor.capture(), same(GenericLabelAdapter.DISTINCT_ADAPTER));
     List value = captor.getValue();
-    assertEquals(Arrays.asList(Span.of(0, 10), Span.of(10, 20)), value);
+    assertEquals(
+        Arrays.asList(GenericLabel.createSpan(0, 10), GenericLabel.createSpan(10, 20)),
+        value
+    );
+    tested.getLabelIndex("index");
+    verifyNoMoreInteractions(eventsClient);
+  }
+
+  @Test
+  void addLabels() {
+    List<GenericLabel> labels = Arrays.asList(
+        GenericLabel.createSpan(10, 20),
+        GenericLabel.createSpan(0, 10)
+    );
+    tested.addLabels("index", false, labels);
+    ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+    verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
+        captor.capture(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
+    List value = captor.getValue();
+    assertEquals(
+        Arrays.asList(GenericLabel.createSpan(0, 10), GenericLabel.createSpan(10, 20)),
+        value
+    );
     tested.getLabelIndex("index");
     verifyNoMoreInteractions(eventsClient);
   }
