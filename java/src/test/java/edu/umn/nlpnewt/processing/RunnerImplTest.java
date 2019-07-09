@@ -16,15 +16,16 @@
 
 package edu.umn.nlpnewt.processing;
 
-import edu.umn.nlpnewt.*;
-import org.jetbrains.annotations.NotNull;
+import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.common.JsonObjectBuilder;
+import edu.umn.nlpnewt.model.Event;
+import edu.umn.nlpnewt.model.EventsClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

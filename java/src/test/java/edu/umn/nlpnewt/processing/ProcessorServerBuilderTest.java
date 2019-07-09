@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright 2019 Regents of the University of Minnesota
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,8 @@
 
 package edu.umn.nlpnewt.processing;
 
-import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.common.JsonObject;
+import static org.junit.jupiter.api.Assertions.*;
 
-@Internal
-public interface Runner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
-
-  String getProcessorName();
-
-  String getProcessorId();
-
-  @Override
-  void close();
+class ProcessorServerBuilderTest {
+  
 }

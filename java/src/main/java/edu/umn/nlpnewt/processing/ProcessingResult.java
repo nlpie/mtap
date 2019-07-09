@@ -17,14 +17,14 @@
 package edu.umn.nlpnewt.processing;
 
 import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.JsonObject;
+import edu.umn.nlpnewt.common.JsonObject;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 @Internal
-public class ProcessingResult {
+class ProcessingResult {
   private final Map<String, List<String>> createdIndices;
   private final Map<String, Duration> times;
   private final JsonObject result;

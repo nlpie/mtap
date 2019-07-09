@@ -1,9 +1,6 @@
 package edu.umn.nlpnewt.processing;
 
 import com.google.common.base.Stopwatch;
-import edu.umn.nlpnewt.ProcessorContext;
-import edu.umn.nlpnewt.Timer;
-import edu.umn.nlpnewt.services.ServiceLifecycle;
 import io.grpc.health.v1.HealthCheckResponse;
 import org.jetbrains.annotations.NotNull;
 

@@ -17,6 +17,11 @@
 package edu.umn.nlpnewt.processing;
 
 import edu.umn.nlpnewt.*;
+import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.common.JsonObjectBuilder;
+import edu.umn.nlpnewt.common.JsonObjectImpl;
+import edu.umn.nlpnewt.model.Event;
+import edu.umn.nlpnewt.model.EventsClient;
 
 @Internal
 class RunnerImpl implements Runner {

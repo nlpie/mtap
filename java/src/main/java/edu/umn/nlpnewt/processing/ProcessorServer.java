@@ -15,7 +15,6 @@
  */
 package edu.umn.nlpnewt.processing;
 
-import edu.umn.nlpnewt.*;
 import io.grpc.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,12 +23,8 @@ import java.io.IOException;
 
 /**
  * A server that hosts {@link DocumentProcessor} and {@link EventProcessor}.
- * <p>
- * This class is for internal use, users should either use the command line or
- * {@link Newt#createProcessorServer(ProcessorServerOptions)}.
  */
-@Internal
-final class ProcessorServer implements edu.umn.nlpnewt.Server {
+public class ProcessorServer implements edu.umn.nlpnewt.common.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
 
   private final String address;
@@ -84,15 +79,15 @@ final class ProcessorServer implements edu.umn.nlpnewt.Server {
     return server.getPort();
   }
 
-  String getAddress() {
+  public String getAddress() {
     return address;
   }
 
-  Server getServer() {
+  public Server getServer() {
     return server;
   }
 
-  ProcessorService getService() {
+  public ProcessorService getService() {
     return service;
   }
 }

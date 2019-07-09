@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright 2019 Regents of the University of Minnesota
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,21 @@
 package edu.umn.nlpnewt.processing;
 
 import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.discovery.ServiceInfo;
+import io.grpc.BindableService;
+import io.grpc.health.v1.HealthCheckResponse;
 
 @Internal
-public interface Runner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
+public interface ServiceLifecycle {
+  void startedService(ServiceInfo serviceInfo);
 
-  String getProcessorName();
+  void stoppedService(ServiceInfo serviceInfo);
 
-  String getProcessorId();
+  BindableService getHealthService();
 
-  @Override
-  void close();
+  void setStatus(String service, HealthCheckResponse.ServingStatus status);
+
+  void clearStatus(String service);
+
+  void enterTerminalState();
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright 2019 Regents of the University of Minnesota
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,13 @@
 package edu.umn.nlpnewt.processing;
 
 import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.api.v1.Processing;
+
+import java.util.Map;
 
 @Internal
-public interface Runner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
+public interface TimesCollector {
+  void addTime(String key, long time);
 
-  String getProcessorName();
-
-  String getProcessorId();
-
-  @Override
-  void close();
+  Map<String, Processing.TimerStats> getTimerStats();
 }

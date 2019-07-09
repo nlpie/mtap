@@ -18,13 +18,11 @@ package edu.umn.nlpnewt.processing;
 
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
-import edu.umn.nlpnewt.JsonObject;
-import edu.umn.nlpnewt.JsonObjectImpl;
+import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.common.JsonObjectImpl;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
-import edu.umn.nlpnewt.services.ServiceInfo;
-import edu.umn.nlpnewt.services.ServiceLifecycle;
-import edu.umn.nlpnewt.timing.TimesCollector;
+import edu.umn.nlpnewt.discovery.ServiceInfo;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
