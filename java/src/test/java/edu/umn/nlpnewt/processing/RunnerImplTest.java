@@ -18,6 +18,7 @@ package edu.umn.nlpnewt.processing;
 
 import edu.umn.nlpnewt.common.JsonObject;
 import edu.umn.nlpnewt.common.JsonObjectBuilder;
+import edu.umn.nlpnewt.common.JsonObjectImpl;
 import edu.umn.nlpnewt.model.Event;
 import edu.umn.nlpnewt.model.EventsClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,24 +30,22 @@ import java.util.Collections;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 class RunnerImplTest {
 
   private EventProcessor processor;
   private EventsClient events;
-  private ContextManager contextManager;
   private RunnerImpl runner;
 
   @BeforeEach
   void setUp() {
     processor = mock(EventProcessor.class);
     events = mock(EventsClient.class);
-    contextManager = mock(ContextManager.class);
     runner = new RunnerImpl(
-        processor,
         events,
-        contextManager,
+        processor,
         "processorName",
         "processorId"
     );
@@ -54,16 +53,7 @@ class RunnerImplTest {
 
   @Test
   void process() {
-    ProcessorContext context = mock(ProcessorContext.class);
-    when(contextManager.enterContext()).thenReturn(context);
-
-    Map<String, Duration> times = Collections.emptyMap();
-    when(context.getTimes()).thenReturn(times);
-
-    Timer timer = mock(Timer.class);
-    when(context.startTimer("process_method")).thenReturn(timer);
-
-    JsonObject params = mock(JsonObject.class);
+    JsonObject params = JsonObjectImpl.newBuilder().build();
     doAnswer((Answer<Void>) invocation -> {
       JsonObjectBuilder builder = invocation.getArgument(2);
       builder.setProperty("foo", "bar");
@@ -73,13 +63,9 @@ class RunnerImplTest {
     ProcessingResult processingResult = runner.process("1", params);
 
     verify(events).openEvent("1", false);
-    verify(contextManager).enterContext();
-    verify(context).startTimer("process_method");
     verify(processor).process(any(Event.class), same(params), any(JsonObjectBuilder.class));
-    verify(timer).stop();
-    verify(context).close();
 
-    assertEquals(times, processingResult.getTimes());
+    assertTrue(processingResult.getTimes().get("processorId:process_method").toNanos() > 0);
     assertEquals("bar", processingResult.getResult().getStringValue("foo"));
   }
 

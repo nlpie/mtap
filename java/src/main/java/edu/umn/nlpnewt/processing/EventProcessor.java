@@ -74,6 +74,15 @@ public abstract class EventProcessor {
   );
 
   /**
+   * The processor name as specified by the {@link Processor} annotation.
+   *
+   * @return A string identifier for the processor.
+   */
+  public String getProcessorName() {
+    return getClass().getAnnotation(Processor.class).value();
+  }
+
+  /**
    * Called when the processor service is going to shutdown serving so the processor can free
    * any resources associated with the processor.
    */

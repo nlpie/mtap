@@ -15,6 +15,8 @@
  */
 package edu.umn.nlpnewt.common;
 
+import io.grpc.ServerBuilder;
+
 import java.io.IOException;
 
 /**
@@ -22,7 +24,7 @@ import java.io.IOException;
  */
 public interface Server {
   /**
-   * Starts the server, begins hosting.
+   * Starts the server.
    *
    * @throws IOException If there is some failure doing the set-up for the server, i.e. the port
    *                     cannot be bound, etc.
@@ -48,4 +50,11 @@ public interface Server {
    * @return The integer port.
    */
   int getPort();
+
+  /**
+   * Whether the server is running.
+   *
+   * @return {@code True} if running, {@code False} if not running.
+   */
+  boolean isRunning();
 }

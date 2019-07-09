@@ -30,12 +30,12 @@ import java.util.UUID;
 public class ProcessorServerOptions {
   @NotNull
   @Option(name = "-a", aliases = {"--address"}, metaVar = "ADDRESS",
-      usage = "The withAddress to bind the processor service to. Defaults to 127.0.0.1")
+      usage = "The address to bind the processor service to. Defaults to 127.0.0.1")
   private String address = "127.0.0.1";
 
   @Option(name = "-p", aliases = {"--port"}, metaVar = "PORT",
       usage = "Port to host the processor service on or 0 if it should bind to a random " +
-          "available withAddress.")
+          "available port.")
   private int port = 0;
 
   @Option(name = "-r", aliases = {"--register"},
@@ -87,7 +87,7 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * The withAddress to bind the server to.
+   * The address to bind the server to.
    *
    * @return Either an IP or host name.
    */
@@ -96,7 +96,7 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * Sets the withAddress to bind the server to.
+   * Sets the address to bind the server to.
    *
    * @param address Either an IP or host name.
    */
@@ -141,7 +141,7 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * An optional target/withAddress for a events service.
+   * An optional target/address for a events service.
    *
    * @return A gRPC target string or {@code null} if service discovery should be used.
    */
@@ -150,7 +150,7 @@ public class ProcessorServerOptions {
   }
 
   /**
-   * Set a target/withAddress for a events service.
+   * Set a target/address for a events service.
    *
    * @param eventsTarget A gRPC target string or {@code null} if service discovery should be used.
    */

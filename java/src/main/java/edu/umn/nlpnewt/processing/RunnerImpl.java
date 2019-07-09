@@ -16,38 +16,46 @@
 
 package edu.umn.nlpnewt.processing;
 
-import edu.umn.nlpnewt.*;
+import com.google.common.base.Stopwatch;
+import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.common.JsonObject;
 import edu.umn.nlpnewt.common.JsonObjectBuilder;
 import edu.umn.nlpnewt.common.JsonObjectImpl;
 import edu.umn.nlpnewt.model.Event;
 import edu.umn.nlpnewt.model.EventsClient;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 @Internal
 class RunnerImpl implements Runner {
+  private final ProcessorContext context = new Context();
+  private final ThreadLocal<ProcessorLocal> threadLocal = new ThreadLocal<>();
   private final EventsClient client;
   private final EventProcessor processor;
-  private final ContextManager contextManager;
   private final String processorName;
   private final String processorId;
 
-  RunnerImpl(
-      EventProcessor processor,
-      EventsClient client,
-      ContextManager contextManager,
-      String processorName,
-      String processorId
-  ) {
-    this.processor = processor;
+  RunnerImpl(EventsClient client,
+             EventProcessor processor,
+             String processorName,
+             String processorId) {
     this.client = client;
-    this.contextManager = contextManager;
+    this.processor = processor;
     this.processorName = processorName;
     this.processorId = processorId;
   }
 
+  public static @NotNull Builder forProcessor(@NotNull EventProcessor processor) {
+    return new Builder(processor);
+  }
+
   @Override
   public ProcessingResult process(String eventID, JsonObject params) {
-    try (ProcessorContext context = contextManager.enterContext()) {
+    try (ProcessorLocal ignored = new ProcessorLocal()) {
       try (Event event = Event.open(client, eventID)) {
         JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
         Timer timer = context.startTimer("process_method");
@@ -66,10 +74,6 @@ class RunnerImpl implements Runner {
     return processor;
   }
 
-  ContextManager getContextManager() {
-    return contextManager;
-  }
-
   @Override
   public String getProcessorName() {
     return processorName;
@@ -85,4 +89,90 @@ class RunnerImpl implements Runner {
     processor.shutdown();
   }
 
+  public static class Builder {
+    private final EventProcessor processor;
+    private EventsClient client;
+    private String processorName;
+    private String processorId;
+
+    public Builder(EventProcessor processor) {
+      this.processor = processor;
+    }
+
+    public @NotNull Builder withClient(EventsClient client) {
+      this.client = client;
+      return this;
+    }
+
+    public @NotNull Builder withProcessorName(@Nullable String processorName) {
+      this.processorName = processorName;
+      return this;
+    }
+
+    public @NotNull Builder withProcessorId(String processorId) {
+      this.processorId = processorId;
+      return this;
+    }
+
+    public Runner build() {
+      String processorName = this.processorName;
+      if (processorName == null) {
+        processorName = processor.getProcessorName();
+      }
+      String processorId = this.processorId;
+      if (processorId == null) {
+        processorId = processorName;
+      }
+      return new RunnerImpl(
+          client,
+          processor,
+          processorName,
+          processorId
+      );
+    }
+  }
+
+  private class Context implements ProcessorContext {
+    @Override
+    public @NotNull Timer startTimer(String key) {
+      ProcessorLocal local = threadLocal.get();
+      Stopwatch stopwatch = Stopwatch.createStarted();
+
+      return new Timer() {
+        @Override
+        public void stop() {
+          if (!local.active) {
+            throw new IllegalStateException("Processor context has been exited prior to stop.");
+          }
+          local.times.put(processorId + ":" + key, stopwatch.elapsed());
+        }
+
+        @Override
+        public void close() {
+          stop();
+        }
+      };
+    }
+
+    @Override
+    public Map<String, Duration> getTimes() {
+      return threadLocal.get().times;
+    }
+  }
+
+  private class ProcessorLocal implements AutoCloseable {
+    private final Map<String, Duration> times = new HashMap<>();
+
+    private boolean active = true;
+
+    public ProcessorLocal() {
+      threadLocal.set(this);
+    }
+
+    @Override
+    public void close() {
+      active = false;
+      threadLocal.remove();
+    }
+  }
 }

@@ -19,7 +19,11 @@ package edu.umn.nlpnewt.discovery;
 import edu.umn.nlpnewt.common.Config;
 
 public class Discovery {
-  public DiscoveryMechanism getDiscoveryMechanism(Config config) {
+  private Discovery() {
+    throw new UnsupportedOperationException("Instantiation of static utility class.");
+  }
+
+  public static DiscoveryMechanism getDiscoveryMechanism(Config config) {
     switch (config.getStringValue("discovery")) {
       case "consul":
         return new ConsulDiscoveryMechanism(config);

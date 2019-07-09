@@ -24,22 +24,19 @@ public class ServiceInfo {
   private final String address;
   private final int port;
   private final List<String> tags;
-  private final boolean register;
 
   public ServiceInfo(
       String name,
       String identifier,
       String address,
       int port,
-      List<String> tags,
-      boolean register
+      List<String> tags
   ) {
     this.name = name;
     this.identifier = identifier;
     this.address = address;
     this.port = port;
     this.tags = tags;
-    this.register = register;
   }
 
   public String getName() {
@@ -60,9 +57,5 @@ public class ServiceInfo {
 
   public List<String> getTags() {
     return tags;
-  }
-
-  public boolean isRegister() {
-    return register;
   }
 }

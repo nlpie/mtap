@@ -17,32 +17,28 @@ package edu.umn.nlpnewt.processing;
 
 import edu.umn.nlpnewt.common.Config;
 import edu.umn.nlpnewt.common.ConfigImpl;
+import edu.umn.nlpnewt.discovery.Discovery;
 import edu.umn.nlpnewt.discovery.DiscoveryMechanism;
 import edu.umn.nlpnewt.model.EventsClient;
 import edu.umn.nlpnewt.model.EventsClientBuilder;
-import io.grpc.Server;
 import io.grpc.ServerBuilder;
-import io.grpc.services.HealthStatusManager;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Builder for processor servers.
+ * Builder for processor servers, performs dependency injection of all the various components
+ * needed by the processor server.
  */
 public class ProcessorServerBuilder {
   private final EventProcessor processor;
   private final ProcessorServerOptions options;
 
-  private Config config;
-
-  private EventsClient eventsClient;
-
-  private ServiceLifecycle serviceLifecycle = null;
-
+  private Config config = null;
+  private EventsClient eventsClient = null;
   private DiscoveryMechanism discoveryMechanism = null;
-
-  private TimesCollector timesCollector;
+  private ExecutorService timingExecutor = null;
 
   public ProcessorServerBuilder(@NotNull EventProcessor eventProcessor,
                                 @NotNull ProcessorServerOptions options) {
@@ -94,24 +90,13 @@ public class ProcessorServerBuilder {
 
   public DiscoveryMechanism getDiscoveryMechanism() {
     if (discoveryMechanism == null) {
-
+      discoveryMechanism = Discovery.getDiscoveryMechanism(getConfig());
     }
     return discoveryMechanism;
   }
 
   public void setDiscoveryMechanism(DiscoveryMechanism discoveryMechanism) {
     this.discoveryMechanism = discoveryMechanism;
-  }
-
-  public ServiceLifecycle getServiceLifecycle() {
-    if (serviceLifecycle != null) {
-      serviceLifecycle = new ServiceLifecycleImpl(new HealthStatusManager(), getDiscoveryMechanism());
-    }
-    return serviceLifecycle;
-  }
-
-  public void setServiceLifecycle(ServiceLifecycle serviceLifecycle) {
-    this.serviceLifecycle = serviceLifecycle;
   }
 
   public @NotNull ProcessorServerBuilder withDiscoveryMechanism(
@@ -121,20 +106,19 @@ public class ProcessorServerBuilder {
     return this;
   }
 
-  public @NotNull TimesCollector getTimesCollector() {
-    if (timesCollector == null) {
-      timesCollector = new TimesCollectorImpl(Executors.newSingleThreadExecutor());
+  public ProcessorServerOptions getOptions() {
+    return options;
+  }
+
+  public ExecutorService getTimingExecutor() {
+    if (timingExecutor == null) {
+      timingExecutor = Executors.newSingleThreadExecutor();
     }
-    return timesCollector;
+    return timingExecutor;
   }
 
-  public void setTimesCollector(@NotNull TimesCollector timesCollector) {
-
-    this.timesCollector = timesCollector;
-  }
-
-  public @NotNull ProcessorServerBuilder withTimesCollector(@NotNull TimesCollector timesCollector) {
-    setTimesCollector(timesCollector);
+  public ProcessorServerBuilder setTimingExecutor(ExecutorService timingExecutor) {
+    this.timingExecutor = timingExecutor;
     return this;
   }
 
@@ -143,34 +127,16 @@ public class ProcessorServerBuilder {
   }
 
   public ProcessorServer build(ServerBuilder serverBuilder) {
-    String processorName = processor.getClass().getAnnotation(Processor.class).value();
-    String processorId = options.getIdentifier();
-    if (processorId == null) {
-      processorId = processorName;
-    }
-    ContextManager contextManager = new ContextManagerImpl(
-        getServiceLifecycle(),
-        processorId
-    );
-    Runner runner = new RunnerImpl(
-        processor,
-        getEventsClient(),
-        contextManager,
-        processorName,
-        processorId
-    );
-    ProcessorService service = new ProcessorServiceImpl(
-        getServiceLifecycle(),
-        runner,
-        getTimesCollector(),
-        options.getUniqueServiceId(),
-        options.getRegister()
-    );
-    Server server = serverBuilder
-        .addService(service)
-        .addService(getServiceLifecycle().getHealthService())
+    Runner runner = RunnerImpl.forProcessor(processor)
+        .withClient(getEventsClient())
+        .withProcessorId(options.getIdentifier())
         .build();
-    return new ProcessorServer(options.getAddress(), server, service);
+    return new ProcessorServer(serverBuilder,
+        runner,
+        options.getUniqueServiceId(),
+        options.getRegister(),
+        getDiscoveryMechanism(),
+        getTimingExecutor());
   }
 
 }

@@ -33,15 +33,7 @@ import java.util.Map;
  * {@link EventProcessor#process(Event, JsonObject, JsonObjectBuilder)} methods are
  * called, and automatically exit after.
  */
-public interface ProcessorContext extends AutoCloseable {
-  /**
-   * Updates the serving status of this processor for health checking. By default, the processor
-   * starts at "SERVING".
-   *
-   * @param status The status of this processor.
-   */
-  void updateServingStatus(HealthCheckResponse.ServingStatus status);
-
+public interface ProcessorContext {
   /**
    * Starts a timer keyed by {@code key}.
    * <p>
@@ -66,7 +58,4 @@ public interface ProcessorContext extends AutoCloseable {
    * @return Map of times.
    */
   Map<String, Duration> getTimes();
-
-  @Override
-  void close();
 }

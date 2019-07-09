@@ -21,7 +21,6 @@ import com.orbitz.consul.Consul;
 import com.orbitz.consul.model.agent.ImmutableRegCheck;
 import com.orbitz.consul.model.agent.ImmutableRegistration;
 import edu.umn.nlpnewt.common.Config;
-import edu.umn.nlpnewt.processing.ConsulNameResolver;
 import io.grpc.NameResolver;
 
 import java.net.MalformedURLException;
