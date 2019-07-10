@@ -52,6 +52,15 @@ public class Event implements AutoCloseable {
   }
 
   /**
+   * Creates a new builder for an event.
+   *
+   * @return Builder object for an event.
+   */
+  public static EventBuilder newBuilder() {
+    return new EventBuilder();
+  }
+
+  /**
    * Returns the events client (if set).
    *
    * @return Events client or {@code null} if it is not set.
@@ -270,7 +279,6 @@ public class Event implements AutoCloseable {
 
       if (client != null) {
         client.addDocument(eventID, document.getName(), document.getText());
-        document.setClient(client);
       }
       document.setEvent(Event.this);
       documents.add(document);
@@ -326,7 +334,6 @@ public class Event implements AutoCloseable {
           }
           Document document = new Document(documentName);
           document.setEvent(Event.this);
-          document.setClient(client);
           documents.add(document);
         }
       }

@@ -16,10 +16,12 @@
 
 package edu.umn.nlpnewt.processing;
 
+import edu.umn.nlpnewt.Newt;
 import edu.umn.nlpnewt.common.Config;
 import edu.umn.nlpnewt.common.ConfigImpl;
 import edu.umn.nlpnewt.discovery.DiscoveryMechanism;
 import edu.umn.nlpnewt.model.EventsClient;
+import io.grpc.NameResolver;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
@@ -32,7 +34,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 class ProcessorServerBuilderTest {
   @Rule
@@ -42,12 +44,15 @@ class ProcessorServerBuilderTest {
   private EventProcessor mockProcessor;
 
   private ProcessorServerBuilder builder;
+  private DiscoveryMechanism mockDiscoveryMechanism;
 
   @BeforeEach
   void setUp() {
     options = ProcessorServerOptions.defaultOptions();
     mockProcessor = mock(EventProcessor.class);
     builder = ProcessorServerBuilder.forProcessor(mockProcessor, options);
+
+    mockDiscoveryMechanism = mock(DiscoveryMechanism.class);
   }
 
   @Test
@@ -71,6 +76,9 @@ class ProcessorServerBuilderTest {
 
   @Test
   void getEventsClientNotNull() {
+    DiscoveryMechanism mockMechanism = mock(DiscoveryMechanism.class);
+    when(mockMechanism.getServiceTarget(Newt.EVENTS_SERVICE_NAME, "v1")).thenReturn("dns:///localhost:0");
+    builder.withDiscoveryMechanism(mockMechanism);
     assertNotNull(builder.getEventsClient());
   }
 
@@ -133,11 +141,17 @@ class ProcessorServerBuilderTest {
 
   @Test
   void build() {
+    when(mockProcessor.getProcessorName()).thenReturn("test-processor");
+    EventsClient mockEventsClient = mock(EventsClient.class);
+    builder.setEventsClient(mockEventsClient);
     assertNotNull(builder.build());
   }
 
   @Test
   void buildWithServerBuilder() throws IOException {
+    when(mockProcessor.getProcessorName()).thenReturn("test-processor");
+    EventsClient mockEventsClient = mock(EventsClient.class);
+    builder.setEventsClient(mockEventsClient);
     String name = InProcessServerBuilder.generateName();
     ServerBuilder serverBuilder = InProcessServerBuilder.forName(name).directExecutor();
     ProcessorServer server = builder.build(serverBuilder);
@@ -145,5 +159,6 @@ class ProcessorServerBuilderTest {
     Server grpcServer = grpcCleanup.register(server.getServer());
     assertNotNull(grpcServer);
     server.shutdown();
+
   }
 }

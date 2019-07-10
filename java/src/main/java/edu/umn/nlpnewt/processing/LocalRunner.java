@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Internal
-class RunnerImpl implements Runner {
+class LocalRunner implements Runner {
   private final ProcessorContext context = new Context();
   private final ThreadLocal<ProcessorLocal> threadLocal = new ThreadLocal<>();
   private final EventsClient client;
@@ -39,12 +39,13 @@ class RunnerImpl implements Runner {
   private final String processorName;
   private final String processorId;
 
-  RunnerImpl(EventsClient client,
-             EventProcessor processor,
-             String processorName,
-             String processorId) {
+  LocalRunner(EventsClient client,
+              EventProcessor processor,
+              String processorName,
+              String processorId) {
     this.client = client;
     this.processor = processor;
+    processor.setContext(context);
     this.processorName = processorName;
     this.processorId = processorId;
   }
@@ -56,7 +57,7 @@ class RunnerImpl implements Runner {
   @Override
   public ProcessingResult process(String eventID, JsonObject params) {
     try (ProcessorLocal ignored = new ProcessorLocal()) {
-      try (Event event = Event.open(eventID, client)) {
+      try (Event event = Event.newBuilder().withEventID(eventID).withEventsClient(client).build()) {
         JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
         Timer timer = context.startTimer("process_method");
         processor.process(event, params, resultBuilder);
@@ -123,7 +124,7 @@ class RunnerImpl implements Runner {
       if (processorId == null) {
         processorId = processorName;
       }
-      return new RunnerImpl(
+      return new LocalRunner(
           client,
           processor,
           processorName,

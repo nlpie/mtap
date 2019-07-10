@@ -100,10 +100,12 @@ public class ProcessorServerOptions {
       writer.println(e.getMessage());
     }
     writer.println("java " + mainClass.getCanonicalName() + " [options...]");
+    writer.flush();
     parser.printUsage(output);
     writer.println();
 
-    writer.println("  Example: " + mainClass.getCanonicalName() + " " + parser.printExample(ALL));
+    writer.println("Example: " + mainClass.getCanonicalName() + parser.printExample(ALL));
+    writer.flush();
   }
 
   /**

@@ -42,13 +42,13 @@ class DocumentTest {
   void setUp() {
     eventsClient = mock(EventsClient.class);
     event = mock(Event.class);
+    when(event.getClient()).thenReturn(eventsClient);
     when(event.getEventID()).thenReturn("1");
 
     labelAdapter = mock(ProtoLabelAdapter.class);
     labelIndex = mock(LabelIndex.class);
 
-    tested = new Document("plaintext", null);
-    tested.setClient(eventsClient);
+    tested = new Document("plaintext");
     tested.setEvent(event);
   }
 

@@ -110,7 +110,7 @@ public class EventsClientBuilder {
   }
 
   private void setNameResolver(ManagedChannelBuilder builder) {
-    builder.nameResolverFactory(discoveryMechanism.getNameResolverFactory());
+    builder.nameResolverFactory(getDiscoveryMechanism().getNameResolverFactory());
   }
 
   /**
@@ -123,7 +123,7 @@ public class EventsClientBuilder {
   public @NotNull EventsClient build(@NotNull Consumer<ManagedChannelBuilder> configureChannel) {
     String target = this.address;
     if (target == null) {
-      target = discoveryMechanism.getServiceTarget(EVENTS_SERVICE_NAME, "v1");
+      target = getDiscoveryMechanism().getServiceTarget(EVENTS_SERVICE_NAME, "v1");
       configureChannel = ((Consumer<ManagedChannelBuilder>) this::setNameResolver)
           .andThen(configureChannel);
     }

@@ -188,8 +188,8 @@ public final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
     ) {
       JsonObjectImpl params = JsonObjectImpl.newBuilder().copyStruct(request.getParams()).build();
 
+      String eventID = request.getEventId();
       try {
-        String eventID = request.getEventId();
         ProcessingResult result = runner.process(eventID, params);
 
         Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder()
@@ -211,6 +211,7 @@ public final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
         responseObserver.onCompleted();
         processed++;
       } catch (RuntimeException e) {
+        logger.error("Exception during processing of event '{}'", eventID, e);
         Metadata trailers = new Metadata();
         Metadata.Key<DebugInfo> key = ProtoUtils.keyForProto(DebugInfo.getDefaultInstance());
         DebugInfo.Builder debugInfoBuilder = DebugInfo.newBuilder();

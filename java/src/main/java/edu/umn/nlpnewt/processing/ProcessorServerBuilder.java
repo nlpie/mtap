@@ -107,8 +107,9 @@ public class ProcessorServerBuilder {
   public @NotNull EventsClient getEventsClient() {
     if (eventsClient == null) {
       eventsClient = EventsClientBuilder.newBuilder()
-          .withConfig(getConfig())
           .withAddress(options.getEventsTarget())
+          .withConfig(getConfig())
+          .withDiscoveryMechanism(getDiscoveryMechanism())
           .build();
     }
     return eventsClient;
@@ -239,7 +240,7 @@ public class ProcessorServerBuilder {
    * @return Processor server object.
    */
   public @NotNull ProcessorServer build(@NotNull ServerBuilder serverBuilder) {
-    Runner runner = RunnerImpl.forProcessor(processor)
+    Runner runner = LocalRunner.forProcessor(processor)
         .withClient(getEventsClient())
         .withProcessorId(options.getIdentifier())
         .build();

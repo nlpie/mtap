@@ -27,13 +27,13 @@ import static org.mockito.Mockito.*;
 
 class EventTest {
 
-  private EventsClient client;
+  private EventsClient mockClient;
   private Event tested;
 
   @BeforeEach
   void setUp() {
-    client = mock(EventsClient.class);
-    tested = Event.open("1", client);
+    mockClient = mock(EventsClient.class);
+    tested = EventBuilder.newBuilder().withEventID("1").withEventsClient(mockClient).build();
   }
 
   @Test
@@ -45,7 +45,7 @@ class EventTest {
   void metadataGet() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(metadata);
 
     String s = tested.getMetadata().get("foo");
     assertEquals("bar", s);
@@ -56,32 +56,32 @@ class EventTest {
   void metadataRefetch() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(Collections.emptyMap(), metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(Collections.emptyMap(), metadata);
     tested.getMetadata().get("foo");
-    verify(client, times(2)).getAllMetadata("1");
+    verify(mockClient, times(2)).getAllMetadata("1");
   }
 
   @Test
   void metadataCaches() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(metadata);
     tested.getMetadata().get("foo");
-    verify(client).getAllMetadata("1");
+    verify(mockClient).getAllMetadata("1");
     tested.getMetadata().get("foo");
   }
 
   @Test
   void metadataPut() {
     tested.getMetadata().put("foo", "bar");
-    verify(client).addMetadata("1", "foo", "bar");
+    verify(mockClient).addMetadata("1", "foo", "bar");
   }
 
   @Test
   void metadataContains() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(metadata);
     assertTrue(tested.getMetadata().containsKey("foo"));
   }
 
@@ -89,7 +89,7 @@ class EventTest {
   void metadataNotContains() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(metadata);
     assertFalse(tested.getMetadata().containsKey("baz"));
   }
 
@@ -98,9 +98,9 @@ class EventTest {
   void metadataContainsRefetch() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(Collections.emptyMap(), metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(Collections.emptyMap(), metadata);
     assertTrue(tested.getMetadata().containsKey("foo"));
-    verify(client, times(2)).getAllMetadata("1");
+    verify(mockClient, times(2)).getAllMetadata("1");
   }
 
   @Test
@@ -108,9 +108,9 @@ class EventTest {
   void metadataEntrySet() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("foo", "bar");
-    when(client.getAllMetadata("1")).thenReturn(Collections.emptyMap(), metadata);
+    when(mockClient.getAllMetadata("1")).thenReturn(Collections.emptyMap(), metadata);
     Set<Map.Entry<@NotNull String, @NotNull String>> entries = tested.getMetadata().entrySet();
-    verify(client, times(2)).getAllMetadata("1");
+    verify(mockClient, times(2)).getAllMetadata("1");
     assertEquals(1, entries.size());
     Map.Entry<@NotNull String, @NotNull String> entry = entries.iterator().next();
     assertEquals("foo", entry.getKey());
@@ -120,7 +120,7 @@ class EventTest {
   @Test
   void addDocument() {
     Document document = tested.addDocument("plaintext", "Some text.");
-    verify(client).addDocument("1", "plaintext", "Some text.");
+    verify(mockClient).addDocument("1", "plaintext", "Some text.");
     assertEquals("plaintext", document.getName());
     assertEquals("Some text.", document.getText());
   }
@@ -129,13 +129,13 @@ class EventTest {
   void addDocumentCache() {
     tested.addDocument("plaintext", "Some text.");
     tested.getDocuments().get("plaintext");
-    verify(client).getAllDocumentNames("1");
-    verify(client).addDocument("1", "plaintext", "Some text.");
+    verify(mockClient).getAllDocumentNames("1");
+    verify(mockClient).addDocument("1", "plaintext", "Some text.");
   }
 
   @Test
   void addDocumentExisting() {
-    when(client.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
+    when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     assertThrows(IllegalArgumentException.class,
         () -> tested.addDocument("plaintext", "Some text."));
   }
@@ -147,20 +147,20 @@ class EventTest {
 
   @Test
   void getDocumentFetch() {
-    when(client.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
+    when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     tested.getDocuments().get("plaintext");
-    verify(client).getAllDocumentNames("1");
+    verify(mockClient).getAllDocumentNames("1");
   }
 
   @Test
   void getDocumentMissing() {
-    when(client.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
+    when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
     assertNull(tested.getDocuments().get("plaintext"));
   }
 
   @Test
   void emptyEntrySetIterator() {
-    when(client.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
+    when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
     for (Map.Entry<String, Document> ignored : tested.getDocuments().entrySet()) {
       fail();
     }
@@ -168,7 +168,7 @@ class EventTest {
 
   @Test
   void entrySet() {
-    when(client.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
+    when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     Set<Map.Entry<String, Document>> entries = tested.getDocuments().entrySet();
     assertEquals(1, entries.size());
     assertEquals("plaintext", entries.iterator().next().getKey());
@@ -186,6 +186,6 @@ class EventTest {
   @Test
   void close() {
     tested.close();
-    verify(client).closeEvent("1");
+    verify(mockClient).closeEvent("1");
   }
 }

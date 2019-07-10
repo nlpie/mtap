@@ -100,6 +100,6 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
         },
         metaVar = "WORD",
         usage = "The word to label occurrences.")
-    public String word = "the";
+    String word = "the";
   }
 }

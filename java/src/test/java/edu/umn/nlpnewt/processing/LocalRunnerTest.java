@@ -25,25 +25,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
-import java.time.Duration;
-import java.util.Collections;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
-class RunnerImplTest {
+class LocalRunnerTest {
 
   private EventProcessor processor;
   private EventsClient events;
-  private RunnerImpl runner;
+  private LocalRunner runner;
 
   @BeforeEach
   void setUp() {
     processor = mock(EventProcessor.class);
     events = mock(EventsClient.class);
-    runner = new RunnerImpl(
+    runner = new LocalRunner(
         events,
         processor,
         "processorName",
@@ -62,6 +58,7 @@ class RunnerImplTest {
 
     ProcessingResult processingResult = runner.process("1", params);
 
+    verify(processor).setContext(any(ProcessorContext.class));
     verify(events).openEvent("1", false);
     verify(processor).process(any(Event.class), same(params), any(JsonObjectBuilder.class));
 

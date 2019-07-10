@@ -112,7 +112,6 @@ tasks.withType(JavaCompile) {
 
 javadoc {
     exclude "edu/umn/nlpnewt/api/**"
-    exclude "edu/umn/nlpnewt/internal/**"
     exclude "grpc"
 }
 
