@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright 2019 Regents of the University of Minnesota
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.processing;
+package edu.umn.nlpnewt.discovery;
 
-import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.common.JsonObject;
+import io.grpc.NameResolver;
 
-@Internal
-public interface Runner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
+public interface DiscoveryMechanism {
+  String getServiceTarget(String serviceName, String... tags);
 
-  String getProcessorName();
+  default String getServiceTarget(String serviceName) {
+    return getServiceTarget(serviceName, (String[]) null);
+  }
 
-  String getProcessorId();
+  void register(ServiceInfo serviceInfo);
 
-  @Override
-  void close();
+  void deregister(ServiceInfo serviceInfo);
+
+  NameResolver.Factory getNameResolverFactory();
 }

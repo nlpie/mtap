@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright 2019 Regents of the University of Minnesota
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,25 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.processing;
+package edu.umn.nlpnewt.exc;
 
-import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.common.JsonObject;
+public class NewtException extends RuntimeException {
+  public NewtException() {
+  }
 
-@Internal
-public interface Runner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
+  public NewtException(String message) {
+    super(message);
+  }
 
-  String getProcessorName();
+  public NewtException(String message, Throwable cause) {
+    super(message, cause);
+  }
 
-  String getProcessorId();
+  public NewtException(Throwable cause) {
+    super(cause);
+  }
 
-  @Override
-  void close();
+  public NewtException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    super(message, cause, enableSuppression, writableStackTrace);
+  }
 }

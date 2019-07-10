@@ -67,10 +67,10 @@ def fixture_java_processor(python_events):
     env = dict(os.environ)
 
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['./gradlew '
-                          '-PmainClass=edu.umn.nlpnewt.examples.TheOccurrencesExampleProcessor '
-                          'execute --args="-p 50502 -e ' + python_events + '"'],
-                         start_new_session=True, shell=True,
+    p = subprocess.Popen(['./gradlew',
+                          '-PmainClass=edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor',
+                          'execute', '--args=-p 50502 -e ' + python_events],
+                         start_new_session=True,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=cwd, env=env)

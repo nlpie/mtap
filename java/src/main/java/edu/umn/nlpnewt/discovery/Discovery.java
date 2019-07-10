@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright 2019 Regents of the University of Minnesota
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-package edu.umn.nlpnewt.processing;
+package edu.umn.nlpnewt.discovery;
 
-import edu.umn.nlpnewt.Internal;
-import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.common.Config;
 
-@Internal
-public interface Runner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
+public class Discovery {
+  private Discovery() {
+    throw new UnsupportedOperationException("Instantiation of static utility class.");
+  }
 
-  String getProcessorName();
-
-  String getProcessorId();
-
-  @Override
-  void close();
+  public static DiscoveryMechanism getDiscoveryMechanism(Config config) {
+    switch (config.getStringValue("discovery")) {
+      case "consul":
+        return new ConsulDiscoveryMechanism(config);
+      default:
+        throw new IllegalArgumentException("Unrecognized discovery key.");
+    }
+  }
 }
