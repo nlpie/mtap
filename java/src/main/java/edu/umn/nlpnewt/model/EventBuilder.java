@@ -99,7 +99,7 @@ public class EventBuilder {
    *
    * @return This builder.
    */
-  public EventBuilder withEventsClient(EventsClient eventsClient) {
+  public @NotNull EventBuilder withEventsClient(@Nullable EventsClient eventsClient) {
     this.eventsClient = eventsClient;
     return this;
   }
@@ -129,8 +129,10 @@ public class EventBuilder {
 
   /**
    * Sets the only create new flag, causing failure if an event already exists with the identifier.
+   *
+   * @return this builder.
    */
-  public EventBuilder onlyCreateNew() {
+  public @NotNull EventBuilder onlyCreateNew() {
     this.onlyCreateNew = true;
     return this;
   }
