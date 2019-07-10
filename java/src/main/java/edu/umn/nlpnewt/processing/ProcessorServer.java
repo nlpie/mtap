@@ -29,7 +29,7 @@ import io.grpc.Metadata;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.Status;
-import io.grpc.health.v1.HealthCheckResponse;
+import io.grpc.health.v1.HealthCheckResponse.ServingStatus;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.services.HealthStatusManager;
 import io.grpc.stub.StreamObserver;
@@ -50,8 +50,10 @@ import static edu.umn.nlpnewt.Newt.PROCESSOR_SERVICE_TAG;
 
 /**
  * Responsible for running and hosting {@link EventProcessor} and {@link DocumentProcessor} classes.
+ *
+ * @see ProcessorServerBuilder
  */
-final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
+public final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
   private final Map<String, RunningVariance> timesMap = new HashMap<>();
   private final Runner runner;
@@ -60,16 +62,18 @@ final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
   private final DiscoveryMechanism discoveryMechanism;
   private final ExecutorService timingExecutor;
 
-  private HealthStatusManager healthStatusManager = null;
-  private Server server = null;
+  private HealthStatusManager healthStatusManager;
+  private Server server;
   private boolean running = false;
 
-  ProcessorServer(ServerBuilder serverBuilder,
-                  Runner runner,
-                  String uniqueServiceId,
-                  boolean register,
-                  DiscoveryMechanism discoveryMechanism,
-                  ExecutorService timingExecutor) {
+  ProcessorServer(
+      ServerBuilder serverBuilder,
+      Runner runner,
+      String uniqueServiceId,
+      boolean register,
+      DiscoveryMechanism discoveryMechanism,
+      ExecutorService timingExecutor
+  ) {
     Servicer servicer = new Servicer();
     healthStatusManager = new HealthStatusManager();
     serverBuilder.addService(healthStatusManager.getHealthService());
@@ -91,7 +95,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
     server.start();
     int port = server.getPort();
     String processorId = runner.getProcessorId();
-    healthStatusManager.setStatus(processorId, HealthCheckResponse.ServingStatus.SERVING);
+    healthStatusManager.setStatus(processorId, ServingStatus.SERVING);
     if (register) {
       InetAddress localHost = InetAddress.getLocalHost();
       ServiceInfo serviceInfo = new ServiceInfo(
@@ -122,7 +126,7 @@ final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
         -1,
         Collections.singletonList(PROCESSOR_SERVICE_TAG)
     );
-    healthStatusManager.setStatus(serviceInfo.getName(), HealthCheckResponse.ServingStatus.NOT_SERVING);
+    healthStatusManager.setStatus(serviceInfo.getName(), ServingStatus.NOT_SERVING);
     healthStatusManager.enterTerminalState();
     if (register) {
       discoveryMechanism.deregister(serviceInfo);
@@ -200,44 +204,48 @@ final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
         }
         for (Map.Entry<String, Duration> entry : result.getTimes().entrySet()) {
           long nanos = entry.getValue().toNanos();
-          addTime(runner.getProcessorId() + ":" +entry.getKey(), nanos);
+          addTime(runner.getProcessorId() + ":" + entry.getKey(), nanos);
           responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(nanos));
         }
         responseObserver.onNext(responseBuilder.build());
         responseObserver.onCompleted();
         processed++;
-      } catch (Throwable t) {
+      } catch (RuntimeException e) {
         Metadata trailers = new Metadata();
         Metadata.Key<DebugInfo> key = ProtoUtils.keyForProto(DebugInfo.getDefaultInstance());
         DebugInfo.Builder debugInfoBuilder = DebugInfo.newBuilder();
-        for (StackTraceElement stackTraceElement : t.getStackTrace()) {
+        for (StackTraceElement stackTraceElement : e.getStackTrace()) {
           debugInfoBuilder.addStackEntries(stackTraceElement.toString());
         }
         trailers.put(key, debugInfoBuilder.build());
-        responseObserver.onError(Status.INTERNAL.withDescription(t.toString())
+        responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
             .asRuntimeException(trailers));
         failures++;
       }
     }
 
     @Override
-    public void getInfo(Processing.GetInfoRequest request,
-                        StreamObserver<Processing.GetInfoResponse> responseObserver) {
+    public void getInfo(
+        Processing.GetInfoRequest request,
+        StreamObserver<Processing.GetInfoResponse> responseObserver
+    ) {
       try {
         responseObserver.onNext(Processing.GetInfoResponse.newBuilder()
             .setName(runner.getProcessorName())
             .setIdentifier(runner.getProcessorId()).build());
         responseObserver.onCompleted();
-      } catch (Throwable t) {
-        responseObserver.onError(Status.INTERNAL.withDescription(t.toString())
-            .withCause(t)
+      } catch (RuntimeException e) {
+        responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
+            .withCause(e)
             .asRuntimeException());
       }
     }
 
     @Override
-    public void getStats(Processing.GetStatsRequest request,
-                         StreamObserver<Processing.GetStatsResponse> responseObserver) {
+    public void getStats(
+        Processing.GetStatsRequest request,
+        StreamObserver<Processing.GetStatsResponse> responseObserver
+    ) {
       try {
         Processing.GetStatsResponse.Builder builder = Processing.GetStatsResponse.newBuilder()
             .setProcessed(processed)
@@ -246,9 +254,9 @@ final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
         builder.putAllTimingStats(timerStatsMap);
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
-      } catch (Throwable t) {
-        responseObserver.onError(Status.INTERNAL.withDescription(t.toString())
-            .withCause(t)
+      } catch (RuntimeException | InterruptedException | ExecutionException e) {
+        responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
+            .withCause(e)
             .asRuntimeException());
       }
     }

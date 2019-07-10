@@ -22,60 +22,42 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 
 /**
- * A client to access the data stored on a specific event on the events service.
+ * A processing event, containing related documents, binaries, and associated metadata. Akin to a
+ * record.
  * <p>
  * The Event object functions as a map from string document names to {@link Document} objects that
  * can be used to access document data from the events server.
  * <p>
  * This is a closeable object because the events service keeps reference counts of the number of
  * clients actively using an event. When the event is closed, the reference count is decremented,
- * and if the reference count hits 0 the events service will deallocate the event.
+ * and if the reference count hits 0 the events service will deallocate the event. If event is not
+ * local and the events client is {@code null} / not set, the close method is a no-op and does not
+ * need to be called.
+ *
+ * @see EventBuilder
  */
 public class Event implements AutoCloseable {
   private final String eventID;
 
   @Nullable
-  private transient EventsClient client;
+  private final EventsClient client;
 
-  private transient Metadata metadata = null;
-  private transient BinaryData binaryData = null;
-  private transient Documents documents = null;
+  private Metadata metadata = null;
+  private BinaryData binaryData = null;
+  private Documents documents = null;
 
-  Event(String eventID) {
+  Event(@NotNull String eventID, @Nullable EventsClient client) {
     this.eventID = eventID;
+    this.client = client;
   }
 
   /**
-   * Creates a local event without a connection to an events service.
+   * Returns the events client (if set).
    *
-   * @param eventID the unique event identifier.
-   *
-   * @return The newly created event object.
+   * @return Events client or {@code null} if it is not set.
    */
-  public static @NotNull Event create(String eventID) {
-    return new Event(eventID);
-  }
-
-  /**
-   * Opens a distributed object event, which will be stored on the remote events service.
-   *
-   * @param client The client to the remote events service.
-   * @param eventID The unique event identifier.
-   * @return An event object to interact with the event.
-   */
-  public static @NotNull Event open(@NotNull EventsClient client, @NotNull String eventID) {
-    client.openEvent(eventID, false);
-    Event event = new Event(eventID);
-    event.setClient(client);
-    return event;
-  }
-
   public @Nullable EventsClient getClient() {
     return client;
-  }
-
-  void setClient(@NotNull EventsClient client) {
-    this.client = client;
   }
 
   /**
@@ -198,7 +180,7 @@ public class Event implements AutoCloseable {
     }
 
     @Override
-    public Set<Entry<String, String>> entrySet() {
+    public @NotNull Set<Entry<String, String>> entrySet() {
       refreshMetadata();
       return metadata.entrySet();
     }
@@ -252,7 +234,7 @@ public class Event implements AutoCloseable {
     }
 
     @Override
-    public Set<Entry<String, byte[]>> entrySet() {
+    public @NotNull Set<Entry<String, byte[]>> entrySet() {
       if (client != null) {
         Collection<String> names = client.getAllBinaryDataNames(eventID);
         for (String name : names) {
@@ -269,7 +251,16 @@ public class Event implements AutoCloseable {
     private List<Document> documents = new ArrayList<>();
 
     @Override
-    public Document put(String key, Document document) {
+    public Document put(String key, @NotNull Document document) {
+      if (document == null) {
+        throw new IllegalArgumentException("Document cannot be null.");
+      }
+      if (document.getEvent() != null) {
+        throw new IllegalArgumentException(
+            "Document '" + document.getName() + "' is already on event: " + document.getEvent().getEventID()
+        );
+      }
+
       refreshDocuments();
       for (Document d : documents) {
         if (d.getName().equals(document.getName())) {
@@ -315,7 +306,7 @@ public class Event implements AutoCloseable {
     }
 
     @Override
-    public Set<Entry<String, Document>> entrySet() {
+    public @NotNull Set<Entry<String, Document>> entrySet() {
       if (entries == null) {
         entries = new EntrySet();
       }
@@ -333,7 +324,7 @@ public class Event implements AutoCloseable {
               continue DOCUMENT_NAMES;
             }
           }
-          Document document = new Document(documentName, null);
+          Document document = new Document(documentName);
           document.setEvent(Event.this);
           document.setClient(client);
           documents.add(document);

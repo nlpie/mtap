@@ -16,9 +16,6 @@
 
 package edu.umn.nlpnewt.model;
 
-import edu.umn.nlpnewt.model.Document;
-import edu.umn.nlpnewt.model.Event;
-import edu.umn.nlpnewt.model.EventsClient;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,7 +33,7 @@ class EventTest {
   @BeforeEach
   void setUp() {
     client = mock(EventsClient.class);
-    tested = Event.open(client, "1");
+    tested = Event.open("1", client);
   }
 
   @Test

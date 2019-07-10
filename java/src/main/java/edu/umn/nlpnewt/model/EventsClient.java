@@ -19,7 +19,10 @@ package edu.umn.nlpnewt.model;
 import com.google.protobuf.ByteString;
 import edu.umn.nlpnewt.api.v1.EventsGrpc;
 import edu.umn.nlpnewt.api.v1.EventsOuterClass.*;
+import edu.umn.nlpnewt.exc.EventExistsException;
 import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -50,14 +53,27 @@ public class EventsClient implements AutoCloseable {
    *
    * @param eventID       The unique event identifier.
    * @param onlyCreateNew Fail if the event already exists.
+   * @throws edu.umn.nlpnewt.exc.EventExistsException if the event already exists on the events
+   *                                                  service and only create new is set.
    */
   public void openEvent(@NotNull String eventID, boolean onlyCreateNew) {
     OpenEventRequest request = OpenEventRequest.newBuilder()
         .setEventId(eventID)
         .setOnlyCreateNew(onlyCreateNew)
         .build();
-    //noinspection ResultOfMethodCallIgnored
-    stub.openEvent(request);
+    try {
+      //noinspection ResultOfMethodCallIgnored
+      stub.openEvent(request);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.ALREADY_EXISTS) {
+        EventExistsException exception = new EventExistsException(
+            "An event already exists with the id: " + eventID
+        );
+        exception.addSuppressed(e);
+        throw exception;
+      }
+      throw e;
+    }
   }
 
   /**
@@ -128,7 +144,11 @@ public class EventsClient implements AutoCloseable {
    * @param binaryDataName The key for the binary data.
    * @param bytes          The binary data.
    */
-  public void addBinaryData(@NotNull String eventID, @NotNull String binaryDataName, @NotNull byte[] bytes) {
+  public void addBinaryData(
+      @NotNull String eventID,
+      @NotNull String binaryDataName,
+      @NotNull byte[] bytes
+  ) {
     AddBinaryDataRequest request = AddBinaryDataRequest.newBuilder()
         .setEventId(eventID)
         .setBinaryDataName(binaryDataName)
@@ -179,9 +199,11 @@ public class EventsClient implements AutoCloseable {
    * @param documentName An identifier string for the document relative to the event.
    * @param text         The document text.
    */
-  public void addDocument(@NotNull String eventID,
-                          @NotNull String documentName,
-                          @NotNull String text) {
+  public void addDocument(
+      @NotNull String eventID,
+      @NotNull String documentName,
+      @NotNull String text
+  ) {
     AddDocumentRequest request = AddDocumentRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
@@ -217,8 +239,10 @@ public class EventsClient implements AutoCloseable {
    *
    * @return A list of LabelIndexInfo objects which contain the name and type of the label indices.
    */
-  public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfos(@NotNull String eventID,
-                                                                     @NotNull String documentName) {
+  public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfos(
+      @NotNull String eventID,
+      @NotNull String documentName
+  ) {
     GetLabelIndicesInfoRequest request = GetLabelIndicesInfoRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
@@ -253,11 +277,13 @@ public class EventsClient implements AutoCloseable {
    * @param adapter      An adapter which transforms the labels into proto messages.
    * @param <L>          The label type.
    */
-  public <L extends Label> void addLabels(@NotNull String eventID,
-                                          @NotNull String documentName,
-                                          @NotNull String indexName,
-                                          @NotNull List<L> labels,
-                                          @NotNull ProtoLabelAdapter<L> adapter) {
+  public <L extends Label> void addLabels(
+      @NotNull String eventID,
+      @NotNull String documentName,
+      @NotNull String indexName,
+      @NotNull List<L> labels,
+      @NotNull ProtoLabelAdapter<L> adapter
+  ) {
     AddLabelsRequest.Builder requestBuilder = AddLabelsRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
@@ -280,10 +306,12 @@ public class EventsClient implements AutoCloseable {
    *
    * @return A label index containing the specified labels.
    */
-  public <L extends Label> @NotNull LabelIndex<L> getLabels(@NotNull String eventID,
-                                                            @NotNull String documentName,
-                                                            @NotNull String indexName,
-                                                            @NotNull ProtoLabelAdapter<L> adapter) {
+  public <L extends Label> @NotNull LabelIndex<L> getLabels(
+      @NotNull String eventID,
+      @NotNull String documentName,
+      @NotNull String indexName,
+      @NotNull ProtoLabelAdapter<L> adapter
+  ) {
     GetLabelsRequest request = GetLabelsRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)

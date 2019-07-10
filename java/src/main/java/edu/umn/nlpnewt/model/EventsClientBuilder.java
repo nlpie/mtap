@@ -18,18 +18,31 @@ package edu.umn.nlpnewt.model;
 
 import edu.umn.nlpnewt.common.Config;
 import edu.umn.nlpnewt.common.ConfigImpl;
+import edu.umn.nlpnewt.discovery.Discovery;
+import edu.umn.nlpnewt.discovery.DiscoveryMechanism;
+import io.grpc.ManagedChannelBuilder;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.function.Consumer;
+
+import static edu.umn.nlpnewt.Newt.EVENTS_SERVICE_NAME;
+
+/**
+ * Builder for an events client which can be used to manipulate
+ */
 public class EventsClientBuilder {
   private Config config;
 
-  private String address;
+  private @Nullable String address;
+
+  private DiscoveryMechanism discoveryMechanism;
 
   public static @NotNull EventsClientBuilder newBuilder() {
     return new EventsClientBuilder();
   }
 
-  public Config getConfig() {
+  public @NotNull Config getConfig() {
     if (config == null) {
       config = ConfigImpl.loadFromDefaultLocations();
     }
@@ -40,25 +53,92 @@ public class EventsClientBuilder {
     this.config = config;
   }
 
-  public EventsClientBuilder withConfig(Config config) {
+  public @NotNull EventsClientBuilder withConfig(@NotNull Config config) {
     setConfig(config);
     return this;
   }
 
-  public String getAddress() {
+  public @Nullable String getAddress() {
     return address;
   }
 
-  public void setAddress(String address) {
+  public void setAddress(@Nullable String address) {
     this.address = address;
   }
 
-  public EventsClientBuilder withAddress(String address) {
-    setAddress(address);
+  public @NotNull EventsClientBuilder withAddress(@Nullable String address) {
+    this.address = address;
     return this;
   }
 
+  /**
+   * Gets the discovery mechanism to be used by the framework if needed to discover the events
+   * service.
+   *
+   * @return The discovery mechanism object.
+   */
+  public @NotNull DiscoveryMechanism getDiscoveryMechanism() {
+    if (discoveryMechanism == null) {
+      discoveryMechanism = Discovery.getDiscoveryMechanism(getConfig());
+    }
+    return discoveryMechanism;
+  }
+
+  /**
+   * Gets the discovery mechanism to be used by the framework if needed to discover the events
+   * service.
+   *
+   * @param discoveryMechanism The discovery mechanism object.
+   */
+  public void setDiscoveryMechanism(@NotNull DiscoveryMechanism discoveryMechanism) {
+    this.discoveryMechanism = discoveryMechanism;
+  }
+
+  /**
+   * Gets the discovery mechanism to be used by the framework if needed to discover the events
+   * service.
+   *
+   * @param discoveryMechanism The discovery mechanism object.
+   *
+   * @return this builder.
+   */
+  public @NotNull EventsClientBuilder withDiscoveryMechanism(
+      @NotNull DiscoveryMechanism discoveryMechanism
+  ) {
+    this.discoveryMechanism = discoveryMechanism;
+    return this;
+  }
+
+  private void setNameResolver(ManagedChannelBuilder builder) {
+    builder.nameResolverFactory(discoveryMechanism.getNameResolverFactory());
+  }
+
+  /**
+   * Creates an events client, allowing control of how the channel is set up.
+   *
+   * @param configureChannel A consumer which is responsible for configuring the grpc channel.
+   *
+   * @return Events client object.
+   */
+  public @NotNull EventsClient build(@NotNull Consumer<ManagedChannelBuilder> configureChannel) {
+    String target = this.address;
+    if (target == null) {
+      target = discoveryMechanism.getServiceTarget(EVENTS_SERVICE_NAME, "v1");
+      configureChannel = ((Consumer<ManagedChannelBuilder>) this::setNameResolver)
+          .andThen(configureChannel);
+    }
+    ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forTarget(target);
+    configureChannel.accept(channelBuilder);
+    return new EventsClient(channelBuilder.build());
+  }
+
+  /**
+   * Creates an event client with {@link ManagedChannelBuilder#usePlaintext()} enabled for the
+   * grpc channel.
+   *
+   * @return Events client.
+   */
   public @NotNull EventsClient build() {
-    return null;
+    return build(ManagedChannelBuilder::usePlaintext);
   }
 }

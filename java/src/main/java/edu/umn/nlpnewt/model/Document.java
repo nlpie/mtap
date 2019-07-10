@@ -16,7 +16,7 @@
 
 package edu.umn.nlpnewt.model;
 
-import edu.umn.nlpnewt.*;
+import edu.umn.nlpnewt.ExperimentalApi;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,64 +26,49 @@ import java.util.*;
 /**
  * A document of text and labels in the NEWT system.
  * <p>
- * Documents are stored on accessed via creation or retrieval on an {@link Event} object using
- * {@link Event#addDocument(String, String)} or {@link Event#getDocuments()}.
- * <p>
  * Documents are keyed by their name, this is to allow pipelines to store different pieces of
- * related text on a single processing event. An example would be storing the text of one language
- * on one document, and the text of another language on another, or, for example, storing the
- * plaintext.
+ * related text on a single processing event. An example would be storing the English text
+ * on one document keyed "English", and the translation in another language on another document.
  * <p>
  * Both label indices, once added, and the document text are immutable. This is to enable
  * parallelization and distribution of processing, and to prevent changes to upstream data that
  * has already been used in the creation of downstream data.
+ * <p>
+ * Documents can be added to Events using the {@link Event#getDocuments()} map.
  */
 public class Document {
   private final String documentName;
 
   @Nullable
-  private transient String text;
+  private String text = null;
 
   @Nullable
-  private transient EventsClient client = null;
+  private Event event = null;
 
-  @Nullable
-  private transient Event event = null;
+  private Map<String, LabelIndex<?>> labelIndexMap = null;
 
-  private transient Map<String, LabelIndex<?>> labelIndexMap = null;
+  private Map<String, Labeler<?>> labelers = null;
 
-  private transient Map<String, Labeler<?>> labelers = null;
-
-  private transient List<String> createdIndices = null;
+  private List<String> createdIndices = null;
 
   /**
-   * Creates a document with the given name and text.
+   * Constructor for existing documents used by Event class.
    *
-   * @param documentName A name for the document.
-   * @param text         The text of the document.
+   * @param documentName The name of the document.
    */
-  public Document(String documentName, @Nullable String text) {
+  Document(@NotNull String documentName) {
+    this.documentName = documentName;
+  }
+
+  /**
+   * Creates a new document.
+   *
+   * @param documentName The document name.
+   * @param text         The document text.
+   */
+  public Document(@NotNull String documentName, @NotNull String text) {
     this.documentName = documentName;
     this.text = text;
-  }
-
-  /**
-   * Get the client that is used to publish changes to this Document to the events service
-   * or {@code null} if the document is local-only.
-   *
-   * @return The events client object.
-   */
-  public @Nullable EventsClient getClient() {
-    return client;
-  }
-
-  /**
-   * Sets the client to use to publish changes to this document to the events service.
-   *
-   * @param client The client.
-   */
-  public void setClient(@Nullable EventsClient client) {
-    this.client = client;
   }
 
   /**
@@ -118,9 +103,14 @@ public class Document {
    *
    * @return String entire text of the document.
    */
-  public String getText() {
-    if (text == null && client != null) {
-      text = client.getDocumentText(event.getEventID(), documentName);
+  public @NotNull String getText() {
+    if (text == null) {
+      if (event == null || event.getClient() == null) {
+        throw new AssertionError(
+            "Text is null and event or events client is null, should not happen."
+        );
+      }
+      text = event.getClient().getDocumentText(event.getEventID(), documentName);
     }
     return text;
   }
@@ -131,8 +121,8 @@ public class Document {
    * @return A list of objects containing information about the label indices.
    */
   public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfo() {
-    if (client != null) {
-      return client.getLabelIndicesInfos(event.getEventID(), documentName);
+    if (event != null && event.getClient() != null) {
+      return event.getClient().getLabelIndicesInfos(event.getEventID(), documentName);
     }
 
     ArrayList<LabelIndexInfo> list = new ArrayList<>();
@@ -158,8 +148,9 @@ public class Document {
       @NotNull ProtoLabelAdapter<L> labelAdapter
   ) {
     LabelIndex<?> index = getLabelIndexMap().get(labelIndexName);
-    if (index == null && client != null) {
-      index = client.getLabels(event.getEventID(), documentName, labelIndexName, labelAdapter);
+    if (index == null && event != null && event.getClient() != null) {
+      index = event.getClient()
+          .getLabels(event.getEventID(), documentName, labelIndexName, labelAdapter);
       getLabelIndexMap().put(labelIndexName, index);
     }
     if (index == null) {
@@ -314,8 +305,9 @@ public class Document {
 
     LabelIndex<L> index = labelAdapter.createLabelIndex(labels);
     getLabelIndexMap().put(labelIndexName, index);
-    if (client != null && event != null) {
-      client.addLabels(event.getEventID(), documentName, labelIndexName, labels, labelAdapter);
+    if (event != null && event.getClient() != null) {
+      event.getClient().addLabels(event.getEventID(), documentName, labelIndexName, labels,
+          labelAdapter);
     }
     getCreatedIndices().add(labelIndexName);
     return index;

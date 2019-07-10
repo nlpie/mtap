@@ -15,10 +15,14 @@
  */
 package edu.umn.nlpnewt;
 
+import edu.umn.nlpnewt.model.EventBuilder;
+import edu.umn.nlpnewt.model.EventsClient;
 import edu.umn.nlpnewt.model.EventsClientBuilder;
+import edu.umn.nlpnewt.model.GenericLabel;
 import edu.umn.nlpnewt.processing.EventProcessor;
 import edu.umn.nlpnewt.processing.ProcessorServerBuilder;
 import edu.umn.nlpnewt.processing.ProcessorServerOptions;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The main class and entry points for the NLP-NEWT framework.
@@ -37,12 +41,52 @@ public final class Newt {
    */
   public static final String PROCESSOR_SERVICE_TAG = "v1-nlpnewt-processor";
 
-  public static EventsClientBuilder eventsClientBuilder() {
+  /**
+   * A builder for events clients.
+   *
+   * @return A builder that can be used to configure the events client.
+   *
+   * @see EventsClient
+   */
+  public static @NotNull EventsClientBuilder eventsClientBuilder() {
     return EventsClientBuilder.newBuilder();
   }
 
-  public static ProcessorServerBuilder processorServerBuilder(EventProcessor eventProcessor,
-                                                              ProcessorServerOptions options) {
+  /**
+   * A builder for a processor server.
+   *
+   * @param eventProcessor The processor to host.
+   * @param options        The basic / command line options for the processing server.
+   *
+   * @return A builder object.
+   *
+   * @see edu.umn.nlpnewt.processing.ProcessorServer
+   */
+  public static @NotNull ProcessorServerBuilder processorServerBuilder(
+      EventProcessor eventProcessor,
+      ProcessorServerOptions options
+  ) {
     return ProcessorServerBuilder.forProcessor(eventProcessor, options);
+  }
+
+  /**
+   * A builder for event objects.
+   *
+   * @return A new builder that can be used to create events.
+   */
+  public static @NotNull EventBuilder eventBuilder() {
+    return EventBuilder.newBuilder();
+  }
+
+  /**
+   * A builder for generic labels.
+   *
+   * @param startIndex The start index of the label.
+   * @param endIndex   The end index of the label.
+   *
+   * @return Builder for labels.
+   */
+  public static @NotNull GenericLabel.Builder genericLabelBuilder(int startIndex, int endIndex) {
+    return GenericLabel.newBuilder(startIndex, endIndex);
   }
 }

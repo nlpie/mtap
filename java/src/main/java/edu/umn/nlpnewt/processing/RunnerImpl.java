@@ -56,7 +56,7 @@ class RunnerImpl implements Runner {
   @Override
   public ProcessingResult process(String eventID, JsonObject params) {
     try (ProcessorLocal ignored = new ProcessorLocal()) {
-      try (Event event = Event.open(client, eventID)) {
+      try (Event event = Event.open(eventID, client)) {
         JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
         Timer timer = context.startTimer("process_method");
         processor.process(event, params, resultBuilder);

@@ -60,17 +60,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
     } catch (InterruptedException e) {
       System.err.println("Server interrupted.");
     } catch (CmdLineException e) {
-      // if there's a problem in the command line,
-      // you'll get this exception. this will report
-      // an error message.
-      System.err.println(e.getMessage());
-      System.err.println("java edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor [options...]");
-      // print the list of available options
-      parser.printUsage(System.err);
-      System.err.println();
-
-      // print option sample. This is useful some time
-      System.err.println("  Example: java edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor " + parser.printExample(ALL));
+      ProcessorServerOptions.printHelp(parser, WordOccurrencesExampleProcessor.class, e, null);
     }
   }
 

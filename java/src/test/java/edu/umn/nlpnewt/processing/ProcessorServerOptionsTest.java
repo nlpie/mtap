@@ -38,8 +38,6 @@ class ProcessorServerOptionsTest {
   void parseArgs() throws CmdLineException {
     CmdLineParser cmdLineParser = new CmdLineParser(options);
     cmdLineParser.parseArgument(
-        "--address",
-        "localhost",
         "--events",
         "localhost:8080",
         "--register",
@@ -51,7 +49,6 @@ class ProcessorServerOptionsTest {
         "/etc/config",
         "--unique-service-id",
         "2");
-    assertEquals("localhost", options.getAddress());
     assertEquals("localhost:8080", options.getEventsTarget());
     assertTrue(options.getRegister());
     assertEquals(10, options.getPort());
@@ -66,20 +63,6 @@ class ProcessorServerOptionsTest {
     CmdLineParser parser = new CmdLineParser(options);
     parser.parseArgument(args);
     assertEquals(0, options.getPort());
-  }
-
-  @Test
-  void hasDefaultAddress() throws CmdLineException {
-    String[] args = new String[]{};
-    CmdLineParser parser = new CmdLineParser(options);
-    parser.parseArgument(args);
-    assertEquals("127.0.0.1", options.getAddress());
-  }
-
-  @Test
-  void setAddress() {
-    options.setAddress("localhost");
-    assertEquals("localhost", options.getAddress());
   }
 
   @Test
@@ -122,8 +105,6 @@ class ProcessorServerOptionsTest {
     Subclass options = new Subclass();
     CmdLineParser parser = new CmdLineParser(options);
     parser.parseArgument(
-        "--address",
-        "localhost",
         "--events",
         "localhost:8080",
         "--register",
@@ -137,7 +118,6 @@ class ProcessorServerOptionsTest {
         "2",
         "--extra",
         "foo");
-    assertEquals("localhost", options.getAddress());
     assertEquals("localhost:8080", options.getEventsTarget());
     assertTrue(options.getRegister());
     assertEquals(10, options.getPort());

@@ -18,21 +18,22 @@ package edu.umn.nlpnewt.processing;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.spi.PathOptionHandler;
 
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.UUID;
+
+import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
 /**
  * Args4j command-line supported options bean for processor servers.
  */
 public class ProcessorServerOptions {
-  @NotNull
-  @Option(name = "-a", aliases = {"--address"}, metaVar = "ADDRESS",
-      usage = "The address to bind the processor service to. Defaults to 127.0.0.1")
-  private String address = "127.0.0.1";
-
   @Option(name = "-p", aliases = {"--port"}, metaVar = "PORT",
       usage = "Port to host the processor service on or 0 if it should bind to a random " +
           "available port.")
@@ -63,45 +64,46 @@ public class ProcessorServerOptions {
       usage = "A unique per-instance server id that will be used to register and deregister the processor")
   private String uniqueServiceId = null;
 
+  /**
+   * Default constructor.
+   */
   public ProcessorServerOptions() {
   }
 
-  public ProcessorServerOptions(@NotNull String address,
-                                int port,
-                                boolean register,
-                                @Nullable String eventsTarget,
-                                @Nullable Path configFile,
-                                @Nullable String identifier,
-                                @Nullable String uniqueServiceId) {
-    this.address = address;
-    this.port = port;
-    this.register = register;
-    this.eventsTarget = eventsTarget;
-    this.configFile = configFile;
-    this.identifier = identifier;
-    this.uniqueServiceId = uniqueServiceId;
-  }
-
+  /**
+   * Creates a new options bean using the default options.
+   *
+   * @return Options object containing all of the default options.
+   */
   public static @NotNull ProcessorServerOptions defaultOptions() {
     return new ProcessorServerOptions();
   }
 
   /**
-   * The address to bind the server to.
+   * Prints a help message.
    *
-   * @return Either an IP or host name.
+   * @param parser    The CmdLineParser that was used to parse.
+   * @param mainClass The main class this was invoked from.
+   * @param e         Optional: the exception thrown by the parser.
+   * @param output    Optional: An output stream to write the help message to, by default will use
+   *                  {@code System.err}.
    */
-  public @NotNull String getAddress() {
-    return address;
-  }
+  public static void printHelp(@NotNull CmdLineParser parser,
+                               @NotNull Class<?> mainClass,
+                               @Nullable CmdLineException e,
+                               @Nullable OutputStream output) {
+    if (output == null) {
+      output = System.err;
+    }
+    PrintWriter writer = new PrintWriter(output);
+    if (e != null) {
+      writer.println(e.getMessage());
+    }
+    writer.println("java " + mainClass.getCanonicalName() + " [options...]");
+    parser.printUsage(output);
+    writer.println();
 
-  /**
-   * Sets the address to bind the server to.
-   *
-   * @param address Either an IP or host name.
-   */
-  public void setAddress(@NotNull String address) {
-    this.address = address;
+    writer.println("  Example: " + mainClass.getCanonicalName() + " " + parser.printExample(ALL));
   }
 
   /**

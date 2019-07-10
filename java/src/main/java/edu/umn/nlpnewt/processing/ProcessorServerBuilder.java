@@ -38,37 +38,72 @@ public class ProcessorServerBuilder {
   private Config config = null;
   private EventsClient eventsClient = null;
   private DiscoveryMechanism discoveryMechanism = null;
-  private ExecutorService timingExecutor = null;
+  private ExecutorService backgroundExecutor = null;
 
-  public ProcessorServerBuilder(@NotNull EventProcessor eventProcessor,
-                                @NotNull ProcessorServerOptions options) {
+  public ProcessorServerBuilder(
+      @NotNull EventProcessor eventProcessor,
+      @NotNull ProcessorServerOptions options
+  ) {
     processor = eventProcessor;
     this.options = options;
   }
 
+  /**
+   * Creates a new processor server builder.
+   *
+   * @param processor The event or document processor to host.
+   * @param options   The runtime options for the server.
+   *
+   * @return A new processor server builder.
+   */
   public static @NotNull ProcessorServerBuilder forProcessor(
-      @NotNull EventProcessor eventProcessor,
+      @NotNull EventProcessor processor,
       @NotNull ProcessorServerOptions options
   ) {
-    return new ProcessorServerBuilder(eventProcessor, options);
+    return new ProcessorServerBuilder(processor, options);
   }
 
-  public Config getConfig() {
+  /**
+   * Gets the configuration that will be used for the processor server, loading from the location
+   * specified in the options, or the default locations if the configuration has not been
+   * previously set.
+   *
+   * @return A configuration object containing the system configuration.
+   */
+  public @NotNull Config getConfig() {
     if (config == null) {
       config = ConfigImpl.loadConfigFromLocationOrDefaults(options.getConfigFile());
     }
     return config;
   }
 
+  /**
+   * Setter for the configuration.
+   *
+   * @param config Configuration object.
+   */
   public void setConfig(@NotNull Config config) {
     this.config = config;
   }
 
+  /**
+   * Fluent interface method for setting the configuration.
+   *
+   * @param config Configuration object.
+   *
+   * @return this builder.
+   */
   public @NotNull ProcessorServerBuilder withConfig(@NotNull Config config) {
-    setConfig(config);
+    this.config = config;
     return this;
   }
 
+  /**
+   * Returns the event client for interacting with the events service,
+   * if it has not been set one will be created.
+   *
+   * @return Events client object.
+   */
   public @NotNull EventsClient getEventsClient() {
     if (eventsClient == null) {
       eventsClient = EventsClientBuilder.newBuilder()
@@ -79,54 +114,131 @@ public class ProcessorServerBuilder {
     return eventsClient;
   }
 
+  /**
+   * Sets the events client that will be used by the framework to retrieve events and documents for
+   * the processor.
+   *
+   * @param eventsClient The events client.
+   */
   public void setEventsClient(@NotNull EventsClient eventsClient) {
     this.eventsClient = eventsClient;
   }
 
+  /**
+   * Sets the events client that will be used by the framework to retrieve events and documents for
+   * the processor.
+   *
+   * @param eventsClient The events client.
+   *
+   * @return this builder.
+   */
   public @NotNull ProcessorServerBuilder withEventsClient(@NotNull EventsClient eventsClient) {
-    setEventsClient(eventsClient);
+    this.eventsClient = eventsClient;
     return this;
   }
 
-  public DiscoveryMechanism getDiscoveryMechanism() {
+  /**
+   * Gets the discovery mechanism to be used by the framework if needed to register the processor
+   * or discover the events service.
+   *
+   * @return The discovery mechanism object.
+   */
+  public @NotNull DiscoveryMechanism getDiscoveryMechanism() {
     if (discoveryMechanism == null) {
       discoveryMechanism = Discovery.getDiscoveryMechanism(getConfig());
     }
     return discoveryMechanism;
   }
 
-  public void setDiscoveryMechanism(DiscoveryMechanism discoveryMechanism) {
+  /**
+   * Gets the discovery mechanism to be used by the framework if needed to register the processor
+   * or discover the events service.
+   *
+   * @param discoveryMechanism The discovery mechanism object.
+   */
+  public void setDiscoveryMechanism(@NotNull DiscoveryMechanism discoveryMechanism) {
     this.discoveryMechanism = discoveryMechanism;
   }
 
+  /**
+   * Gets the discovery mechanism to be used by the framework if needed to register the processor
+   * or discover the events service.
+   *
+   * @param discoveryMechanism The discovery mechanism object.
+   *
+   * @return this builder.
+   */
   public @NotNull ProcessorServerBuilder withDiscoveryMechanism(
       @NotNull DiscoveryMechanism discoveryMechanism
   ) {
-    setDiscoveryMechanism(discoveryMechanism);
+    this.discoveryMechanism = discoveryMechanism;
     return this;
   }
 
-  public ProcessorServerOptions getOptions() {
+  /**
+   * Gets the command-line processor options passed during creation of this builder.
+   *
+   * @return options object.
+   */
+  public @NotNull ProcessorServerOptions getOptions() {
     return options;
   }
 
-  public ExecutorService getTimingExecutor() {
-    if (timingExecutor == null) {
-      timingExecutor = Executors.newSingleThreadExecutor();
+  /**
+   * Gets the executor service that will be used for background tasks like timing. If one has not
+   * been created {@link Executors#newSingleThreadExecutor()} will be used.
+   *
+   * @return An executor service for background tasks.
+   */
+  public @NotNull ExecutorService getBackgroundExecutor() {
+    if (backgroundExecutor == null) {
+      backgroundExecutor = Executors.newSingleThreadExecutor();
     }
-    return timingExecutor;
+    return backgroundExecutor;
   }
 
-  public ProcessorServerBuilder setTimingExecutor(ExecutorService timingExecutor) {
-    this.timingExecutor = timingExecutor;
+  /**
+   * Sets the executor service that will be used for background tasks like timing.
+   *
+   * @param executorService An executor service for background tasks.
+   */
+  public void setBackgroundExecutor(@NotNull ExecutorService executorService) {
+    this.backgroundExecutor = executorService;
+  }
+
+  /**
+   * Sets the executor service that will be used for background tasks like timing.
+   *
+   * @param executorService An executor service for background tasks.
+   *
+   * @return this builder.
+   */
+  public @NotNull ProcessorServerBuilder withBackgroundExecutor(
+      @NotNull ExecutorService executorService
+  ) {
+    this.backgroundExecutor = executorService;
     return this;
   }
 
-  public ProcessorServer build() {
+  /**
+   * Builds a processor server that can be used to host the processor on the port specified by
+   * {@link ProcessorServerOptions#getPort()}.
+   *
+   * @return Processor server object.
+   */
+  public @NotNull ProcessorServer build() {
     return build(ServerBuilder.forPort(options.getPort()));
   }
 
-  public ProcessorServer build(ServerBuilder serverBuilder) {
+  /**
+   * Builds a processor server that can be used to host the processor using a grpc server builder.
+   * The port specified by {@link ProcessorServerOptions#getPort()} will not be used and instead
+   * the one already configured on the {@code serverBuilder} parameter will be used.
+   *
+   * @param serverBuilder The grpc server builder.
+   * @return Processor server object.
+   */
+  public @NotNull ProcessorServer build(@NotNull ServerBuilder serverBuilder) {
     Runner runner = RunnerImpl.forProcessor(processor)
         .withClient(getEventsClient())
         .withProcessorId(options.getIdentifier())
@@ -136,7 +248,7 @@ public class ProcessorServerBuilder {
         options.getUniqueServiceId(),
         options.getRegister(),
         getDiscoveryMechanism(),
-        getTimingExecutor());
+        getBackgroundExecutor());
   }
 
 }
