@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from abc import ABC, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
@@ -25,6 +26,9 @@ from nlpnewt.events import EventsClient, Event
 from nlpnewt.api.v1 import processing_pb2_grpc, processing_pb2
 from nlpnewt.processing._context import enter_context
 from nlpnewt.processing.base import EventProcessor, TimerStats
+
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessingComponent(ABC):
@@ -76,6 +80,8 @@ class ProcessorRunner(ProcessingComponent):
                 return result, c.times, event.created_indices
             except Exception as e:
                 self.failure_count += 1
+                logger.error('Processor "%s" failed while processing event with id: %s',
+                             self.component_id, event_id)
                 raise e
 
     def close(self):
@@ -138,6 +144,8 @@ class RemoteRunner(ProcessingComponent):
                 return r, context.times, created_indices
             except Exception as e:
                 self.failure_count += 1
+                logger.error('Processor "%s" failed while processing event with id: %s',
+                             self.component_id, event_id)
                 raise e
 
     def close(self):
