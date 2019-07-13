@@ -149,7 +149,7 @@ setup(
     ],
     extras_require={
         'grpc_tools': ['grpcio-tools'],
-        'tests': ['pytest-runner', 'pytest'],
+        'tests': ['pytest-runner', 'pytest', 'grpcio-testing', 'requests'],
         'docs': ['sphinx', 'sphinx_rtd_theme']
     },
     cmdclass={

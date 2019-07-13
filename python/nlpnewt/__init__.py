@@ -39,6 +39,7 @@ from nlpnewt.processing import processor
 from nlpnewt.processing import processor_parser
 from nlpnewt.processing import property_description
 from nlpnewt.processing import run_processor
+from nlpnewt import processors
 
 __version__ = version.version
 
@@ -65,6 +66,7 @@ __all__ = [
     'label_description',
     'Pipeline',
     'processor',
+    'processors',
     'processor_parser',
     'property_description',
     'ProcessorServer',
