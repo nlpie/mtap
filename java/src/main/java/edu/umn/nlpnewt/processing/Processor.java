@@ -34,4 +34,32 @@ public @interface Processor {
    * @return String processor name.
    */
   String value();
+
+  /**
+   * A short description of what the processor does.
+   *
+   * @return String description.
+   */
+  String description() default "";
+
+  /**
+   * Descriptions of the processor's parameters.
+   *
+   * @return Array of parameter descriptions.
+   */
+  ParameterDescription[] parameters() default {};
+
+  /**
+   * Descriptions of the input label indices.
+   *
+   * @return Array of descriptions for the label indices the processor uses.
+   */
+  LabelIndexDescription[] inputs() default {};
+
+  /**
+   * Descriptions of the output label indices.
+   *
+   * @return Array of descriptions for label indices the processor creates.
+   */
+  LabelIndexDescription[] outputs() default {};
 }

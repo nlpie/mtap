@@ -34,12 +34,12 @@ __all__ = [
 PropertyDescription = NamedTuple('PropertyDescription',
                                  [('name', str),
                                   ('description', Optional[str]),
-                                  ('type', Optional[str])])
+                                  ('data_type', Optional[str])])
 
 
 def property_description(name: str,
                          description: Optional[str] = None,
-                         type: Optional[str] = None) -> PropertyDescription:
+                         data_type: Optional[str] = None) -> PropertyDescription:
     """Creates a description for a property on a label.
 
     Parameters
@@ -48,8 +48,8 @@ def property_description(name: str,
         The property's name.
     description: optional str
         A short description of the property.
-    type: optional str
-        The data type of the property.
+    data_type: optional str
+        The data type of the property: str, float, or boolean; List[T] or Mapping[T1, T2] of those.
 
     Returns
     -------
@@ -57,7 +57,7 @@ def property_description(name: str,
         An object describing a label's property.
 
     """
-    return PropertyDescription(name, description, type)
+    return PropertyDescription(name, description, data_type)
 
 
 LabelDescription = NamedTuple('LabelIndexDescription',
@@ -98,7 +98,7 @@ def _desc_to_dict(description: LabelDescription) -> dict:
             {
                 'name': p.name,
                 'description': p.description,
-                'type': p.type
+                'data_type': p.data_type
             } for p in description.properties
         ]
     }

@@ -25,8 +25,8 @@ from nlpnewt.processing import DocumentProcessor, run_processor, label_descripti
                    description='counts the number of times the letters a and b occur in a document',
                    outputs=[
                        label_description('nlpnewt.examples.letter_counts',
-                                         properties=[property_description('letter', type='str'),
-                                                     property_description('count', type='int')])
+                                         properties=[property_description('letter', data_type='str'),
+                                                     property_description('count', data_type='int')])
                    ])
 class ExampleProcessor(DocumentProcessor):
     """Does some labeling of the counts of the letter 'a' and 'b' in a document.

@@ -32,14 +32,38 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
-
 /**
  * An example document processor.
  */
-@Processor("nlpnewt-example-processor-java")
+@Processor(
+    value = "nlpnewt-example-processor-java",
+    description = "Labels occurrences of a word.",
+    parameters = {
+        @ParameterDescription(
+            name = "do_work",
+            description = "Whether the processor should do anything.",
+            dataType = "boolean",
+            optional = true
+        ),
+        @ParameterDescription(
+            name = "output_index",
+            description = "The output index name.",
+            dataType = "str",
+            optional = true
+        )
+    },
+    outputs = {
+        @LabelIndexDescription(
+            name = "nlpnewt.examples.word_occurrences",
+            nameFromParameter = "output_index",
+            description = "Occurrences of the specified word."
+        )
+    }
+)
 public class WordOccurrencesExampleProcessor extends DocumentProcessor {
+
   private final Pattern pattern = Pattern.compile("\\w+");
+
   private final String word;
 
   public WordOccurrencesExampleProcessor(String word) {
@@ -74,17 +98,22 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
       return;
     }
 
+    String indexName = params.getStringValue("output_index");
+    if (indexName == null) {
+      indexName = "nlpnewt.examples.word_occurrences";
+    }
+
     // Example of using a timer to do timing of operations
     Timer timer = getContext().startTimer("fetch_time");
     String text = document.getText();
     timer.stop();
 
     // Using a labeler to add labels to the document.
-    try (Labeler<GenericLabel> thesLabeler = document.getLabeler("nlpnewt.examples.thes", true)) {
+    try (Labeler<GenericLabel> labeler = document.getLabeler(indexName, true)) {
       Matcher matcher = pattern.matcher(text);
       while (matcher.find()) {
         if (word.equals(matcher.group().toLowerCase())) {
-          thesLabeler.add(GenericLabel.newBuilder(matcher.start(), matcher.end()).build());
+          labeler.add(GenericLabel.newBuilder(matcher.start(), matcher.end()).build());
         }
       }
     }
