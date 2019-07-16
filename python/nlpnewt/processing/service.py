@@ -115,6 +115,19 @@ def processor_parser() -> ArgumentParser:
     return processors_parser
 
 
+def _label_index_meta_to_proto(d, message):
+    message.name = d['name'] or ''
+    message.name_from_parameter = d['name_from_parameter'] or ''
+    message.optional = d.get('optional', False)
+    message.description = d['description'] or ''
+    for property_meta in d['properties']:
+        p = message.properties.add()
+        p.name = property_meta['name'] or ''
+        p.description = property_meta['description'] or ''
+        p.data_type = property_meta['data_type'] or ''
+        p.nullable = property_meta['nullable']
+
+
 class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
                  config: Config,
@@ -204,8 +217,22 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         return r
 
     def GetInfo(self, request, context):
-        return processing_pb2.GetInfoResponse(name=self.pr.metadata['name'],
-                                              identifier=self.processor_id)
+        response = processing_pb2.GetInfoResponse(name=self.pr.metadata['name'],
+                                                  identifier=self.processor_id,
+                                                  description=self.pr.metadata['description'],
+                                                  entry_point=self.pr.metadata['entry_point'],
+                                                  language=self.pr.metadata['language'])
+        for parameter in self.pr.metadata['parameters']:
+            p = response.parameters.add()
+            p.name = parameter['name']
+            p.description = parameter['description']
+            p.data_type = parameter['data_type']
+            p.required = parameter['required']
+        for i in self.pr.metadata['inputs']:
+            _label_index_meta_to_proto(i, response.inputs.add())
+        for o in self.pr.metadata['outputs']:
+            _label_index_meta_to_proto(o, response.outputs.add())
+        return response
 
 
 class ProcessorServer:

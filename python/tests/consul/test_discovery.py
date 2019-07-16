@@ -150,7 +150,7 @@ def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_proc
             b_counts = letter_counts[1]
             assert b_counts.count == 6
             pipeline.print_times()
-            thes = document.get_label_index("nlpnewt.examples.thes")
+            thes = document.get_label_index("nlpnewt.examples.word_occurrences")
             assert thes[0].start_index == 121
             assert thes[0].end_index == 124
 
@@ -278,7 +278,7 @@ def test_disc_api_gateway(disc_api_gateway):
     assert java_process['result']['answer'] == 42
 
     resp = requests.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.thes"
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.word_occurrences"
     )
     assert resp.status_code == 200
     labels = resp.json()['json_labels']['labels']

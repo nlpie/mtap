@@ -34,4 +34,46 @@ public @interface Processor {
    * @return String processor name.
    */
   String value();
+
+  /**
+   * A short description of what the processor does.
+   *
+   * @return String description.
+   */
+  String description() default "";
+
+  /**
+   * The processor's entry point / main class.
+   *
+   * @return A string of the fully qualified class name.
+   */
+  String entryPoint() default "";
+
+  /**
+   * The processor's language. Defaults to "java".
+   *
+   * @return String identifier for the language.
+   */
+  String language() default "java";
+
+  /**
+   * Descriptions of the processor's parameters.
+   *
+   * @return Array of parameter descriptions.
+   */
+  ParameterDescription[] parameters() default {};
+
+  /**
+   * Descriptions of the input label indices.
+   *
+   * @return Array of descriptions for the label indices the processor uses.
+   */
+  LabelIndexDescription[] inputs() default {};
+
+  /**
+   * Descriptions of the output label indices.
+   *
+   * @return Array of descriptions for label indices the processor creates.
+   */
+  LabelIndexDescription[] outputs() default {};
 }
