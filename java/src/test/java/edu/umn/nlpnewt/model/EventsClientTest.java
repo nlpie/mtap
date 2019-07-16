@@ -28,6 +28,7 @@ import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcCleanupRule;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -36,6 +37,7 @@ import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +52,7 @@ class EventsClientTest {
 
   private EventsClient tested;
   private ProtoLabelAdapter adapter;
+  private ManagedChannel channel;
 
   @BeforeEach
   void setUp() throws IOException {
@@ -58,11 +61,17 @@ class EventsClientTest {
     grpcCleanup.register(InProcessServerBuilder
         .forName(name).directExecutor().addService(eventsService).build().start());
 
-    ManagedChannel channel = grpcCleanup.register(InProcessChannelBuilder.forName(name).directExecutor().build());
+    channel = grpcCleanup.register(InProcessChannelBuilder.forName(name).directExecutor().build());
 
     tested = new EventsClient(channel);
 
     adapter = mock(ProtoLabelAdapter.class);
+  }
+
+  @AfterEach
+  void tearDown() throws InterruptedException {
+    channel.shutdown();
+    channel.awaitTermination(5, TimeUnit.SECONDS);
   }
 
   @Test

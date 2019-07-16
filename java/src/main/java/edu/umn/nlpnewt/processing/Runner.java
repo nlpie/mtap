@@ -27,6 +27,8 @@ public interface Runner extends AutoCloseable {
 
   String getProcessorId();
 
+  Processor getProcessorMeta();
+
   @Override
   void close();
 }

@@ -79,7 +79,9 @@ class ProcessorServerBuilderTest {
     DiscoveryMechanism mockMechanism = mock(DiscoveryMechanism.class);
     when(mockMechanism.getServiceTarget(Newt.EVENTS_SERVICE_NAME, "v1")).thenReturn("dns:///localhost:0");
     builder.withDiscoveryMechanism(mockMechanism);
-    assertNotNull(builder.getEventsClient());
+    EventsClient eventsClient = builder.getEventsClient();
+    assertNotNull(eventsClient);
+    eventsClient.close();
   }
 
   @Test

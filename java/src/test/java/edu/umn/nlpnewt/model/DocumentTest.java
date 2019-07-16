@@ -170,6 +170,7 @@ class DocumentTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void addLabels() {
     List<GenericLabel> labels = Arrays.asList(
         GenericLabel.createSpan(10, 20),

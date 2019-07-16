@@ -22,15 +22,18 @@ import com.google.protobuf.util.Durations;
 import edu.umn.nlpnewt.api.v1.Processing;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
 import edu.umn.nlpnewt.common.JsonObject;
+import edu.umn.nlpnewt.common.JsonObjectBuilder;
 import edu.umn.nlpnewt.common.JsonObjectImpl;
 import edu.umn.nlpnewt.discovery.DiscoveryMechanism;
 import edu.umn.nlpnewt.discovery.ServiceInfo;
+import edu.umn.nlpnewt.model.Document;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
+import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,8 +67,8 @@ class ProcessorServerTest {
   @BeforeEach
   void setUp() {
     mockRunner = mock(Runner.class);
-    when(mockRunner.getProcessorName()).thenReturn("processorName");
     when(mockRunner.getProcessorId()).thenReturn("processorId");
+    when(mockRunner.getProcessorMeta()).thenReturn(TestProcessor.class.getAnnotation(Processor.class));
     mockDiscoveryMechanism = mock(DiscoveryMechanism.class);
     name = InProcessServerBuilder.generateName();
     InProcessServerBuilder serverBuilder = InProcessServerBuilder.forName(name).directExecutor();
@@ -177,7 +180,28 @@ class ProcessorServerTest {
     Processing.GetInfoResponse response = stub.getInfo(
         Processing.GetInfoRequest.newBuilder().setProcessorId("processorId").build()
     );
-    assertEquals("processorName", response.getName());
+    assertEquals("test-processor", response.getName());
+    assertEquals("desc.", response.getDescription());
+    assertEquals("foo", response.getEntryPoint());
+    assertEquals("java", response.getLanguage());
+    assertEquals("a_param", response.getParameters(0).getName());
+    assertEquals("param desc.", response.getParameters(0).getDescription());
+    assertEquals("bool", response.getParameters(0).getDataType());
+    assertTrue(response.getParameters(0).getRequired());
+    assertEquals("b_param", response.getParameters(1).getName());
+    assertEquals("str", response.getParameters(1).getDataType());
+    assertFalse(response.getParameters(1).getRequired());
+    assertEquals("input_index", response.getInputs(0).getName());
+    assertEquals("desc", response.getInputs(0).getDescription());
+    assertEquals("prop_a", response.getInputs(0).getProperties(0).getName());
+    assertEquals("prop desc.", response.getInputs(0).getProperties(0).getDescription());
+    assertEquals("blah", response.getInputs(0).getProperties(0).getDataType());
+    assertTrue(response.getInputs(0).getProperties(0).getNullable());
+    assertEquals("prop_b", response.getInputs(0).getProperties(1).getName());
+    assertEquals("str", response.getInputs(0).getProperties(1).getDataType());
+    assertFalse(response.getInputs(0).getProperties(1).getNullable());
+
+
     channel.shutdown();
     channel.awaitTermination(10, TimeUnit.SECONDS);
   }
@@ -234,5 +258,46 @@ class ProcessorServerTest {
     assertEquals(4939, Durations.toNanos(stats.getMax()));
     assertEquals(2333, Durations.toNanos(stats.getMean()));
     assertEquals(116659, Durations.toNanos(stats.getSum()));
+  }
+
+  @Processor(
+      value = "test-processor",
+      description = "desc.",
+      entryPoint = "foo",
+      parameters = {
+          @ParameterDescription(
+              name = "a_param",
+              description = "param desc.",
+              dataType = "bool",
+              required = true
+          ),
+          @ParameterDescription(
+              name = "b_param",
+              dataType = "str"
+          )
+      },
+      inputs = {
+          @LabelIndexDescription(
+              name = "input_index",
+              description = "desc",
+              properties = {
+                  @PropertyDescription(name = "prop_a", description = "prop desc.", dataType = "blah", nullable = true),
+                  @PropertyDescription(name = "prop_b", dataType = "str")
+              }
+          )
+      },
+      outputs = {
+          @LabelIndexDescription(
+              name = "output_index",
+              nameFromParameter = "output_index",
+              description = "Occurrences of the specified word."
+          )
+      }
+  )
+  private static class TestProcessor extends DocumentProcessor {
+    @Override
+    protected void process(@NotNull Document document, @NotNull JsonObject params, @NotNull JsonObjectBuilder result) {
+
+    }
   }
 }

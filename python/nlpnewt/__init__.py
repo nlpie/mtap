@@ -20,6 +20,7 @@ from nlpnewt import label_indices
 from nlpnewt import labels
 from nlpnewt import metrics
 from nlpnewt import processing
+from nlpnewt import processors
 from nlpnewt import version
 from nlpnewt._config import Config
 from nlpnewt._events_service import EventsServer
@@ -34,12 +35,9 @@ from nlpnewt.processing import LocalProcessor
 from nlpnewt.processing import Pipeline
 from nlpnewt.processing import ProcessorServer
 from nlpnewt.processing import RemoteProcessor
-from nlpnewt.processing import label_description
 from nlpnewt.processing import processor
 from nlpnewt.processing import processor_parser
-from nlpnewt.processing import property_description
 from nlpnewt.processing import run_processor
-from nlpnewt import processors
 
 __version__ = version.version
 
@@ -63,12 +61,11 @@ __all__ = [
     'label_index',
     'LocalProcessor',
     'RemoteProcessor',
-    'label_description',
+    'label_index',
     'Pipeline',
     'processor',
     'processors',
     'processor_parser',
-    'property_description',
     'ProcessorServer',
     'run_processor'
 ]

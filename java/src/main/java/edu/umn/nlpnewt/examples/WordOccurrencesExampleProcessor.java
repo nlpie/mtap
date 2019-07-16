@@ -42,14 +42,13 @@ import java.util.regex.Pattern;
         @ParameterDescription(
             name = "do_work",
             description = "Whether the processor should do anything.",
-            dataType = "boolean",
-            optional = true
+            dataType = "bool",
+            required = true
         ),
         @ParameterDescription(
             name = "output_index",
             description = "The output index name.",
-            dataType = "str",
-            optional = true
+            dataType = "str"
         )
     },
     outputs = {

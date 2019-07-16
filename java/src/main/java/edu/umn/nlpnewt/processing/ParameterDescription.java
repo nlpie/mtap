@@ -42,14 +42,14 @@ public @interface ParameterDescription {
   /**
    * The expected data type of the parameter.
    *
-   * @return String expected data; str, float, or boolean; List[T] or Mapping[T1, T2] of those.
+   * @return String expected data; str, float, or bool; List[T] or Mapping[T1, T2] of those.
    */
   String dataType() default "";
 
   /**
-   * Whether the parameter is optional, i.e. not needed / has a default.
+   * Whether the parameter is required, i.e. needed by the processor in order to function.
    *
-   * @return True if parameter is optional, False otherwise.
+   * @return True if parameter is required, False if not required.
    */
-  boolean optional() default false;
+  boolean required() default false;
 }

@@ -86,6 +86,11 @@ class LocalRunner implements Runner {
   }
 
   @Override
+  public Processor getProcessorMeta() {
+    return processor.getClass().getAnnotation(Processor.class);
+  }
+
+  @Override
   public void close() {
     processor.shutdown();
   }

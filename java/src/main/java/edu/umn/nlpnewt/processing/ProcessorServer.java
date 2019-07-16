@@ -20,6 +20,7 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.DebugInfo;
 import edu.umn.nlpnewt.api.v1.Processing;
+import edu.umn.nlpnewt.api.v1.Processing.GetInfoResponse;
 import edu.umn.nlpnewt.api.v1.Processing.TimerStats;
 import edu.umn.nlpnewt.api.v1.ProcessorGrpc;
 import edu.umn.nlpnewt.common.JsonObjectImpl;
@@ -228,12 +229,32 @@ public final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
     @Override
     public void getInfo(
         Processing.GetInfoRequest request,
-        StreamObserver<Processing.GetInfoResponse> responseObserver
+        StreamObserver<GetInfoResponse> responseObserver
     ) {
+      Processor processor = runner.getProcessorMeta();
       try {
-        responseObserver.onNext(Processing.GetInfoResponse.newBuilder()
-            .setName(runner.getProcessorName())
-            .setIdentifier(runner.getProcessorId()).build());
+        GetInfoResponse.Builder builder = GetInfoResponse.newBuilder()
+            .setName(processor.value())
+            .setDescription(processor.description())
+            .setEntryPoint(processor.entryPoint())
+            .setLanguage(processor.language())
+            .setIdentifier(runner.getProcessorId());
+        for (ParameterDescription parameter : processor.parameters()) {
+          builder.addParametersBuilder()
+              .setName(parameter.name())
+              .setDataType(parameter.dataType())
+              .setRequired(parameter.required())
+              .setDescription(parameter.description()).build();
+        }
+        for (LabelIndexDescription labelIndexDescription: processor.inputs()) {
+          addLabelIndex(builder.addInputsBuilder(), labelIndexDescription);
+        }
+        for (LabelIndexDescription labelIndexDescription: processor.outputs()) {
+          addLabelIndex(builder.addOutputsBuilder(), labelIndexDescription);
+        }
+
+
+        responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
       } catch (RuntimeException e) {
         responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
@@ -261,5 +282,23 @@ public final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
             .asRuntimeException());
       }
     }
+  }
+
+
+  private static void addLabelIndex(GetInfoResponse.LabelIndexDescription.Builder builder,
+                                    LabelIndexDescription description) {
+    builder.setName(description.name())
+        .setNameFromParameter(description.nameFromParameter())
+        .setOptional(description.optional())
+        .setDescription(description.description());
+    for (PropertyDescription property : description.properties()) {
+      builder.addPropertiesBuilder()
+          .setName(property.name())
+          .setDescription(property.description())
+          .setDataType(property.dataType())
+          .setNullable(property.nullable())
+          .build();
+    }
+    builder.build();
   }
 }
