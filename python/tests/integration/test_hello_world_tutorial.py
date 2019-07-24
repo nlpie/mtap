@@ -14,16 +14,11 @@
 import os
 import signal
 import subprocess
-import time
 from pathlib import Path
 
 import grpc
 import pytest
-import requests
-from requests import RequestException
 
-import nlpnewt
-from nlpnewt import RemoteProcessor, EventsClient, Event
 from nlpnewt.utils import find_free_port, subprocess_events_server
 
 
