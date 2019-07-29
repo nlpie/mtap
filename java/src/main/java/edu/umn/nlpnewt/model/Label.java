@@ -54,6 +54,15 @@ public interface Label {
   int getEndIndex();
 
   /**
+   * Returns the length (in number of characters) of the Label.
+   *
+   * @return Integer length of the label.
+   */
+  default int length() {
+    return getEndIndex() - getStartIndex();
+  }
+
+  /**
    * Whether the span of text covered by this label is the same as the span of text covered by the
    * other label.
    *
