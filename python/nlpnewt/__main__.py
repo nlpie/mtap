@@ -15,8 +15,10 @@ import logging
 import signal
 import threading
 
+from nlpnewt import processor_parser, run_processor
 from nlpnewt._config import Config
 from nlpnewt._events_service import EventsServer
+from nlpnewt.io.serialization import get_serializer, SerializationProcessor
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -45,6 +47,12 @@ def run_events_server(args):
         e.wait()
 
 
+def run_serializer_processor(args):
+    ser = get_serializer(args.serializer)
+    proc = SerializationProcessor(ser, args.output_dir)
+    run_processor(proc, args)
+
+
 def main(args=None):
     logging.basicConfig(level=logging.DEBUG)
     import argparse as argparse
@@ -66,6 +74,13 @@ def main(args=None):
     events_parser.add_argument("--newt-config", default=None,
                                help="path to newt config file")
     events_parser.set_defaults(func=run_events_server)
+
+    # Serializer processor sub-command
+    serializer_parser = subparsers.add_parser('serializer', parents=[processor_parser()])
+    serializer_parser.add_argument('serializer', help="The name of the serializer to use.")
+    serializer_parser.add_argument('--output-dir', '-o', default=".",
+                                   help="Directory to write serialized files to.")
+    serializer_parser.set_defaults(func=run_serializer_processor)
 
     # parse and execute
     args = parser.parse_args(args)

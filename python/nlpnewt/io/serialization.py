@@ -283,18 +283,3 @@ class SerializationProcessor(EventProcessor):
         name = params.get('filename', event.event_id + self.serializer.extension)
         path = Path(self.output_dir, name)
         self.serializer.event_to_file(event, path)
-
-
-def main(args=None):
-    parser = ArgumentParser(parents=[processor_parser()])
-    parser.add_argument('serializer', help="The name of the serializer to use.")
-    parser.add_argument('--output-dir', '-o', default=".",
-                        help="Directory to write serialized files to.")
-    ns = parser.parse_args(args)
-    ser = get_serializer(ns.serializer)
-    proc = SerializationProcessor(ser, ns.output_dir)
-    run_processor(proc, ns)
-
-
-if __name__ == '__main__':
-    main()
