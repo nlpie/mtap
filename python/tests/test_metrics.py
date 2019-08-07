@@ -37,3 +37,35 @@ def test_accuracy():
         metrics = Metrics(acc, tested='tested', target='target')
         metrics.process_document(doc, params={})
         assert abs(acc.value - 0.8) < 1e-6
+
+
+def test_any():
+    with Event(event_id='1') as event:
+        doc = event.create_document('test', 'This is some text.')
+        with doc.get_labeler('tested') as tested:
+            tested(0, 5, x=1)
+            tested(0, 5, x=3)
+        with doc.get_labeler('target') as target:
+            target(0, 5, x=1)
+            target(6, 10, x=2)
+
+        acc = Accuracy(mode='any')
+        metrics = Metrics(acc, tested='tested', target='target')
+        metrics.process_document(doc, params={})
+        assert abs(acc.value - 0.5) < 1e-6
+
+
+def test_fields():
+    with Event(event_id='1') as event:
+        doc = event.create_document('test', 'This is some text.')
+        with doc.get_labeler('tested') as tested:
+            tested(0, 5, x=1, y=3)
+            tested(6, 10, x=3, y=4)
+        with doc.get_labeler('target') as target:
+            target(0, 5, x=1, y=5)
+            target(6, 10, x=2, y=6)
+
+        acc = Accuracy(fields=['x'])
+        metrics = Metrics(acc, tested='tested', target='target')
+        metrics.process_document(doc, params={})
+        assert abs(acc.value - 0.5) < 1e-6
