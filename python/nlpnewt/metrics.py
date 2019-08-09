@@ -132,7 +132,7 @@ class Accuracy(Metric):
                             correct += 1
                             is_correct = True
                             break
-                    if not is_correct:
+                    if not is_correct and self.print_debug:
                         print_overlapping(document, target_label, tested_index)
                 elif target_label in tested_index:
                     correct += 1
