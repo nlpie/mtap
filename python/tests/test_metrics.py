@@ -69,3 +69,26 @@ def test_fields():
         metrics = Metrics(acc, tested='tested', target='target')
         metrics.process_document(doc, params={})
         assert abs(acc.value - 0.5) < 1e-6
+
+
+def test_boundary_fuzz_equals():
+    with Event(event_id='1') as event:
+        doc = event.create_document('test', 'This is some text.')
+        with doc.get_labeler('tested') as tested:
+            tested(0, 5)
+            tested(6, 10)
+            tested(11, 20)
+            tested(21, 29)
+            tested(31, 39)
+
+        with doc.get_labeler('target') as target:
+            target(0, 6)
+            target(7, 10)
+            target(11, 19)
+            target(20, 30)
+            target(49, 50)
+
+        acc = Accuracy(boundary_fuzz=1)
+        metrics = Metrics(acc, tested='tested', target='target')
+        metrics.process_document(doc, params={})
+        assert abs(acc.value - 0.8) < 1e-6
