@@ -14,14 +14,13 @@
 import io
 import logging
 from abc import ABC, abstractmethod
-from argparse import ArgumentParser
 from pathlib import Path
 from typing import Callable, Union, Dict, Any, Optional
 
 from nlpnewt.events import Event, Document, LabelIndexType, EventsClient
 from nlpnewt.label_indices import LabelIndex
 from nlpnewt.labels import GenericLabel
-from nlpnewt.processing import EventProcessor, processor, processor_parser, run_processor
+from nlpnewt.processing import EventProcessor, processor
 
 _serializer_fs = {}
 _serializers = {}
@@ -49,7 +48,7 @@ def event_to_dict(event: Event) -> Dict:
     }
     for k, v in event.metadata.items():
         d['metadata'][k] = v
-    for doc in event.values():
+    for doc in event.documents.values():
         d['documents'][doc.document_name] = document_to_dict(doc)
     return d
 

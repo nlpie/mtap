@@ -19,50 +19,24 @@ from typing import List
 import nlpnewt
 from nlpnewt import GenericLabel
 from nlpnewt._events_service import EventsServicer
-from nlpnewt.events import LabelIndexInfo, LabelIndexType
+from nlpnewt.events import LabelIndexInfo, LabelIndexType, Event, Document
 from nlpnewt.label_indices import LabelIndex
 from nlpnewt.io.serialization import get_serializer
 
 
-class Event(dict):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.event_id = "1"
-        self.metadata = {}
-
-
-class Document:
-    def __init__(self):
-        self.label_indices = {}
-
-    def get_label_indices_info(self) -> List[LabelIndexInfo]:
-        result = []
-        for k, v in self.label_indices.items():
-            result.append(LabelIndexInfo(index_name=k, type=LabelIndexType.JSON))
-        return result
-
-    def get_label_index(self, label_index_name: str, *, label_type_id: str = None) -> LabelIndex:
-        return self.label_indices[label_index_name]
-
-
 def test_json_serializer():
-    event = Event()
+    event = Event(event_id='1')
     event.metadata['foo'] = "bar"
-    document = Document()
-    document.document_name = "plaintext"
-    document.text = "Some text."
-    label_index = nlpnewt.label_index([nlpnewt.GenericLabel(start_index=0, end_index=5, x=10),
-                                       nlpnewt.GenericLabel(start_index=6, end_index=10, x=15)])
-    document.label_indices['one'] = label_index
-    label_index = nlpnewt.label_index([nlpnewt.GenericLabel(start_index=0, end_index=25, a='b'),
+    document = Document('plaintext', 'Some text.')
+    event.add_document(document)
+    document.add_labels('one', [nlpnewt.GenericLabel(start_index=0, end_index=5, x=10),
+                                nlpnewt.GenericLabel(start_index=6, end_index=10, x=15)])
+    document.add_labels('two', [nlpnewt.GenericLabel(start_index=0, end_index=25, a='b'),
                                        nlpnewt.GenericLabel(start_index=26, end_index=42, a='c')])
-    document.label_indices['two'] = label_index
-    label_index = nlpnewt.label_index([
+    document.add_labels('three', [
         nlpnewt.GenericLabel(start_index=0, end_index=10, foo=True),
         nlpnewt.GenericLabel(start_index=11, end_index=15, foo=False)
     ], distinct=True)
-    document.label_indices['three'] = label_index
-    event['plaintext'] = document
 
     serializer = get_serializer('json')
     tf = TemporaryFile('w+')
@@ -129,7 +103,7 @@ def test_deserialization():
     event = serializer.file_to_event(f)
     assert event.event_id == '12345'
     assert event.metadata['foo'] == 'bar'
-    d = event['plaintext']
+    d = event.documents['plaintext']
     assert d.text == "The quick brown fox jumps over the lazy dog."
     assert len(d.get_label_indices_info()) == 3
     assert d.get_label_index("one") == [

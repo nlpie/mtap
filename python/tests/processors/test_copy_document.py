@@ -28,7 +28,7 @@ def test_copy_document():
         label(10, 15, word='brown')
     processor = CopyDocument('first', 'second')
     processor.process(e, {})
-    second = e['second']
+    second = e.documents['second']
     assert second is not None
     assert second.get_label_index('some_index') == [
         GenericLabel(0, 3, word='The'),

@@ -26,14 +26,14 @@ from nlpnewt.processing.service import _ProcessorServicer
                            properties=[label_property('foo', data_type='str', nullable=True,
                                                       description='A label property.')])
            ])
-class TestProcessor(DocumentProcessor):
+class ExampleTestProcessor(DocumentProcessor):
     def process_document(self, document: Document, params: Dict[str, Any]):
         pass
 
 
 @pytest.fixture(name='processor_servicer')
 def fixture_processor_servicer():
-    processor_service = _ProcessorServicer(config={}, pr=TestProcessor(), address='',
+    processor_service = _ProcessorServicer(config={}, pr=ExampleTestProcessor(), address='',
                                            health_servicer=None)
     yield grpc_testing.server_from_dictionary(
         {

@@ -15,7 +15,7 @@
 
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta
-from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Type
+from typing import List, ContextManager, Any, Dict, NamedTuple, Optional
 
 from nlpnewt.events import Event, Document
 from nlpnewt.processing._context import processor_local
@@ -175,7 +175,7 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
 
     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Calls the subclass's implementation of :func:`process_document` """
-        document = event[params['document_name']]
+        document = event.documents[params['document_name']]
         return self.process_document(document, params)
 
 
