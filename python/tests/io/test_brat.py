@@ -23,7 +23,7 @@ def test_read_brat_documents():
     for event in read_brat_documents(d, document_name='the_gold',
                                      label_index_name_prefix='brat-',
                                      encoding='utf8'):
-        doc = event['the_gold']
+        doc = event.documents['the_gold']
         assert doc.document_name == 'the_gold'
         sentences = doc.get_label_index('brat-Sentence')
         assert sentences == [

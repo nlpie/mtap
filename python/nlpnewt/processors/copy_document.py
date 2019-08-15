@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from argparse import ArgumentParser
-from typing import Sequence, Dict, Any, Optional
-
-from nlpnewt.processing.service import run_processor
+from typing import Sequence, Dict, Any
 
 from nlpnewt import Event, Document, processor_parser, processor
 from nlpnewt.processing import EventProcessor
+from nlpnewt.processing.service import run_processor
 
 
 def copy_document(event: Event,
@@ -38,7 +37,7 @@ def copy_document(event: Event,
         If specified will only copy the specified label indices, by default all indices will be
         copied.
     """
-    source_document = event[source_document_name]
+    source_document = event.documents[source_document_name]
     target_document = Document(target_document_name, text=source_document.text)
     event.add_document(target_document)
     if index_names is ...:

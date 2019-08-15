@@ -18,7 +18,7 @@ import threading
 import uuid
 from abc import abstractmethod, ABC
 from enum import Enum
-from typing import Iterator, List, Dict, MutableMapping, Mapping, Generic, TypeVar, Callable, \
+from typing import Iterator, List, Dict, MutableMapping, Generic, TypeVar, Callable, \
     NamedTuple, ContextManager, Iterable, Optional, Sequence
 
 import grpc
@@ -47,7 +47,7 @@ __all__ = [
 L = TypeVar('L', bound=Label)
 
 
-class Event(Mapping[str, 'Document']):
+class Event:
     """The object created by :func:`~Events.open_event` or :func:`~Events.create_event` to interact
     with a specific event on the events service.
 
@@ -74,7 +74,6 @@ class Event(Mapping[str, 'Document']):
                  only_create_new: bool = False):
         self._event_id = event_id or str(uuid.uuid4())
         self._client = client
-        self._documents = {}
         self._lock = threading.RLock()
         if client is not None:
             client.open_event(self._event_id, only_create_new=only_create_new)
@@ -93,6 +92,22 @@ class Event(Mapping[str, 'Document']):
             The globally unique identifier for this event.
         """
         return self._event_id
+
+    @property
+    def documents(self) -> MutableMapping[str, 'Document']:
+        """
+
+        Returns
+        -------
+        MutableMapping[str, Document]
+            An object that can be used to query and add documents to the event.
+
+        """
+        try:
+            return self._documents
+        except AttributeError:
+            self._documents = _Documents(self, self.client)
+            return self._documents
 
     @property
     def metadata(self) -> MutableMapping[str, str]:
@@ -166,15 +181,11 @@ class Event(Mapping[str, 'Document']):
             An object that is set up to connect to the events service to retrieve data and
             modify the document with the `document_name` on this event.
         """
-        if not isinstance(document_name, str):
-            raise TypeError('Document name is not string.')
         if not isinstance(text, str):
             raise ValueError('text is not string.')
-        if self._client is not None:
-            self._client.add_document(self._event_id, document_name, text)
         document = Document(document_name, text)
         document.event = self
-        self._documents[document_name] = document
+        self.documents[document_name] = document
         return document
 
     def add_document(self, document: 'Document'):
@@ -186,56 +197,7 @@ class Event(Mapping[str, 'Document']):
         document: Document
             The document to add to this event.
         """
-        if self._client is not None:
-            self._client.add_document(self._event_id, document.document_name, document.text)
-        document.event = self
-        self._documents[document.document_name] = document
-
-    def __contains__(self, document_name: str) -> bool:
-        if not isinstance(document_name, str):
-            return False
-        if document_name in self._documents:
-            return True
-        self._refresh_documents()
-        return document_name in self._documents
-
-    def __getitem__(self, document_name) -> 'Document':
-        """Retrieves an object for interacting with an existing document on this event.
-
-        Parameters
-        ----------
-        document_name : str
-            The document_name identifier.
-
-        Returns
-        -------
-        Document
-            An object that is set up to connect to the events service to retrieve data and
-            modify the document with the `document_name` on this event.
-
-        Examples
-        --------
-        >>> plaintext_document = event['plaintext']
-        >>> plaintext_document.text
-        'The quick brown fox jumped over the lazy dog.'
-
-        """
-        if not isinstance(document_name, str):
-            raise KeyError
-        try:
-            return self._documents[document_name]
-        except KeyError:
-            pass
-        self._refresh_documents()
-        return self._documents[document_name]
-
-    def __len__(self) -> int:
-        self._refresh_documents()
-        return len(self._documents)
-
-    def __iter__(self) -> Iterator[str]:
-        self._refresh_documents()
-        return iter(self._documents)
+        self.documents[document.document_name] = document
 
     def __enter__(self) -> 'Event':
         return self
@@ -244,15 +206,6 @@ class Event(Mapping[str, 'Document']):
         self.close()
         if exc_val is not None:
             raise exc_val
-
-    def _refresh_documents(self):
-        if self.client is not None:
-            document_names = self._client.get_all_document_names(self._event_id)
-            for name in document_names:
-                if name not in self._documents:
-                    document = Document(name)
-                    document.event = self
-                    self._documents[name] = document
 
     def add_created_indices(self, created_indices):
         for k, v in created_indices.items():
@@ -306,6 +259,8 @@ class Document:
     """
 
     def __init__(self, document_name: str, text: Optional[str] = None):
+        if not isinstance(document_name, str):
+            raise TypeError('Document name is not string.')
         self._document_name = document_name
         self._text = text
         self._label_indices = {}
@@ -867,7 +822,79 @@ class EventsClient:
             pass
 
 
-class _Metadata(collections.abc.MutableMapping):
+class _Documents(MutableMapping[str, Document]):
+    def __init__(self, event: Event, client: Optional[EventsClient]):
+        self.event = event
+        self.event_id = event.event_id
+        self.client = client
+        self.documents = {}
+
+    def __contains__(self, document_name: str) -> bool:
+        if not isinstance(document_name, str):
+            return False
+        if document_name in self.documents:
+            return True
+        self._refresh_documents()
+        return document_name in self.documents
+
+    def __getitem__(self, document_name) -> 'Document':
+        """Retrieves an object for interacting with an existing document on this event.
+
+        Parameters
+        ----------
+        document_name : str
+            The document_name identifier.
+
+        Returns
+        -------
+        Document
+            An object that is set up to connect to the events service to retrieve data and
+            modify the document with the `document_name` on this event.
+
+        Examples
+        --------
+        >>> plaintext_document = event.documents['plaintext']
+        >>> plaintext_document.text
+        'The quick brown fox jumped over the lazy dog.'
+
+        """
+        if not isinstance(document_name, str):
+            raise KeyError
+        try:
+            return self.documents[document_name]
+        except KeyError:
+            pass
+        self._refresh_documents()
+        return self.documents[document_name]
+
+    def __len__(self) -> int:
+        self._refresh_documents()
+        return len(self.documents)
+
+    def __iter__(self) -> Iterator[str]:
+        self._refresh_documents()
+        return iter(self.documents)
+
+    def __setitem__(self, k: str, v: Document) -> None:
+        if self.client is not None:
+            self.client.add_document(self.event_id, k, v.text)
+        v.event = self
+        self.documents[k] = v
+
+    def __delitem__(self, v: str) -> None:
+        raise NotImplementedError()
+
+    def _refresh_documents(self):
+        if self.client is not None:
+            document_names = self.client.get_all_document_names(self.event_id)
+            for name in document_names:
+                if name not in self.documents:
+                    document = Document(name)
+                    document.event = self
+                    self.documents[name] = document
+
+
+class _Metadata(MutableMapping[str, str]):
     def __init__(self, event: Event, client: Optional[EventsClient] = None):
         self._client = client
         self._event = event
