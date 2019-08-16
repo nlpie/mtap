@@ -13,9 +13,9 @@
 # limitations under the License.
 import os
 import signal
-import subprocess
 import time
 from pathlib import Path
+from subprocess import Popen, PIPE, STDOUT, TimeoutExpired, call
 
 import grpc
 import pytest
@@ -40,12 +40,9 @@ def fixture_python_processor(python_events):
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['python', '-m', 'nlpnewt.examples.example_processor',
-                          '-p', '50501',
-                          '--events', python_events],
-                         start_new_session=True, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         cwd=cwd, env=env)
+    p = Popen(['python', '-m', 'nlpnewt.examples.example_processor', '-p', '50501',
+               '--events', python_events],
+              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=cwd, env=env)
     try:
         with grpc.insecure_channel("127.0.0.1:50501") as channel:
             future = grpc.channel_ready_future(channel)
@@ -57,23 +54,18 @@ def fixture_python_processor(python_events):
             stdout, _ = p.communicate(timeout=1)
             print("python processor exited with code: ", p.returncode)
             print(stdout.decode('utf-8'))
-        except subprocess.TimeoutExpired:
+        except TimeoutExpired:
             print("timed out waiting for python processor to terminate")
 
 
 @pytest.fixture(name="java_processor")
 def fixture_java_processor(python_events):
-    cwd = Path(__file__).parents[3] / 'java'
+    newt_jar = os.environ['NEWT_JAR']
     env = dict(os.environ)
-
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = subprocess.Popen(['./gradlew',
-                          '-PmainClass=edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor',
-                          'execute', '--args=-p 50502 -e ' + python_events],
-                         start_new_session=True,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         cwd=cwd, env=env)
+    p = Popen(['java', '-cp', newt_jar, 'edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor',
+               '-p', '50502', '-e', python_events],
+              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch java processor")
@@ -87,7 +79,7 @@ def fixture_java_processor(python_events):
             stdout, _ = p.communicate(timeout=1)
             print("java processor exited with code: ", p.returncode)
             print(stdout.decode('utf-8'))
-        except subprocess.TimeoutExpired:
+        except TimeoutExpired:
             print("timed out waiting for java processor to terminate")
 
 
@@ -96,12 +88,10 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
     cwd = Path(__file__).parents[3] / 'go'
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    subprocess.call(['make', 'proto'], cwd=cwd)
-    subprocess.call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
-    p = subprocess.Popen(['nlpnewt-gateway', '-logtostderr', '-v=3'],
-                         start_new_session=True, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         cwd=cwd, env=env)
+    call(['make', 'proto'], cwd=cwd)
+    call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
+    p = Popen(['nlpnewt-gateway', '-logtostderr', '-v=3'],
+              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=cwd, env=env)
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch go gateway")
@@ -122,7 +112,7 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
             stdout, _ = p.communicate(timeout=1)
             print("api gateway exited with code: ", p.returncode)
             print(stdout.decode('utf-8'))
-        except subprocess.TimeoutExpired:
+        except TimeoutExpired:
             print("timed out waiting for api gateway to terminate")
 
 
@@ -137,10 +127,10 @@ how to fire phasers?"""
 @pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
     with EventsClient(address=python_events) as client, nlpnewt.Pipeline(
-        RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
-                        params={'do_work': True}),
-        RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
-                        params={'do_work': True})
+            RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
+                            params={'do_work': True}),
+            RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
+                            params={'do_work': True})
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
