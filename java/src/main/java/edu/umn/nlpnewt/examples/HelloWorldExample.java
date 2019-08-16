@@ -16,19 +16,10 @@
 
 package edu.umn.nlpnewt.examples;
 
-import edu.umn.nlpnewt.Newt;
-import edu.umn.nlpnewt.common.JsonObject;
-import edu.umn.nlpnewt.common.JsonObjectBuilder;
-import edu.umn.nlpnewt.common.Server;
-import edu.umn.nlpnewt.model.Document;
-import edu.umn.nlpnewt.model.GenericLabel;
-import edu.umn.nlpnewt.model.Labeler;
-import edu.umn.nlpnewt.processing.DocumentProcessor;
-import edu.umn.nlpnewt.processing.Processor;
-import edu.umn.nlpnewt.processing.ProcessorServerBuilder;
-import edu.umn.nlpnewt.processing.ProcessorServerOptions;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
+import edu.umn.nlpnewt.common.*;
+import edu.umn.nlpnewt.model.*;
+import edu.umn.nlpnewt.processing.*;
+import org.kohsuke.args4j.*;
 
 import java.io.IOException;
 
@@ -40,7 +31,7 @@ public class HelloWorldExample extends DocumentProcessor {
       String text = document.getText();
       labeler.add(
           GenericLabel.newBuilder(0, text.length())
-              .setProperty("response", "Hello" + text + "!")
+              .setProperty("response", "Hello " + text + "!")
               .build()
       );
     }

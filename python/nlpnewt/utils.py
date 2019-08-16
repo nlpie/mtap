@@ -29,7 +29,7 @@ def subprocess_events_server(port: Optional[int] = None,
                              cwd: Optional[Path] = None,
                              config_path: Optional[Path] = None,
                              register: bool = False) -> str:
-    """Context manager which launches a events server on a subprocess and yields
+    """Context manager which launches a events server on a subprocess and yields the address.
 
     Parameters
     ----------
