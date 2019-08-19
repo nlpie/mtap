@@ -112,7 +112,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
       Matcher matcher = pattern.matcher(text);
       while (matcher.find()) {
         if (word.equals(matcher.group().toLowerCase())) {
-          labeler.add(GenericLabel.newBuilder(matcher.start(), matcher.end()).build());
+          labeler.add(GenericLabel.withSpan(matcher.start(), matcher.end()).build());
         }
       }
     }

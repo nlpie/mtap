@@ -53,31 +53,31 @@ class GenericLabelAdapterTest {
         .build();
 
     LabelIndex<GenericLabel> index = NOT_DISTINCT_ADAPTER.createIndexFromResponse(response);
-    assertEquals(Arrays.asList(GenericLabel.newBuilder(0, 10).build(),
-        GenericLabel.newBuilder(10, 20).build()), index.asList());
+    assertEquals(Arrays.asList(GenericLabel.withSpan(0, 10).build(),
+        GenericLabel.withSpan(10, 20).build()), index.asList());
     assertTrue(index.isDistinct());
   }
 
   @Test
   void createLabelIndexDistinct() {
-    LabelIndex<GenericLabel> index = DISTINCT_ADAPTER.createLabelIndex(Arrays.asList(GenericLabel.newBuilder(0, 10).build(),
-        GenericLabel.newBuilder(10, 20).build()));
+    LabelIndex<GenericLabel> index = DISTINCT_ADAPTER.createLabelIndex(Arrays.asList(GenericLabel.withSpan(0, 10).build(),
+        GenericLabel.withSpan(10, 20).build()));
     assertTrue(index.isDistinct());
   }
 
   @Test
   void createLabelIndexStandard() {
     LabelIndex<GenericLabel> index = NOT_DISTINCT_ADAPTER.createLabelIndex(
-        Arrays.asList(GenericLabel.newBuilder(0, 10).build(),
-            GenericLabel.newBuilder(10, 20).build()));
+        Arrays.asList(GenericLabel.withSpan(0, 10).build(),
+            GenericLabel.withSpan(10, 20).build()));
     assertFalse(index.isDistinct());
   }
 
   @Test
   void addToMessage() {
     AddLabelsRequest.Builder builder = AddLabelsRequest.newBuilder();
-    NOT_DISTINCT_ADAPTER.addToMessage(Arrays.asList(GenericLabel.newBuilder(0, 10).build(),
-        GenericLabel.newBuilder(10, 20).build()), builder);
+    NOT_DISTINCT_ADAPTER.addToMessage(Arrays.asList(GenericLabel.withSpan(0, 10).build(),
+        GenericLabel.withSpan(10, 20).build()), builder);
     AddLabelsRequest request = builder.build();
     JsonLabels jsonLabels = request.getJsonLabels();
     assertFalse(jsonLabels.getIsDistinct());

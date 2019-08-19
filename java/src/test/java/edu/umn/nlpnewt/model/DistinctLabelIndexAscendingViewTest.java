@@ -111,7 +111,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void containsDifferentLabel() {
-    GenericLabel genericLabel = GenericLabel.newBuilder(11, 15).setProperty("blah", 1)
+    GenericLabel genericLabel = GenericLabel.withSpan(11, 15).setProperty("blah", 1)
         .build();
     assertFalse(ascending.contains(genericLabel));
   }
@@ -290,7 +290,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void listContainsDifferentLabel() {
-    GenericLabel genericLabel = GenericLabel.newBuilder(11, 15).setProperty("blah", 1)
+    GenericLabel genericLabel = GenericLabel.withSpan(11, 15).setProperty("blah", 1)
         .build();
     assertFalse(ascending.asList().contains(genericLabel));
   }

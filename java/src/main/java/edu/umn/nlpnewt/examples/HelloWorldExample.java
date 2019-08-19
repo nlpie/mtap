@@ -30,7 +30,7 @@ public class HelloWorldExample extends DocumentProcessor {
     try (Labeler<GenericLabel> labeler = document.getLabeler("hello")) {
       String text = document.getText();
       labeler.add(
-          GenericLabel.newBuilder(0, text.length())
+          GenericLabel.withSpan(0, text.length())
               .setProperty("response", "Hello " + text + "!")
               .build()
       );
