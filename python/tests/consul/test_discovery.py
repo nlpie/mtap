@@ -36,55 +36,26 @@ def fixture_disc_python_events():
 
 
 @pytest.fixture(name='disc_python_processor')
-def fixture_disc_python_processor(disc_python_events):
-    cwd = Path(__file__).parents[2]
+def fixture_disc_python_processor(disc_python_events, processor_watcher):
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = Popen(['python', '-m', 'nlpnewt.examples.example_processor',
                '-p', '50501', '--register'],
-              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=cwd, env=env)
-    try:
-        with grpc.insecure_channel("127.0.0.1:50501") as channel:
-            future = grpc.channel_ready_future(channel)
-            future.result(timeout=10)
-        yield
-    finally:
-        p.send_signal(signal.SIGINT)
-        try:
-            stdout, _ = p.communicate(timeout=1)
-            print("python processor exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except TimeoutExpired:
-            print("timed out waiting for python processor to terminate")
+              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    yield from processor_watcher(address="127.0.0.1:50501", process=p)
 
 
 @pytest.fixture(name="disc_java_processor")
-def fixture_disc_java_processor(disc_python_events):
+def fixture_disc_java_processor(disc_python_events, processor_watcher):
     newt_jar = os.environ['NEWT_JAR']
-    cwd = Path(__file__).parents[3] / 'java'
     env = dict(os.environ)
     env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = Popen(['java', '-cp', newt_jar,
                'edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '--register'],
               start_new_session=True, stdin=PIPE,
-              stdout=PIPE, stderr=STDOUT,
-              cwd=cwd, env=env)
-    try:
-        if p.returncode is not None:
-            raise ValueError("Failed to launch java processor")
-        with grpc.insecure_channel("127.0.0.1:50502") as channel:
-            future = grpc.channel_ready_future(channel)
-            future.result(timeout=10)
-        yield
-    finally:
-        p.send_signal(signal.SIGINT)
-        try:
-            stdout, _ = p.communicate(timeout=1)
-            print("java processor exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except TimeoutExpired:
-            print("timed out waiting for java processor to terminate")
+              stdout=PIPE, stderr=STDOUT, env=env)
+    yield from processor_watcher(address="127.0.0.1:50502", process=p)
 
 
 @pytest.fixture(name="disc_api_gateway")

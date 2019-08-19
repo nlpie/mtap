@@ -30,49 +30,25 @@ def fixture_python_events():
 
 
 @pytest.fixture(name='hello_processor')
-def fixture_hello_processor(python_events):
+def fixture_hello_processor(python_events, processor_watcher):
     port = find_free_port()
     p = Popen(['python', '-m', 'nlpnewt.examples.tutorial.hello', '-p', str(port),
                '--events', python_events],
               start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT)
-    try:
-        address = "127.0.0.1:" + str(port)
-        with grpc.insecure_channel(address) as channel:
-            future = grpc.channel_ready_future(channel)
-            future.result(timeout=10)
-        yield address
-    finally:
-        p.send_signal(signal.SIGINT)
-        try:
-            stdout, _ = p.communicate(timeout=1)
-            print("python processor exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except TimeoutExpired:
-            print("timed out waiting for python processor to terminate")
+    address = "127.0.0.1:" + str(port)
+    yield from processor_watcher(address=address, process=p)
 
 
 @pytest.fixture(name='java_hello_processor')
-def fixture_java_hello_processor(python_events):
+def fixture_java_hello_processor(python_events, processor_watcher):
     newt_jar = Path(os.environ['NEWT_JAR'])
     port = str(find_free_port())
     p = Popen(['java', '-cp', newt_jar, 'edu.umn.nlpnewt.examples.HelloWorldExample',
                '-p', port, '--events', python_events], start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT)
-    try:
-        address = "127.0.0.1:" + port
-        with grpc.insecure_channel(address) as channel:
-            future = grpc.channel_ready_future(channel)
-            future.result(timeout=10)
-        yield address
-    finally:
-        p.send_signal(signal.SIGINT)
-        try:
-            stdout, _ = p.communicate(timeout=1)
-            print("java processor exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except TimeoutExpired:
-            print("timed out waiting for java processor to terminate")
+    address = "127.0.0.1:" + port
+    yield from processor_watcher(address=address, process=p)
 
 
 @pytest.mark.integration
