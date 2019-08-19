@@ -44,6 +44,15 @@ public interface Labeler<T extends Label> extends Closeable {
   void add(T label);
 
   /**
+   * Calls {@link Builder#build()} and then adds the result to the labeler.
+   *
+   * @param builder A builder for the label type.
+   */
+  default void add(Builder<T> builder) {
+    add(builder.build());
+  }
+
+  /**
    * Closes this labeler, uploading any labels that have been added to the events service.
    */
   void done();

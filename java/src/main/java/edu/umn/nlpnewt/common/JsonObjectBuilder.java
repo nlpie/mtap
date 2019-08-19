@@ -17,6 +17,7 @@
 package edu.umn.nlpnewt.common;
 
 import com.google.protobuf.Struct;
+import edu.umn.nlpnewt.model.Builder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface JsonObjectBuilder<T extends JsonObjectBuilder, R extends JsonObject>
-    extends Map<@NotNull String, @Nullable Object> {
+    extends Map<@NotNull String, @Nullable Object>, Builder<R> {
   /**
    * Copies the contents of a protobuf struct to this builder.
    *
