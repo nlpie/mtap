@@ -22,12 +22,11 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Map;
 
 /**
- * A generalized, dynamic label on text which can contain arbitrary key-value items. Convention is
- * to use snake_case key identifiers.
+ * A generalized, dynamic label on text which can contain arbitrary key-value items.
  * <p>
  * {@inheritDoc}
  * <p>
- * This class can be subclassed for convenience:
+ * This class can be subclassed for convenience, for example:
  * <pre>
  *   {@code
  *   public class PosTag extends GenericLabel {
@@ -87,15 +86,25 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   }
 
   /**
-   * Creates a newBuilder that can be used to create a generic label.
+   * Creates a Builder that can be used to create a generic label.
    *
    * @param startIndex The start index of the label.
    * @param endIndex   The end index of the label.
    *
    * @return Builder object that can be used to add other properties to the label.
    */
-  public static Builder newBuilder(int startIndex, int endIndex) {
+  public static Builder withSpan(int startIndex, int endIndex) {
     return new Builder(startIndex, endIndex);
+  }
+
+  /**
+   * Creates a Builder that can be used to create a generic label from the span of another label.
+   *
+   * @param label The label to take a start index and end index from.
+   * @return Builder object that can be used to add other properties to the label.
+   */
+  public static Builder withSpan(Label label) {
+    return new Builder(label.getStartIndex(), label.getEndIndex());
   }
 
   @Override

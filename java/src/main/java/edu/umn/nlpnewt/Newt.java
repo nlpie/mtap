@@ -87,6 +87,6 @@ public final class Newt {
    * @return Builder for labels.
    */
   public static @NotNull GenericLabel.Builder genericLabelBuilder(int startIndex, int endIndex) {
-    return GenericLabel.newBuilder(startIndex, endIndex);
+    return GenericLabel.withSpan(startIndex, endIndex);
   }
 }

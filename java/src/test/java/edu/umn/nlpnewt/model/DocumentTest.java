@@ -154,8 +154,8 @@ class DocumentTest {
   @SuppressWarnings("unchecked")
   void genericDistinct() {
     try (Labeler<GenericLabel> labeler = tested.getLabeler("index", true)) {
-      labeler.add(GenericLabel.newBuilder(10, 20).build());
-      labeler.add(GenericLabel.newBuilder(0, 10).build());
+      labeler.add(GenericLabel.withSpan(10, 20));
+      labeler.add(GenericLabel.withSpan(0, 10));
     }
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),

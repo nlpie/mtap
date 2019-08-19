@@ -16,7 +16,6 @@
 
 package edu.umn.nlpnewt.model;
 
-import edu.umn.nlpnewt.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -509,11 +508,11 @@ class StandardLabelIndexTest {
         Span.of(3, 5),
         Span.of(3, 5),
         Span.of(3, 5),
-        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build(),
+        GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
         Span.of(3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
-    assertEquals(14, index.asList().indexOf(GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+    assertEquals(14, index.asList().indexOf(GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
   }
 
   @Test
@@ -536,7 +535,7 @@ class StandardLabelIndexTest {
         Span.of(3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
-    assertEquals(-1, index.asList().indexOf(GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+    assertEquals(-1, index.asList().indexOf(GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
 
   }
 
@@ -671,7 +670,7 @@ class StandardLabelIndexTest {
         Span.of(3, 5),
         Span.of(3, 5),
         Span.of(3, 5),
-        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build(),
+        GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
         Span.of(3, 5),
         Span.of(5, 6),
         Span.of(5, 6),
@@ -720,7 +719,7 @@ class StandardLabelIndexTest {
   void asListLastIndexOfBackUp() {
     List<Label> labels = Arrays.asList(
         Span.of(3, 5),
-        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build(),
+        GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
         Span.of(3, 5),
         Span.of(3, 5),
         Span.of(3, 5),
@@ -737,7 +736,7 @@ class StandardLabelIndexTest {
         Span.of(3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
-    assertEquals(1, index.asList().lastIndexOf(GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+    assertEquals(1, index.asList().lastIndexOf(GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
   }
 
   @Test
@@ -776,7 +775,7 @@ class StandardLabelIndexTest {
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
     assertEquals(-1, index.asList().lastIndexOf(
-        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build()));
+        GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
   }
 
   @Test

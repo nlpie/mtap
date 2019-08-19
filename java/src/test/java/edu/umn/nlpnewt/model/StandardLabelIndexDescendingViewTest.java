@@ -16,7 +16,6 @@
 
 package edu.umn.nlpnewt.model;
 
-import edu.umn.nlpnewt.model.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -602,7 +601,7 @@ public class StandardLabelIndexDescendingViewTest {
         Span.of(3, 5),
         Span.of(3, 5),
         Span.of(3, 5),
-        GenericLabel.newBuilder(3, 5).setProperty("foo", "bar").build(),
+        GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
         Span.of(3, 5),
         Span.of(5, 6),
         Span.of(5, 6),

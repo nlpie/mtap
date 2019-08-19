@@ -388,7 +388,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void containsDifferentLabel() {
-    GenericLabel genericLabel = GenericLabel.newBuilder(11, 15).setProperty("blah", 1)
+    GenericLabel genericLabel = GenericLabel.withSpan(11, 15).setProperty("blah", 1)
         .build();
     assertFalse(tested.contains(genericLabel));
   }
@@ -592,7 +592,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void asListContainsDifferentLabel() {
-    GenericLabel genericLabel = GenericLabel.newBuilder(11, 15).setProperty("blah", 1)
+    GenericLabel genericLabel = GenericLabel.withSpan(11, 15).setProperty("blah", 1)
         .build();
     assertFalse(tested.asList().contains(genericLabel));
   }

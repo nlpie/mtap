@@ -17,9 +17,6 @@
 package edu.umn.nlpnewt.model;
 
 import edu.umn.nlpnewt.common.JsonObjectImpl;
-import edu.umn.nlpnewt.model.Document;
-import edu.umn.nlpnewt.model.GenericLabel;
-import edu.umn.nlpnewt.model.Label;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,8 +29,16 @@ import static org.mockito.Mockito.when;
  */
 class GenericLabelTest {
   @Test
+  void builderFromLabel() {
+    GenericLabel span = GenericLabel.createSpan(0, 5);
+    GenericLabel label = GenericLabel.withSpan(span).setProperty("foo", "bar").build();
+    assertEquals(0, label.getStartIndex());
+    assertEquals(5, label.getEndIndex());
+  }
+
+  @Test
   void createGenericLabel() {
-    GenericLabel genericLabel = GenericLabel.newBuilder(0, 5).setProperty("foo", "bar").build();
+    GenericLabel genericLabel = GenericLabel.withSpan(0, 5).setProperty("foo", "bar").build();
     assertEquals(0, genericLabel.getStartIndex());
     assertEquals(5, genericLabel.getEndIndex());
   }
@@ -54,9 +59,9 @@ class GenericLabelTest {
   @Test
   void createGenericBadIndices() {
     assertThrows(IllegalArgumentException.class,
-        () -> GenericLabel.newBuilder(6, 5).build());
+        () -> GenericLabel.withSpan(6, 5).build());
     assertThrows(IllegalArgumentException.class,
-        () -> GenericLabel.newBuilder(-1, 5).build());
+        () -> GenericLabel.withSpan(-1, 5).build());
   }
 
   @Test
