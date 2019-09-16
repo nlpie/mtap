@@ -19,7 +19,7 @@ package edu.umn.nlpnewt.model;
 /**
  * An interface for builders.
  *
- * @param <T>
+ * @param <T> The type that is created by the builder.
  */
 public interface Builder<T> {
   /**
