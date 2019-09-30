@@ -272,7 +272,9 @@ def test_GetAllBinaryDataNames(events_server):
         events_pb2.GetAllBinaryDataNamesRequest(event_id='1'),
         None
     ).termination()
-    assert list(response.binary_data_names) == ['a', 'b']
+    assert 'a' in response.binary_data_names
+    assert 'b' in response.binary_data_names
+    assert len(response.binary_data_names) == 2
 
 
 def test_AddGetBinaryData(events_server):
@@ -420,8 +422,9 @@ def test_GetAllDocuments(events_server):
         events_pb2.GetAllDocumentNamesRequest(event_id='1'),
         None
     ).termination()
-    document_names = list(response.document_names)
-    assert document_names == ['plaintext', 'other']
+    assert 'plaintext' in response.document_names
+    assert 'other' in response.document_names
+    assert len(response.document_names) == 2
 
 
 def test_GetDocumentText_bad_event(events_server):

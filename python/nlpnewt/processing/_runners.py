@@ -185,8 +185,7 @@ class TimerStatsAggregator:
 
 class ProcessingTimesCollector:
     def __init__(self):
-        self._executor = ThreadPoolExecutor(max_workers=1,
-                                            thread_name_prefix='processing_times_listener')
+        self._executor = ThreadPoolExecutor(max_workers=1)
         self._times_map = {}
 
     def _add_times(self, times):
