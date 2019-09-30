@@ -19,7 +19,11 @@ from nlpnewt import GenericLabel
 def test_get_repr():
     label = GenericLabel(0, 20, a="x", y=20, z=20.0)
 
-    assert repr(label) == "GenericLabel(0, 20, a='x', y=20, z=20.0)"
+    rep = repr(label)
+    assert rep.startswith("GenericLabel(0, 20, ")
+    assert 'a="x"' in rep or "a='x'" in rep
+    assert 'y=20' in rep
+    assert 'z=20.0' in rep
 
 
 def test_get_attr():
