@@ -40,27 +40,7 @@ import org.jetbrains.annotations.NotNull;
  * may be called simultaneously from multiple threads, so the implementing class is responsible for
  * ensuring thread-safety.
  */
-public abstract class EventProcessor {
-  private ProcessorContext context = null;
-
-  /**
-   * Used by NLP-NEWT to set the processor context.
-   *
-   * @param context the processor context.
-   */
-  public void setContext(@NotNull ProcessorContext context) {
-    this.context = context;
-  }
-
-  /**
-   * The current processor context. Will always be non-null once the processor is running.
-   *
-   * @return A context object that can be used by the processor.
-   */
-  protected @NotNull ProcessorContext getContext() {
-    return context;
-  }
-
+public abstract class EventProcessor extends ProcessorBase {
   /**
    * Performs processing of an event.
    * @param event  event object to process.

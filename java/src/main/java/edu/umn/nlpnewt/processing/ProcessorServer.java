@@ -205,7 +205,7 @@ public final class ProcessorServer implements edu.umn.nlpnewt.common.Server {
         }
         for (Map.Entry<String, Duration> entry : result.getTimes().entrySet()) {
           long nanos = entry.getValue().toNanos();
-          addTime(runner.getProcessorId() + ":" + entry.getKey(), nanos);
+          addTime(entry.getKey(), nanos);
           responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(nanos));
         }
         responseObserver.onNext(responseBuilder.build());

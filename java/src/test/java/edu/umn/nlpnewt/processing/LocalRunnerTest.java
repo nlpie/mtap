@@ -58,7 +58,6 @@ class LocalRunnerTest {
 
     ProcessingResult processingResult = runner.process("1", params);
 
-    verify(processor).setContext(any(ProcessorContext.class));
     verify(events).openEvent("1", false);
     verify(processor).process(any(Event.class), same(params), any(JsonObjectBuilder.class));
 

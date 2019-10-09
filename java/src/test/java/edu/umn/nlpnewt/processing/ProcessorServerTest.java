@@ -214,7 +214,7 @@ class ProcessorServerTest {
     HashMap<String, List<String>> createdIndices = new HashMap<>();
     createdIndices.put("plaintext", Arrays.asList("indexOne", "indexTwo"));
     HashMap<String, Duration> times = new HashMap<>();
-    times.put("process_method", Duration.ofNanos(30));
+    times.put("processorId:process_method", Duration.ofNanos(30));
     JsonObjectImpl resultObject = JsonObjectImpl.newBuilder().setProperty("result", true).build();
     ProcessingResult result = new ProcessingResult(createdIndices, times, resultObject);
     when(mockRunner.process(eq("1"), any(JsonObjectImpl.class))).thenReturn(result);

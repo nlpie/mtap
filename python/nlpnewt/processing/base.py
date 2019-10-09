@@ -60,7 +60,7 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
 
 
     >>> # in an EventProcessor or DocumentProcessor process method call
-    >>> with self.stopwatch('key') as stopwatch:
+    >>> with self.unstarted_stopwatch('key') as stopwatch:
     >>>     for a in b:
     >>>         # work you don't want timed
     >>>         ...
@@ -161,14 +161,14 @@ class Processor(metaclass=ProcessorMeta):
 
         """
         try:
-            stopwatch = processor_local.context.stopwatch(key)
+            stopwatch = processor_local.context.unstarted_stopwatch(key)
         except AttributeError:
             stopwatch = Stopwatch()
         stopwatch.start()
         return stopwatch
 
     @staticmethod
-    def stopwatch(key: str) -> Stopwatch:
+    def unstarted_stopwatch(key: str) -> Stopwatch:
         """An object that can be used to time aspects of processing. The stopwatch will be stopped
         at creation.
 
@@ -185,7 +185,7 @@ class Processor(metaclass=ProcessorMeta):
         Examples
         --------
         >>> # In a process method
-        >>> with self.stopwatch('key') as stopwatch:
+        >>> with self.unstarted_stopwatch('key') as stopwatch:
         >>>     for x in y:
         >>>         # work you don't want timed
         >>>         ...
@@ -197,7 +197,7 @@ class Processor(metaclass=ProcessorMeta):
 
         """
         try:
-            return processor_local.context.stopwatch(key)
+            return processor_local.context.unstarted_stopwatch(key)
         except AttributeError:
             return Stopwatch()
 
@@ -291,7 +291,7 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
     >>>     def process(self,
     >>>                 document: Document,
     >>>                 params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    >>>          with self.context.stopwatch('key'):
+    >>>          with self.context.unstarted_stopwatch('key'):
     >>>               # use stopwatch
 
     """

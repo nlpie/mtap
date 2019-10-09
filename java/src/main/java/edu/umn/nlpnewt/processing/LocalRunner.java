@@ -16,7 +16,6 @@
 
 package edu.umn.nlpnewt.processing;
 
-import com.google.common.base.Stopwatch;
 import edu.umn.nlpnewt.Internal;
 import edu.umn.nlpnewt.common.JsonObject;
 import edu.umn.nlpnewt.common.JsonObjectBuilder;
@@ -27,13 +26,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.Map;
 
 @Internal
 class LocalRunner implements Runner {
-  private final ProcessorContext context = new Context();
-  private final ThreadLocal<ProcessorLocal> threadLocal = new ThreadLocal<>();
   private final EventsClient client;
   private final EventProcessor processor;
   private final String processorName;
@@ -45,7 +41,6 @@ class LocalRunner implements Runner {
               String processorId) {
     this.client = client;
     this.processor = processor;
-    processor.setContext(context);
     this.processorName = processorName;
     this.processorId = processorId;
   }
@@ -56,12 +51,12 @@ class LocalRunner implements Runner {
 
   @Override
   public ProcessingResult process(String eventID, JsonObject params) {
-    try (ProcessorLocal ignored = new ProcessorLocal()) {
+    try (ProcessorContext context = ProcessorBase.enterContext(processorId)) {
       try (Event event = Event.newBuilder().withEventID(eventID).withEventsClient(client).build()) {
         JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
-        Timer timer = context.startTimer("process_method");
+        Stopwatch stopwatch = ProcessorBase.startedStopwatch("process_method");
         processor.process(event, params, resultBuilder);
-        timer.stop();
+        stopwatch.stop();
         return new ProcessingResult(
             event.getCreatedIndices(),
             context.getTimes(),
@@ -135,50 +130,6 @@ class LocalRunner implements Runner {
           processorName,
           processorId
       );
-    }
-  }
-
-  private class Context implements ProcessorContext {
-    @Override
-    public @NotNull Timer startTimer(String key) {
-      ProcessorLocal local = threadLocal.get();
-      Stopwatch stopwatch = Stopwatch.createStarted();
-
-      return new Timer() {
-        @Override
-        public void stop() {
-          if (!local.active) {
-            throw new IllegalStateException("Processor context has been exited prior to stop.");
-          }
-          local.times.put(processorId + ":" + key, stopwatch.elapsed());
-        }
-
-        @Override
-        public void close() {
-          stop();
-        }
-      };
-    }
-
-    @Override
-    public Map<String, Duration> getTimes() {
-      return threadLocal.get().times;
-    }
-  }
-
-  private class ProcessorLocal implements AutoCloseable {
-    private final Map<String, Duration> times = new HashMap<>();
-
-    private boolean active = true;
-
-    public ProcessorLocal() {
-      threadLocal.set(this);
-    }
-
-    @Override
-    public void close() {
-      active = false;
-      threadLocal.remove();
     }
   }
 }

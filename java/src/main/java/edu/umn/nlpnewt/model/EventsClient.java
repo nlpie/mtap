@@ -96,8 +96,7 @@ public class EventsClient implements AutoCloseable {
    *
    * @return A map of all the current metadata on the event.
    */
-  @NotNull
-  public Map<String, String> getAllMetadata(@NotNull String eventID) {
+  public @NotNull Map<String, String> getAllMetadata(@NotNull String eventID) {
     GetAllMetadataRequest request = GetAllMetadataRequest.newBuilder()
         .setEventId(eventID)
         .build();
@@ -182,8 +181,7 @@ public class EventsClient implements AutoCloseable {
    *
    * @return A collection of document name strings.
    */
-  @NotNull
-  public Collection<String> getAllDocumentNames(@NotNull String eventID) {
+  public @NotNull Collection<String> getAllDocumentNames(@NotNull String eventID) {
     GetAllDocumentNamesRequest request = GetAllDocumentNamesRequest
         .newBuilder()
         .setEventId(eventID)
@@ -221,8 +219,7 @@ public class EventsClient implements AutoCloseable {
    *
    * @return A string of the document text.
    */
-  @NotNull
-  public String getDocumentText(@NotNull String eventID, @NotNull String documentName) {
+  public @NotNull String getDocumentText(@NotNull String eventID, @NotNull String documentName) {
     GetDocumentTextRequest request = GetDocumentTextRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
@@ -281,7 +278,7 @@ public class EventsClient implements AutoCloseable {
       @NotNull String eventID,
       @NotNull String documentName,
       @NotNull String indexName,
-      @NotNull List<L> labels,
+      @NotNull List<@NotNull L> labels,
       @NotNull ProtoLabelAdapter<L> adapter
   ) {
     AddLabelsRequest.Builder requestBuilder = AddLabelsRequest.newBuilder()

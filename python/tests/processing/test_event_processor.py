@@ -34,7 +34,7 @@ def test_started_stopwatch():
 def test_not_started_stopwatch():
     class TestProcessor(EventProcessor):
         def process(self, event: Event, params: Dict[str, Any]):
-            with self.stopwatch('foo') as stopwatch:
+            with self.unstarted_stopwatch('foo') as stopwatch:
                 for _ in range(20):
                     stopwatch.start()
                     sleep(1 / 1000)

@@ -101,7 +101,7 @@ public final class ConsulNameResolver extends NameResolver {
 
     @Nullable
     @Override
-    public NameResolver newNameResolver(URI targetUri, Helper helper) {
+    public NameResolver newNameResolver(URI targetUri, NameResolver.Args args) {
       String scheme = targetUri.getScheme();
       if (!"consul".equals(scheme)) {
         return null;

@@ -103,9 +103,9 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
     }
 
     // Example of using a timer to do timing of operations
-    Timer timer = getContext().startTimer("fetch_time");
+    Stopwatch stopwatch = startedStopwatch("fetch_time");
     String text = document.getText();
-    timer.stop();
+    stopwatch.stop();
 
     // Using a labeler to add labels to the document.
     try (Labeler<GenericLabel> labeler = document.getLabeler(indexName, true)) {
