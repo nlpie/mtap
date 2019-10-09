@@ -12,22 +12,97 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Internal processors and pipelines functionality."""
+import contextlib
 
+import threading
 from abc import ABCMeta, abstractmethod
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import List, ContextManager, Any, Dict, NamedTuple, Optional
 
 from nlpnewt.events import Event, Document
-from nlpnewt.processing._context import processor_local
 
 __all__ = [
+    'ProcessorContext',
+    'Stopwatch',
     'ProcessorMeta',
+    'Processor',
     'EventProcessor',
     'DocumentProcessor',
     'ProcessingResult',
     'TimerStats',
     'AggregateTimingInfo'
 ]
+
+
+class ProcessorContext:
+    def __init__(self, identifier):
+        self.times = {}
+        self.identifier = identifier
+
+    def add_time(self, key, duration):
+        self.times[self.identifier + ':' + key] = duration
+
+
+class Stopwatch(ContextManager, metaclass=ABCMeta):
+    """A class for timing runtime of components and returning the total runtime with the
+    processor's results.
+
+    Attributes
+    ==========
+    duration: timedelta
+        The amount of time elapsed for this timer.
+
+    Examples
+    ========
+    >>> # in an EventProcessor or DocumentProcessor process method call
+    >>> with self.started_stopwatch('key'):
+    >>>     timed_routine()
+
+
+    >>> # in an EventProcessor or DocumentProcessor process method call
+    >>> with self.stopwatch('key') as stopwatch:
+    >>>     for a in b:
+    >>>         # work you don't want timed
+    >>>         ...
+    >>>         stopwatch.start()
+    >>>         # work you want timed
+    >>>         ...
+    >>>         stopwatch.stop()
+
+
+    """
+
+    def __init__(self, context: Optional = None, key: Optional[str] = None):
+        self._key = key
+        self._context = context
+        self._running = False
+        self.duration = timedelta()
+        self._start = None
+
+    def start(self):
+        """Starts the timer.
+        """
+        if not self._running:
+            self._running = True
+            self._start = datetime.now()
+
+    def stop(self):
+        """Stops / pauses the timer
+        """
+        if self._running:
+            self._running = False
+            self.duration += datetime.now() - self._start
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._running:
+            self.stop()
+        try:
+            self._context.add_time(self._key, self.duration)
+        except AttributeError:  # If context is None
+            pass
 
 
 class ProcessorMeta(ABCMeta):
@@ -41,7 +116,123 @@ class ProcessorMeta(ABCMeta):
         return cls
 
 
-class EventProcessor(metaclass=ProcessorMeta):
+processor_local = threading.local()
+
+
+class Processor(metaclass=ProcessorMeta):
+    def __new__(cls, *args, **kwargs):
+        instance = super().__new__(cls)
+        instance._health_callback = None
+        return instance
+
+    def update_serving_status(self, status: str):
+        """Updates the serving status of the processor for health checking.
+
+        Parameters
+        ----------
+        status: str
+            One of "SERVING", "NOT_SERVING", "UNKNOWN".
+
+        """
+        if self._health_callback is not None:
+            self._health_callback(status)
+
+    @staticmethod
+    def started_stopwatch(key: str) -> Stopwatch:
+        """An object that can be used to time aspects of processing. The stopwatch will be started
+        at creation.
+
+        Parameters
+        ----------
+        key: str
+            The key to store the time under
+
+        Returns
+        -------
+        Stopwatch
+            An object that is used to do the timing.
+
+        Examples
+        --------
+        >>> # In a process method
+        >>> with self.started_stopwatch('key'):
+        >>>     # do work
+        >>>
+
+        """
+        try:
+            stopwatch = processor_local.context.stopwatch(key)
+        except AttributeError:
+            stopwatch = Stopwatch()
+        stopwatch.start()
+        return stopwatch
+
+    @staticmethod
+    def stopwatch(key: str) -> Stopwatch:
+        """An object that can be used to time aspects of processing. The stopwatch will be stopped
+        at creation.
+
+        Parameters
+        ----------
+        key: str
+            The key to store the time under
+
+        Returns
+        -------
+        Stopwatch
+            An object that is used to do the timing.
+
+        Examples
+        --------
+        >>> # In a process method
+        >>> with self.stopwatch('key') as stopwatch:
+        >>>     for x in y:
+        >>>         # work you don't want timed
+        >>>         ...
+        >>>         stopwatch.start()
+        >>>         # work you do want timed
+        >>>         ...
+        >>>         stopwatch.stop()
+
+
+        """
+        try:
+            return processor_local.context.stopwatch(key)
+        except AttributeError:
+            return Stopwatch()
+
+    @staticmethod
+    @contextlib.contextmanager
+    def enter_context(identifier: str) -> ContextManager[ProcessorContext]:
+        """Used by the mnlp framework to enter a processing context. Users should not need to call
+        this in normal usage.
+
+        Parameters
+        ----------
+        identifier: str
+            The context identifier, either processor identifier or pipeline component identifier.
+
+        Returns
+        -------
+        ContextManager[ProcessorContext]
+            A context manager for a ProcessorContext object.
+
+        """
+        try:
+            old_context = processor_local.context
+            identifier = old_context.identifier + '.' + identifier
+        except AttributeError:
+            old_context = None
+        try:
+            processor_local.context = ProcessorContext(identifier)
+            yield processor_local.context
+        finally:
+            del processor_local.context
+            if old_context is not None:
+                processor_local.context = old_context
+
+
+class EventProcessor(Processor):
     """Abstract base class for an event processor.
 
     Implementation should either have the default constructor or one which takes a single argument
@@ -54,18 +245,7 @@ class EventProcessor(metaclass=ProcessorMeta):
     >>>          pass
     >>>
 
-
-    >>> class ExampleProcessor(EventProcessor):
-    >>>     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    >>>          with self.context.stopwatch('key'):
-    >>>               # use stopwatch
-
     """
-
-    def __new__(cls, *args, **kwargs):
-        instance = super().__new__(cls)
-        instance._health_callback = None
-        return instance
 
     @abstractmethod
     def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -86,42 +266,6 @@ class EventProcessor(metaclass=ProcessorMeta):
 
         """
         ...
-
-    def update_serving_status(self, status: str):
-        """Updates the serving status of the processor for health checking.
-
-        Parameters
-        ----------
-        status: str
-            One of "SERVING", "NOT_SERVING", "UNKNOWN".
-
-        """
-        if self._health_callback is not None:
-            self._health_callback(status)
-
-    @staticmethod
-    def stopwatch(key: str) -> ContextManager:
-        """An object that can be used to time aspects of processing.
-
-        Parameters
-        ----------
-        key: str
-            The key to store the time under
-
-        Returns
-        -------
-        ContextManager
-            A context manager object that is used to do the timing.
-
-        Examples
-        --------
-        >>> # In a process method
-        >>> with context.stopwatch('something'):
-        >>>     # do work
-        >>>
-
-        """
-        return processor_local.context.stopwatch(key)
 
     def close(self):
         """Used for cleaning up anything that needs to be cleaned up.

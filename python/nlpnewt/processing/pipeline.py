@@ -17,7 +17,6 @@ from typing import Optional, Dict, Any, Union, List
 
 from nlpnewt._config import Config
 from nlpnewt.events import Event, Document, EventsClient
-from nlpnewt.processing._context import processor_local
 from nlpnewt.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
     ProcessingComponent
 from nlpnewt.processing._utils import unique_component_id
@@ -297,7 +296,7 @@ class _PipelineProcessor(EventProcessor):
         for _, component_times, _ in results:
             times.update(component_times)
         for k, v in times.items():
-            processor_local.context.add_time(k, v)
+            EventProcessor.processor_local.context.add_time(k, v)
 
         return {'component_results': [result[0] for result in results]}
 

@@ -40,7 +40,7 @@ class ExampleProcessor(DocumentProcessor):
                          document: Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if params['do_work']:
-            with self.stopwatch('fetch_time'):
+            with self.started_stopwatch('fetch_time'):
                 text = document.text
 
             a_count = text.count('a')

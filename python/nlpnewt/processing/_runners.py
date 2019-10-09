@@ -24,9 +24,7 @@ from grpc_health.v1 import health_pb2_grpc, health_pb2
 from nlpnewt import _discovery, _structs
 from nlpnewt.events import EventsClient, Event
 from nlpnewt.api.v1 import processing_pb2_grpc, processing_pb2
-from nlpnewt.processing._context import enter_context
-from nlpnewt.processing.base import EventProcessor, TimerStats
-
+from nlpnewt.processing.base import EventProcessor, TimerStats, Processor
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +70,11 @@ class ProcessorRunner(ProcessingComponent):
         p = dict(self.params)
         if params is not None:
             p.update(params)
-        with enter_context(self.component_id) as c, \
+        with Processor.enter_context(self.component_id) as c, \
                 Event(event_id=event_id, client=self.client) as event:
             try:
-                with c.stopwatch('process_method'):
+                with Processor.started_stopwatch('process_method') as stopwatch:
+                    stopwatch.start()
                     result = self.processor.process(event, p)
                 return result, c.times, event.created_indices
             except Exception as e:
@@ -118,12 +117,12 @@ class RemoteRunner(ProcessingComponent):
         if params is not None:
             p.update(params)
 
-        with enter_context(self.component_id) as context:
+        with EventProcessor.enter_context(self.component_id) as context:
             try:
                 request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
                                                         event_id=event_id)
                 _structs.copy_dict_to_struct(p, request.params, [p])
-                with context.stopwatch('remote_call'):
+                with Processor.started_stopwatch('remote_call'):
                     response = self._stub.Process(request)
                 r = {}
                 _structs.copy_struct_to_dict(response.result, r)
