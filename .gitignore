@@ -376,9 +376,9 @@ gradle-app.setting
 /go/release/
 
 # go generated code
-go/mnlp/api/v1/
+go/mtap/api/v1/
 
-python/nlpnewt/version.py
+python/mtap/version.py
 python/docs/_build
 
 .project
