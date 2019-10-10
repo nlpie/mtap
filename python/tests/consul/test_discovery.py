@@ -47,10 +47,10 @@ def fixture_disc_python_processor(disc_python_events, processor_watcher):
 
 @pytest.fixture(name="disc_java_processor")
 def fixture_disc_java_processor(disc_python_events, processor_watcher):
-    newt_jar = os.environ['MTAP_JAR']
+    mtap_jar = os.environ['MTAP_JAR']
     env = dict(os.environ)
     env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['java', '-cp', newt_jar,
+    p = Popen(['java', '-cp', mtap_jar,
                'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '--register'],
               start_new_session=True, stdin=PIPE,
@@ -62,7 +62,7 @@ def fixture_disc_java_processor(disc_python_events, processor_watcher):
 def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor):
     env = dict(os.environ)
     env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['nlpnewt-gateway', '-logtostderr', '-v', '3'],
+    p = Popen(['mtap-gateway', '-logtostderr', '-v', '3'],
               start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT,
               env=env)
@@ -101,22 +101,22 @@ how to fire phasers?"""
 @pytest.mark.consul
 def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_processor):
     with EventsClient(address=disc_python_events) as client, mtap.Pipeline(
-            RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
+            RemoteProcessor('mtap-example-processor-python', address='localhost:50501',
                             params={'do_work': True}),
-            RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
+            RemoteProcessor('mtap-example-processor-java', address='localhost:50502',
                             params={'do_work': True})
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
             results = pipeline.run(document)
-            letter_counts = document.get_label_index('nlpnewt.examples.letter_counts')
+            letter_counts = document.get_label_index('mtap.examples.letter_counts')
             a_counts = letter_counts[0]
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
             pipeline.print_times()
-            thes = document.get_label_index("nlpnewt.examples.word_occurrences")
+            thes = document.get_label_index("mtap.examples.word_occurrences")
             assert thes[0].start_index == 121
             assert thes[0].end_index == 124
 
@@ -129,8 +129,8 @@ def test_disc_api_gateway(disc_api_gateway):
     all_ids = []
     for processor in processors['Processors']:
         all_ids.append(processor['Identifier'])
-    assert 'nlpnewt-example-processor-python' in all_ids
-    assert 'nlpnewt-example-processor-java' in all_ids
+    assert 'mtap-example-processor-python' in all_ids
+    assert 'mtap-example-processor-java' in all_ids
 
     resp = requests.post("http://localhost:50503/v1/events/1")
     assert resp.status_code == 200
@@ -193,14 +193,14 @@ def test_disc_api_gateway(disc_api_gateway):
     assert json_labels['labels'] == body['json_labels']['labels']
 
     body = {
-        'processor_id': 'nlpnewt-example-processor-python',
+        'processor_id': 'mtap-example-processor-python',
         'params': {
             'document_name': 'plaintext',
             'do_work': True,
         }
     }
     resp = requests.post(
-        "http://localhost:50503/v1/processors/nlpnewt-example-processor-python/process/1",
+        "http://localhost:50503/v1/processors/mtap-example-processor-python/process/1",
         json=body
     )
     assert resp.status_code == 200
@@ -208,7 +208,7 @@ def test_disc_api_gateway(disc_api_gateway):
     assert python_process['result']['answer'] == 42
 
     resp = requests.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.letter_counts"
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts"
     )
     assert resp.status_code == 200
     labels = resp.json()
@@ -229,14 +229,14 @@ def test_disc_api_gateway(disc_api_gateway):
     ]
 
     body = {
-        'processor_id': 'nlpnewt-example-processor-java',
+        'processor_id': 'mtap-example-processor-java',
         'params': {
             'document_name': 'plaintext',
             'do_work': True,
         }
     }
     resp = requests.post(
-        "http://localhost:50503/v1/processors/nlpnewt-example-processor-java/process/1",
+        "http://localhost:50503/v1/processors/mtap-example-processor-java/process/1",
         json=body
     )
     assert resp.status_code == 200
@@ -244,7 +244,7 @@ def test_disc_api_gateway(disc_api_gateway):
     assert java_process['result']['answer'] == 42
 
     resp = requests.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.word_occurrences"
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
     )
     assert resp.status_code == 200
     labels = resp.json()['json_labels']['labels']

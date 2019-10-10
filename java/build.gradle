@@ -109,7 +109,7 @@ tasks.withType(JavaCompile) {
 }
 
 javadoc {
-    exclude "edu/umn/nlpnewt/api/**"
+    exclude "edu/umn/nlpie/mtap/api/**"
     exclude "grpc"
 }
 
@@ -135,9 +135,9 @@ task printVersion() {
 
 task fatJar(type: Jar) {
 	manifest {
-        attributes 'Implementation-Title': 'NLP-NEWT',
-        	'Implementation-Version': version,
-        	'Main-Class': 'edu.umn.nlpnewt.Newt'
+        attributes 'Implementation-Title': 'MTAP',
+        	'Implementation-Version': archiveVersion,
+        	'Main-Class': 'edu.umn.nlpie.mtap.MTAP'
     }
     baseName = project.name + '-all'
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }

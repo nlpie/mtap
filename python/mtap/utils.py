@@ -66,11 +66,11 @@ def subprocess_events_server(port: Optional[int] = None,
         cwd = Path.cwd()
     env = dict(os.environ)
     if config_path is not None:
-        env['NEWT_CONFIG'] = config_path
+        env['MTAP_CONFIG'] = config_path
     if port is None:
         port = find_free_port()
     address = '127.0.0.1:' + str(port)
-    cmd = ['python', '-m', 'nlpnewt', 'events', '-p', str(port)]
+    cmd = ['python', '-m', 'mtap', 'events', '-p', str(port)]
     if register:
         cmd += ['--register']
     p = subprocess.Popen(cmd,

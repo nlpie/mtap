@@ -168,7 +168,7 @@ func (ps *ProcessorsServer) doUpdate() error {
 	for service, tags := range services {
 		found := false
 		for _, tag := range tags {
-			if tag == "v1-nlpnewt-processor" {
+			if tag == "v1-mtap-processor" {
 				found = true
 			}
 		}
@@ -177,7 +177,7 @@ func (ps *ProcessorsServer) doUpdate() error {
 		}
 		entries, _, err := ps.client.Health().Service(
 			service,
-			"v1-nlpnewt-processor",
+			"v1-mtap-processor",
 			true,
 			nil)
 		if err != nil {
@@ -272,7 +272,7 @@ func (ps *ProcessorsServer) newProcessorGateway(pn string) (*processorGateway, e
 	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
 		ctx,
 		gwmux,
-		"consul://"+ps.authority+"/"+pn+"/v1-nlpnewt-processor",
+		"consul://"+ps.authority+"/"+pn+"/v1-mtap-processor",
 		[]grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancerName("round_robin")})
 
 	if err != nil {

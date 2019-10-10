@@ -32,8 +32,8 @@ def run_events_server(args):
         Command line arguments.
     """
     with Config() as c:
-        if args.newt_config is not None:
-            c.update_from_yaml(args.newt_config)
+        if args.mtap_config is not None:
+            c.update_from_yaml(args.mtap_config)
         server = EventsServer(args.address, args.port, register=args.register, workers=args.workers)
         server.start()
         e = threading.Event()
@@ -71,8 +71,8 @@ def main(args=None):
     events_parser.add_argument('--register', '-r', action='store_true',
                                help='whether to register the service with the configured '
                                     'service discovery')
-    events_parser.add_argument("--newt-config", default=None,
-                               help="path to newt config file")
+    events_parser.add_argument("--mtap-config", default=None,
+                               help="path to MTAP config file")
     events_parser.set_defaults(func=run_events_server)
 
     # Serializer processor sub-command

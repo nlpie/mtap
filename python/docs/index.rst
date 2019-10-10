@@ -12,19 +12,19 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-Welcome to nlpnewt's documentation!
+Welcome to mtap's documentation!
 ===================================
 
 .. toctree::
    :maxdepth: 3
    :caption: Contents:
 
-   nlpnewt
+   mtap
 
 Overview
 ========
 
-NLP-NEWT is a distributed computing framework for text analysis built on top of the gRPC framework.
+MTAP is a distributed computing framework for text analysis built on top of the gRPC framework.
 
 
 Indices and tables

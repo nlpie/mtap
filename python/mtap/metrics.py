@@ -32,7 +32,7 @@ class Metric(ABC):
         ...
 
 
-@processor('newt-metrics')
+@processor('mtap-metrics')
 class Metrics(DocumentProcessor):
     """A document process that computes a set of metrics.
 

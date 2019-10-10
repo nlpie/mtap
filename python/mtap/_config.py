@@ -62,12 +62,12 @@ def _load_config(f):
 def _load_default_config():
     potential_paths = []
     try:
-        cnf = os.getenv('NEWT_CONFIG')
+        cnf = os.getenv('MTAP_CONFIG')
         potential_paths.append(Path(cnf))
     except TypeError:
         pass
-    locations = [Path.cwd(), Path.home().joinpath('.newt'), Path('/etc/newt/')]
-    potential_paths += [location.joinpath('newtConfig.yml') for location in locations]
+    locations = [Path.cwd(), Path.home().joinpath('.mtap'), Path('/etc/mtap/')]
+    potential_paths += [location.joinpath('mtapConfig.yml') for location in locations]
 
     for config_path in potential_paths:
         try:
@@ -79,15 +79,15 @@ def _load_default_config():
 
 
 class Config(MutableMapping[str, Any]):
-    """The nlpnewt configuration dictionary.
+    """The MTAP configuration dictionary.
 
     By default configuration is loaded from one of a number of locations in the following priority:
 
       - A file at the path of the '--config' parameter passed into main methods.
-      - A file at the path of the 'NEWT_CONFIG' environment variable
-      - $PWD/newtConfig.yml
-      - $HOME/.newt/newtConfig.yml'
-      - etc/newt/newtConfig.yml
+      - A file at the path of the 'MTAP_CONFIG' environment variable
+      - $PWD/mtapConfig.yml
+      - $HOME/.mtap/mtapConfig.yml'
+      - /etc/mtap/mtapConfig.yml
 
 
     Nlpnewt components will use a global shared configuration object, by entering the context of a
@@ -96,7 +96,7 @@ class Config(MutableMapping[str, Any]):
 
     Examples
     --------
-    >>> with nlpnewt.Config() as config:
+    >>> with mtap.Config() as config:
     >>>     config['key'] = 'value'
     >>>     # other nlpnewt methods in this
     >>>     # block will use the updated config object.

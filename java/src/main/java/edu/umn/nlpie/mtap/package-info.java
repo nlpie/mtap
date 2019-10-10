@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * The public Java SDK for NLP-NEWT. Functionality for creating NLP and text analysis components for
+ * The public Java SDK for MTAP. Functionality for creating NLP and text analysis components for
  * distributed computing.
  * <p>
  * The primary entrypoints are located in {@link edu.umn.nlpie.mtap.MTAP}.

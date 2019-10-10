@@ -26,9 +26,9 @@ import edu.umn.nlpie.mtap.processing.ProcessorServerOptions;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * The main class and entry points for the NLP-NEWT framework.
+ * The main class and entry points for the MTAP framework.
  * <p>
- * This object provides methods for interacting with a newt events service and for launching newt
+ * This object provides methods for interacting with a MTAP events service and for launching MTAP
  * processors written in Java.
  */
 public final class MTAP {

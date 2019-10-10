@@ -21,7 +21,7 @@ import mtap
 
 # -- Project information -----------------------------------------------------
 
-project = 'nlpnewt'
+project = 'MTAP'
 copyright = '2019, Regents of the University of Minnesota'
 author = 'NLP-IE Group'
 
@@ -114,7 +114,7 @@ html_sidebars = {'**': ['globaltoc.html', 'relations.html', 'sourcelink.html', '
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'nlpnewtdoc'
+htmlhelp_basename = 'mtapdoc'
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -140,7 +140,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'nlpnewt.tex', 'nlpnewt Documentation',
+    (master_doc, 'mtap.tex', 'MTAP Documentation',
      'NLP-IE Group', 'manual'),
 ]
 
@@ -149,7 +149,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'nlpnewt', 'nlpnewt Documentation',
+    (master_doc, 'mtap', 'MTAP Documentation',
      [author], 1)
 ]
 
@@ -159,8 +159,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'nlpnewt', 'nlpnewt Documentation',
-     author, 'nlpnewt', 'One line description of project.',
+    (master_doc, 'mtap', 'MTAP Documentation',
+     author, 'mtap', 'One line description of project.',
      'Miscellaneous'),
 ]
 

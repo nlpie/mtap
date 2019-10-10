@@ -69,7 +69,7 @@ func serveSwagger(r *mux.Router) {
 }
 
 func run() error {
-	glog.V(1).Infoln("Starting NLP-NEWT API gateway")
+	glog.V(1).Infoln("Starting MTAP API Gateway")
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil { // Handle errors reading the config file
 		// will use sensible defaults

@@ -24,7 +24,7 @@ import java.util.*;
 
 
 /**
- * A document of text and labels in the NEWT system.
+ * A document of text and labels in the MTAP system.
  * <p>
  * Documents are keyed by their name, this is to allow pipelines to store different pieces of
  * related text on a single processing event. An example would be storing the English text

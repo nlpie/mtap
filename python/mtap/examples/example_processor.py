@@ -21,7 +21,7 @@ from mtap.processing import DocumentProcessor, run_processor
 from mtap.processing.descriptions import label_index, label_property, parameter
 
 
-@mtap.processor('nlpnewt-example-processor-python',
+@mtap.processor('mtap-example-processor-python',
                 description='counts the number of times the letters a and b occur in a document',
                 parameters=[
                        parameter('do_work', required=True, data_type='bool',

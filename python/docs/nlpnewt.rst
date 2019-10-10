@@ -12,9 +12,9 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-nlpnewt
+mtap
 =======
-.. module:: nlpnewt
+.. module:: mtap
 
 Command-Line Utility
 --------------------
@@ -26,7 +26,7 @@ usage:
 
 .. code-block:: text
 
- python -m nlpnewt events [-h] [--address ADDRESS] [--port PORT]
+ python -m mtap events [-h] [--address ADDRESS] [--port PORT]
                           [--workers WORKERS] [--register] [--config CONFIG]
 
  optional arguments:
@@ -47,27 +47,27 @@ API Documentation
 Events service client, documents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: EventsClient
-.. autoclass:: nlpnewt.events.Event
-.. autoclass:: nlpnewt.events.Document
+.. autoclass:: mtap.events.Event
+.. autoclass:: mtap.events.Document
 
 Labels on text
 ^^^^^^^^^^^^^^
-.. autoclass:: nlpnewt.labels.Label
-.. autoclass:: nlpnewt.labels.Location
-.. autoclass:: nlpnewt.events.Labeler
+.. autoclass:: mtap.labels.Label
+.. autoclass:: mtap.labels.Location
+.. autoclass:: mtap.events.Labeler
 .. autoclass:: GenericLabel
-.. autoclass:: nlpnewt.label_indices.LabelIndex
+.. autoclass:: mtap.label_indices.LabelIndex
 
 Custom Label Types
 ^^^^^^^^^^^^^^^^^^
 .. autofunction:: proto_label_adapter
-.. autoclass:: nlpnewt.events.ProtoLabelAdapter
+.. autoclass:: mtap.events.ProtoLabelAdapter
 
 Creating Processors
 ^^^^^^^^^^^^^^^^^^^
 .. autofunction:: processor
-.. autoclass:: nlpnewt.processing.EventProcessor
-.. autoclass:: nlpnewt.processing.DocumentProcessor
+.. autoclass:: mtap.processing.EventProcessor
+.. autoclass:: mtap.processing.DocumentProcessor
 
 Running Services
 ^^^^^^^^^^^^^^^^
@@ -77,9 +77,9 @@ Running Services
 Running a pipeline
 ^^^^^^^^^^^^^^^^^^
 .. autoclass:: Pipeline
-.. autoclass:: nlpnewt.processing.ProcessingResult
-.. autoclass:: nlpnewt.processing.TimerStats
-.. autoclass:: nlpnewt.processing.AggregateTimingInfo
+.. autoclass:: mtap.processing.ProcessingResult
+.. autoclass:: mtap.processing.TimerStats
+.. autoclass:: mtap.processing.AggregateTimingInfo
 
 Configuration
 ^^^^^^^^^^^^^

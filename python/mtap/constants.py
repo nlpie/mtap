@@ -11,17 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""NLP-NEWT constants."""
+"""NLP-MTAP constants."""
 
 # The name used by the events service for discovery.
-EVENTS_SERVICE_NAME = 'nlpnewt-events'
+EVENTS_SERVICE_NAME = 'mtap-events'
 
 # The tag used by all processors for discovery
-PROCESSING_SERVICE_TAG = 'v1-nlpnewt-processor'
+PROCESSING_SERVICE_TAG = 'v1-mtap-processor'
 
 
 # Adapter label id for generic labels
-GENERIC_LABEL_ID = 'nlpnewt.labels.Generic'
+GENERIC_LABEL_ID = 'mtap.labels.Generic'
 
 # Adapter label id for distinct generic labels
-DISTINCT_GENERIC_LABEL_ID = 'nlpnewt.labels.DistinctGeneric'
+DISTINCT_GENERIC_LABEL_ID = 'mtap.labels.DistinctGeneric'

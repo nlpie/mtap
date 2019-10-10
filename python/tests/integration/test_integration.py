@@ -39,8 +39,8 @@ def fixture_python_events():
 def fixture_python_processor(python_events, processor_watcher):
     cwd = Path(__file__).parents[2]
     env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['python', '-m', 'nlpnewt.examples.example_processor', '-p', '50501',
+    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    p = Popen(['python', '-m', 'mtap.examples.example_processor', '-p', '50501',
                '--events', python_events],
               start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=cwd, env=env)
     yield from processor_watcher(address="127.0.0.1:50501", process=p)
@@ -48,10 +48,10 @@ def fixture_python_processor(python_events, processor_watcher):
 
 @pytest.fixture(name="java_processor")
 def fixture_java_processor(python_events, processor_watcher):
-    newt_jar = os.environ['NEWT_JAR']
+    newt_jar = os.environ['MTAP_JAR']
     env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['java', '-cp', newt_jar, 'edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor',
+    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    p = Popen(['java', '-cp', newt_jar, 'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '-e', python_events],
               start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
