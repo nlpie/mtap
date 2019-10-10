@@ -33,20 +33,17 @@ def fixture_python_events():
 def fixture_hello_processor(python_events, processor_watcher):
     port = find_free_port()
     p = Popen(['python', '-m', 'mtap.examples.tutorial.hello', '-p', str(port),
-               '--events', python_events],
-              start_new_session=True, stdin=PIPE,
-              stdout=PIPE, stderr=STDOUT)
+               '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     address = "127.0.0.1:" + str(port)
     yield from processor_watcher(address=address, process=p)
 
 
 @pytest.fixture(name='java_hello_processor')
 def fixture_java_hello_processor(python_events, processor_watcher):
-    mtap_jar = Path(os.environ['MTAP_JAR'])
+    mtap_jar = os.environ['MTAP_JAR']
     port = str(find_free_port())
     p = Popen(['java', '-cp', mtap_jar, 'edu.umn.nlpie.mtap.examples.HelloWorldExample',
-               '-p', port, '--events', python_events], start_new_session=True, stdin=PIPE,
-              stdout=PIPE, stderr=STDOUT)
+               '-p', port, '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     address = "127.0.0.1:" + port
     yield from processor_watcher(address=address, process=p)
 
@@ -54,7 +51,7 @@ def fixture_java_hello_processor(python_events, processor_watcher):
 @pytest.mark.integration
 def test_hello_world(python_events, hello_processor):
     p = run(['python', '-m', 'mtap.examples.tutorial.pipeline', python_events, hello_processor],
-            capture_output=True)
+            stdout=PIPE)
     p.check_returncode()
     assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'
 
@@ -62,6 +59,6 @@ def test_hello_world(python_events, hello_processor):
 @pytest.mark.integration
 def test_java_hello_world(python_events, java_hello_processor):
     p = run(['python', '-m', 'mtap.examples.tutorial.pipeline', python_events,
-             java_hello_processor], capture_output=True)
+             java_hello_processor], stdout=PIPE)
     p.check_returncode()
     assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'

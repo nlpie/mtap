@@ -37,12 +37,10 @@ def fixture_python_events():
 
 @pytest.fixture(name='python_processor')
 def fixture_python_processor(python_events, processor_watcher):
-    cwd = Path(__file__).parents[2]
     env = dict(os.environ)
-    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['python', '-m', 'mtap.examples.example_processor', '-p', '50501',
-               '--events', python_events],
-              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=cwd, env=env)
+               '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:50501", process=p)
 
 
@@ -50,20 +48,19 @@ def fixture_python_processor(python_events, processor_watcher):
 def fixture_java_processor(python_events, processor_watcher):
     mtap_jar = os.environ['MTAP_JAR']
     env = dict(os.environ)
-    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['java', '-cp', mtap_jar,
                'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
-               '-p', '50502', '-e', python_events],
-              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+               '-p', '50502', '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
 
 
 @pytest.fixture(name="api_gateway")
 def fixture_api_gateway(python_events, python_processor, java_processor):
     env = dict(os.environ)
-    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'],
-              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
+    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT,
+              env=env)
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch go gateway")

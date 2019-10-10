@@ -22,13 +22,13 @@ from mtap import Config
 
 def test_load_broken_config():
     Config._global_instance = None
-    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent) + '/brokenConfig.yaml'
+    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent / 'brokenConfig.yaml')
     with pytest.raises(TypeError):
         Config()
 
 
 def test_load_config():
-    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent) + '/mtapConfig.yaml'
+    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent / 'mtapConfig.yaml')
     Config._global_instance = None
     c = Config()
     assert c['foo'] == 'bar'

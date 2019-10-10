@@ -136,22 +136,21 @@ task printVersion() {
 task fatJar(type: Jar) {
 	manifest {
         attributes 'Implementation-Title': 'MTAP',
-        	'Implementation-Version': archiveVersion,
-        	'Main-Class': 'edu.umn.nlpie.mtap.MTAP'
+        	'Implementation-Version': archiveVersion
     }
-    baseName = project.name + '-all'
+    archiveBaseName.set(project.name + '-all')
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
 
 task sourcesJar(type: Jar) {
     from sourceSets.main.allJava
-    archiveClassifier = 'sources'
+    archiveClassifier.set('sources')
 }
 
 task javadocJar(type: Jar) {
     from javadoc
-    archiveClassifier = 'javadoc'
+    archiveClassifier.set('javadoc')
 }
 
 publishing {

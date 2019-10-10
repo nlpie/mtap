@@ -38,7 +38,7 @@ def fixture_disc_python_events():
 @pytest.fixture(name='disc_python_processor')
 def fixture_disc_python_processor(disc_python_events, processor_watcher):
     env = dict(os.environ)
-    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['python', '-m', 'mtap.examples.example_processor',
                '-p', '50501', '--register'],
               start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
@@ -49,22 +49,19 @@ def fixture_disc_python_processor(disc_python_events, processor_watcher):
 def fixture_disc_java_processor(disc_python_events, processor_watcher):
     mtap_jar = os.environ['MTAP_JAR']
     env = dict(os.environ)
-    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['java', '-cp', mtap_jar,
                'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '--register'],
-              start_new_session=True, stdin=PIPE,
-              stdout=PIPE, stderr=STDOUT, env=env)
+              stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
 
 
 @pytest.fixture(name="disc_api_gateway")
 def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor):
     env = dict(os.environ)
-    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['mtap-gateway', '-logtostderr', '-v', '3'],
-              start_new_session=True, stdin=PIPE,
-              stdout=PIPE, stderr=STDOUT,
+    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
+    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT,
               env=env)
     try:
         if p.returncode is not None:

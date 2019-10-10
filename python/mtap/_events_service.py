@@ -44,8 +44,7 @@ class EventsServer:
     """
 
     def __init__(self, address, port, register=False, workers=10):
-        prefix = constants.EVENTS_SERVICE_NAME + "-worker"
-        thread_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix)
+        thread_pool = ThreadPoolExecutor(max_workers=workers)
         server = grpc.server(thread_pool)
         servicer = EventsServicer()
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)

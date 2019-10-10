@@ -66,7 +66,7 @@ def subprocess_events_server(port: Optional[int] = None,
         cwd = Path.cwd()
     env = dict(os.environ)
     if config_path is not None:
-        env['MTAP_CONFIG'] = config_path
+        env['MTAP_CONFIG'] = str(config_path)
     if port is None:
         port = find_free_port()
     address = '127.0.0.1:' + str(port)

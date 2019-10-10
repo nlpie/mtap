@@ -289,9 +289,8 @@ class ProcessorServer:
             params=params,
             events_address=events_address
         )
-        prefix = self.processor_id + "-worker"
         workers = workers or 10
-        thread_pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix)
+        thread_pool = ThreadPoolExecutor(max_workers=workers)
         self._server = grpc.server(thread_pool)
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
