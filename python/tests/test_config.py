@@ -22,13 +22,13 @@ from mtap import Config
 
 def test_load_broken_config():
     Config._global_instance = None
-    os.environ['NEWT_CONFIG'] = str(Path(__file__).parent) + '/brokenConfig.yaml'
+    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent) + '/brokenConfig.yaml'
     with pytest.raises(TypeError):
         Config()
 
 
 def test_load_config():
-    os.environ['NEWT_CONFIG'] = str(Path(__file__).parent) + '/newtConfig.yaml'
+    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent) + '/mtapConfig.yaml'
     Config._global_instance = None
     c = Config()
     assert c['foo'] == 'bar'
@@ -54,6 +54,6 @@ def test_enter_twice():
 def test_update_from_yaml():
     Config._global_instance = None
     c = Config()
-    c.update_from_yaml(str(Path(__file__).parent) + '/newtConfig.yaml')
+    c.update_from_yaml(str(Path(__file__).parent) + '/mtapConfig.yaml')
     assert c['foo'] == 'bar'
     assert c['baz.bot'] == [1, 2, 3]

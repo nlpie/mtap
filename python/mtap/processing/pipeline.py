@@ -107,7 +107,7 @@ class Pipeline:
     --------
     Remote pipeline with name discovery:
 
-    >>> with nlpnewt.Events() as events, nlpnewt.Pipeline(
+    >>> with mtap.Events() as events, mtap.Pipeline(
     >>>         RemoteProcessor('processor-1-id'),
     >>>         RemoteProcessor('processor-2-id'),
     >>>         RemoteProcessor('processor-3-id')
@@ -119,7 +119,7 @@ class Pipeline:
 
     Remote pipeline using addresses:
 
-    >>> with nlpnewt.Events(address='localhost:50051') as events, nlpnewt.Pipeline(
+    >>> with mtap.Events(address='localhost:50051') as events, mtap.Pipeline(
     >>>         RemoteProcessor('processor-1-name', address='localhost:50052'),
     >>>         RemoteProcessor('processor-2-id', address='localhost:50053'),
     >>>         RemoteProcessor('processor-3-id', address='localhost:50054')

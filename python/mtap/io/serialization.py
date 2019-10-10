@@ -173,7 +173,7 @@ def dict_to_label_index(document: Document, index_name: str, d: Dict):
 
 
 class Serializer(ABC):
-    """Base class for a serializer of NLP-NEWT events.
+    """Base class for a serializer of MTAP events.
     """
 
     @property
@@ -268,9 +268,9 @@ def get_serializer(name: str) -> Serializer:
         return s
 
 
-@processor('nlpnewt-serializer')
+@processor('mtap-serializer')
 class SerializationProcessor(EventProcessor):
-    """NLP-Newt processor that serializes events to a specific directory.
+    """MTAP processor that serializes events to a specific directory.
 
     """
 

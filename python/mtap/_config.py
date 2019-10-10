@@ -90,15 +90,15 @@ class Config(MutableMapping[str, Any]):
       - /etc/mtap/mtapConfig.yml
 
 
-    Nlpnewt components will use a global shared configuration object, by entering the context of a
-    config object using "with", all of the nlpnewt functions called on that thread will make use of
+    MTAP components will use a global shared configuration object, by entering the context of a
+    config object using "with", all of the MTAP functions called on that thread will make use of
     that config object.
 
     Examples
     --------
     >>> with mtap.Config() as config:
     >>>     config['key'] = 'value'
-    >>>     # other nlpnewt methods in this
+    >>>     # other MTAP methods in this
     >>>     # block will use the updated config object.
 
     """

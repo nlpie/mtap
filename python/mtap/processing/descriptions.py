@@ -178,9 +178,7 @@ def processor(name: str,
               inputs: Optional[List[LabelDescription]] = None,
               outputs: Optional[List[LabelDescription]] = None,
               additional_metadata: Optional[Dict[str, Any]] = None):
-    """Decorator which attaches a service name to a processor for launching with the nlpnewt command
-    line
-
+    """Decorator which attaches a service name to a processor.
 
     Parameters
     ----------

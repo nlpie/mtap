@@ -28,7 +28,7 @@ from mtap.processing.descriptions import label_index, label_property, parameter
                                  description="Whether the processor should do anything.")
                    ],
                 outputs=[
-                       label_index('nlpnewt.examples.letter_counts',
+                       label_index('mtap.examples.letter_counts',
                                    properties=[label_property('letter', data_type='str'),
                                                label_property('count', data_type='int')])
                    ])
@@ -46,7 +46,7 @@ class ExampleProcessor(DocumentProcessor):
             a_count = text.count('a')
             b_count = text.count('b')
 
-            with document.get_labeler('nlpnewt.examples.letter_counts') as label_letter_count:
+            with document.get_labeler('mtap.examples.letter_counts') as label_letter_count:
                 label_letter_count(start_index=0, end_index=len(document.text), letter='a',
                                    count=a_count)
                 label_letter_count(start_index=0, end_index=len(document.text), letter='b',

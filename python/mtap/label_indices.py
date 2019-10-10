@@ -365,7 +365,7 @@ def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
 
     Returns
     -------
-    nlpnewt.base.LabelIndex
+    mtap.base.LabelIndex
 
     """
     labels = sorted(labels, key=attrgetter('location'))

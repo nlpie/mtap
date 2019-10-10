@@ -32,7 +32,7 @@ def fixture_python_events():
 @pytest.fixture(name='hello_processor')
 def fixture_hello_processor(python_events, processor_watcher):
     port = find_free_port()
-    p = Popen(['python', '-m', 'nlpnewt.examples.tutorial.hello', '-p', str(port),
+    p = Popen(['python', '-m', 'mtap.examples.tutorial.hello', '-p', str(port),
                '--events', python_events],
               start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT)
@@ -42,9 +42,9 @@ def fixture_hello_processor(python_events, processor_watcher):
 
 @pytest.fixture(name='java_hello_processor')
 def fixture_java_hello_processor(python_events, processor_watcher):
-    newt_jar = Path(os.environ['NEWT_JAR'])
+    mtap_jar = Path(os.environ['MTAP_JAR'])
     port = str(find_free_port())
-    p = Popen(['java', '-cp', newt_jar, 'edu.umn.nlpnewt.examples.HelloWorldExample',
+    p = Popen(['java', '-cp', mtap_jar, 'edu.umn.nlpie.mtap.examples.HelloWorldExample',
                '-p', port, '--events', python_events], start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT)
     address = "127.0.0.1:" + port
@@ -53,7 +53,7 @@ def fixture_java_hello_processor(python_events, processor_watcher):
 
 @pytest.mark.integration
 def test_hello_world(python_events, hello_processor):
-    p = run(['python', '-m', 'nlpnewt.examples.tutorial.pipeline', python_events, hello_processor],
+    p = run(['python', '-m', 'mtap.examples.tutorial.pipeline', python_events, hello_processor],
             capture_output=True)
     p.check_returncode()
     assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'
@@ -61,7 +61,7 @@ def test_hello_world(python_events, hello_processor):
 
 @pytest.mark.integration
 def test_java_hello_world(python_events, java_hello_processor):
-    p = run(['python', '-m', 'nlpnewt.examples.tutorial.pipeline', python_events,
+    p = run(['python', '-m', 'mtap.examples.tutorial.pipeline', python_events,
              java_hello_processor], capture_output=True)
     p.check_returncode()
     assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'

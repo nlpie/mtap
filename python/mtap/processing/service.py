@@ -53,8 +53,8 @@ def run_processor(proc: 'EventProcessor',
         namespace = processors_parser.parse_args(args)
 
     with Config() as c:
-        if namespace.newt_config is not None:
-            c.update_from_yaml(namespace.newt_config)
+        if namespace.mtap_config is not None:
+            c.update_from_yaml(namespace.mtap_config)
         server = ProcessorServer(proc=proc,
                                  address=namespace.address,
                                  port=namespace.port,
@@ -104,8 +104,8 @@ def processor_parser() -> ArgumentParser:
     processors_parser.add_argument('--register', '-r', action='store_true',
                                    help='whether to register the service with the configured '
                                         'service discovery')
-    processors_parser.add_argument("--newt-config", default=None,
-                                   help="path to newt config file")
+    processors_parser.add_argument("--mtap-config", default=None,
+                                   help="path to MTAP config file")
     processors_parser.add_argument('--events-address', '--events', '-e', default=None,
                                    help='address of the events service to use, '
                                         'omit to use discovery')
@@ -236,7 +236,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
 
 class ProcessorServer:
-    """Host a NLP-NEWT processor as a service.
+    """Host a MTAP processor as a service.
 
     Parameters
     ----------

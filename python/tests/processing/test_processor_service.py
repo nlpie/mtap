@@ -24,7 +24,7 @@ from mtap.processing.descriptions import parameter, label_index, label_property
 from mtap.processing.service import _ProcessorServicer
 
 
-@processor('nlpnewt-test-processor',
+@processor('mtap-test-processor',
            description='Processor desc.',
            parameters=[
                parameter('a_param', required=True, data_type='bool',
@@ -57,7 +57,7 @@ def fixture_processor_servicer():
 
 
 def test_GetInfo(processor_servicer):
-    request = processing_pb2.GetInfoRequest(processor_id='nlpnewt-example-processor-python')
+    request = processing_pb2.GetInfoRequest(processor_id='mtap-example-processor-python')
     resp, _, status_code, _ = processor_servicer.invoke_unary_unary(
         processing_pb2.DESCRIPTOR.services_by_name['Processor'].methods_by_name['GetInfo'],
         {},
@@ -66,7 +66,7 @@ def test_GetInfo(processor_servicer):
     ).termination()
 
     assert status_code == grpc.StatusCode.OK
-    assert resp.name == 'nlpnewt-test-processor'
+    assert resp.name == 'mtap-test-processor'
     assert len(resp.parameters) == 1
     assert resp.parameters[0].name == 'a_param'
     assert resp.parameters[0].required

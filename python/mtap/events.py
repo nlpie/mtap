@@ -643,8 +643,8 @@ def proto_label_adapter(label_type_id: str):
 
     Examples
     --------
-    >>> @nlpnewt.proto_label_adapter("example.Sentence")
-    >>> class SentenceAdapter(nlpnewt.ProtoLabelAdapter):
+    >>> @mtap.proto_label_adapter("example.Sentence")
+    >>> class SentenceAdapter(mtap.ProtoLabelAdapter):
     >>>    # ... implementation of the ProtoLabelAdapter for sentences.
 
     >>> with document.get_labeler("sentences", "example.Sentence") as labeler

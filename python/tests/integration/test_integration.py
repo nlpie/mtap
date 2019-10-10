@@ -48,10 +48,11 @@ def fixture_python_processor(python_events, processor_watcher):
 
 @pytest.fixture(name="java_processor")
 def fixture_java_processor(python_events, processor_watcher):
-    newt_jar = os.environ['MTAP_JAR']
+    mtap_jar = os.environ['MTAP_JAR']
     env = dict(os.environ)
     env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['java', '-cp', newt_jar, 'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
+    p = Popen(['java', '-cp', mtap_jar,
+               'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '-e', python_events],
               start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
@@ -59,13 +60,10 @@ def fixture_java_processor(python_events, processor_watcher):
 
 @pytest.fixture(name="api_gateway")
 def fixture_api_gateway(python_events, python_processor, java_processor):
-    cwd = Path(__file__).parents[3] / 'go'
     env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    call(['make', 'proto'], cwd=cwd)
-    call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
-    p = Popen(['nlpnewt-gateway', '-logtostderr', '-v=3'],
-              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, cwd=cwd, env=env)
+    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'],
+              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch go gateway")
@@ -101,22 +99,22 @@ how to fire phasers?"""
 @pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
     with EventsClient(address=python_events) as client, mtap.Pipeline(
-            RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
+            RemoteProcessor('mtap-example-processor-python', address='localhost:50501',
                             params={'do_work': True}),
-            RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',
+            RemoteProcessor('mtap-example-processor-java', address='localhost:50502',
                             params={'do_work': True})
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
             results = pipeline.run(document)
-            letter_counts = document.get_label_index('nlpnewt.examples.letter_counts')
+            letter_counts = document.get_label_index('mtap.examples.letter_counts')
             a_counts = letter_counts[0]
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
             pipeline.print_times()
-            thes = document.get_label_index("nlpnewt.examples.word_occurrences")
+            thes = document.get_label_index("mtap.examples.word_occurrences")
             assert thes[0].start_index == 121
             assert thes[0].end_index == 124
 
@@ -129,8 +127,8 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     all_ids = []
     for processor in processors['Processors']:
         all_ids.append(processor['Identifier'])
-    assert 'nlpnewt-example-processor-python' in all_ids
-    assert 'nlpnewt-example-processor-java' in all_ids
+    assert 'mtap-example-processor-python' in all_ids
+    assert 'mtap-example-processor-java' in all_ids
 
     resp = requests.post("http://localhost:50503/v1/events/1")
     assert resp.status_code == 200
@@ -193,14 +191,14 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert json_labels['labels'] == body['json_labels']['labels']
 
     body = {
-        'processor_id': 'nlpnewt-example-processor-python',
+        'processor_id': 'mtap-example-processor-python',
         'params': {
             'document_name': 'plaintext',
             'do_work': True,
         }
     }
     resp = requests.post(
-        "http://localhost:50503/v1/processors/nlpnewt-example-processor-python/process/1",
+        "http://localhost:50503/v1/processors/mtap-example-processor-python/process/1",
         json=body
     )
     assert resp.status_code == 200
@@ -208,7 +206,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert python_process['result']['answer'] == 42
 
     resp = requests.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.letter_counts"
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts"
     )
     assert resp.status_code == 200
     labels = resp.json()
@@ -229,14 +227,14 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     ]
 
     body = {
-        'processor_id': 'nlpnewt-example-processor-java',
+        'processor_id': 'mtap-example-processor-java',
         'params': {
             'document_name': 'plaintext',
             'do_work': True,
         }
     }
     resp = requests.post(
-        "http://localhost:50503/v1/processors/nlpnewt-example-processor-java/process/1",
+        "http://localhost:50503/v1/processors/mtap-example-processor-java/process/1",
         json=body
     )
     assert resp.status_code == 200
@@ -244,7 +242,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert java_process['result']['answer'] == 42
 
     resp = requests.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/nlpnewt.examples.word_occurrences"
+        "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
     )
     assert resp.status_code == 200
     labels = resp.json()['json_labels']['labels']
@@ -261,10 +259,10 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert resp.status_code == 200
     indices = resp.json()['label_index_infos']
     assert {
-               'index_name': 'nlpnewt.examples.letter_counts',
+               'index_name': 'mtap.examples.letter_counts',
                'type': 'JSON'
            } in indices
     assert {
-               'index_name': 'nlpnewt.examples.word_occurrences',
+               'index_name': 'mtap.examples.word_occurrences',
                'type': 'JSON'
            } in indices

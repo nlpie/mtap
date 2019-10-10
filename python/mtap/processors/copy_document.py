@@ -48,7 +48,7 @@ def copy_document(event: Event,
         target_document.add_labels(index_name, index, distinct=index.distinct)
 
 
-@processor('nlpnewt-copy-processor')
+@processor('mtap-copy-processor')
 class CopyDocument(EventProcessor):
     """Copies one document to another.
 

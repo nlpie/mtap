@@ -56,7 +56,7 @@ def run_serializer_processor(args):
 def main(args=None):
     logging.basicConfig(level=logging.DEBUG)
     import argparse as argparse
-    parser = argparse.ArgumentParser(description='Starts a nlpnewt grpc server.',
+    parser = argparse.ArgumentParser(description='Starts a MTAP gRPC server.',
                                      allow_abbrev=False)
     subparsers = parser.add_subparsers(title='sub-commands', description='valid sub-commands')
 
