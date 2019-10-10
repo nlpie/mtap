@@ -17,8 +17,8 @@ import grpc_testing
 import pytest
 from grpc import StatusCode
 
-from nlpnewt.api.v1 import events_pb2, events_pb2_grpc
-from nlpnewt.events import EventsClient, LabelIndexType
+from mtap.api.v1 import events_pb2, events_pb2_grpc
+from mtap.events import EventsClient, LabelIndexType
 
 
 @pytest.fixture(name='events_channel')

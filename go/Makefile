@@ -16,12 +16,12 @@ PKGS := $(shell go list ./...)
 
 .PHONY: clean
 clean:
-	rm -rf nlpnewt/api
+	rm -rf mtap/api
 	rm -rf release/
 
 .PHONY: proto
 proto:
-	go generate ./...
+	go generate ./doc.go
 
 .PHONY: test
 test: lint
@@ -38,15 +38,15 @@ $(GOMETALINTER):
 lint: $(GOMETALINTER)
 	gometalinter ./... --vendor
 
-BINARY := nlpnewt-gateway
-VERSION := $(shell git describe --tags --dirty)
+BINARY := mtap-gateway
+VERSION := $(shell cd ../java; ./gradlew -q printVersion)
 PLATFORMS := linux darwin
 os = $(word 1, $@)
 
 .PHONY: $(PLATFORMS)
 $(PLATFORMS):
 	mkdir -p release
-	GOOS=$(os) GOARCH=amd64 go build -o release/$(BINARY)-$(VERSION)-$(os)-amd64 nlpnewt-gateway/nlpnewt-gateway.go
+	GOOS=$(os) GOARCH=amd64 go build -o release/$(BINARY)-$(VERSION)-$(os)-amd64 mtap-gateway/mtap-gateway.go
 
 .PHONY: release
 release:  proto linux darwin

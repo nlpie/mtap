@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-//go:generate protoc -I/usr/local/include -I$GOPATH/src -I../proto -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis --go_out=plugins=grpc,paths=source_relative:. ../proto/nlpnewt/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I$GOPATH/src -I../proto -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis --grpc-gateway_out=logtostderr=true:. ../proto/nlpnewt/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I$GOPATH/src -I../proto -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis --swagger_out=logtostderr=true:. ../proto/nlpnewt/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I$GOPATH/src -I../proto -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis --go_out=plugins=grpc,paths=source_relative:. ../proto/nlpnewt/api/v1/processing.proto
-//go:generate protoc -I/usr/local/include -I$GOPATH/src -I../proto -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis --grpc-gateway_out=logtostderr=true:. ../proto/nlpnewt/api/v1/processing.proto
-//go:generate protoc -I/usr/local/include -I$GOPATH/src -I../proto -I$GOPATH/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis --swagger_out=logtostderr=true:. ../proto/nlpnewt/api/v1/processing.proto
-//go:generate go run store-swaggers/main.go nlpnewt/api/v1
-package nlpnewt
+//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
+//go:generate go run store-swaggers/main.go mtap/api/v1
+package mtap

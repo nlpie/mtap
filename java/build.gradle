@@ -42,19 +42,21 @@ def gitVersion = { ->
 group = 'edu.umn.nlpie'
 version gitVersion()
 
-targetCompatibility = '1.8'
-sourceCompatibility = '1.8'
+compileJava {
+    targetCompatibility '1.8'
+    sourceCompatibility '1.8'
+}
 
 repositories {
     maven { // The google mirror is less flaky than mavenCentral()
-        url "https://maven-central.storage-download.googleapis.com/repos/central/data/"
-    }
+        url "https://maven-central.storage-download.googleapis.com/repos/central/data/" }
+    mavenCentral()
     mavenLocal()
 }
 
-def grpcVersion = '1.23.0'
-def protobufVersion = '3.7.1'
-def protocVersion = '3.7.1'
+def grpcVersion = '1.24.0'
+def protobufVersion = '3.9.0'
+def protocVersion = protobufVersion
 def junitVersion = '5.3.1'
 
 java {
@@ -71,6 +73,8 @@ dependencies {
     implementation group: 'io.grpc', name: 'grpc-netty-shaded', version: grpcVersion
     implementation group: 'io.grpc', name: 'grpc-protobuf', version: grpcVersion
     implementation group: 'io.grpc', name: 'grpc-stub', version: grpcVersion
+
+    implementation "com.google.protobuf:protobuf-java-util:${protobufVersion}"
 
     implementation group: 'com.google.guava', name: 'guava', version: '27.1-jre'
     implementation group: 'org.yaml', name: 'snakeyaml', version: '1.24'

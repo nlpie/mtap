@@ -13,9 +13,9 @@
 # limitations under the License.
 import pytest
 
-import nlpnewt
+import mtap
 
-from nlpnewt import Event, EventsClient, Document, GenericLabel
+from mtap import Event, EventsClient, Document, GenericLabel
 
 
 def test_add_labels_not_distinct(mocker):
@@ -75,7 +75,7 @@ def test_add_labels_label_type_id(mocker):
         GenericLabel(11, 15, x=2),
         GenericLabel(16, 20, x=3)
     ]
-    l2 = document.add_labels('index', labels, label_type_id=nlpnewt.constants.DISTINCT_GENERIC_LABEL_ID)
+    l2 = document.add_labels('index', labels, label_type_id=mtap.constants.DISTINCT_GENERIC_LABEL_ID)
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -98,7 +98,7 @@ def test_add_labels_label_adapter(mocker):
         GenericLabel(11, 15, x=2),
         GenericLabel(16, 20, x=3)
     ]
-    label_adapter = nlpnewt.events._get_label_adapter(nlpnewt.constants.DISTINCT_GENERIC_LABEL_ID)
+    label_adapter = mtap.events._get_label_adapter(mtap.constants.DISTINCT_GENERIC_LABEL_ID)
     l2 = document.add_labels('index', labels, label_adapter=label_adapter)
     client.add_labels.assert_called_with(
         event_id='1',
@@ -126,7 +126,7 @@ def test_labeler_not_distinct_default(mocker):
         GenericLabel(11, 15, x=2),
         GenericLabel(16, 20, x=3)
     ]
-    label_adapter = nlpnewt.events._get_label_adapter(nlpnewt.constants.GENERIC_LABEL_ID)
+    label_adapter = mtap.events._get_label_adapter(mtap.constants.GENERIC_LABEL_ID)
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -152,7 +152,7 @@ def test_labeler_distinct(mocker):
         GenericLabel(11, 15, x=2),
         GenericLabel(16, 20, x=3)
     ]
-    label_adapter = nlpnewt.events._get_label_adapter(nlpnewt.constants.DISTINCT_GENERIC_LABEL_ID)
+    label_adapter = mtap.events._get_label_adapter(mtap.constants.DISTINCT_GENERIC_LABEL_ID)
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -169,7 +169,7 @@ def test_labeler_label_type_id(mocker):
     document = Document(document_name='plaintext',
                         text='The quick brown fox jumped over the lazy dog.')
     document.event = event
-    with document.get_labeler('index', label_type_id=nlpnewt.constants.DISTINCT_GENERIC_LABEL_ID) as add_generic_label:
+    with document.get_labeler('index', label_type_id=mtap.constants.DISTINCT_GENERIC_LABEL_ID) as add_generic_label:
         add_generic_label(0, 10, x=1)
         add_generic_label(11, 15, x=2)
         add_generic_label(16, 20, x=3)
@@ -178,7 +178,7 @@ def test_labeler_label_type_id(mocker):
         GenericLabel(11, 15, x=2),
         GenericLabel(16, 20, x=3)
     ]
-    label_adapter = nlpnewt.events._get_label_adapter(nlpnewt.constants.DISTINCT_GENERIC_LABEL_ID)
+    label_adapter = mtap.events._get_label_adapter(mtap.constants.DISTINCT_GENERIC_LABEL_ID)
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -196,4 +196,4 @@ def test_labeler_distinct_and_type_id_raises(mocker):
         document = Document(document_name='plaintext',
                             text='The quick brown fox jumped over the lazy dog.')
         document.event = event
-        document.get_labeler('index', distinct=True, label_type_id=nlpnewt.constants.DISTINCT_GENERIC_LABEL_ID)
+        document.get_labeler('index', distinct=True, label_type_id=mtap.constants.DISTINCT_GENERIC_LABEL_ID)

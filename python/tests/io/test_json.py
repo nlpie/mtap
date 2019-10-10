@@ -16,12 +16,12 @@ from pathlib import Path
 from tempfile import TemporaryFile
 from typing import List
 
-import nlpnewt
-from nlpnewt import GenericLabel
-from nlpnewt._events_service import EventsServicer
-from nlpnewt.events import LabelIndexInfo, LabelIndexType, Event, Document
-from nlpnewt.label_indices import LabelIndex
-from nlpnewt.io.serialization import get_serializer
+import mtap
+from mtap import GenericLabel
+from mtap._events_service import EventsServicer
+from mtap.events import LabelIndexInfo, LabelIndexType, Event, Document
+from mtap.label_indices import LabelIndex
+from mtap.io.serialization import get_serializer
 
 
 def test_json_serializer():
@@ -29,13 +29,13 @@ def test_json_serializer():
     event.metadata['foo'] = "bar"
     document = Document('plaintext', 'Some text.')
     event.add_document(document)
-    document.add_labels('one', [nlpnewt.GenericLabel(start_index=0, end_index=5, x=10),
-                                nlpnewt.GenericLabel(start_index=6, end_index=10, x=15)])
-    document.add_labels('two', [nlpnewt.GenericLabel(start_index=0, end_index=25, a='b'),
-                                       nlpnewt.GenericLabel(start_index=26, end_index=42, a='c')])
+    document.add_labels('one', [mtap.GenericLabel(start_index=0, end_index=5, x=10),
+                                mtap.GenericLabel(start_index=6, end_index=10, x=15)])
+    document.add_labels('two', [mtap.GenericLabel(start_index=0, end_index=25, a='b'),
+                                mtap.GenericLabel(start_index=26, end_index=42, a='c')])
     document.add_labels('three', [
-        nlpnewt.GenericLabel(start_index=0, end_index=10, foo=True),
-        nlpnewt.GenericLabel(start_index=11, end_index=15, foo=False)
+        mtap.GenericLabel(start_index=0, end_index=10, foo=True),
+        mtap.GenericLabel(start_index=11, end_index=15, foo=False)
     ], distinct=True)
 
     serializer = get_serializer('json')

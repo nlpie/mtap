@@ -22,9 +22,9 @@ import pytest
 import requests
 from requests import RequestException
 
-import nlpnewt
-from nlpnewt import RemoteProcessor, EventsClient, Event
-from nlpnewt.utils import subprocess_events_server
+import mtap
+from mtap import RemoteProcessor, EventsClient, Event
+from mtap.utils import subprocess_events_server
 
 
 @pytest.fixture(name='python_events')
@@ -100,7 +100,7 @@ how to fire phasers?"""
 
 @pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
-    with EventsClient(address=python_events) as client, nlpnewt.Pipeline(
+    with EventsClient(address=python_events) as client, mtap.Pipeline(
             RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
                             params={'do_work': True}),
             RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',

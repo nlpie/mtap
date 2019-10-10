@@ -17,11 +17,11 @@ import grpc
 import grpc_testing
 import pytest
 
-from nlpnewt import processor, Document
-from nlpnewt.api.v1 import processing_pb2
-from nlpnewt.processing import DocumentProcessor
-from nlpnewt.processing.descriptions import parameter, label_index, label_property
-from nlpnewt.processing.service import _ProcessorServicer
+from mtap import processor, Document
+from mtap.api.v1 import processing_pb2
+from mtap.processing import DocumentProcessor
+from mtap.processing.descriptions import parameter, label_index, label_property
+from mtap.processing.service import _ProcessorServicer
 
 
 @processor('nlpnewt-test-processor',

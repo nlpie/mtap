@@ -22,9 +22,9 @@ import pytest
 import requests
 from requests import RequestException
 
-import nlpnewt
-from nlpnewt import RemoteProcessor, EventsClient, Event
-from nlpnewt.utils import subprocess_events_server
+import mtap
+from mtap import RemoteProcessor, EventsClient, Event
+from mtap.utils import subprocess_events_server
 
 
 @pytest.fixture(name='disc_python_events')
@@ -38,8 +38,8 @@ def fixture_disc_python_events():
 @pytest.fixture(name='disc_python_processor')
 def fixture_disc_python_processor(disc_python_events, processor_watcher):
     env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    p = Popen(['python', '-m', 'nlpnewt.examples.example_processor',
+    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    p = Popen(['python', '-m', 'mtap.examples.example_processor',
                '-p', '50501', '--register'],
               start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:50501", process=p)
@@ -47,11 +47,11 @@ def fixture_disc_python_processor(disc_python_events, processor_watcher):
 
 @pytest.fixture(name="disc_java_processor")
 def fixture_disc_java_processor(disc_python_events, processor_watcher):
-    newt_jar = os.environ['NEWT_JAR']
+    newt_jar = os.environ['MTAP_JAR']
     env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
+    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = Popen(['java', '-cp', newt_jar,
-               'edu.umn.nlpnewt.examples.WordOccurrencesExampleProcessor',
+               'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '--register'],
               start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT, env=env)
@@ -60,15 +60,12 @@ def fixture_disc_java_processor(disc_python_events, processor_watcher):
 
 @pytest.fixture(name="disc_api_gateway")
 def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor):
-    cwd = Path(__file__).parents[3] / 'go'
     env = dict(os.environ)
-    env['NEWT_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
-    call(['make', 'proto'], cwd=cwd)
-    call(['go', 'install', 'nlpnewt-gateway/nlpnewt-gateway.go'], cwd=cwd)
+    env['MTAP_CONFIG'] = Path(__file__).parent / 'integrationConfig.yaml'
     p = Popen(['nlpnewt-gateway', '-logtostderr', '-v', '3'],
               start_new_session=True, stdin=PIPE,
               stdout=PIPE, stderr=STDOUT,
-              cwd=cwd, env=env)
+              env=env)
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch go gateway")
@@ -103,7 +100,7 @@ how to fire phasers?"""
 
 @pytest.mark.consul
 def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_processor):
-    with EventsClient(address=disc_python_events) as client, nlpnewt.Pipeline(
+    with EventsClient(address=disc_python_events) as client, mtap.Pipeline(
             RemoteProcessor('nlpnewt-example-processor-python', address='localhost:50501',
                             params={'do_work': True}),
             RemoteProcessor('nlpnewt-example-processor-java', address='localhost:50502',

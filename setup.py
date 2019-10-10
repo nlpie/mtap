@@ -67,14 +67,14 @@ class clean(_clean):
                 if filepath.endswith("_pb2.py") or filepath.endswith(".pyc") or \
                         filepath.endswith("_pb2_grpc.py"):
                     os.remove(filepath)
-        super(clean, self).run()
+        super().run()
 
 
 class build_py(_build_py):
     def run(self):
-        generate_proto('proto/nlpnewt/api/v1/events.proto')
-        generate_proto('proto/nlpnewt/api/v1/processing.proto')
-        super(build_py, self).run()
+        generate_proto('proto/mtap/api/v1/events.proto')
+        generate_proto('proto/mtap/api/v1/processing.proto')
+        super().run()
 
 
 class test(_test):
@@ -90,19 +90,17 @@ class test(_test):
         # import here, cause outside the eggs aren't loaded
         import pytest
 
-
-
         errno = pytest.main(shlex.split(self.pytest_args))
         sys.exit(errno)
 
 
 setup(
-    name='nlpnewt',
+    name='mtap',
     use_scm_version={
         "fallback_version": "development0",
-        "write_to": "python/nlpnewt/version.py"
+        "write_to": "python/mtap/version.py"
     },
-    description='A framework for developing NLP pipeline components.',
+    description='A framework for distributed text analysis using gRPC and microservices-based architecture.',
     python_requires='~=3.5',
     author='University of Minnesota NLP/IE Group',
     author_email='nlp-ie@umn.edu',

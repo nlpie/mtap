@@ -11,7 +11,7 @@ gateway:
   refresh_interval: 10
   events: localhost:50500
   processors:
-    - Identifier: nlpnewt-example-processor-python
+    - Identifier: mtap-example-processor-python
       Endpoint: localhost:50501
-    - Identifier: nlpnewt-example-processor-java
+    - Identifier: mtap-example-processor-java
       Endpoint: localhost:50502

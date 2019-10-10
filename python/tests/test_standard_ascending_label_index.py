@@ -14,8 +14,8 @@
 
 import pytest
 
-from nlpnewt import GenericLabel, Location
-from nlpnewt.label_indices import presorted_label_index, label_index
+from mtap import GenericLabel, Location
+from mtap.label_indices import presorted_label_index, label_index
 
 
 @pytest.fixture

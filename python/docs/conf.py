@@ -17,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath('../'))
 
-import nlpnewt
+import mtap
 
 # -- Project information -----------------------------------------------------
 
@@ -26,9 +26,9 @@ copyright = '2019, Regents of the University of Minnesota'
 author = 'NLP-IE Group'
 
 # The short X.Y version
-version = nlpnewt.__version__
+version = mtap.__version__
 # The full version, including alpha/beta/rc tags
-release = nlpnewt.__version__
+release = mtap.__version__
 
 # -- General configuration ---------------------------------------------------
 

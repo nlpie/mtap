@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from nlpnewt import Config
+from mtap import Config
 
 
 def test_load_broken_config():

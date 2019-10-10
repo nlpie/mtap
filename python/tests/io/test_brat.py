@@ -14,8 +14,8 @@
 
 from pathlib import Path
 
-from nlpnewt import GenericLabel
-from nlpnewt.io.brat import read_brat_documents
+from mtap import GenericLabel
+from mtap.io.brat import read_brat_documents
 
 
 def test_read_brat_documents():

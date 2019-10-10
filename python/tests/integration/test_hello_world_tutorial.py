@@ -19,7 +19,7 @@ from subprocess import PIPE, STDOUT, Popen, TimeoutExpired, run
 import grpc
 import pytest
 
-from nlpnewt.utils import find_free_port, subprocess_events_server
+from mtap.utils import find_free_port, subprocess_events_server
 
 
 @pytest.fixture(name='python_events')

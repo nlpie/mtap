@@ -14,7 +14,7 @@
 import pytest
 from google.protobuf import struct_pb2
 
-from nlpnewt._structs import copy_dict_to_struct, copy_struct_to_dict
+from mtap._structs import copy_dict_to_struct, copy_struct_to_dict
 
 
 def test_recursive_looping():

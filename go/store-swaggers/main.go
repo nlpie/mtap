@@ -27,7 +27,7 @@ func main() {
 	dir := os.Args[1]
 	fs, _ := ioutil.ReadDir(dir)
 	out, _ := os.Create(dir + "/swaggers.go")
-	_, err := out.Write([]byte("package nlpnewt_api_v1 \n\nconst (\n"))
+	_, err := out.Write([]byte("package mtap_api_v1 \n\nconst (\n"))
 	if err != nil {
 		print(err)
 		panic(err)

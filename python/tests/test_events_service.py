@@ -16,8 +16,8 @@ import grpc
 import grpc_testing
 import pytest
 
-from nlpnewt._events_service import EventsServicer
-from nlpnewt.api.v1 import events_pb2
+from mtap._events_service import EventsServicer
+from mtap.api.v1 import events_pb2
 
 PHASERS = """Maybe if we felt any human loss as keenly as we feel one of those close to us, human 
 history would be far less bloody. The Enterprise computer system is controlled by three primary 

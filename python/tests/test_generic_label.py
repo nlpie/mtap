@@ -13,7 +13,7 @@
 # limitations under the License.
 import pytest
 
-from nlpnewt import GenericLabel
+from mtap import GenericLabel
 
 
 def test_get_repr():
