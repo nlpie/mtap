@@ -14,13 +14,10 @@
 import json
 from pathlib import Path
 from tempfile import TemporaryFile
-from typing import List
 
 import mtap
 from mtap import GenericLabel
-from mtap._events_service import EventsServicer
-from mtap.events import LabelIndexInfo, LabelIndexType, Event, Document
-from mtap.label_indices import LabelIndex
+from mtap.events import Event, Document
 from mtap.io.serialization import get_serializer
 
 

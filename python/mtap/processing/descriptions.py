@@ -31,8 +31,8 @@ PropertyDescription = NamedTuple('PropertyDescription',
                                   ('nullable', bool)])
 PropertyDescription.__doc__ = '''A description of a property of the labels on a label index.'''
 PropertyDescription.name.__doc__ = '''str: The property's variable name.'''
-PropertyDescription.description.__doc__ = '''optional str: A short description of the property.'''
-PropertyDescription.data_type.__doc__ = '''optional str: The data type of the property: str, float, 
+PropertyDescription.description.__doc__ = '''optional, str: A short description of the property.'''
+PropertyDescription.data_type.__doc__ = '''optional, str: The data type of the property: str, float, 
 or bool; List[T] or Mapping[T1, T2] of those.'''
 PropertyDescription.nullable.__doc__ = '''bool: Whether the property can have a valid value of 
 null.'''
@@ -48,9 +48,9 @@ def label_property(name: str,
     ----------
     name: str
         The property's name.
-    description: optional str
+    description: optional, str
         A short description of the property.
-    data_type: optional str
+    data_type: optional, str
         The data type of the property: str, float, or bool; List[T] or Mapping[T1, T2] of those.
     nullable: bool
         Whether the property can have a valid value of null.
@@ -64,20 +64,20 @@ def label_property(name: str,
     return PropertyDescription(name, description, data_type, nullable)
 
 
-LabelDescription = NamedTuple('LabelIndexDescription',
+LabelDescription = NamedTuple('LabelDescription',
                               [('name', str),
                                ('name_from_parameter', Optional[str]),
                                ('optional', bool),
                                ('description', Optional[str]),
                                ('properties', List[PropertyDescription])])
 LabelDescription.__doc__ = '''A description of input or output label index.'''
-LabelDescription.name_from_parameter.__doc__ = '''optional str: If the label index gets its name 
+LabelDescription.name_from_parameter.__doc__ = '''optional, str: If the label index gets its name 
 from a parameter, the name of the parameter.'''
 LabelDescription.optional.__doc__ = '''bool: Whether this label index is an optional input or 
 output.'''
-LabelDescription.name.__doc__ = '''optional str: The label index name.'''
-LabelDescription.description.__doc__ = '''optional str:  A short description of the label index.'''
-LabelDescription.properties.__doc__ = '''optional list of PropertyDescription: The properties of 
+LabelDescription.name.__doc__ = '''optional, str: The label index name.'''
+LabelDescription.description.__doc__ = '''optional, str:  A short description of the label index.'''
+LabelDescription.properties.__doc__ = '''optional, list[PropertyDescription]: The properties of 
 the labels in the label index.'''
 
 
@@ -92,13 +92,13 @@ def label_index(name: str,
     ----------
     name: str
         The label index name.
-    name_from_parameter: optional str
+    name_from_parameter: optional, str
         If the label index gets its name from a parameter, the name of the parameter.
     optional: bool
         Whether this label index is an optional input or output.
-    description: optional str
+    description: optional, str
         A short description of the label index.
-    properties: optional list of PropertyDescription
+    properties: optional, list[PropertyDescription]
         The properties of the labels in the label index.
 
     Returns
@@ -119,9 +119,9 @@ ParameterDescription = NamedTuple('ParameterDescription',
                                    ('required', bool)])
 ParameterDescription.__doc__ = '''A description of a processor parameter.'''
 ParameterDescription.name.__doc__ = '''str: The parameter name / key.'''
-ParameterDescription.description.__doc__ = '''optional str: A short description of the property and 
+ParameterDescription.description.__doc__ = '''optional, str: A short description of the property and 
 what it does.'''
-ParameterDescription.data_type.__doc__ = '''optional str:  The data type of the parameter. str, 
+ParameterDescription.data_type.__doc__ = '''optional, str:  The data type of the parameter. str, 
 float, or bool; List[T] or Mapping[T1, T2] of those.'''
 ParameterDescription.required.__doc__ = '''bool: Whether the parameter is required.'''
 
@@ -138,9 +138,9 @@ def parameter(name: str,
         The parameter name / key.
     required: bool
         Whether the processor parameter is required.
-    data_type: optional str
+    data_type: optional, str
         The data type of the parameter. str, float, or bool; List[T] or Mapping[T1, T2] of those.
-    description: optional str
+    description: optional, str
         A short description of the property and what it does.
 
     Returns
@@ -190,17 +190,17 @@ def processor(name: str,
 
         This can be modified for service registration at runtime by overriding
         :func:'Processor.registration_processor_name'.
-    description: optional str
+    description: str, optional
         A short description of the processor and what it does.
-    entry_point: optional str
+    entry_point: str, optional
         The processor's entry point / main module.
     language: str
         The processor's language.
-    parameters: optional list of ParameterDescription
+    parameters: Optional[List[ParameterDescription]]
         The processor's parameters.
-    inputs: optional list of LabelDescription
+    inputs: Optional[List[LabelDescription]]
         The label indices this processor uses as inputs.
-    outputs: optional list of LabelDescription
+    outputs: Optional[List[LabelDescription]]
         The label indices this processor outputs.
     additional_metadata: dict
         Any other data that should be added to the processor's metadata, should be serializable to

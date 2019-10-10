@@ -62,11 +62,11 @@ class Metrics(DocumentProcessor):
 
 def print_overlapping(document, target_label, tested_index):
     print('Not found:', target_label)
-    print('"', target_label.get_covered_text(document.text), '"')
+    print('"', target_label.text(document.text), '"')
     overlapping = tested_index.overlapping(target_label)
     print('Overlapping:', overlapping)
     for overlap in overlapping:
-        print('"', overlap.get_covered_text(document.text), '"')
+        print('"', overlap.text(document.text), '"')
 
 
 class Accuracy(Metric):

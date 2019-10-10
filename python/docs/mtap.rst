@@ -56,7 +56,10 @@ Labels on text
 .. autoclass:: mtap.labels.Location
 .. autoclass:: mtap.events.Labeler
 .. autoclass:: GenericLabel
+.. autofunction:: label_index
 .. autoclass:: mtap.label_indices.LabelIndex
+.. autoclass:: mtap.events.LabelIndexInfo
+.. autoclass:: mtap.events.LabelIndexType
 
 Custom Label Types
 ^^^^^^^^^^^^^^^^^^
@@ -66,17 +69,24 @@ Custom Label Types
 Creating Processors
 ^^^^^^^^^^^^^^^^^^^
 .. autofunction:: processor
+.. autofunction:: mtap.processing.descriptions.parameter
+.. autofunction:: mtap.processing.descriptions.label_index
 .. autoclass:: mtap.processing.EventProcessor
 .. autoclass:: mtap.processing.DocumentProcessor
 
 Running Services
 ^^^^^^^^^^^^^^^^
+.. autofunction:: processor_parser
+.. autofunction:: run_processor
 .. autoclass:: EventsServer
 .. autoclass:: ProcessorServer
 
 Running a pipeline
 ^^^^^^^^^^^^^^^^^^
 .. autoclass:: Pipeline
+.. autoclass:: mtap.processing.pipeline.ComponentDescriptor
+.. autoclass:: RemoteProcessor
+.. autoclass:: LocalProcessor
 .. autoclass:: mtap.processing.ProcessingResult
 .. autoclass:: mtap.processing.TimerStats
 .. autoclass:: mtap.processing.AggregateTimingInfo

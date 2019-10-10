@@ -24,6 +24,10 @@ from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimi
 
 
 class ComponentDescriptor(ABC):
+    """A component descriptor describes either a local or remote pipeline component and what the
+    pipeline needs to do to call that component.
+
+    """
     @abstractmethod
     def create_pipeline_component(self, config: Config,
                                   component_ids: Dict[str, int]) -> ProcessingComponent:
@@ -102,6 +106,14 @@ class LocalProcessor(ComponentDescriptor):
 
 class Pipeline:
     """An object which can be used to build and run a pipeline of remote and local processors.
+
+    Parameters
+    ----------
+    components: list[ComponentDescriptor]
+        A list of component descriptors created using :class:`RemoteProcessor` or
+        :class:`LocalProcessor`.
+    config: Config, optional
+        An optional config override.
 
     Examples
     --------

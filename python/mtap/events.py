@@ -48,8 +48,7 @@ L = TypeVar('L', bound=Label)
 
 
 class Event:
-    """The object created by :func:`~Events.open_event` or :func:`~Events.create_event` to interact
-    with a specific event on the events service.
+    """An object for interacting with a specific event locally or on the events service.
 
     The Event object functions as a map from string document names to :obj:`Document` objects that
     can be used to access document data from the events server.
@@ -237,17 +236,16 @@ LabelIndexInfo.type.__doc__ = """LabelIndexType: the type of the label index."""
 
 
 class Document:
-    """An object returned by :func:`~Event.__getitem__` or :func:`~Event.add_document`
-    for accessing document data.
+    """An object for interacting with text and labels stored on an :class:`Event`.
 
-    Documents are keyed by their name, this is to allow pipelines to store different pieces of
-    related text on a single processing event. An example would be storing the text of one language
-    on one document, and the text of another language on another, or, for example, storing the
-    plaintext.
+    Documents are keyed by their name, and pipelines can store different pieces of
+    related text on a single processing event using multiple documents. An example would be storing
+    the text of one language on one document, and a translation on another, or storing the
+    rtf or html encoding on one document, and the parsed plaintext on another document.
 
-    Both label indices, once added, and the document text are immutable. This is to enable
-    parallelization and distribution of processing, and to prevent changes to upstream data that
-    has already been used in the creation of downstream data.
+    Both the document text and any added label indices are immutable. This is to enable
+    parallelization and distribution of processing, and to prevent changes to the dependency graph
+    of label indices and text, which can make debugging difficult.
 
     Parameters
     ----------
@@ -316,7 +314,8 @@ class Document:
         -------
         List[str]
             A list of all of the label index names that have created on this
-            document using a labeler.
+            document using a labeler either locally or by remote pipeline components invoked on
+            this document.
         """
         return list(self._created_indices)
 
@@ -324,7 +323,7 @@ class Document:
         """
         Returns
         -------
-        list of LabelIndexInfo
+        list[LabelIndexInfo]
             The list of label index information objects.
         """
         if self._client is not None:
@@ -341,7 +340,7 @@ class Document:
             The name of the label index to get.
         label_type_id : str, optional
             The identifier that a :obj:`ProtoLabelAdapter` was registered with
-            :func:`proto_label_adapter`. It will be used to deserialize the labels in the index.
+            :func:`~mtap.events.proto_label_adapter`. It will be used to deserialize the labels in the index.
             If not set, the adapter for :obj:`GenericLabel` will be used.
 
         Returns
@@ -360,6 +359,8 @@ class Document:
             index = self._client.get_labels(self._event_id, self._document_name,
                                             label_index_name,
                                             adapter=label_adapter)
+            for label in index:
+                label.document = self
             self._label_indices[label_index_name] = index
             return index
         else:
@@ -373,7 +374,7 @@ class Document:
         """Creates a function that can be used to add labels to a label index.
 
         If the ``label_type_id`` parameter is specified it will use a custom
-        :obj:`ProtoLabelAdapter` registered using :func:`proto_label_adapter`.
+        :obj:`ProtoLabelAdapter` registered using :func:`~mtap.events.proto_label_adapter`.
 
         Parameters
         ----------
@@ -471,14 +472,8 @@ class Document:
         return index
 
     def add_created_indices(self, created_indices: Iterable[str]):
-        """Used by labelers or by pipelines when indices are added to the document.
-
-        Parameters
-        ----------
-        created_indices: Iterable of str
-            The label index names.
-
-        """
+        # Internal, used by the pipeline to add any indices created remotely to the
+        # "created_indices" on a local document.
         return self._created_indices.extend(created_indices)
 
 
@@ -488,7 +483,7 @@ class Labeler(Generic[L], ContextManager['Labeler']):
 
     See Also
     --------
-    GenericLabel : The default Label type used if another registered label type is not specified.
+    :class:`~mtap.GenericLabel` : The default Label type used if another registered label type is not specified.
     """
 
     def __init__(self,
@@ -524,7 +519,7 @@ class Labeler(Generic[L], ContextManager['Labeler']):
         >>> labeler(0, 25, some_field='some_value', x=3)
         GenericLabel(start_index=0, end_index=25, some_field='some_value', x=3)
         """
-        label = self._label_adapter.create_label(*args, **kwargs)
+        label = self._label_adapter.create_label(*args, document=self._document, **kwargs)
         self._current_labels.append(label)
         return label
 
@@ -550,7 +545,7 @@ class ProtoLabelAdapter(ABC, Generic[L]):
 
     See Also
     --------
-    proto_label_adapter: The decorator that stores proto label adapters for use.
+    :func:`~mtap.events.proto_label_adapter`: The decorator that stores proto label adapters for use.
 
     """
 
@@ -582,6 +577,8 @@ class ProtoLabelAdapter(ABC, Generic[L]):
 
         Parameters
         ----------
+        document: Document
+            The parent document of the labels.
         response: events_pb2.GetLabelsResponse
             The response from the events service.
 
@@ -625,10 +622,10 @@ class ProtoLabelAdapter(ABC, Generic[L]):
 
 
 def proto_label_adapter(label_type_id: str):
-    """Registers a :obj:`ProtoLabelAdapter` for a specific identifier.
+    """Registers a :class:`~mtap.events.ProtoLabelAdapter` for a specific identifier.
 
-    When that id is referenced in the document :func:`~Document.get_labeler`
-    and  :func:`~Document.get_label_index`.
+    When that id is referenced in the document :func:`~mtap.events.Document.get_labeler`
+    and  :func:`~mtap.events.Document.get_label_index`.
 
     Parameters
     ----------

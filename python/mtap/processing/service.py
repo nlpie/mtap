@@ -43,8 +43,11 @@ def run_processor(proc: 'EventProcessor',
         The processor to host.
     namespace: optional, Namespace
         The parsed arguments from the parser returned by :func:`processor_parser`.
-    args: optional, list of str
+    args: optional, list[str]
         Arguments to parse server settings from if ``namespace`` was not supplied.
+
+    Examples:
+
 
     """
     if namespace is None:
@@ -91,7 +94,7 @@ def processor_parser() -> ArgumentParser:
     >>> parser.add_argument('--my-arg-2')
     >>> args = parser.parse_args()
     >>> processor = MyProcessor(args.my_arg_1, args.my_arg_2)
-    >>> run_processor
+    >>> run_processor(processor, args)
 
     """
     processors_parser = ArgumentParser(add_help=False)

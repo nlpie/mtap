@@ -333,7 +333,7 @@ ProcessingResult.__doc__ = """The result of processing one document or event."""
 ProcessingResult.identifier.__doc__ = \
     "str: The id of the processor with respect to the pipeline."
 ProcessingResult.results.__doc__ = \
-    "dict[str, typing.Any]: The json object returned by the processor as its results."
+    "dict[str, Any]: The json object returned by the processor as its results."
 ProcessingResult.timing_info.__doc__ = \
     "dict[str, datetime.timedelta]: A dictionary of the times taken processing this document"
 ProcessingResult.created_indices.__doc__ = \
@@ -356,14 +356,17 @@ _AggregateTimingInfo = NamedTuple('AggregateTimingInfo',
                                   [('identifier', str),
                                    ('timing_info', Dict[str, TimerStats])])
 
-_AggregateTimingInfo.identifier.__doc__ = \
-    "str: The ID of the processor with respect to the pipeline."
-_AggregateTimingInfo.timing_info.__doc__ = \
-    "dict[str, TimerStats]: A map from all of the timer labels to their aggregate values."
-
 
 class AggregateTimingInfo(_AggregateTimingInfo):
-    """Collection of all of the timing info for a specific processor."""
+    """Collection of all of the timing info for a specific processor.
+
+    Attributes
+    ----------
+    identifier: str
+        The ID of the processor with respect to the pipeline.
+    timing_info: dict[str, TimerStats]
+        A map from all of the timer keys for the processor to the aggregated duration statistics.
+    """
 
     def print_times(self):
         """Prints the aggregate timing info for all processing components using ``print``.

@@ -31,12 +31,6 @@ __all__ = [
 class LabelIndex(Sequence[L], Generic[L]):
     """An immutable sequence of labels ordered by their location in text. By default sorts by
     ascending :func:`Label.start_index` and then by ascending :func:`Label.end_index`.
-
-    See Also
-    ========
-    Document.get_label_index : Method for getting existing label indices.
-    Document.get_labeler : Method for adding new label indexes to documents.
-    Labeler : Object for adding new label indices to documents.
     """
 
     @abstractmethod
@@ -361,7 +355,8 @@ def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
     ----------
     labels: List[L]
         Zero or more labels to create a label index from.
-    distinct:
+    distinct: bool
+        Whether the label index is distinct or not.
 
     Returns
     -------

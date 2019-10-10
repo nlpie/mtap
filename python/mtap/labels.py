@@ -13,19 +13,22 @@
 # limitations under the License.
 """Labels functionality."""
 from abc import ABC, abstractmethod
-from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence
-
-_Location = NamedTuple('Location',
-                       [('start_index', float),
-                        ('end_index', float)])
-_Location.start_index.__doc__ = "int or float: The start index inclusive of the location in text."
-_Location.end_index.__doc__ = "int or float: The end index exclusive of the location in text."
+from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence, Union, Optional
 
 
-class Location(_Location):
-    """A location in text.
+class Location(NamedTuple('Location', [('start_index', float), ('end_index', float)])):
+    """A location in text, a tuple of "start_index" and "end_index".
 
     Used to perform comparison of labels based on their locations.
+
+    Attributes
+    ==========
+    start_index: int or float
+        The start index inclusive of the location in text.
+    end_index: int or float
+        The end index exclusive of the location in text.
+
+
     """
 
     def covers(self, other):
@@ -49,6 +52,18 @@ class Location(_Location):
 class Label(ABC):
     """An abstract base class for a label of attributes on text.
     """
+
+    @property
+    @abstractmethod
+    def document(self) -> 'mtap.Document':
+        """The parent document this label appears on.
+
+        Returns
+        -------
+
+
+        """
+        ...
 
     @property
     @abstractmethod
@@ -94,13 +109,9 @@ class Label(ABC):
         """
         return Location(self.start_index, self.end_index)
 
-    def get_covered_text(self, text: str):
-        """Retrieves the slice of text from `start_index` to `end_index`.
-
-        Parameters
-        ----------
-        text: str
-            The text to retrieve covered text from.
+    @property
+    def text(self):
+        """Retrieves the slice of document text covered by this label.
 
         Returns
         -------
@@ -117,7 +128,7 @@ class Label(ABC):
         >>> "The quick brown fox jumped over the lazy dog."[label.start_index:label.end_index]
         "The quick"
         """
-        return text[self.start_index:self.end_index]
+        return self.document.text[self.start_index:self.end_index]
 
 
 L = TypeVar('L', bound=Label)
@@ -130,6 +141,8 @@ class GenericLabel(Label, Mapping[str, Any]):
 
     Parameters
     ----------
+    document: Document
+        The parent document of the label.
     start_index : int, required
         The index of the first character in text to be included in the label.
     end_index : int, required
@@ -151,12 +164,22 @@ class GenericLabel(Label, Mapping[str, Any]):
 
     """
 
-    def __init__(self, start_index: int, end_index: int, **kwargs):
+    def __init__(self, start_index: int, end_index: int, document: Optional['mtap.Document'] = None, **kwargs):
         for v in kwargs.values():
             _check_type(v)
+        self.__dict__['_document'] = document
+        map(_check_reserved_names, kwargs.keys())
         self.__dict__['fields'] = dict(kwargs)
         self.fields['start_index'] = start_index
         self.fields['end_index'] = end_index
+
+    @property
+    def document(self) -> 'mtap.Document':
+        return self._document
+
+    @document.setter
+    def document(self, document):
+        self.__dict__['document'] = document
 
     @property
     def start_index(self):
@@ -167,6 +190,8 @@ class GenericLabel(Label, Mapping[str, Any]):
         return int(self.fields['end_index'])
 
     def __getattr__(self, item):
+        if item == '_document':
+            return self.__dict__['_document']
         fields = self.__dict__['fields']
         if item == 'fields':
             return fields
@@ -184,6 +209,10 @@ class GenericLabel(Label, Mapping[str, Any]):
             Some kind of value, must be able to be serialized to json.
 
         """
+        if key == 'document':
+            self.__dict__['_document'] = value
+            return
+        _check_reserved_names(key)
         _check_type(value, [self])
         self.__dict__['fields'][key] = value
 
@@ -210,6 +239,10 @@ class GenericLabel(Label, Mapping[str, Any]):
     def __iter__(self) -> Iterator[str]:
         return iter(self.fields)
 
+
+def _check_reserved_names(attribute: str):
+    if attribute in ['start_index', 'end_index', 'text', 'document', 'location']:
+        raise ValueError(attribute + " is a reserved name on labels.")
 
 def _check_type(o: Any, parents=None):
     if parents is None:
