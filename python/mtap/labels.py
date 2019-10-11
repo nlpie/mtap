@@ -137,7 +137,7 @@ class GenericLabel(Label, Mapping[str, Any]):
         self.fields['end_index'] = end_index
 
     @property
-    def document(self) -> 'Document':
+    def document(self) -> 'mtap.Document':
         return self._document
 
     @document.setter
