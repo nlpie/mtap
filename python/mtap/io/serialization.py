@@ -17,8 +17,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Callable, Union, Dict, Any, Optional
 
-from mtap.events import Event, Document, LabelIndexType, EventsClient, GenericLabel
+from mtap.events import Event, Document, LabelIndexType, EventsClient
 from mtap.label_indices import LabelIndex
+from mtap.labels import GenericLabel
 from mtap.processing import EventProcessor, processor
 
 _serializer_fs = {}

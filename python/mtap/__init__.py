@@ -17,6 +17,7 @@ from mtap import constants
 from mtap import events
 from mtap import io
 from mtap import label_indices
+from mtap import labels
 from mtap import metrics
 from mtap import processing
 from mtap import processors
@@ -24,11 +25,12 @@ from mtap import version
 from mtap._config import Config
 from mtap._events_service import EventsServer
 from mtap.events import Document
-from mtap.events import GenericLabel
-from mtap.events import label
 from mtap.events import Event
 from mtap.events import EventsClient
 from mtap.label_indices import label_index
+from mtap.labels import GenericLabel
+from mtap.labels import label
+from mtap.labels import Location
 from mtap.processing import LocalProcessor
 from mtap.processing import Pipeline
 from mtap.processing import ProcessorServer
@@ -43,6 +45,7 @@ __all__ = [
     '__version__',
     'constants',
     'events',
+    'labels',
     'metrics',
     'label_indices',
     'processing',
@@ -52,11 +55,13 @@ __all__ = [
     'EventsClient',
     'Event',
     'Document',
-    'label_index',
-    'label',
     'GenericLabel',
+    'label',
+    'Location',
+    'label_index',
     'LocalProcessor',
     'RemoteProcessor',
+    'label_index',
     'Pipeline',
     'processor',
     'processors',
