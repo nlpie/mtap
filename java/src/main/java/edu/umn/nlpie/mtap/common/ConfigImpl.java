@@ -26,10 +26,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Global system configuration object.
@@ -97,11 +94,11 @@ public final class ConfigImpl implements Config {
    * @return Configuration object containing the flattened key-values from the yaml file.
    */
   public static @NotNull Config loadConfigFromLocationOrDefaults(@Nullable Path configPath) {
-    String envVarPath = System.getenv("MTAP-CONFIG");
-    List<Path> searchPaths = Arrays.asList(
+    String envVarPath = System.getenv("MTAP_CONFIG");
+    List<Path> searchPaths = new ArrayList<>(Arrays.asList(
         Paths.get("./mtapConfig.yaml"),
         Paths.get(System.getProperty("user.home")).resolve(".mtap/mtapConfig.yaml"),
-        Paths.get("/etc/mtap/mtapConfig.yaml"));
+        Paths.get("/etc/mtap/mtapConfig.yaml")));
     if (envVarPath != null) {
       searchPaths.add(0, Paths.get(envVarPath));
     }

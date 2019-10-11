@@ -15,9 +15,8 @@ import os
 import signal
 import time
 from pathlib import Path
-from subprocess import Popen, TimeoutExpired, PIPE, STDOUT, call
+from subprocess import Popen, TimeoutExpired, PIPE, STDOUT
 
-import grpc
 import pytest
 import requests
 from requests import RequestException

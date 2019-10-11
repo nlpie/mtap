@@ -24,7 +24,7 @@ from mtap.io.serialization import get_serializer
 def test_json_serializer():
     event = Event(event_id='1')
     event.metadata['foo'] = "bar"
-    document = Document('plaintext', 'Some text.')
+    document = Document('plaintext', text='Some text.')
     event.add_document(document)
     document.add_labels('one', [mtap.GenericLabel(start_index=0, end_index=5, x=10),
                                 mtap.GenericLabel(start_index=6, end_index=10, x=15)])

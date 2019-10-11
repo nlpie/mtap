@@ -19,5 +19,5 @@ def test_location_equals():
 
 
 def test_text_from_document():
-    d = Document('plaintext', 'This is text.')
+    d = Document('plaintext', text='This is text.')
     assert GenericLabel(5, 7, document=d).text == 'is'

@@ -94,8 +94,7 @@ class Config(MutableMapping[str, Any]):
     config object using "with", all of the MTAP functions called on that thread will make use of
     that config object.
 
-    Examples
-    --------
+    Examples:
     >>> with mtap.Config() as config:
     >>>     config['key'] = 'value'
     >>>     # other MTAP methods in this
@@ -141,10 +140,8 @@ class Config(MutableMapping[str, Any]):
     def update_from_yaml(self, path: Union[Path, str]):
         """Updates the configuration by loading and collapsing all of the structures in a yaml file.
 
-        Parameters
-        ----------
-        path: str
-            The path to the yaml file to load.
+        Parameters:
+            path: The path to the yaml file to load.
 
         """
         if isinstance(path, str):

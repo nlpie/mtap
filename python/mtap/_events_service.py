@@ -16,6 +16,7 @@
 import logging
 import threading
 from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Optional
 
 import grpc
 from grpc_health.v1 import health
@@ -31,19 +32,16 @@ LOGGER = logging.getLogger(__name__)
 class EventsServer:
     """Server which hosts events.
 
-    Parameters
-    ----------
-    address: str
-        The address / hostname / IP to host the server on.
-    port: int
-        The port to host the server on.
-    register: bool
-        Whether to register the service with service discovery.
-    workers: int, optional
-        The number of workers that should handle requests.
+    Args:
+        address (str): The address / hostname / IP to host the server on.
+
+    Keyword Args:
+        port (int): The port to host the server on.
+        register (bool): Whether to register the service with service discovery.
+        workers: The number of workers that should handle requests.
     """
 
-    def __init__(self, address, port, register=False, workers=10):
+    def __init__(self, address: str, *, port: int, register: bool = False, workers: int = 10):
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         server = grpc.server(thread_pool)
         servicer = EventsServicer()
@@ -60,14 +58,7 @@ class EventsServer:
 
     @property
     def port(self) -> int:
-        """Returns the port that the server is listening on.
-
-        Returns
-        -------
-        int
-            Bound port.
-
-        """
+        """int: The port the processor service is bound to."""
         return self._port
 
     def start(self):
@@ -82,7 +73,7 @@ class EventsServer:
                                                                             self._port,
                                                                             'v1')
 
-    def stop(self, *, grace=None):
+    def stop(self, *, grace: Optional[float] = None):
         """De-registers (if registered with service discovery) the service and immediately stops
         accepting requests, completely stopping the service after a specified `grace` time.
 
@@ -91,15 +82,13 @@ class EventsServer:
         the server after the soonest grace to expire, calling the shutdown event for all calls to
         this function.
 
-        Parameters
-        ----------
-        grace: float, optional
-            The grace period that the server should continue processing requests for shutdown.
+        Keyword Args:
+            grace (~typing.Optional[float]):
+                The grace period in seconds that the server should continue processing requests
+                before shutdown.
 
-        Returns
-        -------
-        threading.Event
-            A shutdown event for the server.
+        Returns:
+            threading.Event: A shutdown event for the server.
         """
         LOGGER.info("Stopping events server on address: %s:%d", self._address, self._port)
         try:

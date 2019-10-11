@@ -18,10 +18,3 @@ EVENTS_SERVICE_NAME = 'mtap-events'
 
 # The tag used by all processors for discovery
 PROCESSING_SERVICE_TAG = 'v1-mtap-processor'
-
-
-# Adapter label id for generic labels
-GENERIC_LABEL_ID = 'mtap.labels.Generic'
-
-# Adapter label id for distinct generic labels
-DISTINCT_GENERIC_LABEL_ID = 'mtap.labels.DistinctGeneric'

@@ -12,7 +12,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-Welcome to mtap's documentation!
+Welcome to MTAP's documentation!
 ===================================
 
 .. toctree::

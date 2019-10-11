@@ -24,17 +24,15 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
 def run_events_server(args):
-    """Runs the documents service, blocking until keyboard interrupt
+    """Runs the documents service, blocking until keyboard interrupt.
 
-    Parameters
-    ----------
-    args
-        Command line arguments.
+    Parameters:
+        args: Command line arguments.
     """
     with Config() as c:
         if args.mtap_config is not None:
             c.update_from_yaml(args.mtap_config)
-        server = EventsServer(args.address, args.port, register=args.register, workers=args.workers)
+        server = EventsServer(args.address, port=args.port, register=args.register, workers=args.workers)
         server.start()
         e = threading.Event()
 
@@ -50,7 +48,7 @@ def run_events_server(args):
 def run_serializer_processor(args):
     ser = get_serializer(args.serializer)
     proc = SerializationProcessor(ser, args.output_dir)
-    run_processor(proc, args)
+    run_processor(proc, args=args)
 
 
 def main(args=None):

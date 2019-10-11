@@ -17,7 +17,7 @@ import threading
 import traceback
 from argparse import Namespace, ArgumentParser
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Sequence, Mapping
 
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc
@@ -33,20 +33,27 @@ logger = logging.getLogger(__name__)
 
 
 def run_processor(proc: 'EventProcessor',
-                  namespace: Namespace = None,
-                  args: List[str] = None):
+                  *, namespace: Optional[Namespace] = None,
+                  args: Optional[Sequence[str]] = None):
     """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
 
-    Parameters
-    ----------
-    proc: EventProcessor
-        The processor to host.
-    namespace: optional, Namespace
-        The parsed arguments from the parser returned by :func:`processor_parser`.
-    args: optional, list[str]
-        Arguments to parse server settings from if ``namespace`` was not supplied.
+    Args:
+        proc (EventProcessor): The processor to host.
+
+    Keyword Args:
+        namespace (~typing.Optional[~argparse.Namespace]): The parsed arguments from the parser
+            returned by :func:`processor_parser`.
+        args (~typing.Optional[~typing.Sequence[str]]): Arguments to parse server settings from if
+            ``namespace`` was not supplied.
 
     Examples:
+        Will automatically parse arguments:
+
+        >>> run_processor(MyProcessor())
+
+        Manual arguments:
+
+        >>> run_processor(MyProcessor(), args=['-p', '8080'])
 
 
     """
@@ -78,23 +85,21 @@ def run_processor(proc: 'EventProcessor',
 
 
 def processor_parser() -> ArgumentParser:
-    """An :obj:`ArgumentParser` that can be used to parse the settings for :func:`run_processor`.
+    """An :class:`~argparse.ArgumentParser` that can be used to parse the settings for
+    :func:`run_processor`.
 
-    Returns
-    -------
-    ArgumentParser
-        A parser containing server settings.
+    Returns:
+        ~argparse.ArgumentParser: A parser containing server settings.
 
-    Examples
-    --------
-    Using this as a parent parser:
+    Examples:
+        Using this as a parent parser:
 
-    >>> parser = ArgumentParser(parents=[processor_parser()])
-    >>> parser.add_argument('--my-arg-1')
-    >>> parser.add_argument('--my-arg-2')
-    >>> args = parser.parse_args()
-    >>> processor = MyProcessor(args.my_arg_1, args.my_arg_2)
-    >>> run_processor(processor, args)
+        >>> parser = ArgumentParser(parents=[processor_parser()])
+        >>> parser.add_argument('--my-arg-1')
+        >>> parser.add_argument('--my-arg-2')
+        >>> args = parser.parse_args()
+        >>> processor = MyProcessor(args.my_arg_1, args.my_arg_2)
+        >>> run_processor(processor, args)
 
     """
     processors_parser = ArgumentParser(add_help=False)
@@ -241,38 +246,35 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 class ProcessorServer:
     """Host a MTAP processor as a service.
 
-    Parameters
-    ----------
-    proc: EventProcessor
-        The name of the processor as registered with :func:`processor`.
-    address: str
-        The address / hostname / IP to host the server on.
-    port: int
-        The port to host the server on, or 0 to use a random port.
-    register: bool, optional
-        Whether to register the processor with service discovery.
-    events_address: str, optional
-        The address of the events server, or omitted / None if the events service should be
-        discovered.
-    processor_id: str, optional
-        The identifier to register the processor under, if omitted the processor name will be used.
-    workers: int, optional
-        The number of workers that should handle requests.
-    params: Dict[str, Any]
-        A set of default parameters that will be passed to the processor every time it runs.
+    Args:
+        proc (EventProcessor): The event processor to host.
+        address (str): The address / hostname / IP to host the server on.
+        port (int): The port to host the server on, or 0 to use a random port.
 
+    Keyword Args:
+        register (~typing.Optional[bool]): Whether to register the processor with service discovery.
+        events_address (~typing.Optional[str]):
+            The address of the events server, or omitted / None if the events service should be
+            discovered.
+        processor_id (~typing.Optional[str]):
+            The identifier to register the processor under, if omitted the processor name will be
+            used.
+        workers (~typing.Optional[int]):
+            The number of workers that should handle requests. Defaults to 10.
+        params (~typing.Optional[~typing.Mapping[str, ~typing.Any]):
+            A set of default parameters that will be passed to the processor every time it runs.
     """
 
     def __init__(self,
                  proc: EventProcessor,
                  address: str,
-                 port: int,
+                 port: int = 0,
                  *,
                  register: bool = False,
-                 events_address: str = None,
-                 processor_id: str = None,
-                 workers: int = None,
-                 params: Dict[str, Any] = None):
+                 events_address: Optional[str] = None,
+                 processor_id: Optional[str] = None,
+                 workers: Optional[int] = None,
+                 params: Optional[Mapping[str, Any]] = None):
         self.pr = proc
         self.address = address
         self._port = port
@@ -302,13 +304,7 @@ class ProcessorServer:
 
     @property
     def port(self) -> int:
-        """Returns the port that the server is listening on.
-
-        Returns
-        -------
-        int
-            Bound port.
-
+        """int: Port the hosted server is bound to.
         """
         return self._port
 
@@ -320,7 +316,7 @@ class ProcessorServer:
         logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.address, self.port)
 
-    def stop(self, *, grace=None):
+    def stop(self, *, grace: Optional[float] = None):
         """De-registers (if registered with service discovery) the service and immediately stops
         accepting requests, completely stopping the service after a specified `grace` time.
 
@@ -329,15 +325,12 @@ class ProcessorServer:
         the server after the soonest grace to expire, calling the shutdown event for all calls to
         this function.
 
-        Parameters
-        ----------
-        grace: float, optional
-            The grace period that the server should continue processing requests for shutdown.
+        Keyword Args:
+            grace (~typing.Optional[float]):
+                The grace period that the server should continue processing requests for shutdown.
 
-        Returns
-        -------
-        threading.Event
-            A shutdown event for the server.
+        Returns:
+            threading.Event: A shutdown event for the server.
         """
         logger.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.address, self.port)

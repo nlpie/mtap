@@ -4,7 +4,7 @@ from mtap import GenericLabel, Location, Document
 from mtap.label_indices import presorted_label_index
 
 
-document = Document('plaintext')
+document = Document('plaintext', text='blah')
 
 
 @pytest.fixture

@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessingComponent(ABC):
+    component_id = None  # str: The component_id of the component in a pipeline
+    descriptor = None  # ComponentDescriptor: The ComponentDescriptor used to create the component.
+
     @abstractmethod
     def call_process(self, event_id: str,
                      params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
@@ -49,10 +52,10 @@ class ProcessingComponent(ABC):
             created indices dictionary.
 
         """
-        pass
+        ...
 
     def close(self):
-        pass
+        ...
 
 
 class ProcessorRunner(ProcessingComponent):
@@ -102,13 +105,6 @@ class RemoteRunner(ProcessingComponent):
             discovery = _discovery.Discovery(config)
             address = discovery.discover_processor_service(processor_id, 'v1')
         self._channel = grpc.insecure_channel(address)
-
-        health = health_pb2_grpc.HealthStub(self._channel)
-        hcr = health.Check(health_pb2.HealthCheckRequest(service=processor_id))
-        if hcr.status != health_pb2.HealthCheckResponse.SERVING:
-            raise ValueError('Failed to find healthy processor "{}" at "{}"'.format(processor_id,
-                                                                                    address))
-
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
     def call_process(self, event_id, params):

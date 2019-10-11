@@ -16,14 +16,14 @@ import pytest
 import mtap
 
 from mtap import Event, EventsClient, Document, GenericLabel
+from mtap.events import DistinctGenericLabelAdapter, GenericLabelAdapter
 
 
 def test_add_labels_not_distinct(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
     labels = [
         GenericLabel(0, 10, document=document, x=1),
         GenericLabel(11, 15, document=document, x=2),
@@ -45,8 +45,7 @@ def test_add_labels_distinct(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
     labels = [
         GenericLabel(0, 10, document=document, x=1),
         GenericLabel(11, 15, document=document, x=2),
@@ -68,14 +67,13 @@ def test_add_labels_label_type_id(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
     labels = [
         GenericLabel(0, 10, document=document, x=1),
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    l2 = document.add_labels('index', labels, label_type_id=mtap.constants.DISTINCT_GENERIC_LABEL_ID)
+    l2 = document.add_labels('index', labels, label_adapter=DistinctGenericLabelAdapter)
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -91,21 +89,19 @@ def test_add_labels_label_adapter(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
     labels = [
         GenericLabel(0, 10, document=document, x=1),
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    label_adapter = mtap.events._get_label_adapter(mtap.constants.DISTINCT_GENERIC_LABEL_ID)
-    l2 = document.add_labels('index', labels, label_adapter=label_adapter)
+    l2 = document.add_labels('index', labels, label_adapter=DistinctGenericLabelAdapter)
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
         index_name='index',
         labels=labels,
-        adapter=label_adapter
+        adapter=DistinctGenericLabelAdapter
     )
     assert l2 == labels
     assert l2.distinct
@@ -115,8 +111,7 @@ def test_labeler_not_distinct_default(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
     with document.get_labeler('index') as add_generic_label:
         add_generic_label(0, 10, x=1)
         add_generic_label(11, 15, x=2)
@@ -126,7 +121,7 @@ def test_labeler_not_distinct_default(mocker):
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    label_adapter = mtap.events._get_label_adapter(mtap.constants.GENERIC_LABEL_ID)
+    label_adapter = GenericLabelAdapter
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -141,8 +136,7 @@ def test_labeler_distinct(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
     with document.get_labeler('index', distinct=True) as add_generic_label:
         add_generic_label(0, 10, x=1)
         add_generic_label(11, 15, x=2)
@@ -152,7 +146,7 @@ def test_labeler_distinct(mocker):
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    label_adapter = mtap.events._get_label_adapter(mtap.constants.DISTINCT_GENERIC_LABEL_ID)
+    label_adapter = DistinctGenericLabelAdapter
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -167,9 +161,8 @@ def test_labeler_label_type_id(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.')
-    document.event = event
-    with document.get_labeler('index', label_type_id=mtap.constants.DISTINCT_GENERIC_LABEL_ID) as add_generic_label:
+                        text='The quick brown fox jumped over the lazy dog.', event=event)
+    with document.get_labeler('index', label_adapter=DistinctGenericLabelAdapter) as add_generic_label:
         add_generic_label(0, 10, x=1)
         add_generic_label(11, 15, x=2)
         add_generic_label(16, 20, x=3)
@@ -178,7 +171,7 @@ def test_labeler_label_type_id(mocker):
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    label_adapter = mtap.events._get_label_adapter(mtap.constants.DISTINCT_GENERIC_LABEL_ID)
+    label_adapter = DistinctGenericLabelAdapter
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -194,6 +187,5 @@ def test_labeler_distinct_and_type_id_raises(mocker):
         client = mocker.Mock(EventsClient)
         event = Event(event_id='1', client=client)
         document = Document(document_name='plaintext',
-                            text='The quick brown fox jumped over the lazy dog.')
-        document.event = event
-        document.get_labeler('index', distinct=True, label_type_id=mtap.constants.DISTINCT_GENERIC_LABEL_ID)
+                            text='The quick brown fox jumped over the lazy dog.', event=event)
+        document.get_labeler('index', distinct=True, label_adapter=DistinctGenericLabelAdapter)

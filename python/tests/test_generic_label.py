@@ -15,7 +15,7 @@ import pytest
 
 from mtap import GenericLabel, Document
 
-document = Document('plaintext', 'foo bar')
+document = Document('plaintext', text='foo bar')
 
 
 def test_get_repr():

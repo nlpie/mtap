@@ -17,34 +17,32 @@ from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence, Union,
 
 
 class Location(NamedTuple('Location', [('start_index', float), ('end_index', float)])):
-    """A location in text, a tuple of "start_index" and "end_index".
+    """A location in text, a tuple of (`start_index`, `end_index`).
 
     Used to perform comparison of labels based on their locations.
 
-    Attributes
-    ==========
-    start_index: int or float
-        The start index inclusive of the location in text.
-    end_index: int or float
-        The end index exclusive of the location in text.
+    Args:
+        start_index (float):
+            The start index inclusive of the location in text.
+        end_index (float);
+            The end index exclusive of the location in text.
 
-
+    Attributes:
+        start_index (float):
+            The start index inclusive of the location in text.
+        end_index (float);
+            The end index exclusive of the location in text.
     """
 
-    def covers(self, other):
+    def covers(self, other: Union['Location', 'Label']):
         """Whether the span of text covered by this label completely overlaps the span of text
         covered by the ``other`` label or location.
 
-        Parameters
-        ----------
-        other: Location or Label
-            A location or label to compare against.
+        Args:
+            other (~typing.Union[Location, Label]): A location or label to compare against.
 
-        Returns
-        -------
-        bool
-            ``True`` if ``other`` is completely overlapped/covered ``False`` otherwise.
-
+        Returns:
+            bool: ``True`` if `other` is completely overlapped/covered ``False`` otherwise.
         """
         return self.start_index <= other.start_index and self.end_index >= other.end_index
 
@@ -55,26 +53,15 @@ class Label(ABC):
 
     @property
     @abstractmethod
-    def document(self) -> 'mtap.Document':
-        """The parent document this label appears on.
-
-        Returns
-        -------
-
-
-        """
+    def document(self) -> 'Document':
+        """Document: The parent document this label appears on."""
         ...
 
     @property
     @abstractmethod
     def start_index(self) -> int:
+        """int: The index of the first character of the text covered by this label.
         """
-        Returns
-        -------
-        int
-           The index of the first character of the text covered by this label.
-        """
-
         ...
 
     @start_index.setter
@@ -85,11 +72,7 @@ class Label(ABC):
     @property
     @abstractmethod
     def end_index(self) -> int:
-        """
-        Returns
-        -------
-        int
-            The index after the last character of the text covered by this label.
+        """int: The index after the last character of the text covered by this label.
         """
         ...
 
@@ -100,33 +83,15 @@ class Label(ABC):
 
     @property
     def location(self) -> Location:
-        """
-        Returns
-        -------
-        Location
-            A tuple of (start_index, end_index) used to perform sorting and
+        """Location: A tuple of (start_index, end_index) used to perform sorting and
             comparison first based on start_index, then based on end_index.
         """
         return Location(self.start_index, self.end_index)
 
     @property
     def text(self):
-        """Retrieves the slice of document text covered by this label.
-
-        Returns
-        -------
-        str
-            Substring slice of the text.
-
-        Examples
-        --------
-        >>> label = labeler(0, 9)
-        >>> label.get_covered_text("The quick brown fox jumped over the lazy dog.")
-        "The quick"
-
-        >>> label = labeler(0, 9)
-        >>> "The quick brown fox jumped over the lazy dog."[label.start_index:label.end_index]
-        "The quick"
+        """str: The slice of document text covered by this label. Will retrieve from events server
+        if it is not cached locally.
         """
         return self.document.text[self.start_index:self.end_index]
 
@@ -139,32 +104,30 @@ class GenericLabel(Label, Mapping[str, Any]):
 
     Will be suitable for the majority of use cases for labels.
 
-    Parameters
-    ----------
-    document: Document
-        The parent document of the label.
-    start_index : int, required
-        The index of the first character in text to be included in the label.
-    end_index : int, required
-        The index after the last character in text to be included in the label.
-    kwargs : dynamic
-        Any other fields that should be added to the label.
+    Args:
+        start_index (int): The index of the first character in text to be included in the label.
+        end_index (int): The index after the last character in text to be included in the label.
+
+    Keyword Args:
+        document (~typing.Optional[Document]): The parent document of the label. This will be
+            automatically set if a the label is created via labeler.
+        **kwargs : Arbitrary, any other fields that should be added to the label, values must be
+            json-serializable.
 
 
-    Examples
-    --------
-    >>> pos_tag = pos_tag_labeler(0, 5)
-    >>> pos_tag.tag = 'NNS'
-    >>> pos_tag.tag
-    'NNS'
+    Examples:
+        >>> pos_tag = pos_tag_labeler(0, 5)
+        >>> pos_tag.tag = 'NNS'
+        >>> pos_tag.tag
+        'NNS'
 
-    >>> pos_tag2 = pos_tag_labeler(6, 10, tag='VB')
-    >>> pos_tag2.tag
-    'VB'
-
+        >>> pos_tag2 = pos_tag_labeler(6, 10, tag='VB')
+        >>> pos_tag2.tag
+        'VB'
     """
 
-    def __init__(self, start_index: int, end_index: int, document: Optional['mtap.Document'] = None, **kwargs):
+    def __init__(self, start_index: int, end_index: int, *,
+                 document: Optional['mtap.Document'] = None, **kwargs):
         for v in kwargs.values():
             _check_type(v)
         self.__dict__['_document'] = document
@@ -174,7 +137,7 @@ class GenericLabel(Label, Mapping[str, Any]):
         self.fields['end_index'] = end_index
 
     @property
-    def document(self) -> 'mtap.Document':
+    def document(self) -> 'Document':
         return self._document
 
     @document.setter
@@ -199,16 +162,6 @@ class GenericLabel(Label, Mapping[str, Any]):
             return fields[item]
 
     def __setattr__(self, key, value):
-        """Sets the value of a field on the label.
-
-        Parameters
-        ----------
-        key: str
-            Name of the string.
-        value: json serialization compliant
-            Some kind of value, must be able to be serialized to json.
-
-        """
         if key == 'document':
             self.__dict__['_document'] = value
             return
@@ -240,9 +193,30 @@ class GenericLabel(Label, Mapping[str, Any]):
         return iter(self.fields)
 
 
+def label(start_index: int,
+          end_index: int,
+          *, document: Optional['mtap.Document'] = None,
+          **kwargs) -> GenericLabel:
+    """An alias for :class:`GenericLabel`.
+
+    Args:
+        start_index (int): The index of the first character in text to be included in the label.
+        end_index (int): The index after the last character in text to be included in the label.
+
+    Keyword Args:
+        document (~typing.Optional[Document]): The parent document of the label. This will be
+            automatically set if a the label is created via labeler.
+        **kwargs : Arbitrary, any other fields that should be added to the label, values must be
+            json-serializable.
+
+    """
+    return GenericLabel(start_index, end_index, document=document, **kwargs)
+
+
 def _check_reserved_names(attribute: str):
     if attribute in ['start_index', 'end_index', 'text', 'document', 'location']:
         raise ValueError(attribute + " is a reserved name on labels.")
+
 
 def _check_type(o: Any, parents=None):
     if parents is None:

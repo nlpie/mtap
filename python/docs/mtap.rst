@@ -16,6 +16,8 @@ mtap
 =======
 .. module:: mtap
 
+.. contents::
+
 Command-Line Utility
 --------------------
 
@@ -47,32 +49,43 @@ API Documentation
 Events service client, documents
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: EventsClient
-.. autoclass:: mtap.events.Event
-.. autoclass:: mtap.events.Document
-
-Labels on text
-^^^^^^^^^^^^^^
-.. autoclass:: mtap.labels.Label
-.. autoclass:: mtap.labels.Location
+.. autoclass:: Event
+.. autoclass:: Document
 .. autoclass:: mtap.events.Labeler
+.. autoclass:: mtap.events.LabelIndexInfo
+   :exclude-members: __getnewargs__, __new__, __repr__
+.. autoclass:: mtap.events.LabelIndexType
+
+Labels
+^^^^^^
+.. autoclass:: mtap.labels.Label
+.. autoclass:: Location
+.. autofunction:: label
 .. autoclass:: GenericLabel
+
+Label Indices
+^^^^^^^^^^^^^
 .. autofunction:: label_index
 .. autoclass:: mtap.label_indices.LabelIndex
-.. autoclass:: mtap.events.LabelIndexInfo
-.. autoclass:: mtap.events.LabelIndexType
 
 Custom Label Types
 ^^^^^^^^^^^^^^^^^^
-.. autofunction:: proto_label_adapter
 .. autoclass:: mtap.events.ProtoLabelAdapter
 
 Creating Processors
 ^^^^^^^^^^^^^^^^^^^
+.. autoclass:: mtap.processing.base.Processor
+.. autoclass:: mtap.processing.EventProcessor
+.. autoclass:: mtap.processing.DocumentProcessor
+   :exclude-members: process
+.. autoclass:: mtap.processing.base.Stopwatch
+
+Processor Description Decorators
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autofunction:: processor
 .. autofunction:: mtap.processing.descriptions.parameter
 .. autofunction:: mtap.processing.descriptions.label_index
-.. autoclass:: mtap.processing.EventProcessor
-.. autoclass:: mtap.processing.DocumentProcessor
+.. autofunction:: mtap.processing.descriptions.label_property
 
 Running Services
 ^^^^^^^^^^^^^^^^
@@ -84,12 +97,16 @@ Running Services
 Running a pipeline
 ^^^^^^^^^^^^^^^^^^
 .. autoclass:: Pipeline
+   :exclude-members: insert
 .. autoclass:: mtap.processing.pipeline.ComponentDescriptor
 .. autoclass:: RemoteProcessor
 .. autoclass:: LocalProcessor
 .. autoclass:: mtap.processing.ProcessingResult
+   :exclude-members: __getnewargs__, __new__, __repr__
 .. autoclass:: mtap.processing.TimerStats
+   :exclude-members: __getnewargs__, __new__, __repr__
 .. autoclass:: mtap.processing.AggregateTimingInfo
+   :exclude-members: __getnewargs__, __new__, __repr__
 
 Configuration
 ^^^^^^^^^^^^^

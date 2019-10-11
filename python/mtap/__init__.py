@@ -27,9 +27,9 @@ from mtap._events_service import EventsServer
 from mtap.events import Document
 from mtap.events import Event
 from mtap.events import EventsClient
-from mtap.events import proto_label_adapter
 from mtap.label_indices import label_index
 from mtap.labels import GenericLabel
+from mtap.labels import label
 from mtap.labels import Location
 from mtap.processing import LocalProcessor
 from mtap.processing import Pipeline
@@ -55,8 +55,8 @@ __all__ = [
     'EventsClient',
     'Event',
     'Document',
-    'proto_label_adapter',
     'GenericLabel',
+    'label',
     'Location',
     'label_index',
     'LocalProcessor',
