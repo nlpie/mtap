@@ -17,7 +17,7 @@ from bisect import bisect_left, bisect_right
 from operator import attrgetter
 from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic
 
-from mtap.labels import Label, Location
+from mtap.events import Label, Location
 
 L = TypeVar('L', bound=Label)
 

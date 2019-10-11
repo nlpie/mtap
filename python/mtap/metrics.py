@@ -15,9 +15,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Sequence, Iterable
 
-from mtap.events import Document
+from mtap.events import Document, Label
 from mtap.label_indices import LabelIndex
-from mtap.labels import Label
 from mtap.processing import DocumentProcessor, processor
 
 
