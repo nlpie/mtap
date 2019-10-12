@@ -14,7 +14,7 @@
 import pytest
 from google.protobuf import struct_pb2
 
-from nlpnewt._structs import copy_dict_to_struct, copy_struct_to_dict
+from mtap._structs import copy_dict_to_struct, copy_struct_to_dict
 
 
 def test_recursive_looping():
@@ -318,8 +318,7 @@ def test_struct_list_field_reverse():
 
 def test_struct_field_reverse():
     struct = struct_pb2.Struct()
-    bar = struct.get_or_create_struct('bar')['bar'] = 'baz'
+    struct.get_or_create_struct('bar')['bar'] = 'baz'
     d = {}
     copy_struct_to_dict(struct, d)
     assert d['bar'] == {'bar': 'baz'}
-

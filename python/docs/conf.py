@@ -14,21 +14,22 @@
 #
 import os
 import sys
+import re
 
 sys.path.insert(0, os.path.abspath('../'))
 
-import nlpnewt
+import mtap
 
 # -- Project information -----------------------------------------------------
 
-project = 'nlpnewt'
-copyright = '2019, Regents of the University of Minnesota'
+project = 'MTAP'
+copyright = "2019, Regents of the University of Minnesota."
 author = 'NLP-IE Group'
 
 # The short X.Y version
-version = nlpnewt.__version__
+version = mtap.__version__[:re.search("[^.0-9]", mtap.__version__).start()]
 # The full version, including alpha/beta/rc tags
-release = nlpnewt.__version__
+release = mtap.__version__
 
 # -- General configuration ---------------------------------------------------
 
@@ -48,13 +49,16 @@ extensions = [
     'sphinx.ext.napoleon'
 ]
 
-napoleon_google_docstring = False
-napoleon_numpy_docstring = True
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
 napoleon_include_special_with_doc = True
 
 autodoc_default_options = {
     'members': None,
+    'member-order': 'bysource'
 }
+
+autodoc_typehints = 'none'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -88,18 +92,20 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'alabaster'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'page_width': "80%"
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -114,7 +120,7 @@ html_sidebars = {'**': ['globaltoc.html', 'relations.html', 'sourcelink.html', '
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'nlpnewtdoc'
+htmlhelp_basename = 'mtapdoc'
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -140,7 +146,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'nlpnewt.tex', 'nlpnewt Documentation',
+    (master_doc, 'mtap.tex', 'MTAP Documentation',
      'NLP-IE Group', 'manual'),
 ]
 
@@ -149,7 +155,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'nlpnewt', 'nlpnewt Documentation',
+    (master_doc, 'mtap', 'MTAP Documentation',
      [author], 1)
 ]
 
@@ -159,8 +165,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'nlpnewt', 'nlpnewt Documentation',
-     author, 'nlpnewt', 'One line description of project.',
+    (master_doc, 'mtap', 'MTAP Documentation',
+     author, 'mtap', 'One line description of project.',
      'Miscellaneous'),
 ]
 

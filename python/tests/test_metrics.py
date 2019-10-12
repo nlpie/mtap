@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nlpnewt import Event
-from nlpnewt.metrics import Accuracy, Metrics
+from mtap import Event
+from mtap.metrics import Accuracy, Metrics
 
 
 def test_accuracy():

@@ -1,0 +1,456 @@
+/* Copyright 2019 Regents of the University of Minnesota
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/* The public API endpoints for the events service, which is responsible for managing data during
+ * pipeline processing.
+ */
+syntax = "proto3";
+import "google/api/annotations.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+
+package mtap.api.v1;
+
+option java_package = "edu.umn.nlpie.mtap.api.v1";
+
+/* A request to open an event, retrieves a lease that prevents the service from
+ * de-allocating the event.
+ */
+message OpenEventRequest {
+  /* The globally unique event identifier.
+   */
+  string event_id = 1;
+
+  /* Only create a new event, failing if the event already exists.
+   */
+  bool only_create_new = 2;
+
+  /* Optional, how long the lease is valid for.
+   */
+  google.protobuf.Duration lease_duration = 3;
+}
+
+/* The response from the service for the open event endpoint.
+ */
+message OpenEventResponse {
+  /* Whether the service created a new event.
+   */
+  bool created = 1; //
+
+  /* Optional, if the lease has a duration, an identifier which can be used to
+   * cede the lease, which will prevent the lease from being ceded twice.
+   */
+  int32 lease_id = 2;
+}
+
+/* Cedes a lease to an event.
+ */
+message CloseEventRequest {
+  /* The event_id to release.
+   */
+  string event_id = 1;
+
+  /* Optional, if the lease has a timed expiration, this is required to prevent
+   * releasing the lease twice.
+   */
+  int32 lease_id = 2;
+}
+
+/* Response from the service for closing events.
+ */
+message CloseEventResponse {
+  /* If the event was deleted after a close.
+   */
+  bool deleted = 1;
+}
+
+/* Request for all metadata associated with an event
+ */
+message GetAllMetadataRequest {
+  /* Event unique identifier string.
+   */
+  string event_id = 1;
+}
+
+/* Response from the server for all metadata associated with an event.
+ */
+message GetAllMetadataResponse {
+  /* The metadata map for the event
+   */
+  map<string, string> metadata = 1;
+}
+
+/* Request to add a metadata entry to the events service
+ */
+message AddMetadataRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The key for the metadata entry
+   */
+  string key = 2;
+
+  /* The value for the metadata entry.
+   */
+  string value = 3;
+}
+
+/* Response from the server for adding a metadata entry.
+ */
+message AddMetadataResponse {}
+
+/* Request to get the keys for all binary data stored on the event.
+ */
+message GetAllBinaryDataNamesRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+}
+
+/* Response of all the binary names on the event.
+ */
+message GetAllBinaryDataNamesResponse {
+  repeated string binary_data_names = 1;
+}
+
+/* Request to attach binary data to the event.
+ */
+message AddBinaryDataRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The binary data key.
+   */
+  string binary_data_name = 2;
+
+  /* The binary data.
+   */
+  bytes binary_data = 3;
+}
+
+/* Response after attaching binary data to the event.
+ */
+message AddBinaryDataResponse {}
+
+/* Request for binary data on an event associated with a specific name.
+ */
+message GetBinaryDataRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The binary data key.
+   */
+  string binary_data_name = 2;
+}
+
+message GetBinaryDataResponse {
+  /* The binary data.
+   */
+  bytes binary_data = 1;
+}
+
+/* Request to add a document to an event.
+ */
+message AddDocumentRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The event-unique document name.
+   */
+  string document_name = 2;
+
+  /* The document text.
+   */
+  string text = 3;
+}
+
+/* Response from the service when adding a document.
+ */
+message AddDocumentResponse {}
+
+/* Request to get the names of all documents for an event.
+ */
+message GetAllDocumentNamesRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+}
+
+/* Response of all the document names on an event.
+ */
+message GetAllDocumentNamesResponse {
+  /* Repeated field containing all documents for the event.
+   */
+  repeated string document_names = 1;
+}
+
+/* Request to get the document text.
+ */
+message GetDocumentTextRequest {
+  /* Unique event identifier that the document occurs on.
+   */
+  string event_id = 1;
+
+  /* Retrieves the text of the document with this name.
+   */
+  string document_name = 2;
+}
+
+/* Response for getting the document text.
+ */
+message GetDocumentTextResponse {
+  /* The text of the document.
+   */
+  string text = 1;
+}
+
+/* Request to get information about the label indices on a document.
+ */
+message GetLabelIndicesInfoRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The document name on the event.
+   */
+  string document_name = 2;
+}
+
+/* Response of information about the label indices on a document.
+ */
+message GetLabelIndicesInfoResponse {
+  message LabelIndexInfo {
+    /* A document-unique identifier for the index on the document.
+     */
+    string index_name = 1;
+    enum LabelIndexType {
+      /* Default, no labels field set or not known.
+       */
+      UNKNOWN = 0;
+      /* Has the "json_labels" field set.
+       */
+      JSON = 1;
+      /* Has the "other_labels" field set.
+       */
+      OTHER = 2;
+    }
+    LabelIndexType type = 2;
+  }
+  /* Info about each label index on the document.
+   */
+  repeated LabelIndexInfo label_index_infos = 1;
+}
+
+/* Request to add labels to a document.
+ */
+message AddLabelsRequest {
+  /* The unique event identifier.
+   */
+  string event_id = 1;
+
+  /* The document name on the event.
+   */
+  string document_name = 2;
+
+  /* A document-unique identifier for the index to create on the document.
+   */
+  string index_name = 3;
+
+  /* The labels to store on the event service.
+   */
+  oneof labels {
+    /* JsonLabels, which are a generic JSON object that should have the
+     * start_index and end_index fields as well as any other fields that
+     * the application requires.
+     */
+    JsonLabels json_labels = 4;
+
+    /* Experimental, a different type of serialized message, which the Events
+     * service will store and return directly to clients.
+     */
+    google.protobuf.Any other_labels = 5;
+  }
+}
+
+/* Response for adding labels to the events service.
+ */
+message AddLabelsResponse {}
+
+/* Request for getting existing labels from the events service.
+ */
+message GetLabelsRequest {
+  /* The event that contains the document and labels.
+   */
+  string event_id = 1;
+
+  /* The document that contains the labels.
+   */
+  string document_name = 2;
+
+  /* The index name of the labels on the document.
+   */
+  string index_name = 3;
+}
+
+/* A Label Index of dynamic Labels, which are client/processor specified data
+ * objects containing information about an area of text.
+ */
+message JsonLabels {
+  /* Whether the label index is distinct, i.e. only consists of non-overlapping,
+   * non-empty spans of text.
+   */
+  bool is_distinct = 1;
+
+  /* The labels, which are dynamic JSON objects and must contain the number
+   * fields "start_index" and "end_index". Any other fields are application-
+   * specific and dynamic.
+   */
+  repeated google.protobuf.Struct labels = 2;
+}
+
+
+/* The response for retrieving labels from an event and document.
+ */
+message GetLabelsResponse {
+  /* The serialized label index that was originally added to the events service.
+   */
+  oneof labels {
+    /* If the original were JsonLabels.
+     */
+    JsonLabels json_labels = 1;
+
+    /* If the original were other_labels.
+     */
+    google.protobuf.Any other_labels = 5;
+  }
+}
+
+/* The events service, which stores Events (the top level discrete processing
+ * objects a mapping of strings to Documents and strings to strings metadata),
+ * Documents (a text string and a mapping of strings to LabelIndices), and
+ * LabelIndices (collections of objects which mark locations in text having
+ * some meaning).
+ */
+service Events {
+  /* Acquires a lease for an event, which will prevent this service
+   * from deleting the event while the lease is still valid. Can be used to
+   * either create new events or return existing events.
+   */
+  rpc OpenEvent (OpenEventRequest) returns (OpenEventResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/{event_id}"
+      body: "*"
+    };
+  }
+
+  /* Cedes a lease for an event, allowing this service to delete the
+   * event if no active leases remain.
+   */
+  rpc CloseEvent (CloseEventRequest) returns (CloseEventResponse) {
+    option (google.api.http) = {
+      delete: "/v1/events/{event_id}"
+    };
+  }
+
+  /* Endpoint to get all metadata associated with an event.
+   */
+  rpc GetAllMetadata (GetAllMetadataRequest) returns (GetAllMetadataResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/metadata"
+    };
+  }
+
+  /* Adds a new metadata entry to an event.
+   */
+  rpc AddMetadata (AddMetadataRequest) returns (AddMetadataResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/{event_id}/metadata/{key}"
+      body: "*"
+    };
+  }
+
+  /* Adds a new document to an event.
+   */
+  rpc AddDocument (AddDocumentRequest) returns (AddDocumentResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/{event_id}/documents/{document_name}"
+      body: "*"
+    };
+  }
+
+  /* Returns the names keys of all documents that are stored on an event.
+   */
+  rpc GetAllDocumentNames (GetAllDocumentNamesRequest) returns (GetAllDocumentNamesResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/documents"
+    };
+  }
+
+  /* Returns the text of a document.
+   */
+  rpc GetDocumentText (GetDocumentTextRequest) returns (GetDocumentTextResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/documents/{document_name}"
+    };
+  }
+
+  /* Returns the names keys of all label indices that are stored on a document.
+   */
+  rpc GetLabelIndicesInfo (GetLabelIndicesInfoRequest) returns (GetLabelIndicesInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/documents/{document_name}/labels"
+    };
+  }
+
+  /* Adds a single label index to the document.
+   */
+  rpc AddLabels (AddLabelsRequest) returns (AddLabelsResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}"
+      body: "*"
+    };
+  }
+
+  /* Gets all of the labels for a single label index.
+   */
+  rpc GetLabels (GetLabelsRequest) returns (GetLabelsResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}"
+    };
+  }
+
+  rpc GetAllBinaryDataNames (GetAllBinaryDataNamesRequest) returns (GetAllBinaryDataNamesResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/binaries"
+    };
+  }
+
+  rpc AddBinaryData (AddBinaryDataRequest) returns (AddBinaryDataResponse) {
+    option (google.api.http) = {
+      post: "/v1/events/{event_id}/binaries/{binary_data_name}",
+      body: "*"
+    };
+  }
+
+  rpc GetBinaryData (GetBinaryDataRequest) returns (GetBinaryDataResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/{event_id}/binaries/{binary_data_name}"
+    };
+  }
+}

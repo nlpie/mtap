@@ -1,59 +1,100 @@
-# nlpnewt
+# MTAP
 
-## natural language processing new environment (working title)
+## Microservice Text Analysis Platform
 
-Repository for storing the prototypes and work-in-progress files for the nlp processing re-architecting.
+MTAP is a framework for distributed text analysis using gRPC and microservices-based architecture. 
+MTAP is used to create independent, scalable, interoperable text analysis pipeline 
+components in either Python or Java. 
 
-# building _pb2\[_grpc\] files for python
+## Requirements
+- Python 3.5+
+- Java 8+ (for java framework, integration tests)
+- Go 13+ (for gateway, integration tests)
 
-```bash
-cd python
-python setup.py build_py
+# Developer stuff
+
+## Building
+
+### Building the generated Python protobuf files
+
+```shell script
+python setup.py clean build_py
 ```
 
+### Building a python distributable
 
-# building proto files for grpc-gateway-go
-
-First install go, then follow installation instructions on https://github.com/grpc-ecosystem/grpc-gateway
-
-First time setup:
-```bash
-go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
-go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
-go get -u github.com/golang/protobuf/protoc-gen-go
+```shell script
+python setup.py bdist_wheel
 ```
 
-```bash
+### Building the Java Framework
+
+```shell script
+cd java
+./gradlew build fatJar
+```
+
+### Building the Go HTTP API Gateway distributables
+First time setup, follow the instructions for 
+[gRPC Gateway](https://github.com/grpc-ecosystem/grpc-gateway) requirements.
+
+Build stuff:
+```shell script
 cd go
-go generate ./...
+make proto release
 ```
 
-# building python documentation
+### Installing the Go API Gateway
 
-```bash
-pip3 install sphinx sphinx_rtd_theme
-cd python/docs
-make html 
+```shell script
+cd go
+go install mtap-gateway/mtap-gateway.go 
 ```
 
-# running python unit tests
+# Testing
 
-First activate a virtualenv, then:
+## Running Python unit tests
 
-```bash
-cd nlpnewt
-pip install .[tests]
-cd python/tests
-pytest
+The python unit tests run using the version of MTAP installed to the site-packages: 
+
+```shell script
+pip install .\[tests]
+pytest python/tests
 ```
 
-# running python unit tests + integration tests
+## Running the Java unit tests
 
-First activate a virtualenv, launch an instance of consul (`consul agent -dev -ui`), then:
-
-```bash
-cd nlpnewt
-pip install .[tests]
-cd python/tests
-pytest --consul --integration
+```shell script
+cd java
+./gradlew test
 ```
+
+## Running integration tests
+
+First, the go gateway needs to be installed and ``$GOROOT/bin`` needs to be on your ``$PATH``. From 
+the root directory:
+
+```shell script
+cd go
+go install mtap-gateway/mtap-gateway.go
+```
+
+Second, the Java framework fat jar needs to be built. From the root directory:
+
+```shell script
+cd java
+./gradlew build fatJar
+``` 
+
+If you want to test service discovery via consul, consul needs to be started. From another terminal:
+
+```shell script
+consul agent -dev -ui
+```
+
+Now we're ready to run the integration tests, from the root directory:
+```shell script
+pip install .\[tests]
+MTAP_JAR=java/build/libs/mtap-all-[MTAP VERSION GOES HERE] pytest python/tests --consul --integration
+```
+

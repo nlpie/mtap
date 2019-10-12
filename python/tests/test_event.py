@@ -13,17 +13,17 @@
 # limitations under the License.
 import pytest
 
-from nlpnewt.events import EventsClient, Event, Document
+from mtap.events import EventsClient, Event, Document
 
 
 def test_add_document(mocker):
     client = mocker.Mock(EventsClient)
     event = Event(event_id='1', client=client)
     document = Document('plaintext',
-                        "“You're no help,” he told the lime. "
-                        "This was unfair. It was only a lime; "
-                        "there was nothing special about it at all. "
-                        "It was doing the best it could.")
+                        text="“You're no help,” he told the lime. "
+                             "This was unfair. It was only a lime; "
+                             "there was nothing special about it at all. "
+                             "It was doing the best it could.")
     event.add_document(document)
     assert event.documents['plaintext'] == document
     client.add_document.assert_called_once_with('1', 'plaintext',
@@ -36,9 +36,10 @@ def test_add_document(mocker):
 def test_add_document_no_client():
     event = Event(event_id='1')
     document = Document('plaintext',
-                        "“You're no help,” he told the lime. This was unfair. It was only a lime; "
-                        "there was nothing special about it at all. "
-                        "It was doing the best it could.")
+                        text="“You're no help,” he told the lime. "
+                             "This was unfair. It was only a lime; "
+                             "there was nothing special about it at all. "
+                             "It was doing the best it could.")
     event.add_document(document)
     assert event.documents['plaintext'] == document
 

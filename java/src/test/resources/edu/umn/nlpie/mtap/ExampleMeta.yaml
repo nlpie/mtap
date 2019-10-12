@@ -1,0 +1,19 @@
+- name: mtap-example-processor-java
+  description: Labels occurrences of a word.
+  entry_point: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor
+  language: java
+  parameters:
+    - name: do_work
+      description: Whether the processor should do anything.
+      data_type: bool
+      required: yes
+    - name: output_index
+      description: The output index name.
+      data_type: str
+      required: no
+  inputs: []
+  outputs:
+    - name: mtap.examples.word_occurrences
+      name_from_parameter: output_index
+      description: Occurrences of the specified word.
+      properties: []

@@ -17,18 +17,18 @@ from pathlib import Path
 
 import pytest
 
-from nlpnewt import Config
+from mtap import Config
 
 
 def test_load_broken_config():
     Config._global_instance = None
-    os.environ['NEWT_CONFIG'] = str(Path(__file__).parent) + '/brokenConfig.yaml'
+    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent / 'brokenConfig.yaml')
     with pytest.raises(TypeError):
         Config()
 
 
 def test_load_config():
-    os.environ['NEWT_CONFIG'] = str(Path(__file__).parent) + '/newtConfig.yaml'
+    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent / 'mtapConfig.yaml')
     Config._global_instance = None
     c = Config()
     assert c['foo'] == 'bar'
@@ -45,15 +45,15 @@ def test_config_context():
 
 def test_enter_twice():
     Config._global_instance = None
-    with Config() as c1:
+    with Config():
         with pytest.raises(ValueError):
-            with Config() as c2:
+            with Config():
                 pass
 
 
 def test_update_from_yaml():
     Config._global_instance = None
     c = Config()
-    c.update_from_yaml(str(Path(__file__).parent) + '/newtConfig.yaml')
+    c.update_from_yaml(str(Path(__file__).parent) + '/mtapConfig.yaml')
     assert c['foo'] == 'bar'
     assert c['baz.bot'] == [1, 2, 3]
