@@ -1,0 +1,37 @@
+---
+layout: default
+title: MTAP
+nav: Home
+---
+
+<div class="jumbotron">
+    <div class="container">
+      <h1 class="display-3">Microservice Text Analysis Platform</h1>
+      <p>MTAP is a framework for developing text analysis pipelines. It utilizes the gRPC Framework for communication between independently deployed, scalable, cross-language components.</p>
+      <p><a class="btn btn-primary btn-lg" href="{{ '/docs' | relative_url }}" role="button">Learn more &raquo;</a></p>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Example row of columns -->
+    <div class="row">
+      <div class="col-md-4">
+        <h2>Flexibility</h2>
+        <p>By using the microservice pattern text analysis components can be deployed once and then mixed and matched in different pipelines. Components written in different languages can interoperate without hassle. We even provide a RESTful API gateway that lets you call components using HTTP.</p>
+        <p><a class="btn btn-secondary" href="{{ '/docs/tutorials/api-gateway.html'}}" role="button">View details &raquo;</a></p>
+      </div>
+      <div class="col-md-4">
+        <h2>Ease of Use</h2>
+        <p>MTAP takes care of all the communication between different components, and provides a distributed object model for text analysis artifacts. All you have to worry about is writing the text analysis code.</p>
+        <p><a class="btn btn-secondary" href="{{ '/docs/tutorials/python.html' | relative_url }}" role="button">View details &raquo;</a></p>
+      </div>
+      <div class="col-md-4">
+        <h2>Scalability</h2>
+        <p>MTAP is designed to bridge the gap between prototyping new ideas and deploying them into a production environment. It supports calling components locally without using any network infastructure all the way up to deploying services and using service discovery via Consul to build pipelines.</p>
+        <p><a class="btn btn-secondary" href="{{ '/docs/tutorials/service-discovery.html'}}" role="button">View details &raquo;</a></p>
+      </div>
+    </div>
+
+    <hr>
+
+</div> <!-- /container -->

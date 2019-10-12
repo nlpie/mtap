@@ -1,0 +1,31 @@
+---
+layout: default
+---
+<div class="row flex-xl-nowrap">
+  <div class="col-12 col-md-3 col-xl-2">
+
+    <ul class="nav justify-content-center flex-column">
+
+      {% for section in site.data.docs.sections %}
+      <li class="nav-item sidebar-header">
+        {% assign page_url = section.docs | where: "url", page.url | first %}
+        <a class="nav-link disabled {% if page_url %}active{% endif %}" href="#">
+          {{ section.title }}
+        </a>
+      </li>
+      {% for doc in section.docs %}
+      <li class="nav-item sidebar-link">
+      <a class="nav-link {% if page.url == doc.url or page.permalink == doc.url %}active{% endif %}" href="{{ doc.url | relative_url }}">
+        {{ doc.title }}
+      </a>
+      </li>
+      {% endfor %}
+      {% endfor %}
+    </ul>
+  </div>
+  <main class="col-md-9 col-xl-8 py-md-3 pl-md-5" role="main">
+    <h1 class="page-title">{{ page.title }}</h1>
+    <p class="page-description">{{ page.description }}</p>
+    {{ content }}
+  </main>
+</div>
