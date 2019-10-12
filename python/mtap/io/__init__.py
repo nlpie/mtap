@@ -12,7 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """MTAP input/output and serialization"""
-
-from mtap.io import brat
-from mtap.io import json
-from mtap.io import serialization

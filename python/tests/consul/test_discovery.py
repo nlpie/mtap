@@ -105,7 +105,7 @@ def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_proc
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
-            results = pipeline.run(document)
+            pipeline.run(document)
             letter_counts = document.get_label_index('mtap.examples.letter_counts')
             a_counts = letter_counts[0]
             assert a_counts.count == 23

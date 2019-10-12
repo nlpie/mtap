@@ -17,7 +17,7 @@ import threading
 import traceback
 from argparse import Namespace, ArgumentParser
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import List, Dict, Any, Optional, Sequence, Mapping
+from typing import Dict, Any, Optional, Sequence, Mapping
 
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc

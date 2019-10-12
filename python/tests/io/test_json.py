@@ -15,10 +15,11 @@ import json
 from pathlib import Path
 from tempfile import TemporaryFile
 
+from mtap.io.serialization import JsonSerializer
+
 import mtap
 from mtap import GenericLabel
 from mtap.events import Event, Document
-from mtap.io.serialization import get_serializer
 
 
 def test_json_serializer():
@@ -35,9 +36,8 @@ def test_json_serializer():
         mtap.GenericLabel(start_index=11, end_index=15, foo=False)
     ], distinct=True)
 
-    serializer = get_serializer('json')
     tf = TemporaryFile('w+')
-    serializer.event_to_file(event, tf)
+    JsonSerializer.event_to_file(event, tf)
     tf.flush()
     tf.seek(0)
 
@@ -95,9 +95,8 @@ def test_json_serializer():
 
 
 def test_deserialization():
-    serializer = get_serializer('json')
     f = Path(__file__).parent / 'event.json'
-    event = serializer.file_to_event(f)
+    event = JsonSerializer.file_to_event(f)
     assert event.event_id == '12345'
     assert event.metadata['foo'] == 'bar'
     d = event.documents['plaintext']

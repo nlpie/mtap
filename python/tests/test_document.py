@@ -13,8 +13,6 @@
 # limitations under the License.
 import pytest
 
-import mtap
-
 from mtap import Event, EventsClient, Document, GenericLabel
 from mtap.events import DistinctGenericLabelAdapter, GenericLabelAdapter
 

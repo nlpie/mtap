@@ -13,7 +13,7 @@
    limitations under the License.
 
 mtap
-=======
+====
 .. module:: mtap
 
 .. contents::

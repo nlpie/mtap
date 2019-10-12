@@ -13,7 +13,7 @@
 # limitations under the License.
 """Provides functionality for measuring processor performance against gold standards."""
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence, Iterable
+from typing import Dict, Any, Optional, Sequence
 
 from mtap.events import Document
 from mtap.label_indices import LabelIndex

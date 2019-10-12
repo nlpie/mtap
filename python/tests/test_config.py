@@ -45,9 +45,9 @@ def test_config_context():
 
 def test_enter_twice():
     Config._global_instance = None
-    with Config() as c1:
+    with Config():
         with pytest.raises(ValueError):
-            with Config() as c2:
+            with Config():
                 pass
 
 

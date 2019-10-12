@@ -96,7 +96,7 @@ def test_add_binary_data(events_channel, events_client_executor):
         result = client.add_binary_data(event_id='1', binary_data_name='foo', binary_data=b'\xFF')
         return result
 
-    future = events_client_executor.submit(call)
+    events_client_executor.submit(call)
     _, req, rpc = events_channel.take_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData']
     )

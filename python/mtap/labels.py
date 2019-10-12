@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Labels functionality."""
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence, Union, Optional
@@ -59,7 +57,7 @@ class Label(ABC):
 
     @property
     @abstractmethod
-    def document(self) -> Document:
+    def document(self) -> 'Document':
         """Document: The parent document this label appears on."""
         ...
 
@@ -131,7 +129,7 @@ class GenericLabel(Label, Mapping[str, Any]):
         'VB'
     """
 
-    def __init__(self, start_index: int, end_index: int, *, document: Optional[Document] = None,
+    def __init__(self, start_index: int, end_index: int, *, document: Optional['Document'] = None,
                  **kwargs):
         for v in kwargs.values():
             _check_type(v)
@@ -142,7 +140,7 @@ class GenericLabel(Label, Mapping[str, Any]):
         self.fields['end_index'] = end_index
 
     @property
-    def document(self) -> Document:
+    def document(self) -> 'Document':
         return self._document
 
     @document.setter
@@ -200,7 +198,7 @@ class GenericLabel(Label, Mapping[str, Any]):
 
 def label(start_index: int,
           end_index: int,
-          *, document: Optional[Document] = None,
+          *, document: Optional['Document'] = None,
           **kwargs) -> GenericLabel:
     """An alias for :class:`GenericLabel`.
 

@@ -12,16 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import signal
 from pathlib import Path
-from subprocess import PIPE, STDOUT, Popen, TimeoutExpired, run
+from subprocess import PIPE, STDOUT, Popen, run
 
-import grpc
 import pytest
 
 from mtap.utils import find_free_port, subprocess_events_server
 
 config = str(Path(__file__).parent / 'integrationConfig.yaml')
+
 
 @pytest.fixture(name='python_events')
 def fixture_python_events():

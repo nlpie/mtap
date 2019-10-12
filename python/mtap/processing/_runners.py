@@ -19,7 +19,6 @@ from typing import Optional, Dict, Any, Tuple
 
 import grpc
 import math
-from grpc_health.v1 import health_pb2_grpc, health_pb2
 
 from mtap import _discovery, _structs
 from mtap.events import EventsClient, Event

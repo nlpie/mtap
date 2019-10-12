@@ -11,34 +11,36 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Serialization, serializers, and helper methods for going to and from flattened python dictionary
+representations of events.
+
+Attributes:
+    JsonSerializer (Serializer): For serializing to and from json.
+
+"""
 import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Callable, Union, Dict, Any, Optional
+from typing import Union, Dict, Any, Optional
 
 from mtap.events import Event, Document, LabelIndexType, EventsClient
-from mtap.label_indices import LabelIndex
+from mtap.label_indices import LabelIndex, label_index
 from mtap.labels import GenericLabel
 from mtap.processing import EventProcessor, processor
+from mtap.processing.descriptions import parameter
 
-_serializer_fs = {}
-_serializers = {}
 logger = logging.getLogger(__name__)
 
 
 def event_to_dict(event: Event) -> Dict:
-    """Turns the event into a python dictionary.
+    """A helper method that turns an event into a python dictionary.
 
-    Parameters
-    ----------
-    event: Event
-        The event object.
+    Args:
+        event (Event): The event object.
 
-    Returns
-    -------
-    dict
-        A dictionary object suitable for serialization.
+    Returns:
+        dict: A dictionary object suitable for serialization.
 
     """
     d = {
@@ -54,18 +56,13 @@ def event_to_dict(event: Event) -> Dict:
 
 
 def document_to_dict(document: Document) -> Dict:
-    """Turns the document into a python dictionary.
+    """A helper method that turns a document into a python dictionary.
 
-    Parameters
-    ----------
-    document: Document
-        The document object.
+    Args:
+        document (Document): The document object.
 
-    Returns
-    -------
-    dict
-        A dictionary object suitable for serialization.
-
+    Returns:
+        dict: A dictionary object suitable for serialization.
     """
     d = {
         'text': document.text,
@@ -87,17 +84,13 @@ def document_to_dict(document: Document) -> Dict:
 
 
 def label_index_to_dict(label_index: LabelIndex[GenericLabel]) -> Dict:
-    """Turns the label index into a dictionary representation.
+    """A helper method that turns a label index into a python dictionary.
 
-    Parameters
-    ----------
-    label_index: LabelIndex[GenericLabel]
-        The label index itself.
+    Args:
+        label_index (LabelIndex[GenericLabel]): The label index itself.
 
-    Returns
-    -------
-    dict
-        A dictionary representing the label index.
+    Returns:
+        dict: A dictionary representing the label index.
     """
     d = {
         'json_labels': [label.fields for label in label_index],
@@ -106,172 +99,111 @@ def label_index_to_dict(label_index: LabelIndex[GenericLabel]) -> Dict:
     return d
 
 
-def dict_to_event(d: Dict, client: Optional[EventsClient] = None) -> Event:
+def dict_to_event(d: Dict, *, client: Optional[EventsClient] = None) -> Event:
     """Turns a serialized dictionary into an Event.
 
-    Parameters
-    ----------
-    d: dict
-        The dictionary representation of the event.
-    client: optional EventsClient
-        An events service to create the event on.
+    Args:
+        d (dict): The dictionary representation of the event.
 
-    Returns
-    -------
-    Event
-        The deserialized event object.
+    Keyword Args:
+        client (~typing.Optional[EventsClient]): An events service to create the event on.
 
+    Returns:
+        Event: The deserialized event object.
     """
     event = Event(event_id=d['event_id'], client=client)
     for k, v in d['metadata'].items():
         event.metadata[k] = v
     for k, v in d['documents'].items():
-        dict_to_document(event, k, v)
+        dict_to_document(k, v, event=event)
     return event
 
 
-def dict_to_document(event: Event, document_name: str, d: Dict) -> Document:
+def dict_to_document(document_name: str, d: Dict, *, event: Optional[Event] = None) -> Document:
     """Turns a serialized dictionary into a Document.
 
-    Parameters
-    ----------
-    event: Event
-        The parent event of the document.
-    document_name: str
-        The name identifier of the document on the event.
-    d: dict
-        The dictionary representation of the document.
+    Args:
+        document_name (str): The name identifier of the document on the event.
+        d (dict): The dictionary representation of the document.
 
-    Returns
-    -------
-    Document
-        The deserialized Document object.
+    Keyword Args:
+        event (~typing.Optional[Event]): An event that the document should be added to.
+
+    Returns:
+        Document: The deserialized Document object.
 
     """
-    document = event.create_document(document_name=document_name, text=d['text'])
+    document = Document(document_name=document_name, text=d['text'])
+    if event is not None:
+        event.add_document(document)
     for k, v in d['label_indices'].items():
-        dict_to_label_index(document, index_name=k, d=v)
+        index = dict_to_label_index(d=v)
+        document.add_labels(k, index, distinct=index.distinct)
+
     return document
 
 
-def dict_to_label_index(document: Document, index_name: str, d: Dict):
-    """Deserializes a label index from its dictionary form.
+def dict_to_label_index(d: Dict) -> LabelIndex:
+    """Turns a serialized dictionary into a label index.
 
-    Parameters
-    ----------
-    document: Document
-        The document object to place the label index on.
-    index_name: str
-        The index name on the document.
-    d: dict
-        The dictionary representation of the label index.
+    Args:
+        d (dict): The dictionary representation of the label index.
 
+    Returns:
+        LabelIndex: The deserialized label index.
     """
-    with document.get_labeler(label_index_name=index_name, distinct=d['distinct']) as labeler:
-        for l in d['json_labels']:
-            labeler(**l)
+    return label_index([GenericLabel(**x) for x in d['json_labels']], distinct=d['distinct'])
 
 
 class Serializer(ABC):
-    """Base class for a serializer of MTAP events.
+    """Abstract base class for a serializer of MTAP events.
     """
 
     @property
     @abstractmethod
     def extension(self) -> str:
-        """The default filename extension.
-
-        Returns
-        -------
-        str
-            Filename extension, including period. Ex: ``'.json'``.
-        """
+        """str: Filename extension, including period. Ex: ``'.json'``."""
         ...
 
     @abstractmethod
     def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase]):
         """Writes the event to a file.
 
-        Parameters
-        ----------
-        event: Event
-            The event object to serialize.
-        f: Path or str or file-like object
-            A file or a path to a file to write the event to.
+        Args:
+            event (Event): The event object to serialize.
+            f (~typing.Union[~pathlib.Path, str, ~io.IOBase]):
+                A file or a path to a file to write the event to.
         """
         ...
 
     @abstractmethod
-    def file_to_event(self, f: Union[Path, str, io.IOBase],
+    def file_to_event(self, f: Union[Path, str, io.IOBase], *,
                       client: Optional[EventsClient] = None) -> Event:
         """Loads an event from a serialized file.
 
-        Parameters
-        ----------
-        f: Path or str path or file-like object
-            The file to load from.
-        client: optional EventsClient
-            The events service to load the event into.
+        Args:
+            f (~typing.Union[~pathlib.Path, str, ~io.IOBase]): The file to load from.
 
-        Returns
-        -------
-        Event
-            The loaded event object.
+        Keyword Args:
+            client (~typing.Optional[EventsClient]): The events service to load the event into.
 
+        Returns:
+            Event: The loaded event object.
         """
         ...
 
 
-def serializer(name: str) -> Callable[[Callable[[], Serializer]], Callable[[], Serializer]]:
-    """Decorator which marks an implementation of :obj:`Serializer` that can be used for a specific
-    kind of serialization.
-
-    Parameters
-    ----------
-    name: str
-        The name to register the serializer under, Ex. ``'json'``.
-
-    Returns
-    -------
-    decorator
-        Decorator of class or function which returns a serializer.
-
-    """
-
-    def decorator(func: Callable[[], Serializer]) -> Callable[[], Serializer]:
-        _serializer_fs[name] = func
-        return func
-
-    return decorator
-
-
-def get_serializer(name: str) -> Serializer:
-    """Gets a callable which creates a serializer for the specific name.
-
-    Parameters
-    ----------
-    name: str
-        The name for the type of serialization, Ex. ``'json'``.
-
-    Returns
-    -------
-    Callable[[], Serializer]
-        Function that can be used to create a :obj:`Serializer`.
-
-    """
-    try:
-        return _serializers[name]
-    except KeyError:
-        # Maybe lock here depending on how heavy serializer instantiation is?
-        s = _serializer_fs[name]()
-        _serializers[name] = s
-        return s
-
-
-@processor('mtap-serializer')
+@processor('mtap-serializer',
+           description='Serializes events to a specific directory',
+           parameters=[parameter('filename', data_type='str',
+                                 description='Optional override for the filename to write the '
+                                             'document to.')])
 class SerializationProcessor(EventProcessor):
-    """MTAP processor that serializes events to a specific directory.
+    """An MTAP :obj:`EventProcessor` that serializes events to a specific directory.
 
+    Args:
+        ser (Serializer): The serializer to use.
+        output_dir (str): The output_directory.
     """
 
     def __init__(self, ser: Serializer, output_dir: str):
@@ -282,3 +214,37 @@ class SerializationProcessor(EventProcessor):
         name = params.get('filename', event.event_id + self.serializer.extension)
         path = Path(self.output_dir, name)
         self.serializer.event_to_file(event, path)
+
+
+class _JsonSerializer(Serializer):
+    """Serializer implementation that performs serialization to JSON.
+    """
+    @property
+    def extension(self) -> str:
+        return '.json'
+
+    def event_to_file(self, event: Event, f: Path):
+        import json
+        d = event_to_dict(event)
+        try:
+            json.dump(d, f)
+        except AttributeError:
+            f = Path(f)
+            f.parent.mkdir(parents=True, exist_ok=True)
+            with f.open('w') as f:
+                json.dump(d, f)
+
+    def file_to_event(self, f: Union[Path, str, io.IOBase],
+                      client: Optional[EventsClient] = None) -> Event:
+        import json
+        try:
+            d = json.load(f)
+        except AttributeError:
+            if isinstance(f, str):
+                f = Path(f)
+            with f.open('r') as f:
+                d = json.load(f)
+        return dict_to_event(d, client=client)
+
+
+JsonSerializer = _JsonSerializer()

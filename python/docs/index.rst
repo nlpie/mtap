@@ -20,6 +20,7 @@ Welcome to MTAP's documentation!
    :caption: Contents:
 
    mtap
+   io
 
 Overview
 ========

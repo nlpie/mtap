@@ -15,9 +15,8 @@ import os
 import signal
 import time
 from pathlib import Path
-from subprocess import Popen, PIPE, STDOUT, TimeoutExpired, call
+from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 
-import grpc
 import pytest
 import requests
 from requests import RequestException
@@ -104,7 +103,7 @@ def test_pipeline(python_events, python_processor, java_processor):
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
-            results = pipeline.run(document)
+            pipeline.run(document)
             letter_counts = document.get_label_index('mtap.examples.letter_counts')
             a_counts = letter_counts[0]
             assert a_counts.count == 23
