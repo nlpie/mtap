@@ -17,26 +17,35 @@
 package edu.umn.nlpie.mtap.model;
 
 import edu.umn.nlpie.mtap.Internal;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
 
 @Internal
 final class Span implements Label {
 
+  private final @Nullable Document document;
   private final int startIndex;
   private final int endIndex;
 
-  Span(int startIndex, int endIndex) {
+  private Span(@Nullable Document document, int startIndex, int endIndex) {
+    this.document = document;
     this.startIndex = startIndex;
     this.endIndex = endIndex;
   }
 
-  static Span of(int startIndex, int endIndex) {
-    return new Span(startIndex, endIndex);
+  static Span of(@Nullable Document document, int startIndex, int endIndex) {
+    return new Span(document, startIndex, endIndex);
   }
 
-  static Span of(int index) {
-    return new Span(index, index);
+  static Span of(@Nullable Document document, int index) {
+    return new Span(document, index, index);
+  }
+
+  @Override
+  public @Nullable Document getDocument() {
+    return document;
   }
 
   @Override

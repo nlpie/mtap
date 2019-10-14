@@ -60,17 +60,22 @@ public class GenericLabel extends AbstractJsonObject implements Label {
    */
   public static final String END_INDEX_KEY = "end_index";
 
-  private GenericLabel(Map<@NotNull String, @Nullable Object> backingMap) {
+  private final @Nullable Document document;
+
+  private GenericLabel(Map<@NotNull String, @Nullable Object> backingMap, @Nullable Document document) {
     super(backingMap);
+    this.document = document;
   }
 
   /**
    * Creates a generic label by copying {@code jsonObject}.
    *
    * @param abstractJsonObject The json object to copy.
+   * @param document The document to retrieve text from.
    */
-  public GenericLabel(AbstractJsonObject abstractJsonObject) {
+  public GenericLabel(@NotNull AbstractJsonObject abstractJsonObject, @Nullable Document document) {
     super(abstractJsonObject);
+    this.document = document;
   }
 
   /**
@@ -122,6 +127,11 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   }
 
   @Override
+  public @Nullable Document getDocument() {
+    return document;
+  }
+
+  @Override
   public int getStartIndex() {
     return getNumberValue(START_INDEX_KEY).intValue();
   }
@@ -140,6 +150,8 @@ public class GenericLabel extends AbstractJsonObject implements Label {
 
     private final int endIndex;
 
+    private Document document;
+
     /**
      * Default constructor. The {@code startIndex} and {@code endIndex} are required properties
      * of generic labels.
@@ -150,6 +162,11 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     public Builder(int startIndex, int endIndex) {
       this.startIndex = startIndex;
       this.endIndex = endIndex;
+    }
+
+    public Builder withDocument(Document document) {
+      this.document = document;
+      return this;
     }
 
     /**
@@ -163,7 +180,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
       checkIndexRange(startIndex, endIndex);
       setProperty(START_INDEX_KEY, startIndex);
       setProperty(END_INDEX_KEY, endIndex);
-      return new GenericLabel(backingMap);
+      return new GenericLabel(backingMap, document);
     }
   }
 }

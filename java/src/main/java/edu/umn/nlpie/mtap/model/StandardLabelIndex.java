@@ -229,7 +229,7 @@ public final class StandardLabelIndex<L extends Label> extends AbstractLabelInde
   }
 
   int ceilingIndex(int startIndex, int endIndex, Integer fromIndex, Integer toIndex) {
-    return ceilingIndex(Span.of(startIndex, endIndex), fromIndex, toIndex);
+    return ceilingIndex(Span.of(null, startIndex, endIndex), fromIndex, toIndex);
   }
 
   int ceilingIndex(Label label, Integer fromIndex, Integer toIndex) {
@@ -265,7 +265,7 @@ public final class StandardLabelIndex<L extends Label> extends AbstractLabelInde
   }
 
   int floorIndex(int start, int end, Integer fromIndex, Integer toIndex) {
-    return floorIndex(Span.of(start, end), fromIndex, toIndex);
+    return floorIndex(Span.of(null, start, end), fromIndex, toIndex);
   }
 
   // Greatest index with a location less than or equal to the provided location

@@ -99,17 +99,17 @@ class DocumentTest {
   @Test
   @SuppressWarnings("unchecked")
   void getLabelIndex() {
-    when(eventsClient.getLabels(anyString(), anyString(), anyString(), any())).thenReturn(labelIndex);
+    when(eventsClient.getLabels(eq(tested), anyString(), any())).thenReturn(labelIndex);
     assertSame(labelIndex, tested.getLabelIndex("index", labelAdapter));
-    verify(eventsClient).getLabels("1", "plaintext", "index", labelAdapter);
+    verify(eventsClient).getLabels(tested, "index", labelAdapter);
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void getLabelIndexCaches() {
-    when(eventsClient.getLabels(anyString(), anyString(), anyString(), any())).thenReturn(labelIndex);
+    when(eventsClient.getLabels(eq(tested), anyString(), any())).thenReturn(labelIndex);
     tested.getLabelIndex("index", labelAdapter);
-    verify(eventsClient).getLabels("1", "plaintext", "index", labelAdapter);
+    verify(eventsClient).getLabels(tested, "index", labelAdapter);
     tested.getLabelIndex("index", labelAdapter);
     verifyNoMoreInteractions(eventsClient);
   }
@@ -117,17 +117,17 @@ class DocumentTest {
   @Test
   @SuppressWarnings("unchecked")
   void getGenericLabelIndex() {
-    when(eventsClient.getLabels(anyString(), anyString(), anyString(), any(ProtoLabelAdapter.class))).thenReturn(labelIndex);
+    when(eventsClient.getLabels(eq(tested), anyString(), any(ProtoLabelAdapter.class))).thenReturn(labelIndex);
     assertSame(labelIndex, tested.getLabelIndex("index"));
-    verify(eventsClient).getLabels(eq("1"), eq("plaintext"), eq("index"), eq(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
+    verify(eventsClient).getLabels(eq(tested), eq("index"), eq(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void getGenericLabelIndexCaches() {
-    when(eventsClient.getLabels(anyString(), anyString(), anyString(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER))).thenReturn(labelIndex);
+    when(eventsClient.getLabels(eq(tested), anyString(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER))).thenReturn(labelIndex);
     tested.getLabelIndex("index");
-    verify(eventsClient).getLabels("1", "plaintext", "index", GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
+    verify(eventsClient).getLabels(tested, "index", GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
     tested.getLabelIndex("index");
     verifyNoMoreInteractions(eventsClient);
   }

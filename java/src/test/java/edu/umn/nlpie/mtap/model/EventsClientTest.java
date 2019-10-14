@@ -34,6 +34,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
+import javax.xml.parsers.DocumentBuilder;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -321,15 +322,17 @@ class EventsClientTest {
       observer.onCompleted();
       return null;
     }).when(eventsService).getLabels(any(), any());
-    when(adapter.createIndexFromResponse(any()))
+    Event event = EventBuilder.newBuilder().withEventID("1").build();
+    Document document = event.addDocument("plaintext", "");
+    when(adapter.createIndexFromResponse(any(), any()))
         .thenReturn(new StandardLabelIndex(Collections.singletonList(GenericLabel.createSpan(0, 5))));
-    tested.getLabels("1", "plaintext", "index", adapter);
+    tested.getLabels(document, "index", adapter);
     ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
     verify(eventsService).getLabels(captor.capture(), any());
     GetLabelsRequest request = captor.getValue();
     assertEquals("1", request.getEventId());
     assertEquals("plaintext", request.getDocumentName());
     assertEquals("index", request.getIndexName());
-    verify(adapter).createIndexFromResponse(any());
+    verify(adapter).createIndexFromResponse(any(), eq(document));
   }
 }

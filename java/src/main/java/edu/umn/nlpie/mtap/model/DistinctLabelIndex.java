@@ -255,7 +255,7 @@ public class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     List<L> sublist = labels.subList(fromIndex, toIndex);
-    int i = Collections.binarySearch(sublist, Span.of(textIndex), Label::compareStart);
+    int i = Collections.binarySearch(sublist, Span.of(null, textIndex), Label::compareStart);
     if (i < 0) {
       i = -1 * (i + 1);
       if (i == sublist.size()) {
@@ -276,7 +276,7 @@ public class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     List<L> sublist = labels.subList(fromIndex, toIndex);
-    int i = Collections.binarySearch(sublist, Span.of(textIndex),
+    int i = Collections.binarySearch(sublist, Span.of(null, textIndex),
         Comparator.comparingInt(Label::getEndIndex));
 
     if (i == -1) {
@@ -301,7 +301,7 @@ public class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     List<L> sublist = labels.subList(fromIndex, toIndex);
-    int i = Collections.binarySearch(sublist, Span.of(textIndex), Label::compareStart);
+    int i = Collections.binarySearch(sublist, Span.of(null, textIndex), Label::compareStart);
 
     if (i < 0) {
       i = -1 * (i + 1);

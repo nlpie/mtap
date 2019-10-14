@@ -25,11 +25,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DistinctLabelIndexTest {
   DistinctLabelIndex<Span> tested = new DistinctLabelIndex<>(
-      Span.of(0, 3),
-      Span.of(3, 5),
-      Span.of(6, 10),
-      Span.of(11, 15),
-      Span.of(16, 20)
+      Span.of(null, 0, 3),
+      Span.of(null, 3, 5),
+      Span.of(null, 6, 10),
+      Span.of(null, 11, 15),
+      Span.of(null, 16, 20)
   );
 
   DistinctLabelIndex<?> empty = new DistinctLabelIndex<>();
@@ -37,11 +37,11 @@ class DistinctLabelIndexTest {
   @Test
   void createSorts() {
     LabelIndex<Span> created = DistinctLabelIndex.create(Arrays.asList(
-        Span.of(6, 10),
-        Span.of(3, 5),
-        Span.of(11, 15),
-        Span.of(16, 20),
-        Span.of(0, 3)
+        Span.of(null, 6, 10),
+        Span.of(null, 3, 5),
+        Span.of(null, 11, 15),
+        Span.of(null, 16, 20),
+        Span.of(null, 0, 3)
     ));
     assertEquals(tested.asList(), created.asList());
   }
@@ -143,12 +143,12 @@ class DistinctLabelIndexTest {
 
   @Test
   void covering() {
-    LabelIndex<Span> covering = tested.covering(Span.of(6, 10));
+    LabelIndex<Span> covering = tested.covering(Span.of(null, 6, 10));
 
     assertEquals(1, covering.size());
 
     Iterator<@NotNull Span> it = covering.iterator();
-    assertEquals(it.next(), Span.of(6, 10));
+    assertEquals(it.next(), Span.of(null, 6, 10));
     assertFalse(it.hasNext());
   }
 
@@ -159,20 +159,20 @@ class DistinctLabelIndexTest {
     assertEquals(1, covering.size());
 
     Iterator<@NotNull Span> it = covering.iterator();
-    assertEquals(it.next(), Span.of(6, 10));
+    assertEquals(it.next(), Span.of(null, 6, 10));
     assertFalse(it.hasNext());
   }
 
   @Test
   void coveringOfEmpty() {
-    LabelIndex<?> covering = empty.covering(Span.of(4, 10));
+    LabelIndex<?> covering = empty.covering(Span.of(null, 4, 10));
 
     assertEquals(0, covering.size());
   }
 
   @Test
   void testCoveringEmptyResult() {
-    LabelIndex<Span> covering = tested.covering(Span.of(4, 10));
+    LabelIndex<Span> covering = tested.covering(Span.of(null, 4, 10));
 
     assertEquals(0, covering.size());
 
@@ -191,15 +191,15 @@ class DistinctLabelIndexTest {
   void inside() {
     LabelIndex<Span> inside = tested.inside(1, 16);
     assertEquals(Arrays.asList(
-        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15)
+        Span.of(null, 3, 5), Span.of(null, 6, 10), Span.of(null, 11, 15)
     ), inside.asList());
   }
 
   @Test
   void insideLabel() {
-    LabelIndex<Span> inside = tested.inside(Span.of(1, 16));
+    LabelIndex<Span> inside = tested.inside(Span.of(null, 1, 16));
     assertEquals(Arrays.asList(
-        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15)
+        Span.of(null, 3, 5), Span.of(null, 6, 10), Span.of(null, 11, 15)
     ), inside.asList());
   }
 
@@ -228,21 +228,21 @@ class DistinctLabelIndexTest {
     assertEquals(1, inside.size());
     Iterator<@NotNull Span> it = inside.iterator();
     assertTrue(it.hasNext());
-    assertEquals(Span.of(6, 10), it.next());
+    assertEquals(Span.of(null, 6, 10), it.next());
   }
 
   @Test
   void beginsInsideOverlap() {
     LabelIndex<Span> beginsInside = tested.beginningInside(1, 7);
 
-    assertEquals(Arrays.asList(Span.of(3, 5), Span.of(6, 10)), beginsInside.asList());
+    assertEquals(Arrays.asList(Span.of(null, 3, 5), Span.of(null, 6, 10)), beginsInside.asList());
   }
 
   @Test
   void beginsInsideTouching() {
     LabelIndex<Span> beginsInside = tested.beginningInside(0, 6);
 
-    assertEquals(Arrays.asList(Span.of(0, 3), Span.of(3, 5)), beginsInside.asList());
+    assertEquals(Arrays.asList(Span.of(null, 0, 3), Span.of(null, 3, 5)), beginsInside.asList());
   }
 
   @Test
@@ -250,11 +250,11 @@ class DistinctLabelIndexTest {
     LabelIndex<Span> descending = tested.descending();
 
     assertEquals(Arrays.asList(
-        Span.of(16, 20),
-        Span.of(11, 15),
-        Span.of(6, 10),
-        Span.of(3, 5),
-        Span.of(0, 3)
+        Span.of(null, 16, 20),
+        Span.of(null, 11, 15),
+        Span.of(null, 6, 10),
+        Span.of(null, 3, 5),
+        Span.of(null, 0, 3)
     ), descending.asList());
   }
 
@@ -269,20 +269,20 @@ class DistinctLabelIndexTest {
     LabelIndex<Span> before = tested.before(10);
 
     assertEquals(Arrays.asList(
-        Span.of(0, 3),
-        Span.of(3, 5),
-        Span.of(6, 10)
+        Span.of(null, 0, 3),
+        Span.of(null, 3, 5),
+        Span.of(null, 6, 10)
     ), before.asList());
   }
 
   @Test
   void beforeLabel() {
-    LabelIndex<Span> before = tested.before(Span.of(10, 13));
+    LabelIndex<Span> before = tested.before(Span.of(null, 10, 13));
 
     assertEquals(Arrays.asList(
-        Span.of(0, 3),
-        Span.of(3, 5),
-        Span.of(6, 10)
+        Span.of(null, 0, 3),
+        Span.of(null, 3, 5),
+        Span.of(null, 6, 10)
     ), before.asList());
   }
 
@@ -295,7 +295,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void beforeBeginningLabel() {
-    LabelIndex<Span> before = tested.before(Span.of(0, 3));
+    LabelIndex<Span> before = tested.before(Span.of(null, 0, 3));
     assertEquals(0, before.size());
   }
 
@@ -307,7 +307,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void beforeEndLabel() {
-    LabelIndex<Span> before = tested.before(Span.of(20, 25));
+    LabelIndex<Span> before = tested.before(Span.of(null, 20, 25));
     assertEquals(tested.asList(), before.asList());
   }
 
@@ -316,15 +316,15 @@ class DistinctLabelIndexTest {
     LabelIndex<Span> after = tested.after(4);
 
     assertEquals(Arrays.asList(
-        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+        Span.of(null, 6, 10), Span.of(null, 11, 15), Span.of(null, 16, 20)
     ), after.asList());
   }
 
   @Test
   void afterLabel() {
-    LabelIndex<Span> after = tested.after(Span.of(0, 4));
+    LabelIndex<Span> after = tested.after(Span.of(null, 0, 4));
     assertEquals(Arrays.asList(
-        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+        Span.of(null, 6, 10), Span.of(null, 11, 15), Span.of(null, 16, 20)
     ), after.asList());
   }
 
@@ -357,7 +357,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void first() {
-    assertEquals(Span.of(0, 3), tested.first());
+    assertEquals(Span.of(null, 0, 3), tested.first());
   }
 
   @Test
@@ -368,7 +368,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void last() {
-    assertEquals(Span.of(16, 20), tested.last());
+    assertEquals(Span.of(null, 16, 20), tested.last());
   }
 
   @Test
@@ -383,7 +383,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void containsFalse() {
-    assertFalse(tested.contains(Span.of(7, 10)));
+    assertFalse(tested.contains(Span.of(null, 7, 10)));
   }
 
   @Test
@@ -395,39 +395,39 @@ class DistinctLabelIndexTest {
 
   @Test
   void contains() {
-    assertTrue(tested.contains(Span.of(11, 15)));
+    assertTrue(tested.contains(Span.of(null, 11, 15)));
   }
 
   @Test
   void emptyContains() {
-    assertFalse(empty.contains(Span.of(3, 5)));
+    assertFalse(empty.contains(Span.of(null, 3, 5)));
   }
 
   @Test
   void iterator() {
     Iterator<Span> it = tested.iterator();
     assertTrue(it.hasNext());
-    assertEquals(Span.of(0, 3), it.next());
+    assertEquals(Span.of(null, 0, 3), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(3, 5), it.next());
+    assertEquals(Span.of(null, 3, 5), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(6, 10), it.next());
+    assertEquals(Span.of(null, 6, 10), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(11, 15), it.next());
+    assertEquals(Span.of(null, 11, 15), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(16, 20), it.next());
+    assertEquals(Span.of(null, 16, 20), it.next());
     assertFalse(it.hasNext());
     assertThrows(NoSuchElementException.class, it::next);
   }
 
   @Test
   void containsSpanTrue() {
-    assertTrue(tested.containsSpan(Span.of(3, 5)));
+    assertTrue(tested.containsSpan(Span.of(null, 3, 5)));
   }
 
   @Test
   void containsSpanFalse() {
-    assertFalse(tested.containsSpan(Span.of(7, 14)));
+    assertFalse(tested.containsSpan(Span.of(null, 7, 14)));
   }
 
   @Test
@@ -437,7 +437,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void emptyContainsSpan() {
-    assertFalse(empty.containsSpan(Span.of(3, 4)));
+    assertFalse(empty.containsSpan(Span.of(null, 3, 4)));
   }
 
   @Test
@@ -448,7 +448,7 @@ class DistinctLabelIndexTest {
 
     Iterator<@NotNull Span> it = atLocation.iterator();
     assertTrue(it.hasNext());
-    assertEquals(Span.of(3, 5), it.next());
+    assertEquals(Span.of(null, 3, 5), it.next());
   }
 
   @Test
@@ -474,18 +474,18 @@ class DistinctLabelIndexTest {
   @Test
   void firstAtLocation() {
     Span firstAtLocation = tested.firstAtLocation(3, 5);
-    assertEquals(Span.of(3, 5), firstAtLocation);
+    assertEquals(Span.of(null, 3, 5), firstAtLocation);
   }
 
   @Test
   void firstAtLocationLabel() {
-    Span span = tested.firstAtLocation(Span.of(3, 5));
-    assertEquals(Span.of(3, 5), span);
+    Span span = tested.firstAtLocation(Span.of(null, 3, 5));
+    assertEquals(Span.of(null, 3, 5), span);
   }
 
   @Test
   void firstAtLocationLabelNone() {
-    Span first = tested.firstAtLocation(Span.of(0, 5));
+    Span first = tested.firstAtLocation(Span.of(null, 0, 5));
     assertNull(first);
   }
 
@@ -494,19 +494,19 @@ class DistinctLabelIndexTest {
     LabelIndex<Span> backwardFrom = tested.backwardFrom(10);
 
     assertEquals(Arrays.asList(
-        Span.of(6, 10),
-        Span.of(3, 5),
-        Span.of(0, 3)
+        Span.of(null, 6, 10),
+        Span.of(null, 3, 5),
+        Span.of(null, 0, 3)
     ), backwardFrom.asList());
   }
 
   @Test
   void backwardFromLabel() {
-    LabelIndex<Span> backwardFrom = tested.backwardFrom(Span.of(10, 15));
+    LabelIndex<Span> backwardFrom = tested.backwardFrom(Span.of(null, 10, 15));
     assertEquals(Arrays.asList(
-        Span.of(6, 10),
-        Span.of(3, 5),
-        Span.of(0, 3)
+        Span.of(null, 6, 10),
+        Span.of(null, 3, 5),
+        Span.of(null, 0, 3)
     ), backwardFrom.asList());
   }
 
@@ -515,11 +515,11 @@ class DistinctLabelIndexTest {
     List<Span> asList = tested.asList();
 
     assertEquals(Arrays.asList(
-        Span.of(0, 3),
-        Span.of(3, 5),
-        Span.of(6, 10),
-        Span.of(11, 15),
-        Span.of(16, 20)),
+        Span.of(null, 0, 3),
+        Span.of(null, 3, 5),
+        Span.of(null, 6, 10),
+        Span.of(null, 11, 15),
+        Span.of(null, 16, 20)),
         asList);
   }
 
@@ -532,13 +532,13 @@ class DistinctLabelIndexTest {
   @Test
   void asListIndexOf() {
     List<?> asList = tested.asList();
-    assertEquals(2, asList.indexOf(Span.of(6, 10)));
+    assertEquals(2, asList.indexOf(Span.of(null, 6, 10)));
   }
 
   @Test
   void asListIndexOfNone() {
     List<Span> asList = tested.asList();
-    assertEquals(-1, asList.indexOf(Span.of(6, 11)));
+    assertEquals(-1, asList.indexOf(Span.of(null, 6, 11)));
   }
 
   @Test
@@ -550,29 +550,29 @@ class DistinctLabelIndexTest {
   @Test
   void emptyAsListIndexOf() {
     List<?> asList = empty.asList();
-    assertEquals(-1, asList.indexOf(Span.of(6, 10)));
+    assertEquals(-1, asList.indexOf(Span.of(null, 6, 10)));
   }
 
   @Test
   void asListLastIndexOf() {
     List<Span> asList = tested.asList();
-    assertEquals(1, asList.lastIndexOf(Span.of(3, 5)));
+    assertEquals(1, asList.lastIndexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void emptyAsListLastIndexOf() {
     List<?> asList = empty.asList();
-    assertEquals(-1, asList.lastIndexOf(Span.of(3, 5)));
+    assertEquals(-1, asList.lastIndexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void asListContains() {
-    assertTrue(tested.asList().contains(Span.of(11, 15)));
+    assertTrue(tested.asList().contains(Span.of(null, 11, 15)));
   }
 
   @Test
   void emptyAsListContains() {
-    assertFalse(empty.asList().contains(Span.of(3, 5)));
+    assertFalse(empty.asList().contains(Span.of(null, 3, 5)));
   }
 
   @Test
@@ -587,7 +587,7 @@ class DistinctLabelIndexTest {
 
   @Test
   void asListContainsFalse() {
-    assertFalse(tested.asList().contains(Span.of(7, 10)));
+    assertFalse(tested.asList().contains(Span.of(null, 7, 10)));
   }
 
   @Test

@@ -24,6 +24,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -295,8 +296,7 @@ public class EventsClient implements AutoCloseable {
   /**
    * Retrieves a label index from a document.
    *
-   * @param eventID      The unique event identifier.
-   * @param documentName The event-unique document identifier.
+   * @param document The document the labels appear on.
    * @param indexName    The label index identifier.
    * @param adapter      An adapter which will transform proto messages into labels.
    * @param <L>          The label type.
@@ -304,18 +304,20 @@ public class EventsClient implements AutoCloseable {
    * @return A label index containing the specified labels.
    */
   public <L extends Label> @NotNull LabelIndex<L> getLabels(
-      @NotNull String eventID,
-      @NotNull String documentName,
+      @NotNull Document document,
       @NotNull String indexName,
       @NotNull ProtoLabelAdapter<L> adapter
   ) {
+    if (document.getEvent() == null) {
+      throw new IllegalStateException("Attempting to retrieve labels from document without an event.");
+    }
     GetLabelsRequest request = GetLabelsRequest.newBuilder()
-        .setEventId(eventID)
-        .setDocumentName(documentName)
+        .setEventId(document.getEvent().getEventID())
+        .setDocumentName(document.getName())
         .setIndexName(indexName)
         .build();
     GetLabelsResponse response = stub.getLabels(request);
-    return adapter.createIndexFromResponse(response);
+    return adapter.createIndexFromResponse(response, document);
   }
 
   /**

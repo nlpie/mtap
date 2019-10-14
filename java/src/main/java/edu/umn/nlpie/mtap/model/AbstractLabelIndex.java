@@ -29,12 +29,12 @@ abstract class AbstractLabelIndex<L extends Label>
     extends AbstractCollection<@NotNull L> implements LabelIndex<L> {
   @Override
   public @NotNull List<@NotNull L> atLocation(int startIndex, int endIndex) {
-    return atLocation(Span.of(startIndex, endIndex));
+    return atLocation(Span.of(null, startIndex, endIndex));
   }
 
   @Override
   public @NotNull LabelIndex<L> covering(int startIndex, int endIndex) {
-    return covering(Span.of(startIndex, endIndex));
+    return covering(Span.of(null, startIndex, endIndex));
   }
 
   @Override
@@ -49,7 +49,7 @@ abstract class AbstractLabelIndex<L extends Label>
 
   @Override
   public boolean containsSpan(int startIndex, int endIndex) {
-    return containsSpan(Span.of(startIndex, endIndex));
+    return containsSpan(Span.of(null, startIndex, endIndex));
   }
 
   @Override
@@ -63,6 +63,6 @@ abstract class AbstractLabelIndex<L extends Label>
 
   @Override
   public @Nullable L firstAtLocation(int startIndex, int endIndex) {
-    return firstAtLocation(Span.of(startIndex, endIndex));
+    return firstAtLocation(Span.of(null, startIndex, endIndex));
   }
 }

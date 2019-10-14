@@ -149,8 +149,7 @@ public class Document {
   ) {
     LabelIndex<?> index = getLabelIndexMap().get(labelIndexName);
     if (index == null && event != null && event.getClient() != null) {
-      index = event.getClient()
-          .getLabels(event.getEventID(), documentName, labelIndexName, labelAdapter);
+      index = event.getClient().getLabels(this, labelIndexName, labelAdapter);
       getLabelIndexMap().put(labelIndexName, index);
     }
     if (index == null) {
