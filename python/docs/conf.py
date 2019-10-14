@@ -27,7 +27,11 @@ copyright = "2019, Regents of the University of Minnesota."
 author = 'NLP-IE Group'
 
 # The short X.Y version
-version = mtap.__version__[:re.search("[^.0-9]", mtap.__version__).start()]
+version = mtap.__version__
+build_metadata = re.search("[^.0-9]", version)
+if build_metadata is not None:
+    version = version[:build_metadata.start()]
+
 # The full version, including alpha/beta/rc tags
 release = mtap.__version__
 
