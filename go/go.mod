@@ -1,4 +1,4 @@
-module github.com/benknoll-umn/mtap/go
+module github.com/nlpie/mtap/go
 
 go 1.13
 

@@ -19,6 +19,7 @@ import com.google.protobuf.Struct;
 import edu.umn.nlpie.mtap.Internal;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -51,7 +52,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   }
 
   @Override
-  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response) {
+  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response, @Nullable Document document) {
     JsonLabels jsonLabels = response.getJsonLabels();
     boolean isDistinct = jsonLabels.getIsDistinct();
 
@@ -59,7 +60,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
     for (Struct struct : jsonLabels.getLabelsList()) {
       JsonObjectImpl.Builder builder = new JsonObjectImpl.Builder();
       builder.copyStruct(struct);
-      labels.add(new GenericLabel(builder.build()));
+      labels.add(new GenericLabel(builder.build(), document));
     }
 
     return isDistinct ? new DistinctLabelIndex<>(labels) : new StandardLabelIndex<>(labels);

@@ -28,14 +28,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StandardLabelIndexTest {
   LabelIndex<Span> tested = new StandardLabelIndex<>(Arrays.asList(
-      Span.of(0, 5),
-      Span.of(0, 7),
-      Span.of(2, 6),
-      Span.of(6, 7),
-      Span.of(6, 8),
-      Span.of(9, 10),
-      Span.of(9, 13),
-      Span.of(9, 13)
+      Span.of(null, 0, 5),
+      Span.of(null, 0, 7),
+      Span.of(null, 2, 6),
+      Span.of(null, 6, 7),
+      Span.of(null, 6, 8),
+      Span.of(null, 9, 10),
+      Span.of(null, 9, 13),
+      Span.of(null, 9, 13)
   ));
 
   LabelIndex<?> empty = new StandardLabelIndex<>(Collections.emptyList());
@@ -43,14 +43,14 @@ class StandardLabelIndexTest {
   @Test
   void createSort() {
     StandardLabelIndex<Span> sorted = StandardLabelIndex.create(Arrays.asList(
-        Span.of(9, 13),
-        Span.of(0, 7),
-        Span.of(6, 8),
-        Span.of(6, 7),
-        Span.of(9, 10),
-        Span.of(9, 13),
-        Span.of(0, 5),
-        Span.of(2, 6)
+        Span.of(null, 9, 13),
+        Span.of(null, 0, 7),
+        Span.of(null, 6, 8),
+        Span.of(null, 6, 7),
+        Span.of(null, 9, 10),
+        Span.of(null, 9, 13),
+        Span.of(null, 0, 5),
+        Span.of(null, 2, 6)
     ));
     assertEquals(tested.asList(), sorted.asList());
   }
@@ -67,10 +67,10 @@ class StandardLabelIndexTest {
 
   @Test
   void covering() {
-    LabelIndex<Span> covering = tested.covering(Span.of(2, 4));
+    LabelIndex<Span> covering = tested.covering(Span.of(null, 2, 4));
     assertEquals(
         Arrays.asList(
-            Span.of(0, 5), Span.of(0, 7), Span.of(2, 6)
+            Span.of(null, 0, 5), Span.of(null, 0, 7), Span.of(null, 2, 6)
         ),
         covering.asList()
     );
@@ -78,8 +78,8 @@ class StandardLabelIndexTest {
 
   @Test
   void coveringEquals() {
-    LabelIndex<Span> covering = tested.covering(Span.of(6, 8));
-    assertEquals(Collections.singletonList(Span.of(6, 8)), covering.asList());
+    LabelIndex<Span> covering = tested.covering(Span.of(null, 6, 8));
+    assertEquals(Collections.singletonList(Span.of(null, 6, 8)), covering.asList());
   }
 
   @Test
@@ -98,7 +98,7 @@ class StandardLabelIndexTest {
   void inside() {
     LabelIndex<Span> inside = tested.inside(1, 8);
 
-    assertEquals(Arrays.asList(Span.of(2, 6), Span.of(6, 7), Span.of(6, 8)), inside.asList());
+    assertEquals(Arrays.asList(Span.of(null, 2, 6), Span.of(null, 6, 7), Span.of(null, 6, 8)), inside.asList());
   }
 
   @Test
@@ -109,7 +109,7 @@ class StandardLabelIndexTest {
 
   @Test
   void insideAfter() {
-    LabelIndex<Span> inside = tested.inside(Span.of(15, 20));
+    LabelIndex<Span> inside = tested.inside(Span.of(null, 15, 20));
     assertEquals(0, inside.size());
   }
 
@@ -122,116 +122,116 @@ class StandardLabelIndexTest {
   @Test
   void insideMany() {
     List<Span> spans = Arrays.asList(
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10)
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10)
     );
     StandardLabelIndex<Span> index = new StandardLabelIndex<>(spans);
     LabelIndex<Span> inside = index.inside(3, 6);
     assertEquals(Arrays.asList(
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6)
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6)
     ), inside.asList());
   }
 
   @Test
   void beginsInside() {
-    LabelIndex<Span> beginsInside = tested.beginningInside(Span.of(1, 10));
+    LabelIndex<Span> beginsInside = tested.beginningInside(Span.of(null, 1, 10));
     assertEquals(Arrays.asList(
-        Span.of(2, 6),
-        Span.of(6, 7),
-        Span.of(6, 8),
-        Span.of(9, 10),
-        Span.of(9, 13),
-        Span.of(9, 13)),
+        Span.of(null, 2, 6),
+        Span.of(null, 6, 7),
+        Span.of(null, 6, 8),
+        Span.of(null, 9, 10),
+        Span.of(null, 9, 13),
+        Span.of(null, 9, 13)),
         beginsInside.asList()
     );
   }
@@ -266,14 +266,14 @@ class StandardLabelIndexTest {
   void descending() {
     LabelIndex<Span> descending = tested.descending();
     assertEquals(Arrays.asList(
-        Span.of(9, 13),
-        Span.of(9, 13),
-        Span.of(9, 10),
-        Span.of(6, 8),
-        Span.of(6, 7),
-        Span.of(2, 6),
-        Span.of(0, 7),
-        Span.of(0, 5)
+        Span.of(null, 9, 13),
+        Span.of(null, 9, 13),
+        Span.of(null, 9, 10),
+        Span.of(null, 6, 8),
+        Span.of(null, 6, 7),
+        Span.of(null, 2, 6),
+        Span.of(null, 0, 7),
+        Span.of(null, 0, 5)
     ), descending.asList());
   }
 
@@ -287,11 +287,11 @@ class StandardLabelIndexTest {
   void before() {
     LabelIndex<Span> before = tested.before(8);
     assertEquals(Arrays.asList(
-        Span.of(0, 5),
-        Span.of(0, 7),
-        Span.of(2, 6),
-        Span.of(6, 7),
-        Span.of(6, 8)
+        Span.of(null, 0, 5),
+        Span.of(null, 0, 7),
+        Span.of(null, 2, 6),
+        Span.of(null, 6, 7),
+        Span.of(null, 6, 8)
     ), before.asList());
   }
 
@@ -311,12 +311,12 @@ class StandardLabelIndexTest {
   void after() {
     LabelIndex<Span> after = tested.after(2);
     assertEquals(Arrays.asList(
-        Span.of(2, 6),
-        Span.of(6, 7),
-        Span.of(6, 8),
-        Span.of(9, 10),
-        Span.of(9, 13),
-        Span.of(9, 13)
+        Span.of(null, 2, 6),
+        Span.of(null, 6, 7),
+        Span.of(null, 6, 8),
+        Span.of(null, 9, 10),
+        Span.of(null, 9, 13),
+        Span.of(null, 9, 13)
     ), after.asList());
   }
 
@@ -339,7 +339,7 @@ class StandardLabelIndexTest {
 
   @Test
   void first() {
-    assertEquals(Span.of(0, 5), tested.first());
+    assertEquals(Span.of(null, 0, 5), tested.first());
   }
 
   @Test
@@ -349,28 +349,28 @@ class StandardLabelIndexTest {
 
   @Test
   void last() {
-    assertEquals(Span.of(9, 13), tested.last());
+    assertEquals(Span.of(null, 9, 13), tested.last());
   }
 
   @Test
   void atLocationMultiple() {
     Collection<@NotNull Span> atLocation = tested.atLocation(9, 13);
     assertEquals(Arrays.asList(
-        Span.of(9, 13),
-        Span.of(9, 13)
+        Span.of(null, 9, 13),
+        Span.of(null, 9, 13)
     ), atLocation);
   }
 
   @Test
   void atLocationOne() {
     Collection<@NotNull Span> atLocation = tested.atLocation(2, 6);
-    assertEquals(Collections.singletonList(Span.of(2, 6)), atLocation);
+    assertEquals(Collections.singletonList(Span.of(null, 2, 6)), atLocation);
   }
 
   @Test
   void atLocationDifferentLabel() {
     List<@NotNull Span> atLocation = tested.atLocation(GenericLabel.createSpan(2, 6));
-    assertEquals(Collections.singletonList(Span.of(2, 6)), atLocation);
+    assertEquals(Collections.singletonList(Span.of(null, 2, 6)), atLocation);
   }
 
   @Test
@@ -388,53 +388,53 @@ class StandardLabelIndexTest {
   @Test
   void atLocationABunch() {
     List<Span> spans = Arrays.asList(
-        Span.of(0, 3),
-        Span.of(2, 5),
-        Span.of(2, Integer.MAX_VALUE),
-        Span.of(3, 4),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 6),
-        Span.of(4, 0),
-        Span.of(6, 10)
+        Span.of(null, 0, 3),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, Integer.MAX_VALUE),
+        Span.of(null, 3, 4),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 6),
+        Span.of(null, 4, 0),
+        Span.of(null, 6, 10)
     );
     StandardLabelIndex<Span> index = new StandardLabelIndex<>(spans);
-    List<@NotNull Span> atLocation = index.atLocation(Span.of(3, 5));
+    List<@NotNull Span> atLocation = index.atLocation(Span.of(null, 3, 5));
     assertEquals(Arrays.asList(
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5)
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5)
     ), atLocation);
   }
 
   @Test
   void containsTrue() {
-    assertTrue(tested.contains(Span.of(2, 6)));
+    assertTrue(tested.contains(Span.of(null, 2, 6)));
   }
 
   @Test
@@ -449,12 +449,12 @@ class StandardLabelIndexTest {
 
   @Test
   void containsFalse() {
-    assertFalse(tested.contains(Span.of(0, 30)));
+    assertFalse(tested.contains(Span.of(null, 0, 30)));
   }
 
   @Test
   void emptyContains() {
-    assertFalse(empty.contains(Span.of(0, 0)));
+    assertFalse(empty.contains(Span.of(null, 0, 0)));
   }
 
   @Test
@@ -470,14 +470,14 @@ class StandardLabelIndexTest {
   @Test
   void asList() {
     assertEquals(Arrays.asList(
-        Span.of(0, 5),
-        Span.of(0, 7),
-        Span.of(2, 6),
-        Span.of(6, 7),
-        Span.of(6, 8),
-        Span.of(9, 10),
-        Span.of(9, 13),
-        Span.of(9, 13)
+        Span.of(null, 0, 5),
+        Span.of(null, 0, 7),
+        Span.of(null, 2, 6),
+        Span.of(null, 6, 7),
+        Span.of(null, 6, 8),
+        Span.of(null, 9, 10),
+        Span.of(null, 9, 13),
+        Span.of(null, 9, 13)
     ), tested.asList());
   }
 
@@ -488,28 +488,28 @@ class StandardLabelIndexTest {
 
   @Test
   void asListIndexOf() {
-    assertEquals(6, tested.asList().indexOf(Span.of(9, 13)));
+    assertEquals(6, tested.asList().indexOf(Span.of(null, 9, 13)));
   }
 
   @Test
   void asListIndexOfPushForward() {
     List<Label> labels = Arrays.asList(
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
         GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
-        Span.of(3, 5)
+        Span.of(null, 3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
     assertEquals(14, index.asList().indexOf(GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
@@ -518,21 +518,21 @@ class StandardLabelIndexTest {
   @Test
   void asListIndexOfNotFound() {
     List<Label> labels = Arrays.asList(
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5)
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
     assertEquals(-1, index.asList().indexOf(GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
@@ -542,81 +542,81 @@ class StandardLabelIndexTest {
   @Test
   void asListIndexOfMany() {
     List<Span> spans = Arrays.asList(
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10)
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10)
     );
     StandardLabelIndex<Span> index = new StandardLabelIndex<>(spans);
-    assertEquals(14, index.asList().indexOf(Span.of(3, 5)));
+    assertEquals(14, index.asList().indexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void asListIndexOfNone() {
-    assertEquals(-1, tested.asList().indexOf(Span.of(0, 30)));
+    assertEquals(-1, tested.asList().indexOf(Span.of(null, 0, 30)));
   }
 
   @Test
@@ -631,109 +631,109 @@ class StandardLabelIndexTest {
 
   @Test
   void emptyAsListIndexOf() {
-    assertEquals(-1, empty.asList().indexOf(Span.of(9, 13)));
+    assertEquals(-1, empty.asList().indexOf(Span.of(null, 9, 13)));
   }
 
   @Test
   void asListLastIndexOf() {
-    assertEquals(7, tested.asList().lastIndexOf(Span.of(9, 13)));
+    assertEquals(7, tested.asList().lastIndexOf(Span.of(null, 9, 13)));
   }
 
   @Test
   void asListLastIndexOfMany() {
     List<Label> spans = Arrays.asList(
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(0, 3),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(2, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 0, 3),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 2, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
         GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
-        Span.of(3, 5),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(5, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 6),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10),
-        Span.of(6, 10)
+        Span.of(null, 3, 5),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 5, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 6),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10),
+        Span.of(null, 6, 10)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(spans);
-    assertEquals(29, index.asList().lastIndexOf(Span.of(3, 5)));
+    assertEquals(29, index.asList().lastIndexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void asListLastIndexOfBackUp() {
     List<Label> labels = Arrays.asList(
-        Span.of(3, 5),
+        Span.of(null, 3, 5),
         GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build(),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5)
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
     assertEquals(1, index.asList().lastIndexOf(GenericLabel.withSpan(3, 5).setProperty("foo", "bar").build()));
@@ -741,7 +741,7 @@ class StandardLabelIndexTest {
 
   @Test
   void asListLastIndexOfNone() {
-    assertEquals(-1, tested.asList().lastIndexOf(Span.of(0, 30)));
+    assertEquals(-1, tested.asList().lastIndexOf(Span.of(null, 0, 30)));
   }
 
   @Test
@@ -757,21 +757,21 @@ class StandardLabelIndexTest {
   @Test
   void asListLastIndexOfNotFound() {
     List<Label> labels = Arrays.asList(
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5),
-        Span.of(3, 5)
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5),
+        Span.of(null, 3, 5)
     );
     StandardLabelIndex<Label> index = new StandardLabelIndex<>(labels);
     assertEquals(-1, index.asList().lastIndexOf(
@@ -781,12 +781,12 @@ class StandardLabelIndexTest {
   @Test
   void asListContains() {
     List<@NotNull Span> asList = tested.asList();
-    assertTrue(asList.contains(Span.of(2, 6)));
+    assertTrue(asList.contains(Span.of(null, 2, 6)));
   }
 
   @Test
   void asListContainsFalse() {
     List<@NotNull Span> asList = tested.asList();
-    assertFalse(asList.contains(Span.of(0, 30)));
+    assertFalse(asList.contains(Span.of(null, 0, 30)));
   }
 }

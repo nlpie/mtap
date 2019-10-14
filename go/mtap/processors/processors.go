@@ -19,11 +19,11 @@ package processors
 import (
 	"context"
 	"encoding/json"
-	"github.com/benknoll-umn/mtap/go/mtap/api/v1"
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/hashicorp/consul/api"
+	"github.com/nlpie/mtap/go/mtap/api/v1"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"net/http"

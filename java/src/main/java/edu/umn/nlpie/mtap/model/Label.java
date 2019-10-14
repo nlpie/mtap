@@ -16,12 +16,21 @@
 package edu.umn.nlpie.mtap.model;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An interface for a span of text that has been determined to have some specific meaning or
  * function.
  */
 public interface Label {
+
+  /**
+   * The document that the label appears on.
+   *
+   * @return A document object or {@code null}.
+   */
+  @Nullable Document getDocument();
+
   /**
    * The index of the first character included in the label.
    *
@@ -37,6 +46,20 @@ public interface Label {
   int getEndIndex();
 
   /**
+   * Retrieves the portion of the document text covered by this label.
+   *
+   * @return A string of the document text covered by the label.
+   * @throws IllegalStateException If this label doesn't have an associated document it will fail.
+   */
+  default @NotNull String getText() {
+    Document document = getDocument();
+    if (document == null) {
+      throw new IllegalStateException("Attempting to retrieve text from label without associated document.");
+    }
+    return document.getText().substring(getStartIndex(), getEndIndex());
+  }
+
+  /**
    * Returns the length (in number of characters) of the Label.
    *
    * @return Integer length of the label.
@@ -50,7 +73,6 @@ public interface Label {
    * other label.
    *
    * @param other The other label to check for location equivalence.
-   *
    * @return {@code true} if the other label's location equals the location of this label,
    * {@code false} otherwise.
    */
@@ -75,7 +97,6 @@ public interface Label {
    * other label.
    *
    * @param other The other label to check.
-   *
    * @return {@code true} if the other label's location is inside the location of this label,
    * {@code false} otherwise.
    */
@@ -88,7 +109,7 @@ public interface Label {
    * {@code endIndex}.
    *
    * @param startIndex The start index inclusive of the span.
-   * @param endIndex The end index exclusive of the span.
+   * @param endIndex   The end index exclusive of the span.
    * @return {@code true} if this label is inside the span.
    */
   default boolean isInside(int startIndex, int endIndex) {
@@ -96,34 +117,25 @@ public interface Label {
   }
 
   /**
-   * Returns the text that is covered by the label from {@code string}.
+   * Compares this label to another label by their locations, i.e. first by start index then by
+   * end index.
    *
-   * @param string The string to retrieve covered text.
-   *
-   * @return A {@link CharSequence} view of the covered text in the string.
+   * @param other The other label.
+   * @return Result of two natural order comparisons, first of the start indices, then if start
+   * indices are the same of the end indices.
    */
-  default @NotNull CharSequence coveredText(@NotNull String string) {
-    return string.subSequence(getStartIndex(), getEndIndex());
-  }
-
-  /**
-   * Returns the document text that is covered by the label from {@code document}.
-   *
-   * @param document The document to retrieve covered text.
-   *
-   * @return A {@link CharSequence} view of the covered text in the string.
-   */
-  default @NotNull CharSequence coveredText(@NotNull Document document) {
-    return coveredText(document.getText());
-  }
-
   default int compareLocation(@NotNull Label other) {
     int compare = Integer.compare(getStartIndex(), other.getStartIndex());
     if (compare != 0) return compare;
     return Integer.compare(getEndIndex(), other.getEndIndex());
   }
 
-
+  /**
+   * Compares this label to another label by their start indices.
+   *
+   * @param other The other label.
+   * @return Natural ordering comparison value.
+   */
   default int compareStart(@NotNull Label other) {
     return Integer.compare(getStartIndex(), other.getStartIndex());
   }

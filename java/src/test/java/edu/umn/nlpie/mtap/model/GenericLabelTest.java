@@ -50,7 +50,7 @@ class GenericLabelTest {
         .setProperty("end_index", 5)
         .setProperty("foo", "bar")
         .build();
-    GenericLabel genericLabel = new GenericLabel(jsonObject);
+    GenericLabel genericLabel = new GenericLabel(jsonObject, null);
     assertEquals(0, genericLabel.getStartIndex());
     assertEquals(5, genericLabel.getEndIndex());
     assertEquals("bar", genericLabel.getStringValue("foo"));
@@ -101,16 +101,17 @@ class GenericLabelTest {
 
   @Test
   void coveredText() {
-    GenericLabel span = GenericLabel.createSpan(4, 7);
-    assertEquals("bar", span.coveredText("foo bar"));
+    Document document = new Document("text", "foo bar");
+    GenericLabel span = GenericLabel.withSpan(4, 7).withDocument(document).build();
+    assertEquals("bar", span.getText());
   }
 
   @Test
   void coveredTextDocument() {
-    GenericLabel span = GenericLabel.createSpan(4, 7);
     Document document = mock(Document.class);
+    GenericLabel span = GenericLabel.withSpan(4, 7).withDocument(document).build();
     when(document.getText()).thenReturn("foo bar");
-    assertEquals("bar", span.coveredText(document));
+    assertEquals("bar", span.getText());
   }
 
   @Test

@@ -25,12 +25,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class DistinctLabelIndexAscendingViewTest {
   LabelIndex<Span> ascending = new DistinctLabelIndex<>(
-      Span.of(0, 3),
-      Span.of(3, 5),
-      Span.of(6, 10),
-      Span.of(11, 15),
-      Span.of(16, 20),
-      Span.of(21, 25)).inside(0, 20);
+      Span.of(null, 0, 3),
+      Span.of(null, 3, 5),
+      Span.of(null, 6, 10),
+      Span.of(null, 11, 15),
+      Span.of(null, 16, 20),
+      Span.of(null, 21, 25)).inside(0, 20);
 
   LabelIndex<Span> emptyAscending = ascending.inside(0, 2);
 
@@ -52,7 +52,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void ascendingFirst() {
-    assertEquals(Span.of(0, 3), ascending.first());
+    assertEquals(Span.of(null, 0, 3), ascending.first());
   }
 
   @Test
@@ -62,7 +62,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void ascendingLast() {
-    assertEquals(Span.of(16, 20), ascending.last());
+    assertEquals(Span.of(null, 16, 20), ascending.last());
   }
 
   @Test
@@ -72,14 +72,14 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void atLocation() {
-    Collection<@NotNull Span> atLocation = ascending.atLocation(Span.of(16, 20));
+    Collection<@NotNull Span> atLocation = ascending.atLocation(Span.of(null, 16, 20));
     assertEquals(1, atLocation.size());
-    assertEquals(Span.of(16, 20), atLocation.iterator().next());
+    assertEquals(Span.of(null, 16, 20), atLocation.iterator().next());
   }
 
   @Test
   void atLocationNotInsideView() {
-    Collection<@NotNull Span> atLocation = ascending.atLocation(Span.of(21, 25));
+    Collection<@NotNull Span> atLocation = ascending.atLocation(Span.of(null, 21, 25));
     assertEquals(0, atLocation.size());
   }
 
@@ -106,7 +106,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void containsFalse() {
-    assertFalse(ascending.contains(Span.of(7, 10)));
+    assertFalse(ascending.contains(Span.of(null, 7, 10)));
   }
 
   @Test
@@ -118,22 +118,22 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void contains() {
-    assertTrue(ascending.contains(Span.of(11, 15)));
+    assertTrue(ascending.contains(Span.of(null, 11, 15)));
   }
 
   @Test
   void emptyContains() {
-    assertFalse(emptyAscending.contains(Span.of(3, 5)));
+    assertFalse(emptyAscending.contains(Span.of(null, 3, 5)));
   }
 
   @Test
   void containsSpanTrue() {
-    assertTrue(ascending.containsSpan(Span.of(3, 5)));
+    assertTrue(ascending.containsSpan(Span.of(null, 3, 5)));
   }
 
   @Test
   void containsSpanFalse() {
-    assertFalse(ascending.containsSpan(Span.of(7, 14)));
+    assertFalse(ascending.containsSpan(Span.of(null, 7, 14)));
   }
 
   @Test
@@ -143,7 +143,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void emptyContainsSpan() {
-    assertFalse(emptyAscending.containsSpan(Span.of(3, 4)));
+    assertFalse(emptyAscending.containsSpan(Span.of(null, 3, 4)));
   }
 
   @Test
@@ -151,9 +151,9 @@ public class DistinctLabelIndexAscendingViewTest {
     LabelIndex<Span> before = ascending.before(10);
     assertEquals(3, before.size());
     assertEquals(Arrays.asList(
-        Span.of(0, 3),
-        Span.of(3, 5),
-        Span.of(6, 10)
+        Span.of(null, 0, 3),
+        Span.of(null, 3, 5),
+        Span.of(null, 6, 10)
     ), before.asList());
   }
 
@@ -174,7 +174,7 @@ public class DistinctLabelIndexAscendingViewTest {
     LabelIndex<Span> after = ascending.after(6);
     assertEquals(3, after.size());
     assertEquals(Arrays.asList(
-        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+        Span.of(null, 6, 10), Span.of(null, 11, 15), Span.of(null, 16, 20)
     ), after.asList());
   }
 
@@ -194,7 +194,7 @@ public class DistinctLabelIndexAscendingViewTest {
   void inside() {
     LabelIndex<Span> inside = ascending.inside(3, 20);
     assertEquals(Arrays.asList(
-        Span.of(3, 5), Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+        Span.of(null, 3, 5), Span.of(null, 6, 10), Span.of(null, 11, 15), Span.of(null, 16, 20)
     ), inside.asList());
   }
 
@@ -212,9 +212,9 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void beginsInside() {
-    LabelIndex<Span> beginsInside = ascending.beginningInside(Span.of(4, 22));
+    LabelIndex<Span> beginsInside = ascending.beginningInside(Span.of(null, 4, 22));
     assertEquals(Arrays.asList(
-        Span.of(6, 10), Span.of(11, 15), Span.of(16, 20)
+        Span.of(null, 6, 10), Span.of(null, 11, 15), Span.of(null, 16, 20)
     ), beginsInside.asList());
   }
 
@@ -226,13 +226,13 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void covering() {
-    LabelIndex<Span> covering = ascending.covering(Span.of(7, 10));
-    assertEquals(Collections.singletonList(Span.of(6, 10)), covering.asList());
+    LabelIndex<Span> covering = ascending.covering(Span.of(null, 7, 10));
+    assertEquals(Collections.singletonList(Span.of(null, 6, 10)), covering.asList());
   }
 
   @Test
   void coveringEmpty() {
-    LabelIndex<Span> covering = ascending.covering(Span.of(7, 12));
+    LabelIndex<Span> covering = ascending.covering(Span.of(null, 7, 12));
     assertEquals(Collections.emptyList(), covering.asList());
   }
 
@@ -246,7 +246,7 @@ public class DistinctLabelIndexAscendingViewTest {
   void descending() {
     LabelIndex<Span> descending = ascending.descending();
     assertEquals(Arrays.asList(
-        Span.of(16, 20), Span.of(11, 15), Span.of(6, 10), Span.of(3, 5), Span.of(0, 3)),
+        Span.of(null, 16, 20), Span.of(null, 11, 15), Span.of(null, 6, 10), Span.of(null, 3, 5), Span.of(null, 0, 3)),
         descending.asList()
     );
   }
@@ -254,7 +254,7 @@ public class DistinctLabelIndexAscendingViewTest {
   @Test
   void listGet() {
     Span span = ascending.asList().get(2);
-    assertEquals(Span.of(6, 10), span);
+    assertEquals(Span.of(null, 6, 10), span);
   }
 
   @Test
@@ -270,7 +270,7 @@ public class DistinctLabelIndexAscendingViewTest {
   @Test
   void offsetListGet() {
     Span span = ascending.inside(3, 15).asList().get(2);
-    assertEquals(Span.of(11, 15), span);
+    assertEquals(Span.of(null, 11, 15), span);
   }
 
   @Test
@@ -285,7 +285,7 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void listContainsFalse() {
-    assertFalse(ascending.asList().contains(Span.of(7, 10)));
+    assertFalse(ascending.asList().contains(Span.of(null, 7, 10)));
   }
 
   @Test
@@ -297,27 +297,27 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void listContains() {
-    assertTrue(ascending.asList().contains(Span.of(11, 15)));
+    assertTrue(ascending.asList().contains(Span.of(null, 11, 15)));
   }
 
   @Test
   void emptyAsListContains() {
-    assertFalse(emptyAscending.asList().contains(Span.of(3, 5)));
+    assertFalse(emptyAscending.asList().contains(Span.of(null, 3, 5)));
   }
 
   @Test
   void asListIndexOf() {
-    assertEquals(1, ascending.asList().indexOf(Span.of(3, 5)));
+    assertEquals(1, ascending.asList().indexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void offsetAsListIndexOf() {
-    assertEquals(0, ascending.inside(3, 15).asList().indexOf(Span.of(3, 5)));
+    assertEquals(0, ascending.inside(3, 15).asList().indexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void asListIndexOfFalse() {
-    assertEquals(-1, ascending.inside(3, 15).asList().indexOf(Span.of(3, 6)));
+    assertEquals(-1, ascending.inside(3, 15).asList().indexOf(Span.of(null, 3, 6)));
   }
 
   @Test
@@ -327,22 +327,22 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void emptyAsListIndexOf() {
-    assertEquals(-1, emptyAscending.asList().indexOf(Span.of(3, 5)));
+    assertEquals(-1, emptyAscending.asList().indexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void asListLastIndexOf() {
-    assertEquals(2, ascending.asList().lastIndexOf(Span.of(6, 10)));
+    assertEquals(2, ascending.asList().lastIndexOf(Span.of(null, 6, 10)));
   }
 
   @Test
   void offsetAsListLastIndexOf() {
-    assertEquals(1, ascending.inside(3, 15).asList().lastIndexOf(Span.of(6, 10)));
+    assertEquals(1, ascending.inside(3, 15).asList().lastIndexOf(Span.of(null, 6, 10)));
   }
 
   @Test
   void asListLastIndexOfFalse() {
-    assertEquals(-1, ascending.inside(3, 15).asList().lastIndexOf(Span.of(3, 6)));
+    assertEquals(-1, ascending.inside(3, 15).asList().lastIndexOf(Span.of(null, 3, 6)));
   }
 
   @Test
@@ -352,22 +352,22 @@ public class DistinctLabelIndexAscendingViewTest {
 
   @Test
   void emptyAsListLastIndexOf() {
-    assertEquals(-1, emptyAscending.asList().lastIndexOf(Span.of(3, 5)));
+    assertEquals(-1, emptyAscending.asList().lastIndexOf(Span.of(null, 3, 5)));
   }
 
   @Test
   void iterator() {
     Iterator<@NotNull Span> it = ascending.iterator();
     assertTrue(it.hasNext());
-    assertEquals(Span.of(0, 3), it.next());
+    assertEquals(Span.of(null, 0, 3), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(3, 5), it.next());
+    assertEquals(Span.of(null, 3, 5), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(6, 10), it.next());
+    assertEquals(Span.of(null, 6, 10), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(11, 15), it.next());
+    assertEquals(Span.of(null, 11, 15), it.next());
     assertTrue(it.hasNext());
-    assertEquals(Span.of(16, 20), it.next());
+    assertEquals(Span.of(null, 16, 20), it.next());
     assertFalse(it.hasNext());
     assertThrows(NoSuchElementException.class, it::next);
   }

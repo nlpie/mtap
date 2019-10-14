@@ -18,9 +18,11 @@ import threading
 from mtap import processor_parser, run_processor
 from mtap._config import Config
 from mtap._events_service import EventsServer
-from mtap.io.serialization import get_serializer, SerializationProcessor
+from mtap.io.serialization import SerializationProcessor, JsonSerializer
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
+
+_serializers = {'json': JsonSerializer}
 
 
 def run_events_server(args):
@@ -46,7 +48,7 @@ def run_events_server(args):
 
 
 def run_serializer_processor(args):
-    ser = get_serializer(args.serializer)
+    ser = _serializers[args.serializer]
     proc = SerializationProcessor(ser, args.output_dir)
     run_processor(proc, args=args)
 
@@ -75,7 +77,8 @@ def main(args=None):
 
     # Serializer processor sub-command
     serializer_parser = subparsers.add_parser('serializer', parents=[processor_parser()])
-    serializer_parser.add_argument('serializer', help="The name of the serializer to use.")
+    serializer_parser.add_argument('serializer', choices=['json'],
+                                   help="The name of the serializer to use.")
     serializer_parser.add_argument('--output-dir', '-o', default=".",
                                    help="Directory to write serialized files to.")
     serializer_parser.set_defaults(func=run_serializer_processor)
