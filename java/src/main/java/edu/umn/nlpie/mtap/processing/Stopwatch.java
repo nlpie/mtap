@@ -63,7 +63,7 @@ public class Stopwatch implements AutoCloseable {
   /**
    * Returns the total elapsed duration.
    *
-   * @return
+   * @return The total duration across all start/stop calls.
    */
   public @NotNull Duration elapsed() {
     return stopwatch.elapsed();

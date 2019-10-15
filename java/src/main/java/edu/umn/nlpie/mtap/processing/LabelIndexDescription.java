@@ -34,6 +34,14 @@ public @interface LabelIndexDescription {
   String name() default "";
 
   /**
+   * If this is an output of another processor, that processor's name followed by a slash
+   * and the default output name of the index go here. Example: "sentence-detector/sentences".
+   *
+   * @return A string reference.
+   */
+  String reference() default "";
+
+  /**
    * If the name comes from a parameter, the key for that parameter.
    *
    * @return A string key.

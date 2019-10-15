@@ -36,6 +36,13 @@ public @interface Processor {
   String value();
 
   /**
+   * A human-readable name for the processor.
+   *
+   * @return String human readable name like "Part of Speech Tagger"
+   */
+  String humanName() default "";
+
+  /**
    * A short description of what the processor does.
    *
    * @return String description.

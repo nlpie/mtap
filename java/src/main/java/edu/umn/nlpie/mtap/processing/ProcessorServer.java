@@ -287,6 +287,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
   private static void addLabelIndex(GetInfoResponse.LabelIndexDescription.Builder builder,
                                     LabelIndexDescription description) {
     builder.setName(description.name())
+        .setReference(description.reference())
         .setNameFromParameter(description.nameFromParameter())
         .setOptional(description.optional())
         .setDescription(description.description());

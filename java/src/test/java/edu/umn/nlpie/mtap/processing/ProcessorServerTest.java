@@ -191,15 +191,15 @@ class ProcessorServerTest {
     assertEquals("b_param", response.getParameters(1).getName());
     assertEquals("str", response.getParameters(1).getDataType());
     assertFalse(response.getParameters(1).getRequired());
-    assertEquals("input_index", response.getInputs(0).getName());
-    assertEquals("desc", response.getInputs(0).getDescription());
-    assertEquals("prop_a", response.getInputs(0).getProperties(0).getName());
-    assertEquals("prop desc.", response.getInputs(0).getProperties(0).getDescription());
-    assertEquals("blah", response.getInputs(0).getProperties(0).getDataType());
-    assertTrue(response.getInputs(0).getProperties(0).getNullable());
-    assertEquals("prop_b", response.getInputs(0).getProperties(1).getName());
-    assertEquals("str", response.getInputs(0).getProperties(1).getDataType());
-    assertFalse(response.getInputs(0).getProperties(1).getNullable());
+    assertEquals("foo", response.getInputs(0).getName());
+    assertEquals("other-processor/foo", response.getInputs(0).getReference());
+    assertEquals("prop_a", response.getOutputs(0).getProperties(0).getName());
+    assertEquals("prop desc.", response.getOutputs(0).getProperties(0).getDescription());
+    assertEquals("blah", response.getOutputs(0).getProperties(0).getDataType());
+    assertTrue(response.getOutputs(0).getProperties(0).getNullable());
+    assertEquals("prop_b", response.getOutputs(0).getProperties(1).getName());
+    assertEquals("str", response.getOutputs(0).getProperties(1).getDataType());
+    assertFalse(response.getOutputs(0).getProperties(1).getNullable());
 
 
     channel.shutdown();
@@ -278,19 +278,19 @@ class ProcessorServerTest {
       },
       inputs = {
           @LabelIndexDescription(
-              name = "input_index",
-              description = "desc",
-              properties = {
-                  @PropertyDescription(name = "prop_a", description = "prop desc.", dataType = "blah", nullable = true),
-                  @PropertyDescription(name = "prop_b", dataType = "str")
-              }
+              name = "foo",
+              reference = "other-processor/foo"
           )
       },
       outputs = {
           @LabelIndexDescription(
               name = "output_index",
               nameFromParameter = "output_index",
-              description = "Occurrences of the specified word."
+              description = "Occurrences of the specified word.",
+              properties = {
+                  @PropertyDescription(name = "prop_a", description = "prop desc.", dataType = "blah", nullable = true),
+                  @PropertyDescription(name = "prop_b", dataType = "str")
+              }
           )
       }
   )

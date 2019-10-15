@@ -86,9 +86,13 @@ message GetInfoRequest {
  * parameters), and outputs (label indices and parameters), etc.
  */
 message GetInfoResponse {
-  /* The name of the processor.
+  /* The dns name / default deployment identifier of the processor.
    */
   string name = 1;
+
+  /* A human-readable name for the processor.
+   */
+  string human_name = 9;
 
   /* The deployment identifier for the processor.
    */
@@ -136,6 +140,11 @@ message GetInfoResponse {
     /* The default name of the label index.
      */
     string name = 1;
+
+    /* If this is an output of another processor, that processor's name followed by a slash
+     * and the default output name of the index go here. Example: "sentence-detector/sentences".
+     */
+    string reference = 6;
 
     /* If the name comes from a parameter, the key for that parameter.
      */

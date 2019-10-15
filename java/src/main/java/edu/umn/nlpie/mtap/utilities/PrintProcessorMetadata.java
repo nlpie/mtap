@@ -32,10 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
@@ -68,6 +65,11 @@ public class PrintProcessorMetadata {
     if ("".equals(entryPoint)) {
       entryPoint = processorClass.getCanonicalName();
     }
+    String humanName = processor.humanName();
+    if ("".equals(humanName)) {
+      humanName = processorClass.getSimpleName();
+    }
+    map.put("human_name", humanName);
     map.put("entry_point", entryPoint);
     map.put("language", processor.language());
 
@@ -126,7 +128,14 @@ public class PrintProcessorMetadata {
   static Map<String, Object> descToMap(LabelIndexDescription input) {
     Map<String, Object> map = new HashMap<>();
     map.put("name", input.name());
-    map.put("name_from_parameter", input.nameFromParameter());
+    String reference = input.reference();
+    if (!"".equals(reference)) {
+      map.put("reference", reference);
+    }
+    String nameFromParameter = input.nameFromParameter();
+    if (!"".equals(nameFromParameter)) {
+      map.put("name_from_parameter", nameFromParameter);
+    }
     map.put("description", input.description());
     List<Map<String, Object>> properties = new ArrayList<>();
     for (PropertyDescription property : input.properties()) {

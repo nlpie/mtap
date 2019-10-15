@@ -19,7 +19,6 @@ from mtap._config import Config
 from mtap.events import Event, Document, EventsClient
 from mtap.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
     ProcessingComponent
-from mtap.processing._utils import unique_component_id
 from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
 
 
@@ -75,7 +74,7 @@ class RemoteProcessor(ComponentDescriptor):
     def create_pipeline_component(self, config: Config,
                                   component_ids: Dict[str, int]) -> ProcessingComponent:
         component_id = self.component_id or self.processor_id
-        component_id = unique_component_id(component_ids, component_id)
+        component_id = _unique_component_id(component_ids, component_id)
         runner = RemoteRunner(config=config, processor_id=self.processor_id, address=self.address,
                               component_id=component_id, params=self.params)
         runner.descriptor = self
@@ -129,7 +128,7 @@ class LocalProcessor(ComponentDescriptor):
 
     def create_pipeline_component(self, config: Config,
                                   component_ids: Dict[str, int]) -> ProcessingComponent:
-        identifier = unique_component_id(component_ids, self.component_id)
+        identifier = _unique_component_id(component_ids, self.component_id)
         runner = ProcessorRunner(proc=self.proc, client=self.client, identifier=identifier,
                                  params=self.params)
         runner.descriptor = self
@@ -389,3 +388,11 @@ class _PipelineProcessor(EventProcessor):
             _PipelineProcessor.current_context().add_time(k, v)
 
         return {'component_results': [result[0] for result in results]}
+
+
+def _unique_component_id(component_ids, component_id):
+    count = component_ids.get(component_id, 0)
+    count += 1
+    component_ids[component_id] = count
+    component_id = component_id + '-' + str(count)
+    return component_id

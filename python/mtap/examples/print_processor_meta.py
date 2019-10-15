@@ -11,14 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Prints the processor metadata for the example processor."""
 import sys
 
 from mtap.examples.example_processor import ExampleProcessor
-from mtap.processing import write_processors_metadata
 
 
 def main(filename: str):
-    write_processors_metadata(filename, ExampleProcessor)
+    from yaml import dump
+    try:
+        from yaml import CDumper as Dumper
+    except ImportError:
+        from yaml import Dumper as Dumper
+
+    with open(filename, 'w') as f:
+        dump(ExampleProcessor.metadata, f, Dumper=Dumper)
 
 
 if __name__ == '__main__':
