@@ -25,12 +25,15 @@ import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
+
 @Internal
 class LocalRunner implements Runner {
   private final EventsClient client;
   private final EventProcessor processor;
   private final String processorName;
   private final String processorId;
+  private final Map<String, Object> processorMeta;
 
   LocalRunner(EventsClient client,
               EventProcessor processor,
@@ -40,6 +43,8 @@ class LocalRunner implements Runner {
     this.processor = processor;
     this.processorName = processorName;
     this.processorId = processorId;
+
+    processorMeta = processor.getProcessorMetadata();
   }
 
   public static @NotNull Builder forProcessor(@NotNull EventProcessor processor) {
@@ -78,9 +83,11 @@ class LocalRunner implements Runner {
   }
 
   @Override
-  public Processor getProcessorMeta() {
-    return processor.getClass().getAnnotation(Processor.class);
+  public Map<String, Object> getProcessorMeta() {
+    return processorMeta;
   }
+
+
 
   @Override
   public void close() {

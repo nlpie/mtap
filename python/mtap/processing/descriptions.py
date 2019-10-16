@@ -174,12 +174,10 @@ def processor(name: str,
               *,
               human_name: Optional[str] = None,
               description: Optional[str] = None,
-              entry_point: Optional[str] = None,
-              language: str = 'python',
               parameters: Optional[List[ParameterDescription]] = None,
-              inputs: Optional[List[str]] = None,
+              inputs: Optional[List[LabelDescription]] = None,
               outputs: Optional[List[LabelDescription]] = None,
-              additional_metadata: Optional[Dict[str, Any]] = None):
+              **additional_metadata: str):
     """Decorator which attaches a service name and metadata to a processor. Which then can be used
     for runtime reflection of how the processor works.
 
@@ -195,9 +193,6 @@ def processor(name: str,
     Keyword Args:
         human_name (~typing.Optional[str]): An option human name for the processor.
         description (~typing.Optional[str]): A short description of the processor and what it does.
-        entry_point (~typing.Optional[str]):
-            The processor's entry point / main module. Will be added by reflection if not specified.
-        language (str): The processor's language. Defaults to 'python'.
         parameters (~typing.Optional[~typing.List[ParameterDescription]]):
             The processor's parameters.
         inputs (~typing.Optional[~typing.List[str]]):
@@ -207,7 +202,7 @@ def processor(name: str,
             "sentence-detector:sentences".
         outputs (~typing.Optional[~typing.List[LabelDescription]]):
             The label indices this processor outputs.
-        additional_metadata (~typing.Optional[~typing.Dict[str, Any]]):
+        **additional_metadata (~typing.Any):
             Any other data that should be added to the processor's metadata, should be serializable
             to yaml and json.
 
@@ -259,8 +254,6 @@ def processor(name: str,
         f.metadata['name'] = name
         f.metadata['human_name'] = human_name
         f.metadata['description'] = description
-        f.metadata['entry_point'] = entry_point
-        f.metadata['language'] = language
         f.metadata['parameters'] = [{
             'name': p.name,
             'description': p.description,

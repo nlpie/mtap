@@ -16,11 +16,7 @@
 
 package edu.umn.nlpie.mtap.utilities;
 
-import edu.umn.nlpie.mtap.processing.LabelIndexDescription;
-import edu.umn.nlpie.mtap.processing.ParameterDescription;
-import edu.umn.nlpie.mtap.processing.Processor;
-import edu.umn.nlpie.mtap.processing.PropertyDescription;
-import org.jetbrains.annotations.NotNull;
+import edu.umn.nlpie.mtap.processing.*;
 import org.kohsuke.args4j.Argument;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -56,53 +52,10 @@ public class PrintProcessorMetadata {
   )
   private String[] classNames;
 
-  public static Map<String, Object> toMap(Class<?> processorClass) {
-    Processor processor = processorClass.getAnnotation(Processor.class);
-    Map<String, Object> map = new HashMap<>();
-    map.put("name", processor.value());
-    map.put("description", processor.description());
-    String entryPoint = processor.entryPoint();
-    if ("".equals(entryPoint)) {
-      entryPoint = processorClass.getCanonicalName();
-    }
-    String humanName = processor.humanName();
-    if ("".equals(humanName)) {
-      humanName = processorClass.getSimpleName();
-    }
-    map.put("human_name", humanName);
-    map.put("entry_point", entryPoint);
-    map.put("language", processor.language());
-
-    List<Map<String, Object>> inputs = new ArrayList<>();
-    for (LabelIndexDescription input : processor.inputs()) {
-      inputs.add(descToMap(input));
-    }
-    map.put("inputs", inputs);
-
-    List<Map<String, Object>> outputs = new ArrayList<>();
-    for (LabelIndexDescription output : processor.outputs()) {
-      outputs.add(descToMap(output));
-    }
-    map.put("outputs", outputs);
-
-    List<Map<String, Object>> parameters = new ArrayList<>();
-    for (ParameterDescription parameter : processor.parameters()) {
-      Map<String, Object> paramMap = new HashMap<>();
-      paramMap.put("name", parameter.name());
-      paramMap.put("description", parameter.description());
-      paramMap.put("data_type", parameter.dataType());
-      paramMap.put("required", parameter.required());
-      parameters.add(paramMap);
-    }
-    map.put("parameters", parameters);
-
-    return map;
-  }
-
   public static void dump(Path filePath, Class... processorClasses) throws IOException {
     List<Map<String, Object>> lists = new ArrayList<>();
     for (Class processorClass : processorClasses) {
-      lists.add(toMap(processorClass));
+      lists.add(EventProcessor.metadataMap(processorClass));
     }
     Yaml yaml = new Yaml();
     try (
@@ -122,32 +75,6 @@ public class PrintProcessorMetadata {
       classes[i] = aClass;
     }
     dump(outputPath, classes);
-  }
-
-  @NotNull
-  static Map<String, Object> descToMap(LabelIndexDescription input) {
-    Map<String, Object> map = new HashMap<>();
-    map.put("name", input.name());
-    String reference = input.reference();
-    if (!"".equals(reference)) {
-      map.put("reference", reference);
-    }
-    String nameFromParameter = input.nameFromParameter();
-    if (!"".equals(nameFromParameter)) {
-      map.put("name_from_parameter", nameFromParameter);
-    }
-    map.put("description", input.description());
-    List<Map<String, Object>> properties = new ArrayList<>();
-    for (PropertyDescription property : input.properties()) {
-      Map<String, Object> propertyMap = new HashMap<>();
-      propertyMap.put("name", property.name());
-      propertyMap.put("description", property.description());
-      propertyMap.put("data_type", property.dataType());
-      propertyMap.put("nullable", property.nullable());
-      properties.add(propertyMap);
-    }
-    map.put("properties", properties);
-    return map;
   }
 
   public static void main(String[] args) {

@@ -225,21 +225,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         return r
 
     def GetInfo(self, request, context):
-        response = processing_pb2.GetInfoResponse(name=self.pr.metadata['name'],
-                                                  identifier=self.processor_id,
-                                                  description=self.pr.metadata['description'],
-                                                  entry_point=self.pr.metadata['entry_point'],
-                                                  language=self.pr.metadata['language'])
-        for parameter in self.pr.metadata['parameters']:
-            p = response.parameters.add()
-            p.name = parameter['name']
-            p.description = parameter['description']
-            p.data_type = parameter['data_type']
-            p.required = parameter['required']
-        for i in self.pr.metadata['inputs']:
-            _label_index_meta_to_proto(i, response.inputs.add())
-        for o in self.pr.metadata['outputs']:
-            _label_index_meta_to_proto(o, response.outputs.add())
+        response = processing_pb2.GetInfoResponse()
+        _structs.copy_dict_to_struct(self.pr.metadata, response.metadata)
         return response
 
 

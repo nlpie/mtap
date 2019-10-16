@@ -2,7 +2,7 @@
   human_name: Java Example Processor
   description: Labels occurrences of a word.
   entry_point: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor
-  language: java
+  implementation_lang: Java
   parameters:
     - name: do_work
       description: Whether the processor should do anything.

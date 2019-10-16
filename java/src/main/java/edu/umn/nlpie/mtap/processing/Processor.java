@@ -50,20 +50,6 @@ public @interface Processor {
   String description() default "";
 
   /**
-   * The processor's entry point / main class.
-   *
-   * @return A string of the fully qualified class name.
-   */
-  String entryPoint() default "";
-
-  /**
-   * The processor's language. Defaults to "java".
-   *
-   * @return String identifier for the language.
-   */
-  String language() default "java";
-
-  /**
    * Descriptions of the processor's parameters.
    *
    * @return Array of parameter descriptions.
@@ -83,4 +69,11 @@ public @interface Processor {
    * @return Array of descriptions for label indices the processor creates.
    */
   LabelIndexDescription[] outputs() default {};
+
+  /**
+   * Any additional metadata.
+   *
+   * @return Array of Key-Value pairs.
+   */
+  KeyValue[] additionalMetadata() default {};
 }
