@@ -15,6 +15,8 @@
 
 # multi-stage dockerfile for nlp-newt
 #
+# Nb; Build the source first
+#
 # To build docker images:
 #
 # docker build --target <TARGET NAME -> found after AS in FROM statement>  -t namespace/image:latest .
@@ -95,6 +97,7 @@ ENTRYPOINT [ "python", "pipeline.py"]
 # build:  docker build --target javaa-processor  -t gms/java-processor:latest .
 #
 # run: docker run  --net=host gms/java-processor
+#
 # ----------------------------------
 FROM openjdk:8-jre AS java-processor
 
@@ -104,6 +107,7 @@ RUN mkdir -p /usr/share/man/man1
 
 RUN apt-get update
 RUN apt-get install openjdk-8-jdk -y
+
 
 COPY java/build/libs /usr/share/python/mtap/examples
 
