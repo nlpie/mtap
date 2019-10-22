@@ -15,7 +15,7 @@
 
 # multi-stage dockerfile for nlp-newt
 #
-# NB; Build the source first!!!!!!!
+# NB: Build the source first!!!!!!!
 #
 # To build docker images:
 #
