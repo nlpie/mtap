@@ -15,7 +15,7 @@
 
 # multi-stage dockerfile for nlp-newt
 #
-# Nb; Build the source first
+# NB; Build the source first!!!!!!!
 #
 # To build docker images:
 #
@@ -23,7 +23,7 @@
 #
 # To run examples:
 #
-# start event processor 
+# start event processor ->
 #(base) D20181472:mtap gms$ docker run  --net=host gms/processor
 #INFO:mtap._events_service:Starting events server on address: localhost:9090
 
@@ -35,7 +35,6 @@
 #Hello YOUR NAME!
 
 # NB: For all tutorials, you will need to have this Dockerfile in the same directory as a the clone of mtap (under the directory src)
-# all example files are located in the root of this project, under the examples subdirectory
 #
 #
 # Tutorial: https://nlpie.github.io/mtap/docs/tutorials/python.html
@@ -107,7 +106,6 @@ RUN mkdir -p /usr/share/man/man1
 
 RUN apt-get update
 RUN apt-get install openjdk-8-jdk -y
-
 
 COPY java/build/libs /usr/share/python/mtap/examples
 
