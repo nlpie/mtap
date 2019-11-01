@@ -19,8 +19,8 @@
 #
 # To build docker images:
 #
-# docker build --target <TARGET NAME -> found after AS in FROM statement>  -t namespace/image:latest .
-#
+# DOCKER_BUILDKIT=1 docker build -t <image name> --target <target> .
+
 # To run examples:
 #
 # start event processor ->
@@ -42,7 +42,7 @@
 #=============================================================
 # Python events processor
 # 
-# build:  docker build --target events  -t gms/events:latest .
+# build:  DOCKER_BUILDKIT=1 docker build -t gms/events:latest --target events . 
 #
 # run: docker run  --net=host gms/events
 # -----------------------------------
@@ -59,7 +59,7 @@ ENTRYPOINT [ "python", "-m",  "mtap", "events", "--address", "localhost", "--por
 #===================================================================
 # Python processor
 # 
-# build:  docker build --target processor  -t gms/processor:latest .
+# build: DOCKER_BUILDKIT=1 docker build -t gms/processor:latest --target processor .  
 #
 # run: docker run  --net=host gms/processor
 # ---------------------------------------
@@ -75,7 +75,7 @@ ENTRYPOINT [ "python", "hello.py",  "--address", "localhost", "--port", "9091", 
 #================================================================
 # Python pipeline
 # 
-# build:  docker build --target pipeline  -t gms/pipeline:latest .
+# build: DOCKER_BUILDKIT=1 docker build -t gms/pipeline:latest --target pipeline . 
 #
 # run: docker run  --net=host gms/pipeline
 # -------------------------------------
@@ -93,7 +93,7 @@ ENTRYPOINT [ "python", "pipeline.py"]
 #=============================================================================
 # Java processor
 # 
-# build:  docker build --target javaa-processor  -t gms/java-processor:latest .
+# build: DOCKER_BUILDKIT=1 docker build -t gms/java-processor:latest --target java-processor . 
 #
 # run: docker run  --net=host gms/java-processor
 #
