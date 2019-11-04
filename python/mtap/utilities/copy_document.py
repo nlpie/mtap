@@ -85,9 +85,9 @@ def main(args=None):
                         help='Name of source document.')
     parser.add_argument('target_document_name', metavar='TARGET_NAME',
                         help='Name of target document.')
-    args = parser.parse_args(args)
-    p = CopyDocument(args.source_document_name, args.target_document_name, args.index_names)
-    run_processor(p, args)
+    ns = parser.parse_args(args)
+    p = CopyDocument(ns.source_document_name, ns.target_document_name, ns.index_names)
+    run_processor(p, namespace=ns)
 
 
 if __name__ == '__main__':

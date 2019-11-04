@@ -44,7 +44,8 @@ null."""
 
 
 def label_property(name: str,
-                   *, nullable: bool = False,
+                   *,
+                   nullable: bool = False,
                    description: Optional[str] = None,
                    data_type: Optional[str] = None) -> PropertyDescription:
     """Creates a description for a property on a label.
@@ -110,8 +111,6 @@ def label_index(name: str,
     Returns:
         LabelDescription: An object describing a label index.
     """
-    if properties is None:
-        properties = []
     return LabelDescription(name, reference, name_from_parameter, optional, description, properties)
 
 
@@ -130,7 +129,8 @@ ParameterDescription.required.__doc__ = """bool: Whether the parameter is requir
 
 
 def parameter(name: str,
-              *, required: bool = False,
+              *,
+              required: bool = False,
               data_type: Optional[str] = None,
               description: Optional[str] = None) -> ParameterDescription:
     """A description of one of the processor's parameters.
@@ -150,24 +150,6 @@ def parameter(name: str,
     """
     return ParameterDescription(name=name, description=description, data_type=data_type,
                                 required=required)
-
-
-def _desc_to_dict(description: LabelDescription) -> dict:
-    return {
-        'name': description.name,
-        'name_from_parameter': description.name_from_parameter,
-        'reference': description.reference,
-        'optional': description.optional,
-        'description': description.description,
-        'properties': [
-            {
-                'name': p.name,
-                'description': p.description,
-                'data_type': p.data_type,
-                'nullable': p.nullable
-            } for p in description.properties
-        ]
-    }
 
 
 def processor(name: str,
@@ -243,27 +225,64 @@ def processor(name: str,
 
 
     """
-    if parameters is None:
-        parameters = []
-    if inputs is None:
-        inputs = []
-    if outputs is None:
-        outputs = []
 
     def decorator(f: Type['EventProcessor']) -> Type['EventProcessor']:
         f.metadata['name'] = name
         f.metadata['human_name'] = human_name
         f.metadata['description'] = description
-        f.metadata['parameters'] = [{
-            'name': p.name,
-            'description': p.description,
-            'data_type': p.data_type,
-            'required': p.required
-        } for p in parameters]
-        f.metadata['inputs'] = [_desc_to_dict(desc) for desc in inputs]
-        f.metadata['outputs'] = [_desc_to_dict(desc) for desc in outputs]
+        if parameters is not None:
+            f.metadata['parameters'] = [_parameter_to_map(p) for p in parameters]
+        if inputs is not None:
+            f.metadata['inputs'] = [_desc_to_dict(desc) for desc in inputs]
+        if outputs is not None:
+            f.metadata['outputs'] = [_desc_to_dict(desc) for desc in outputs]
         if additional_metadata is not None:
             f.metadata.update(additional_metadata)
+        if 'implementation_lang' not in f.metadata:
+            f.metadata['implementation_lang'] = 'Python'
         return f
 
     return decorator
+
+
+def _desc_to_dict(description: LabelDescription) -> dict:
+    m = {
+        'name': description.name
+    }
+    if description.name_from_parameter is not None:
+        m['name_from_parameter'] = description.name_from_parameter
+    if description.reference is not None:
+        m['reference'] = description.reference
+    if description.optional is not None:
+        m['optional'] = description.optional
+    if description.description is not None:
+        m['description'] = description.description
+    if description.properties is not None:
+        m['properties'] = [_prop_to_dict(p) for p in description.properties]
+    return m
+
+
+def _prop_to_dict(p: PropertyDescription) -> Dict[str, Any]:
+    m = {
+        'name': p.name
+    }
+    if p.description is not None:
+        m['description'] = p.description
+    if p.data_type is not None:
+        m['data_type'] = p.data_type
+    if p.nullable is not None:
+        m['nullable'] = p.nullable
+    return m
+
+
+def _parameter_to_map(p: ParameterDescription) -> Dict[str, Any]:
+    m = {
+        'name': p.name
+    }
+    if p.description is not None:
+        m['description'] = p.description
+    if p.data_type is not None:
+        m['data_type'] = p.data_type
+    if p.required is not None:
+        m['required'] = p.required
+    return m

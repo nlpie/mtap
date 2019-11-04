@@ -15,7 +15,7 @@ from mtap.events import Event, Document
 
 from mtap.labels import GenericLabel
 
-from mtap.processors.copy_document import CopyDocument
+from mtap.utilities.copy_document import CopyDocument
 
 
 def test_copy_document():

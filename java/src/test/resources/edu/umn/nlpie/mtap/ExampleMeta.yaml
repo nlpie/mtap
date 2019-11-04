@@ -12,9 +12,7 @@
       description: The output index name.
       data_type: str
       required: no
-  inputs: []
   outputs:
     - name: mtap.examples.word_occurrences
       name_from_parameter: output_index
       description: Occurrences of the specified word.
-      properties: []

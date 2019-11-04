@@ -20,7 +20,7 @@ from mtap import label_indices
 from mtap import labels
 from mtap import metrics
 from mtap import processing
-from mtap import processors
+from mtap import utilities
 from mtap import version
 from mtap._config import Config
 from mtap._events_service import EventsServer
@@ -64,8 +64,8 @@ __all__ = [
     'label_index',
     'Pipeline',
     'processor',
-    'processors',
     'processor_parser',
     'ProcessorServer',
-    'run_processor'
+    'run_processor',
+    'utilities',
 ]
