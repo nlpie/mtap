@@ -15,6 +15,7 @@
 import contextlib
 import threading
 from abc import ABCMeta, abstractmethod
+from collections import OrderedDict
 from datetime import timedelta, datetime
 from typing import List, ContextManager, Any, Dict, NamedTuple, Optional
 
@@ -102,11 +103,7 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
 class ProcessorMeta(ABCMeta):
     def __new__(mcs, name, bases, namespace, **kwargs):
         cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        cls.metadata = {
-            'description': None,
-            'inputs': [],
-            'outputs': []
-        }
+        cls.metadata = {}
         return cls
 
 

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from mtap.processing import base
-from mtap.processing._utils import write_processors_metadata
 from mtap.processing.base import AggregateTimingInfo
 from mtap.processing.base import DocumentProcessor
 from mtap.processing.base import EventProcessor
@@ -30,7 +29,6 @@ from mtap.processing.service import run_processor
 
 __all__ = [
     'base',
-    'write_processors_metadata',
     'descriptions',
     'processor',
     'EventProcessor',

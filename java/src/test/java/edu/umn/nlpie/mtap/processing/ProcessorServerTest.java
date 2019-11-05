@@ -68,7 +68,7 @@ class ProcessorServerTest {
   void setUp() {
     mockRunner = mock(Runner.class);
     when(mockRunner.getProcessorId()).thenReturn("processorId");
-    when(mockRunner.getProcessorMeta()).thenReturn(TestProcessor.class.getAnnotation(Processor.class));
+    when(mockRunner.getProcessorMeta()).thenReturn(EventProcessor.metadataMap(TestProcessor.class));
     mockDiscoveryMechanism = mock(DiscoveryMechanism.class);
     name = InProcessServerBuilder.generateName();
     InProcessServerBuilder serverBuilder = InProcessServerBuilder.forName(name).directExecutor();
@@ -180,27 +180,36 @@ class ProcessorServerTest {
     Processing.GetInfoResponse response = stub.getInfo(
         Processing.GetInfoRequest.newBuilder().setProcessorId("processorId").build()
     );
-    assertEquals("test-processor", response.getName());
-    assertEquals("desc.", response.getDescription());
-    assertEquals("foo", response.getEntryPoint());
-    assertEquals("java", response.getLanguage());
-    assertEquals("a_param", response.getParameters(0).getName());
-    assertEquals("param desc.", response.getParameters(0).getDescription());
-    assertEquals("bool", response.getParameters(0).getDataType());
-    assertTrue(response.getParameters(0).getRequired());
-    assertEquals("b_param", response.getParameters(1).getName());
-    assertEquals("str", response.getParameters(1).getDataType());
-    assertFalse(response.getParameters(1).getRequired());
-    assertEquals("input_index", response.getInputs(0).getName());
-    assertEquals("desc", response.getInputs(0).getDescription());
-    assertEquals("prop_a", response.getInputs(0).getProperties(0).getName());
-    assertEquals("prop desc.", response.getInputs(0).getProperties(0).getDescription());
-    assertEquals("blah", response.getInputs(0).getProperties(0).getDataType());
-    assertTrue(response.getInputs(0).getProperties(0).getNullable());
-    assertEquals("prop_b", response.getInputs(0).getProperties(1).getName());
-    assertEquals("str", response.getInputs(0).getProperties(1).getDataType());
-    assertFalse(response.getInputs(0).getProperties(1).getNullable());
 
+
+    JsonObjectImpl jsonObject = JsonObjectImpl.newBuilder().copyStruct(response.getMetadata())
+        .build();
+    assertEquals("test-processor", jsonObject.getStringValue("name"));
+    assertEquals("desc.", jsonObject.getStringValue("description"));
+    assertEquals("foo", jsonObject.getStringValue("entry_point"));
+    assertEquals("Java", jsonObject.getStringValue("implementation_lang"));
+    JsonObject param0 = (JsonObject) jsonObject.getListValue("parameters").get(0);
+    assertEquals("a_param", param0.getStringValue("name"));
+    assertEquals("param desc.", param0.getStringValue("description"));
+    assertEquals("bool", param0.getStringValue("data_type"));
+    assertTrue(param0.getBooleanValue("required"));
+    JsonObject param1 = (JsonObject) jsonObject.getListValue("parameters").get(1);
+    assertEquals("b_param", param1.getStringValue("name"));
+    assertEquals("str", param1.getStringValue("data_type"));
+    assertFalse(param1.getBooleanValue("required"));
+    JsonObject input0 = (JsonObject) jsonObject.getListValue("inputs").get(0);
+    assertEquals("foo", input0.getStringValue("name"));
+    assertEquals("other-processor/foo", input0.getStringValue("reference"));
+    JsonObject output0 = (JsonObject) jsonObject.getListValue("outputs").get(0);
+    JsonObject properties0 = (JsonObject) output0.getListValue("properties").get(0);
+    assertEquals("prop_a", properties0.getStringValue("name"));
+    assertEquals("prop desc.", properties0.getStringValue("description"));
+    assertEquals("blah", properties0.getStringValue("data_type"));
+    assertTrue(properties0.getBooleanValue("nullable"));
+    JsonObject properties1 = (JsonObject) output0.getListValue("properties").get(1);
+    assertEquals("prop_b", properties1.getStringValue("name"));
+    assertEquals("str", properties1.getStringValue("data_type"));
+    assertFalse(properties1.getBooleanValue("nullable"));
 
     channel.shutdown();
     channel.awaitTermination(10, TimeUnit.SECONDS);
@@ -263,7 +272,6 @@ class ProcessorServerTest {
   @Processor(
       value = "test-processor",
       description = "desc.",
-      entryPoint = "foo",
       parameters = {
           @ParameterDescription(
               name = "a_param",
@@ -278,20 +286,23 @@ class ProcessorServerTest {
       },
       inputs = {
           @LabelIndexDescription(
-              name = "input_index",
-              description = "desc",
-              properties = {
-                  @PropertyDescription(name = "prop_a", description = "prop desc.", dataType = "blah", nullable = true),
-                  @PropertyDescription(name = "prop_b", dataType = "str")
-              }
+              name = "foo",
+              reference = "other-processor/foo"
           )
       },
       outputs = {
           @LabelIndexDescription(
               name = "output_index",
               nameFromParameter = "output_index",
-              description = "Occurrences of the specified word."
+              description = "Occurrences of the specified word.",
+              properties = {
+                  @PropertyDescription(name = "prop_a", description = "prop desc.", dataType = "blah", nullable = true),
+                  @PropertyDescription(name = "prop_b", dataType = "str")
+              }
           )
+      },
+      additionalMetadata = {
+          @KeyValue(key = "entry_point", value = "foo")
       }
   )
   private static class TestProcessor extends DocumentProcessor {

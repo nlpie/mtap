@@ -17,7 +17,7 @@ from subprocess import PIPE, STDOUT, Popen, run
 
 import pytest
 
-from mtap.utils import find_free_port, subprocess_events_server
+from mtap.utilities import find_free_port, subprocess_events_server
 
 config = str(Path(__file__).parent / 'integrationConfig.yaml')
 

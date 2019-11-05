@@ -23,7 +23,7 @@ from requests import RequestException
 
 import mtap
 from mtap import RemoteProcessor, EventsClient, Event
-from mtap.utils import subprocess_events_server
+from mtap.utilities import subprocess_events_server
 
 
 @pytest.fixture(name='disc_python_events')

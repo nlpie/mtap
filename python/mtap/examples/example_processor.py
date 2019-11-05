@@ -22,7 +22,8 @@ from mtap.processing.descriptions import label_index, label_property, parameter
 
 
 @mtap.processor('mtap-example-processor-python',
-                description='counts the number of times the letters a and b occur in a document',
+                human_name="Python Example Processor",
+                description="counts the number of times the letters a and b occur in a document",
                 parameters=[
                        parameter('do_work', required=True, data_type='bool',
                                  description="Whether the processor should do anything.")

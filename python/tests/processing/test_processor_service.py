@@ -66,22 +66,22 @@ def test_GetInfo(processor_servicer):
     ).termination()
 
     assert status_code == grpc.StatusCode.OK
-    assert resp.name == 'mtap-test-processor'
-    assert len(resp.parameters) == 1
-    assert resp.parameters[0].name == 'a_param'
-    assert resp.parameters[0].required
-    assert resp.parameters[0].data_type == 'bool'
-    assert resp.parameters[0].description == 'desc.'
-    assert len(resp.inputs) == 1
-    assert resp.inputs[0].name == 'input_index'
-    assert len(resp.inputs[0].properties) == 1
-    assert resp.inputs[0].properties[0].name == 'bar'
-    assert resp.inputs[0].properties[0].data_type == 'bool'
-    assert len(resp.outputs) == 1
-    assert resp.outputs[0].name == 'output_index'
-    assert resp.outputs[0].description == 'desc.'
-    assert len(resp.outputs[0].properties) == 1
-    assert resp.outputs[0].properties[0].name == 'foo'
-    assert resp.outputs[0].properties[0].data_type == 'str'
-    assert resp.outputs[0].properties[0].nullable
-    assert resp.outputs[0].properties[0].description == 'A label property.'
+    assert resp.metadata['name'] == 'mtap-test-processor'
+    assert len(resp.metadata['parameters']) == 1
+    assert resp.metadata['parameters'][0]['name'] == 'a_param'
+    assert resp.metadata['parameters'][0]['required']
+    assert resp.metadata['parameters'][0]['data_type'] == 'bool'
+    assert resp.metadata['parameters'][0]['description'] == 'desc.'
+    assert len(resp.metadata['inputs']) == 1
+    assert resp.metadata['inputs'][0]['name'] == 'input_index'
+    assert len(resp.metadata['inputs'][0]['properties']) == 1
+    assert resp.metadata['inputs'][0]['properties'][0]['name'] == 'bar'
+    assert resp.metadata['inputs'][0]['properties'][0]['data_type'] == 'bool'
+    assert len(resp.metadata['outputs']) == 1
+    assert resp.metadata['outputs'][0]['name'] == 'output_index'
+    assert resp.metadata['outputs'][0]['description'] == 'desc.'
+    assert len(resp.metadata['outputs'][0]['properties']) == 1
+    assert resp.metadata['outputs'][0]['properties'][0]['name'] == 'foo'
+    assert resp.metadata['outputs'][0]['properties'][0]['data_type'] == 'str'
+    assert resp.metadata['outputs'][0]['properties'][0]['nullable']
+    assert resp.metadata['outputs'][0]['properties'][0]['description'] == 'A label property.'

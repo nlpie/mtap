@@ -17,12 +17,14 @@
 package edu.umn.nlpie.mtap.utilities;
 
 import edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor;
+import edu.umn.nlpie.mtap.processing.EventProcessor;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,7 +34,8 @@ class PrintProcessorMetadataTest {
     try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("edu/umn/nlpie/mtap/ExampleMeta.yaml")) {
       Yaml yaml = new Yaml();
       List o = yaml.load(is);
-      assertEquals(o.get(0), PrintProcessorMetadata.toMap(WordOccurrencesExampleProcessor.class));
+      Map<String, Object> actual = EventProcessor.metadataMap(WordOccurrencesExampleProcessor.class);
+      assertEquals(o.get(0), actual);
     }
   }
 }

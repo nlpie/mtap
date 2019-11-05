@@ -35,8 +35,8 @@ import java.util.regex.Pattern;
 /**
  * An example document processor.
  */
-@Processor(
-    value = "mtap-example-processor-java",
+@Processor(value = "mtap-example-processor-java",
+    humanName = "Java Example Processor",
     description = "Labels occurrences of a word.",
     parameters = {
         @ParameterDescription(

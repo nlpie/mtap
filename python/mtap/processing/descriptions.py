@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Descriptors for processor functionality."""
+import typing
 from typing import NamedTuple, Optional, List, Type, Dict, Any
+
+if typing.TYPE_CHECKING:
+    from mtap.processing.base import EventProcessor
 
 __all__ = [
     'PropertyDescription',
@@ -40,7 +44,8 @@ null."""
 
 
 def label_property(name: str,
-                   *, nullable: bool = False,
+                   *,
+                   nullable: bool = False,
                    description: Optional[str] = None,
                    data_type: Optional[str] = None) -> PropertyDescription:
     """Creates a description for a property on a label.
@@ -62,6 +67,7 @@ def label_property(name: str,
 
 LabelDescription = NamedTuple('LabelDescription',
                               [('name', str),
+                               ('reference', Optional[str]),
                                ('name_from_parameter', Optional[str]),
                                ('optional', bool),
                                ('description', Optional[str]),
@@ -79,7 +85,9 @@ properties of the labels in the label index."""
 
 
 def label_index(name: str,
-                *, optional: bool = False,
+                *,
+                reference: Optional[str] = None,
+                optional: bool = False,
                 name_from_parameter: Optional[str] = None,
                 description: Optional[str] = None,
                 properties: Optional[List[PropertyDescription]] = None) -> LabelDescription:
@@ -89,6 +97,10 @@ def label_index(name: str,
         name (str): The label index name.
 
     Keyword Args:
+        reference (~typing.Optional[str]):
+            If this is an output of another processor, that processor's name followed by a slash
+            and the default output name of the index go here.
+            Example: "sentence-detector/sentences".
         optional (bool): Whether this label index is an optional input or output.
         name_from_parameter (~typing.Optional[str]):
             If the label index gets its name from a processor parameter, the name of the parameter.
@@ -99,9 +111,7 @@ def label_index(name: str,
     Returns:
         LabelDescription: An object describing a label index.
     """
-    if properties is None:
-        properties = []
-    return LabelDescription(name, name_from_parameter, optional, description, properties)
+    return LabelDescription(name, reference, name_from_parameter, optional, description, properties)
 
 
 ParameterDescription = NamedTuple('ParameterDescription',
@@ -119,7 +129,8 @@ ParameterDescription.required.__doc__ = """bool: Whether the parameter is requir
 
 
 def parameter(name: str,
-              *, required: bool = False,
+              *,
+              required: bool = False,
               data_type: Optional[str] = None,
               description: Optional[str] = None) -> ParameterDescription:
     """A description of one of the processor's parameters.
@@ -141,32 +152,14 @@ def parameter(name: str,
                                 required=required)
 
 
-def _desc_to_dict(description: LabelDescription) -> dict:
-    return {
-        'name': description.name,
-        'name_from_parameter': description.name_from_parameter,
-        'optional': description.optional,
-        'description': description.description,
-        'properties': [
-            {
-                'name': p.name,
-                'description': p.description,
-                'data_type': p.data_type,
-                'nullable': p.nullable
-            } for p in description.properties
-        ]
-    }
-
-
 def processor(name: str,
               *,
+              human_name: Optional[str] = None,
               description: Optional[str] = None,
-              entry_point: Optional[str] = None,
-              language: str = 'python',
               parameters: Optional[List[ParameterDescription]] = None,
               inputs: Optional[List[LabelDescription]] = None,
               outputs: Optional[List[LabelDescription]] = None,
-              additional_metadata: Optional[Dict[str, Any]] = None):
+              **additional_metadata: str):
     """Decorator which attaches a service name and metadata to a processor. Which then can be used
     for runtime reflection of how the processor works.
 
@@ -180,17 +173,18 @@ def processor(name: str,
             runtime via the `identifier` option on :func:`processor_parser`.
 
     Keyword Args:
+        human_name (~typing.Optional[str]): An option human name for the processor.
         description (~typing.Optional[str]): A short description of the processor and what it does.
-        entry_point (~typing.Optional[str]):
-            The processor's entry point / main module. Will be added by reflection if not specified.
-        language (str): The processor's language. Defaults to 'python'.
         parameters (~typing.Optional[~typing.List[ParameterDescription]]):
             The processor's parameters.
-        inputs (~typing.Optional[~typing.List[LabelDescription]]):
-            The label indices this processor uses as inputs.
+        inputs (~typing.Optional[~typing.List[str]]):
+            String identifiers for the output from a processor that this processor uses as an input.
+
+            Takes the format "[processor-name]/[output]". Examples would be "tagger:pos_tags" or
+            "sentence-detector:sentences".
         outputs (~typing.Optional[~typing.List[LabelDescription]]):
             The label indices this processor outputs.
-        additional_metadata (~typing.Optional[~typing.Dict[str, Any]]):
+        **additional_metadata (~typing.Any):
             Any other data that should be added to the processor's metadata, should be serializable
             to yaml and json.
 
@@ -215,7 +209,8 @@ def processor(name: str,
 
         >>> from mtap.processing import DocumentProcessor
         >>> @processor('mtap-example-processor-python',
-        >>>            description='counts the number of times the letters a and b occur in a document',
+        >>>            human_name="Python Example Processor",
+        >>>            description="counts the number of times the letters a and b occur in a document",
         >>>            parameters=[
         >>>                parameter('do_work', required=True, data_type='bool',
         >>>                          description="Whether the processor should do anything.")
@@ -230,28 +225,64 @@ def processor(name: str,
 
 
     """
-    if parameters is None:
-        parameters = []
-    if inputs is None:
-        inputs = []
-    if outputs is None:
-        outputs = []
 
     def decorator(f: Type['EventProcessor']) -> Type['EventProcessor']:
         f.metadata['name'] = name
+        f.metadata['human_name'] = human_name
         f.metadata['description'] = description
-        f.metadata['entry_point'] = entry_point
-        f.metadata['language'] = language
-        f.metadata['parameters'] = [{
-            'name': p.name,
-            'description': p.description,
-            'data_type': p.data_type,
-            'required': p.required
-        } for p in parameters]
-        f.metadata['inputs'] = [_desc_to_dict(desc) for desc in inputs]
-        f.metadata['outputs'] = [_desc_to_dict(desc) for desc in outputs]
+        if parameters is not None:
+            f.metadata['parameters'] = [_parameter_to_map(p) for p in parameters]
+        if inputs is not None:
+            f.metadata['inputs'] = [_desc_to_dict(desc) for desc in inputs]
+        if outputs is not None:
+            f.metadata['outputs'] = [_desc_to_dict(desc) for desc in outputs]
         if additional_metadata is not None:
             f.metadata.update(additional_metadata)
+        if 'implementation_lang' not in f.metadata:
+            f.metadata['implementation_lang'] = 'Python'
         return f
 
     return decorator
+
+
+def _desc_to_dict(description: LabelDescription) -> dict:
+    m = {
+        'name': description.name
+    }
+    if description.name_from_parameter is not None:
+        m['name_from_parameter'] = description.name_from_parameter
+    if description.reference is not None:
+        m['reference'] = description.reference
+    if description.optional is not None:
+        m['optional'] = description.optional
+    if description.description is not None:
+        m['description'] = description.description
+    if description.properties is not None:
+        m['properties'] = [_prop_to_dict(p) for p in description.properties]
+    return m
+
+
+def _prop_to_dict(p: PropertyDescription) -> Dict[str, Any]:
+    m = {
+        'name': p.name
+    }
+    if p.description is not None:
+        m['description'] = p.description
+    if p.data_type is not None:
+        m['data_type'] = p.data_type
+    if p.nullable is not None:
+        m['nullable'] = p.nullable
+    return m
+
+
+def _parameter_to_map(p: ParameterDescription) -> Dict[str, Any]:
+    m = {
+        'name': p.name
+    }
+    if p.description is not None:
+        m['description'] = p.description
+    if p.data_type is not None:
+        m['data_type'] = p.data_type
+    if p.required is not None:
+        m['required'] = p.required
+    return m

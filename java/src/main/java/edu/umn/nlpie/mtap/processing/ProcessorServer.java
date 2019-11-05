@@ -17,6 +17,7 @@
 package edu.umn.nlpie.mtap.processing;
 
 import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.DebugInfo;
 import edu.umn.nlpie.mtap.MTAP;
@@ -230,29 +231,14 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
         Processing.GetInfoRequest request,
         StreamObserver<GetInfoResponse> responseObserver
     ) {
-      Processor processor = runner.getProcessorMeta();
+      Map<String, Object> processorMeta = runner.getProcessorMeta();
       try {
-        GetInfoResponse.Builder builder = GetInfoResponse.newBuilder()
-            .setName(processor.value())
-            .setDescription(processor.description())
-            .setEntryPoint(processor.entryPoint())
-            .setLanguage(processor.language())
-            .setIdentifier(runner.getProcessorId());
-        for (ParameterDescription parameter : processor.parameters()) {
-          builder.addParametersBuilder()
-              .setName(parameter.name())
-              .setDataType(parameter.dataType())
-              .setRequired(parameter.required())
-              .setDescription(parameter.description()).build();
-        }
-        for (LabelIndexDescription labelIndexDescription: processor.inputs()) {
-          addLabelIndex(builder.addInputsBuilder(), labelIndexDescription);
-        }
-        for (LabelIndexDescription labelIndexDescription: processor.outputs()) {
-          addLabelIndex(builder.addOutputsBuilder(), labelIndexDescription);
-        }
+        JsonObjectImpl.Builder jsonObjectBuilder = JsonObjectImpl.newBuilder();
+        jsonObjectBuilder.putAll(processorMeta);
+        JsonObjectImpl jsonObject = jsonObjectBuilder.build();
 
-
+        GetInfoResponse.Builder builder = GetInfoResponse.newBuilder();
+        jsonObject.copyToStruct(builder.getMetadataBuilder());
         responseObserver.onNext(builder.build());
         responseObserver.onCompleted();
       } catch (RuntimeException e) {
@@ -281,23 +267,5 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
             .asRuntimeException());
       }
     }
-  }
-
-
-  private static void addLabelIndex(GetInfoResponse.LabelIndexDescription.Builder builder,
-                                    LabelIndexDescription description) {
-    builder.setName(description.name())
-        .setNameFromParameter(description.nameFromParameter())
-        .setOptional(description.optional())
-        .setDescription(description.description());
-    for (PropertyDescription property : description.properties()) {
-      builder.addPropertiesBuilder()
-          .setName(property.name())
-          .setDescription(property.description())
-          .setDataType(property.dataType())
-          .setNullable(property.nullable())
-          .build();
-    }
-    builder.build();
   }
 }

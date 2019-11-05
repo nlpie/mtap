@@ -11,11 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Various utilities."""
 import os
 import signal
 import subprocess
-from contextlib import contextmanager, closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Optional
 

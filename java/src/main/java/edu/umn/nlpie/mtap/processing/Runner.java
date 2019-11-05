@@ -19,6 +19,8 @@ package edu.umn.nlpie.mtap.processing;
 import edu.umn.nlpie.mtap.Internal;
 import edu.umn.nlpie.mtap.common.JsonObject;
 
+import java.util.Map;
+
 @Internal
 public interface Runner extends AutoCloseable {
   ProcessingResult process(String eventID, JsonObject params);
@@ -27,7 +29,7 @@ public interface Runner extends AutoCloseable {
 
   String getProcessorId();
 
-  Processor getProcessorMeta();
+  Map<String, Object> getProcessorMeta();
 
   @Override
   void close();
