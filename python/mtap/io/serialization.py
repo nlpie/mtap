@@ -248,3 +248,9 @@ class _JsonSerializer(Serializer):
 
 
 JsonSerializer = _JsonSerializer()
+
+
+def get_serializer(identifier):
+    return {
+        'json': JsonSerializer
+    }[identifier]
