@@ -112,3 +112,8 @@ def test_documents_len(mocker):
     client.get_all_document_names.return_value = ['plaintext', 'two', 'three']
     event = Event(event_id='1', client=client)
     assert len(event.documents) == 3
+
+
+def test_created_indices_no_documents():
+    event = Event(event_id='1')
+    assert event.created_indices == {}
