@@ -282,9 +282,15 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             except AttributeError:
                 pass
 
-        return [ProcessingResult(identifier=component.component_id, results=result[0],
-                                 timing_info=result[1], created_indices=result[2])
-                for component, result in zip(self._components, results)]
+        return [
+            ProcessingResult(
+                identifier=component.component_id,
+                results=result[0],
+                timing_info={k.split(':', maxsplit=1)[-1]: v for k, v in result[1].items()},
+                created_indices=result[2]
+            )
+            for component, result in zip(self._components, results)
+        ]
 
     def processor_timer_stats(self) -> List[AggregateTimingInfo]:
         """Returns the timing information for all processors.
@@ -366,7 +372,8 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         return len(self._components)
 
     def insert(self, index, o) -> None:
-        self._components.insert(index, o.create_pipeline_component(self._config, self._component_ids))
+        self._components.insert(index,
+                                o.create_pipeline_component(self._config, self._component_ids))
 
     def __repr__(self):
         return "Pipeline(" + ', '.join(

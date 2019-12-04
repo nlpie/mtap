@@ -126,7 +126,7 @@ class Event:
         """~typing.Dict[str, ~typing.List[str]]: A mapping of document names to a list of the names
         of all the label indices that have been added to that document"""
         return {document_name: document.created_indices
-                for document_name, document in self._documents.items()}
+                for document_name, document in self.documents.items()}
 
     def close(self):
         """Closes this event. Lets the event service know that we are done with the event,
