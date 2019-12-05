@@ -61,7 +61,7 @@ class LocalRunnerTest {
     verify(events).openEvent("1", false);
     verify(processor).process(any(Event.class), same(params), any(JsonObjectBuilder.class));
 
-    assertTrue(processingResult.getTimes().get("processorId:process_method").toNanos() > 0);
+    assertTrue(processingResult.getTimes().get("process_method").toNanos() > 0);
     assertEquals("bar", processingResult.getResult().getStringValue("foo"));
   }
 

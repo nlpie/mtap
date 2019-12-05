@@ -17,7 +17,6 @@
 package edu.umn.nlpie.mtap.processing;
 
 import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
 import com.google.protobuf.util.Durations;
 import com.google.rpc.DebugInfo;
 import edu.umn.nlpie.mtap.MTAP;

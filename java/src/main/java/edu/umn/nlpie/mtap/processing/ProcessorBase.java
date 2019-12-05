@@ -26,7 +26,6 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * Contains functionality related to the handling of processor contexts.
@@ -40,7 +39,7 @@ public abstract class ProcessorBase {
     if (existing != null) {
       identifier = existing + "." + identifier;
     }
-    ProcessorContextImpl context = new ProcessorContextImpl(existing, identifier);
+    ProcessorContextImpl context = new ProcessorContextImpl(existing);
     contextLocal.set(context);
     return context;
   }
@@ -83,12 +82,10 @@ public abstract class ProcessorBase {
   private static class ProcessorContextImpl implements ProcessorContext {
     private final Map<String, Duration> times = new HashMap<>();
     private final ProcessorContextImpl parent;
-    private final String identifier;
     private boolean active = true;
 
-    ProcessorContextImpl(@Nullable ProcessorContextImpl parent, @NotNull String identifier) {
+    ProcessorContextImpl(@Nullable ProcessorContextImpl parent) {
       this.parent = parent;
-      this.identifier = Objects.requireNonNull(identifier);
     }
 
     @Override
@@ -96,7 +93,7 @@ public abstract class ProcessorBase {
       if (!active) {
         throw new IllegalStateException("Attempted to add time to an inactive processor context.");
       }
-      times.put(identifier + ":" + key, duration);
+      times.put(key, duration);
     }
 
     @Override

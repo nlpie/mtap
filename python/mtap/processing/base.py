@@ -35,12 +35,11 @@ __all__ = [
 
 
 class ProcessorContext:
-    def __init__(self, identifier):
+    def __init__(self):
         self.times = {}
-        self.identifier = identifier
 
     def add_time(self, key, duration):
-        self.times[self.identifier + ':' + key] = duration
+        self.times[key] = duration
 
 
 class Stopwatch(ContextManager, metaclass=ABCMeta):
@@ -181,16 +180,15 @@ class Processor:
 
     @staticmethod
     @contextlib.contextmanager
-    def enter_context(identifier: str) -> ContextManager[ProcessorContext]:
+    def enter_context() -> ContextManager[ProcessorContext]:
         # Used by the MTAP framework to enter a processing context where things like timing
         # results are stored. Users should not need to call this in normal usage.
         try:
             old_context = processor_local.context
-            identifier = old_context.identifier + '.' + identifier
         except AttributeError:
             old_context = None
         try:
-            processor_local.context = ProcessorContext(identifier)
+            processor_local.context = ProcessorContext()
             yield processor_local.context
         finally:
             del processor_local.context

@@ -271,9 +271,9 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         results = [component.call_process(event.event_id, params) for component in self._components]
         total = datetime.now() - start
         times = {}
-        for _, component_times, _ in results:
-            times.update(component_times)
-        times[self.name + ':total'] = total
+        for (_, component_times, _), component in zip(results, self._components):
+            times.update({component.component_id + ':' + k: v for k, v in component_times.items()})
+        times[self.name + 'total'] = total
         self._times_collector.add_times(times)
 
         for result in results:
@@ -286,7 +286,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             ProcessingResult(
                 identifier=component.component_id,
                 results=result[0],
-                timing_info={k.split(':', maxsplit=1)[-1]: v for k, v in result[1].items()},
+                timing_info=result[1],
                 created_indices=result[2]
             )
             for component, result in zip(self._components, results)
