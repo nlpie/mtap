@@ -375,9 +375,6 @@ gradle-app.setting
 # go release folder
 /go/release/
 
-# go generated code
-go/mtap/api/v1/
-
 python/mtap/version.py
 python/docs/_build
 

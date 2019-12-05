@@ -123,7 +123,7 @@ func (r *consulResolver) watcher() {
 
 		r.cc.UpdateState(resolver.State{
 			Addresses:     addrs,
-			ServiceConfig: "",
+			ServiceConfig: nil,
 		})
 	}
 }

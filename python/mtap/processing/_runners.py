@@ -72,7 +72,7 @@ class ProcessorRunner(ProcessingComponent):
         p = dict(self.params)
         if params is not None:
             p.update(params)
-        with Processor.enter_context(self.component_id) as c, \
+        with Processor.enter_context() as c, \
                 Event(event_id=event_id, client=self.client) as event:
             try:
                 with Processor.started_stopwatch('process_method') as stopwatch:
@@ -112,7 +112,7 @@ class RemoteRunner(ProcessingComponent):
         if params is not None:
             p.update(params)
 
-        with EventProcessor.enter_context(self.component_id) as context:
+        with EventProcessor.enter_context() as context:
             try:
                 request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
                                                         event_id=event_id)
