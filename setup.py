@@ -100,7 +100,8 @@ setup(
         "fallback_version": "development0",
         "write_to": "python/mtap/version.py"
     },
-    description='A framework for distributed text analysis using gRPC and microservices-based architecture.',
+    description='A framework for distributed text analysis using gRPC and microservices-based '
+                'architecture.',
     python_requires='~=3.5',
     author='University of Minnesota NLP/IE Group',
     author_email='nlp-ie@umn.edu',
@@ -117,6 +118,7 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: Implementation :: CPython'
         'Topic :: Scientific/Engineering :: Information Analysis',
         'Topic :: Software Development :: Libraries',
