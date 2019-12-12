@@ -21,7 +21,7 @@ from distutils.command.clean import clean as _clean
 from setuptools import setup, find_packages
 from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.test import test as _test
-
+from pathlib import Path
 
 def generate_proto(source, require=True):
     """Invokes the grpc_tools protobuf compiler to generate _pb2.py and _pb2_grpc.py files from
@@ -94,6 +94,9 @@ class test(_test):
         sys.exit(errno)
 
 
+with (Path(__file__).parent / 'README.md').open(encoding='utf-8') as f:
+    long_description = f.read()
+
 setup(
     name='mtap',
     use_scm_version={
@@ -102,6 +105,9 @@ setup(
     },
     description='A framework for distributed text analysis using gRPC and microservices-based '
                 'architecture.',
+    url='https://nlpie.github.io/mtap',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     python_requires='~=3.5',
     author='University of Minnesota NLP/IE Group',
     author_email='nlp-ie@umn.edu',
