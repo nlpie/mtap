@@ -13,12 +13,7 @@ description: Getting started using the MTAP Java SDK.
 ## Installing MTAP
 
 The Java SDK for MTAP does not need to be installed; it is distributed as
-a Jar. It is also available on maven central
-
-Gradle:
-```Groovy
-implementation group: 'edu.umn.nlpie', name: 'mtap', version: ${site.version}
-```
+a Jar found [here](https://github.com/nlpie/mtap/releases).
 
 We will need to install the MTAP Python SDK, which includes the events
 service necessary to run our processor.
