@@ -34,6 +34,8 @@ def gitVersion = { ->
         def result = ''
         if (com != null || hash != null || dirty != null) {
             result = '-SNAPSHOT'
+        } else {
+            incremented = true
         }
         if (pre != null && preVersion != null) {
             if (!incremented) {
