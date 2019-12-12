@@ -190,6 +190,7 @@ publishing {
                 name = 'Microservice Text Analysis Platform'
                 description = 'A framework for distributed text analysis using gRPC and ' +
                         'microservices-based architecture.'
+                url = 'https://nlpie.github.io/mtap'
                 licenses {
                     license {
                         name = 'The Apache License, Version 2.0'
