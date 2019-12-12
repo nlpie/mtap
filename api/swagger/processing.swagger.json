@@ -4,10 +4,6 @@
     "title": "mtap/api/v1/processing.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
@@ -110,82 +106,6 @@
     }
   },
   "definitions": {
-    "GetInfoResponseLabelIndexDescription": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The default name of the label index."
-        },
-        "name_from_parameter": {
-          "type": "string",
-          "description": "If the name comes from a parameter, the key for that parameter."
-        },
-        "optional": {
-          "type": "boolean",
-          "format": "boolean",
-          "description": "Whether the label index is an optional input."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the label index."
-        },
-        "properties": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/LabelIndexDescriptionPropertyDescription"
-          },
-          "description": "The properties of the labels."
-        }
-      },
-      "description": "A description of the input and output label indices of a processor."
-    },
-    "GetInfoResponseParameterDescription": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The parameter name / key."
-        },
-        "description": {
-          "type": "string",
-          "description": "A short description of the parameter and what it does."
-        },
-        "data_type": {
-          "type": "string",
-          "description": "The expected data type of the parameter."
-        },
-        "required": {
-          "type": "boolean",
-          "format": "boolean",
-          "description": "Whether the parameter is required, i.e. needed by the processor in order to function."
-        }
-      },
-      "description": "A description of processor parameters."
-    },
-    "LabelIndexDescriptionPropertyDescription": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The name of the property."
-        },
-        "description": {
-          "type": "string",
-          "description": "A short description of the property."
-        },
-        "data_type": {
-          "type": "string",
-          "description": "The data type of the property: str, float, or boolean; List[T] or Mapping[T1, T2] of those."
-        },
-        "nullable": {
-          "type": "boolean",
-          "format": "boolean",
-          "description": "Whether the property can have a valid value of null."
-        }
-      },
-      "description": "A description of the properties of labels."
-    },
     "protobufNullValue": {
       "type": "string",
       "enum": [
@@ -211,46 +131,8 @@
     "v1GetInfoResponse": {
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "The name of the processor."
-        },
-        "identifier": {
-          "type": "string",
-          "description": "The deployment identifier for the processor."
-        },
-        "description": {
-          "type": "string",
-          "description": "A short description of what the processor does."
-        },
-        "entry_point": {
-          "type": "string",
-          "description": "The processor's entry point / main class."
-        },
-        "language": {
-          "type": "string",
-          "description": "The processor coding language."
-        },
-        "parameters": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/GetInfoResponseParameterDescription"
-          },
-          "description": "Descriptions of the processor's parameters."
-        },
-        "inputs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/GetInfoResponseLabelIndexDescription"
-          },
-          "description": "Descriptions of the input label indices."
-        },
-        "outputs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/GetInfoResponseLabelIndexDescription"
-          },
-          "description": "Descriptions of the output label indices."
+        "metadata": {
+          "type": "object"
         }
       },
       "description": "Processor information response, currently does not include anything besides\nthe processor name. May eventually be extended to reflect more processor\ninformation like documentation, required inputs (label indices and\nparameters), and outputs (label indices and parameters), etc."

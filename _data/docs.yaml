@@ -3,8 +3,6 @@ sections:
     docs:
       - title: Introduction
         url: /docs
-      - title: Components
-        url: /docs/getting-started/components.html
       - title: Data Model
         url: /docs/getting-started/events.html
       - title: Processing
@@ -19,3 +17,5 @@ sections:
         url: /docs/tutorials/service-discovery.html
       - title: API Gateway
         url: /docs/tutorials/api-gateway.html
+      - title: Serialization
+        url: /docs/tutorials/serialization.html

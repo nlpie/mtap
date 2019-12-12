@@ -15,10 +15,8 @@ description: Getting started using the MTAP Python SDK.
 To install mtap run the following:
 
 ```bash
-pip install mtap-{{site.python_version}}.tar.gz
+pip install mtap
 ```
-
-This is an sdist for now, but will be on PyPi eventually.
 
 ## Creating a processor
 
@@ -44,7 +42,7 @@ if __name__ == '__main__':
     mtap.run_processor(HelloProcessor())
 ```
 
-This file receives a request to process a document, and then labels that documents text with
+This file receives a request to process a document, and then labels that document's text with
 a hello response.
 
 ## Running the processor
@@ -83,8 +81,7 @@ python pipeline.py
 
 ## Interacting with the Events Service
 
-When you deploy the processor above, the MTAP framework wraps that processor
-in a gRPC service and server. When it receives a request, it uses the request
+When you deploy the processor above, the MTAP framework hosts the processor as a gRPC service that can be contacted to process documents. When it receives a request, it uses the request
 parameters to instantiate the ``Document`` object that gets passed to your
 processor. This ``Document`` object is your interface to the events service.
 

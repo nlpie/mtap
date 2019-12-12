@@ -1,9 +1,13 @@
 pages:
-  - title: Home
-    url: /
-  - title: Documentation
-    url: /docs
-  - title: Reference
-    url: /api
-  - title: GitHub
-    url: https://github.com/nlpie/mtap
+  left:
+    - title: Home
+      url: /
+    - title: Documentation
+      url: /docs
+    - title: Reference
+      url: /api
+  right:
+    - title: BioMedICUS
+      url: https://nlpie.github.io/biomedicus
+    - title: GitHub
+      url: https://github.com/nlpie/mtap

@@ -12,21 +12,25 @@ description: Getting started using the MTAP Java SDK.
 
 ## Installing MTAP
 
-The Java SDK for MTAP does not need to be installed, it is distributed as
-a Jar. Eventually a distribution will be made public on Maven Central for
-inclusion in Maven and Gradle projects.
+The Java SDK for MTAP does not need to be installed; it is distributed as
+a Jar. It is also available on maven central
+
+Gradle:
+```Groovy
+implementation group: 'edu.umn.nlpie', name: 'mtap', version: ${site.version}
+```
 
 We will need to install the MTAP Python SDK, which includes the events
 service necessary to run our processor.
 
 ```bash
-pip install mtap-{{ site.python_version }}.tar.gz
+pip install mtap
 ```
 
 
 ## Creating a processor
 
-We will be creating a document processor which simply writes a hello world
+We will be creating a document processor which simply writes a "hello world"
 label to a document.
 
 To start, create a file named ``Hello.java``, this file will contain our
@@ -70,7 +74,7 @@ public class Hello extends DocumentProcessor {
 }
 ```
 
-Note use of the try-with-resources statement: ``try () {}``. This block will
+Note the use of the try-with-resources statement: ``try () {}``. This block will
 cause the labeler to upload any added labels to the events service when exited.
 
 
