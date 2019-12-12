@@ -42,7 +42,7 @@ def gitVersion = { ->
                 preVersion = (preVersion as int) + 1
                 incremented = true
             }
-            result = "-${pre}.${preVersion}${result}"
+            result = "-${pre}${preVersion}${result}"
         }
         if (patch != null) {
             if (!incremented) {
