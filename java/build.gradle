@@ -19,6 +19,7 @@ plugins {
     id 'maven-publish'
     id 'com.google.protobuf' version '0.8.10'
     id 'com.github.ben-manes.versions' version '0.27.0'
+    id 'signing'
 }
 
 def gitVersion = { ->
@@ -27,7 +28,7 @@ def gitVersion = { ->
         commandLine 'git', 'describe', '--tags', '--dirty'
         standardOutput = stdout
     }
-    def pattern = ~/v([0-9]+)(?:.([0-9]+))?(?:.([0-9]+))?(?:-(alpha|beta|pre|rc).([0-9]+))?(?:-([0-9]+)(?:-([a-g0-9]+))(-dirty)?)/
+    def pattern = ~/v([0-9]+)(?:.([0-9]+))?(?:.([0-9]+))?(?:-(alpha|beta|pre|rc).([0-9]+))?(?:-([0-9]+)-([a-g0-9]+))?(-dirty)?/
     def newVersion = stdout.toString().trim().replaceFirst(pattern) { _,major,minor,patch,pre,preVersion,com,hash,dirty ->
         def incremented = false
         def result = ''
@@ -89,6 +90,8 @@ java {
     registerFeature('log4j2slf4jBinding') {
         usingSourceSet(sourceSets.main)
     }
+    withJavadocJar()
+    withSourcesJar()
 }
 
 dependencies {
@@ -137,6 +140,9 @@ tasks.withType(JavaCompile) {
 javadoc {
     exclude "edu/umn/nlpie/mtap/api/**"
     exclude "grpc"
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
 }
 
 sourceSets {
@@ -169,28 +175,19 @@ task fatJar(type: Jar) {
     with jar
 }
 
-task sourcesJar(type: Jar) {
-    from sourceSets.main.allJava
-    archiveClassifier.set('sources')
-}
-
-task javadocJar(type: Jar) {
-    from javadoc
-    archiveClassifier.set('javadoc')
-}
-
 publishing {
     publications {
-        maven(MavenPublication) {
+        mavenJava(MavenPublication) {
             groupId = project.group
             artifactId = project.name
             version = project.version
 
             from components.java
-            artifact sourcesJar
-            artifact javadocJar
 
             pom {
+                name = 'Microservice Text Analysis Platform'
+                description = 'A framework for distributed text analysis using gRPC and ' +
+                        'microservices-based architecture.'
                 licenses {
                     license {
                         name = 'The Apache License, Version 2.0'
@@ -218,6 +215,20 @@ publishing {
             }
         }
     }
+    repositories {
+        maven {
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            credentials {
+                username sonatypeUsername
+                password sonatypePassword
+            }
+        }
+    }
+}
+
+signing {
+    useGpgCmd()
+    sign publishing.publications.mavenJava
 }
 
 
