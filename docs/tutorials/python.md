@@ -62,7 +62,7 @@ from mtap import Document, Event, EventsClient, Pipeline, RemoteProcessor
 
 with EventsClient(address='localhost:9090') as client, \
      Pipeline(
-         RemoteProcessor(processor_id='hello', address='localhost:9092')
+         RemoteProcessor('hello', address='localhost:9091')
      ) as pipeline:
   with Event(event_id='1', client=client) as event:
     document = Document(document_name='name', text='YOUR NAME')
