@@ -7,9 +7,9 @@ pages:
     - title: Reference
       url: /api
   right:
-    - title: BioMedICUS
-      url: https://nlpie.github.io/biomedicus
     - title: GitHub
       url: https://github.com/nlpie/mtap
+    - title: BioMedICUS
+      url: https://nlpie.github.io/biomedicus
     - title: NLP/IE
       url: https://nlpie.umn.edu
