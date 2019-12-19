@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
+
 from mtap import Location, Document, GenericLabel
 
 
@@ -21,3 +23,8 @@ def test_location_equals():
 def test_text_from_document():
     d = Document('plaintext', text='This is text.')
     assert GenericLabel(5, 7, document=d).text == 'is'
+
+
+def test_label_location():
+    l = GenericLabel(0, 10)
+    assert l.location == Location(0, 10)
