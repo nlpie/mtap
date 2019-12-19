@@ -295,7 +295,7 @@ class _YamlSerializer(Serializer):
         return dict_to_event(d, client=client)
 
 
-class PickleSerializer(Serializer):
+class _PickleSerializer(Serializer):
 
     @property
     def extension(self) -> str:
@@ -307,7 +307,7 @@ class PickleSerializer(Serializer):
         d = event_to_dict(event, include_label_text=include_label_text)
         try:
             pickle.dump(d, f)
-        except AttributeError:
+        except TypeError:
             with Path(f).open('wb') as f:
                 pickle.dump(d, f)
 
@@ -316,7 +316,7 @@ class PickleSerializer(Serializer):
         import pickle
         try:
             d = pickle.load(f)
-        except AttributeError:
+        except TypeError:
             with Path(f).open('rb') as f:
                 d = pickle.load(f)
         return dict_to_event(d, client=client)
@@ -324,6 +324,7 @@ class PickleSerializer(Serializer):
 
 JsonSerializer = _JsonSerializer()
 YamlSerializer = _YamlSerializer()
+PickleSerializer = _PickleSerializer()
 
 standard_serializers = {
     'json': JsonSerializer,
