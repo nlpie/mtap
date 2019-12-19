@@ -428,6 +428,8 @@ class Document:
             label_adapter = (DistinctGenericLabelAdapter if distinct else GenericLabelAdapter)
 
         labels = sorted(labels, key=lambda l: l.location)
+        for label in labels:
+            label.document = self
         if self._client is not None:
             self._client.add_labels(event_id=self.event.event_id,
                                     document_name=self.document_name,

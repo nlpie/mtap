@@ -158,3 +158,22 @@ def test_set_document():
     label = GenericLabel(0, 4)
     label.document = document
     assert label.document == document
+
+
+def test_try_assign_reserved():
+    l = GenericLabel(0, 0)
+    with pytest.raises(ValueError):
+        l.start_index = 15
+    with pytest.raises(ValueError):
+        l.location = 10
+    with pytest.raises(ValueError):
+        l.end_index = 10
+    with pytest.raises(ValueError):
+        l.text = 'blah'
+
+
+def test_construct_with_reserved():
+    with pytest.raises(ValueError):
+        GenericLabel(0, 0, location=1)
+    with pytest.raises(ValueError):
+        GenericLabel(0, 0, text='some text')

@@ -33,11 +33,14 @@ from mtap.processing.descriptions import parameter
 logger = logging.getLogger(__name__)
 
 
-def event_to_dict(event: Event) -> Dict:
+def event_to_dict(event: Event, *, include_label_text: bool = False) -> Dict:
     """A helper method that turns an event into a python dictionary.
 
     Args:
         event (Event): The event object.
+
+    Keyword Args:
+        include_label_text (bool): Whether to include the text labels cover with the labels.
 
     Returns:
         dict: A dictionary object suitable for serialization.
@@ -51,15 +54,19 @@ def event_to_dict(event: Event) -> Dict:
     for k, v in event.metadata.items():
         d['metadata'][k] = v
     for doc in event.documents.values():
-        d['documents'][doc.document_name] = document_to_dict(doc)
+        d['documents'][doc.document_name] = document_to_dict(doc,
+                                                             include_label_text=include_label_text)
     return d
 
 
-def document_to_dict(document: Document) -> Dict:
+def document_to_dict(document: Document, *, include_label_text: bool = False) -> Dict:
     """A helper method that turns a document into a python dictionary.
 
     Args:
         document (Document): The document object.
+
+    Keyword Args:
+        include_label_text (bool): Whether to include the text labels cover with the labels.
 
     Returns:
         dict: A dictionary object suitable for serialization.
@@ -78,22 +85,28 @@ def document_to_dict(document: Document) -> Dict:
             )
             continue
         d['label_indices'][index_info.index_name] = label_index_to_dict(
-            document.get_label_index(index_info.index_name)
+            document.get_label_index(index_info.index_name),
+            include_label_text=include_label_text
         )
     return d
 
 
-def label_index_to_dict(label_index: LabelIndex[GenericLabel]) -> Dict:
+def label_index_to_dict(label_index: LabelIndex[GenericLabel],
+                        *, include_label_text: bool = False) -> Dict:
     """A helper method that turns a label index into a python dictionary.
 
     Args:
         label_index (LabelIndex[GenericLabel]): The label index itself.
 
+    Keyword Args:
+        include_label_text (bool): Whether to include the text labels cover with the labels.
+
     Returns:
         dict: A dictionary representing the label index.
     """
     d = {
-        'json_labels': [label.fields for label in label_index],
+        'json_labels': [dict(label.fields, _text=label.text) if include_label_text else label.fields
+                        for label in label_index],
         'distinct': label_index.distinct
     }
     return d
@@ -104,8 +117,6 @@ def dict_to_event(d: Dict, *, client: Optional[EventsClient] = None) -> Event:
 
     Args:
         d (dict): The dictionary representation of the event.
-
-    Keyword Args:
         client (~typing.Optional[EventsClient]): An events service to create the event on.
 
     Returns:
@@ -125,8 +136,6 @@ def dict_to_document(document_name: str, d: Dict, *, event: Optional[Event] = No
     Args:
         document_name (str): The name identifier of the document on the event.
         d (dict): The dictionary representation of the document.
-
-    Keyword Args:
         event (~typing.Optional[Event]): An event that the document should be added to.
 
     Returns:
@@ -152,7 +161,8 @@ def dict_to_label_index(d: Dict) -> LabelIndex:
     Returns:
         LabelIndex: The deserialized label index.
     """
-    return label_index([GenericLabel(**x) for x in d['json_labels']], distinct=d['distinct'])
+    return label_index([GenericLabel(**{k: v for k, v in x.items() if not k.startswith('_')})
+                        for x in d['json_labels']], distinct=d['distinct'])
 
 
 class Serializer(ABC):
@@ -166,13 +176,17 @@ class Serializer(ABC):
         ...
 
     @abstractmethod
-    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase]):
+    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase],
+                      *, include_label_text: bool = False):
         """Writes the event to a file.
 
         Args:
             event (Event): The event object to serialize.
             f (~typing.Union[~pathlib.Path, str, ~io.IOBase]):
                 A file or a path to a file to write the event to.
+            include_label_text (bool):
+                Whether, when serializing, to include the text that each label covers with the rest
+                of the label.
         """
         ...
 
@@ -183,8 +197,6 @@ class Serializer(ABC):
 
         Args:
             f (~typing.Union[~pathlib.Path, str, ~io.IOBase]): The file to load from.
-
-        Keyword Args:
             client (~typing.Optional[EventsClient]): The events service to load the event into.
 
         Returns:
@@ -223,9 +235,9 @@ class _JsonSerializer(Serializer):
     def extension(self) -> str:
         return '.json'
 
-    def event_to_file(self, event: Event, f: Path):
+    def event_to_file(self, event: Event, f: Path, *, include_label_text: bool = False):
         import json
-        d = event_to_dict(event)
+        d = event_to_dict(event, include_label_text=include_label_text)
         try:
             json.dump(d, f)
         except AttributeError:
