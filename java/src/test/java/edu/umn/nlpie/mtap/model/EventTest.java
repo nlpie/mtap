@@ -119,7 +119,7 @@ class EventTest {
 
   @Test
   void addDocument() {
-    Document document = tested.addDocument("plaintext", "Some text.");
+    Document document = tested.createDocument("plaintext", "Some text.");
     verify(mockClient).addDocument("1", "plaintext", "Some text.");
     assertEquals("plaintext", document.getName());
     assertEquals("Some text.", document.getText());
@@ -127,7 +127,7 @@ class EventTest {
 
   @Test
   void addDocumentCache() {
-    tested.addDocument("plaintext", "Some text.");
+    tested.createDocument("plaintext", "Some text.");
     tested.getDocuments().get("plaintext");
     verify(mockClient).getAllDocumentNames("1");
     verify(mockClient).addDocument("1", "plaintext", "Some text.");
@@ -137,7 +137,7 @@ class EventTest {
   void addDocumentExisting() {
     when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.singletonList("plaintext"));
     assertThrows(IllegalArgumentException.class,
-        () -> tested.addDocument("plaintext", "Some text."));
+        () -> tested.createDocument("plaintext", "Some text."));
   }
 
   @Test
@@ -176,7 +176,7 @@ class EventTest {
 
   @Test
   void getCreatedIndices() {
-    Document document = tested.addDocument("plaintext", "Some text");
+    Document document = tested.createDocument("plaintext", "Some text");
     List<String> createdIndices = Arrays.asList("sentences", "pos_tags");
     document.addCreatedIndices(createdIndices);
     Map<@NotNull String, List<@NotNull String>> indices = tested.getCreatedIndices();
