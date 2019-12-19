@@ -20,6 +20,7 @@ plugins {
     id 'com.google.protobuf' version '0.8.10'
     id 'com.github.ben-manes.versions' version '0.27.0'
     id 'signing'
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
 }
 
 def gitVersion = { ->
@@ -167,14 +168,12 @@ task printVersion() {
     printf(version)
 }
 
-task fatJar(type: Jar) {
-	manifest {
+shadowJar {
+    manifest {
         attributes 'Implementation-Title': 'MTAP',
-        	'Implementation-Version': archiveVersion
+                'Implementation-Version': archiveVersion
     }
-    archiveBaseName.set(project.name + '-all')
-    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
+    mergeServiceFiles()
 }
 
 publishing {
