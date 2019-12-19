@@ -36,12 +36,12 @@ def test_json_serializer():
         mtap.GenericLabel(start_index=11, end_index=15, foo=False)
     ], distinct=True)
 
-    tf = TemporaryFile('w+')
-    JsonSerializer.event_to_file(event, tf)
-    tf.flush()
-    tf.seek(0)
+    with TemporaryFile('w+') as tf:
+        JsonSerializer.event_to_file(event, tf)
+        tf.flush()
+        tf.seek(0)
+        o = json.load(tf)
 
-    o = json.load(tf)
     assert o['event_id'] == '1'
     assert o['metadata']['foo'] == 'bar'
     d = o['documents']['plaintext']
