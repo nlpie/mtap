@@ -259,10 +259,78 @@ class _JsonSerializer(Serializer):
         return dict_to_event(d, client=client)
 
 
+class _YamlSerializer(Serializer):
+
+    @property
+    def extension(self) -> str:
+        return '.yml'
+
+    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase], *,
+                      include_label_text: bool = False):
+        import yaml
+        try:
+            from yaml import CDumper as Dumper
+        except ImportError:
+            from yaml import Dumper
+        d = event_to_dict(event, include_label_text=include_label_text)
+        if isinstance(f, io.IOBase):
+            yaml.safe_dump(d, f, Dumper=Dumper)
+        else:
+            f = Path(f)
+            with f.open('w') as f:
+                yaml.safe_dump(d, f, Dumper=Dumper)
+
+    def file_to_event(self, f: Union[Path, str, io.IOBase], *,
+                      client: Optional[EventsClient] = None) -> Event:
+        import yaml
+        try:
+            from yaml import CLoader as Loader
+        except ImportError:
+            from yaml import Loader
+        if isinstance(f, io.IOBase):
+            d = yaml.load(f, Loader=Loader)
+        else:
+            with Path(f).open() as f:
+                d = yaml.load(f, Loader=Loader)
+        return dict_to_event(d, client=client)
+
+
+class PickleSerializer(Serializer):
+
+    @property
+    def extension(self) -> str:
+        return '.pickle'
+
+    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase], *,
+                      include_label_text: bool = False):
+        import pickle
+        d = event_to_dict(event, include_label_text=include_label_text)
+        try:
+            pickle.dump(d, f)
+        except AttributeError:
+            with Path(f).open('wb') as f:
+                pickle.dump(d, f)
+
+    def file_to_event(self, f: Union[Path, str, io.IOBase], *,
+                      client: Optional[EventsClient] = None) -> Event:
+        import pickle
+        try:
+            d = pickle.load(f)
+        except AttributeError:
+            with Path(f).open('rb') as f:
+                d = pickle.load(f)
+        return dict_to_event(d, client=client)
+
+
 JsonSerializer = _JsonSerializer()
+YamlSerializer = _YamlSerializer()
+
+standard_serializers = {
+    'json': JsonSerializer,
+    'yml': YamlSerializer,
+    'pickle': PickleSerializer
+}
 
 
 def get_serializer(identifier):
-    return {
-        'json': JsonSerializer
-    }[identifier]
+    return standard_serializers[identifier]
