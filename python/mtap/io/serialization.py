@@ -274,11 +274,11 @@ class _YamlSerializer(Serializer):
             from yaml import Dumper
         d = event_to_dict(event, include_label_text=include_label_text)
         if isinstance(f, io.IOBase):
-            yaml.safe_dump(d, f, Dumper=Dumper)
+            yaml.dump(d, f, Dumper=Dumper)
         else:
             f = Path(f)
             with f.open('w') as f:
-                yaml.safe_dump(d, f, Dumper=Dumper)
+                yaml.dump(d, f, Dumper=Dumper)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase], *,
                       client: Optional[EventsClient] = None) -> Event:
