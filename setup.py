@@ -134,6 +134,9 @@ setup(
     keywords='nlp grpc microservices',
     package_dir={'': 'python'},
     packages=find_packages(where='python', exclude=['tests']),
+    package_data={
+        'mtap': ['defaultConfig.yml']
+    },
     install_requires=[
         'grpcio>=1.20.0',
         'grpcio-health-checking>=1.20.0',

@@ -1,0 +1,6 @@
+discovery: consul
+consul:
+  host: localhost
+  port: 8500
+  scheme: http
+  python_naming_scheme: ipv4
