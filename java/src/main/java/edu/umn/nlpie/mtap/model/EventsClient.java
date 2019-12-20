@@ -285,7 +285,8 @@ public class EventsClient implements AutoCloseable {
     AddLabelsRequest.Builder requestBuilder = AddLabelsRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
-        .setIndexName(indexName);
+        .setIndexName(indexName)
+        .setNoKeyValidation(true);
     adapter.addToMessage(labels, requestBuilder);
     AddLabelsRequest request = requestBuilder.build();
 

@@ -286,6 +286,11 @@ message AddLabelsRequest {
      */
     google.protobuf.Any other_labels = 5;
   }
+
+  /* Set to "true" if the client validates label field keys so to ensure that no reserved key names
+   * occur. The key names that are reserved are "text", "document", and "location".
+   */
+  bool no_key_validation = 6;
 }
 
 /* Response for adding labels to the events service.

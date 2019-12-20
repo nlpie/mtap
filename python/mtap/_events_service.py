@@ -280,6 +280,13 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
                 return
             labels = (labels_field, getattr(request, labels_field))
+        if labels_field == 'json_labels' and not request.no_key_validation:
+            for label in labels[1].labels:
+                for key in label:
+                    if key in ["document", "location", "text"]:
+                        _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
+                                           "Label included a reserved key: {}".format(key))
+                        return
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()
 

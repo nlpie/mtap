@@ -692,7 +692,8 @@ class EventsClient:
 
     def add_labels(self, event_id, document_name, index_name, labels, adapter):
         request = events_pb2.AddLabelsRequest(event_id=event_id, document_name=document_name,
-                                              index_name=index_name)
+                                              index_name=index_name,
+                                              no_key_validation=True)
         adapter.add_to_message(labels, request)
         self.stub.AddLabels(request)
 
