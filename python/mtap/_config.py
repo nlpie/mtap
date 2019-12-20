@@ -36,17 +36,6 @@ def _collapse(d, path, v):
     return d
 
 
-_DEFAULT_CONFIG = _collapse({}, None, {
-    'discovery': 'consul',
-    'consul': {
-        'host': 'localhost',
-        'port': 8500,
-        'scheme': 'http',
-        'python_naming_scheme': 'ipv4'
-    }
-})
-
-
 def _load_config(f):
     from yaml import load
     try:
@@ -67,15 +56,15 @@ def _load_default_config():
     except TypeError:
         pass
     locations = [Path.cwd(), Path.home().joinpath('.mtap'), Path('/etc/mtap/')]
-    potential_paths += [location.joinpath('mtapConfig.yml') for location in locations]
-
+    potential_paths += [location / 'mtapConfig.yml' for location in locations]
+    potential_paths.append(Path(__file__).parent / 'defaultConfig.yml')
     for config_path in potential_paths:
         try:
             with config_path.open('rb') as f:
                 return _load_config(f)
         except FileNotFoundError:
             pass
-    return _DEFAULT_CONFIG
+    raise ValueError('Failed to load configuration file from')
 
 
 class Config(MutableMapping[str, Any]):

@@ -139,14 +139,16 @@ public final class ConfigImpl implements Config {
    * @return Configuration object containing default configuration.
    */
   public static @NotNull Config defaultConfig() {
-    Map<String, Object> map = new HashMap<>();
-    map.put("discovery", "consul");
-    map.put("consul.host", "localhost");
-    map.put("consul.port", 8500);
-    map.put("consul.scheme", "http");
-    map.put("consul.dns_ip", "127.0.0.1");
-    map.put("consul.dns_port", 8600);
-    return new ConfigImpl(map);
+    Yaml yaml = new Yaml();
+    try (InputStream is = Thread.currentThread().getContextClassLoader()
+        .getResourceAsStream("edu/umn/nlpie/mtap/defaultConfig.yml")) {
+      Map<String, Object> yamlMap = yaml.load(is);
+      Map<String, Object> targetMap = new HashMap<>();
+      flattenConfig(yamlMap, "", targetMap);
+      return new ConfigImpl(targetMap);
+    } catch (IOException e) {
+      throw new IllegalStateException("Failed to load default configuration", e);
+    }
   }
 
   /**
