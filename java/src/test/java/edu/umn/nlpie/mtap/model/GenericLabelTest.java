@@ -128,4 +128,14 @@ class GenericLabelTest {
     assertTrue(GenericLabel.createSpan(1, 4).compareStart(GenericLabel.createSpan(0, 4)) > 0);
     assertEquals(0, GenericLabel.createSpan(1, 4).compareStart(GenericLabel.createSpan(1, 4)));
   }
+
+  @Test
+  void failOnReservedField() {
+    assertThrows(IllegalStateException.class,
+        () -> GenericLabel.withSpan(0, 0).setProperty("text", "").build());
+    assertThrows(IllegalStateException.class,
+        () -> GenericLabel.withSpan(0, 0).setProperty("document", "").build());
+    assertThrows(IllegalStateException.class,
+        () -> GenericLabel.withSpan(0, 0).setProperty("location", "").build());
+  }
 }

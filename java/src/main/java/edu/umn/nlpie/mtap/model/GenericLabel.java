@@ -19,6 +19,8 @@ import edu.umn.nlpie.mtap.common.AbstractJsonObject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -49,7 +51,6 @@ import java.util.Map;
  * </pre>
  */
 public class GenericLabel extends AbstractJsonObject implements Label {
-
   /**
    * Reserved property key for {@link #getStartIndex()}.
    */
@@ -60,10 +61,21 @@ public class GenericLabel extends AbstractJsonObject implements Label {
    */
   public static final String END_INDEX_KEY = "end_index";
 
+  private static final List<String> RESERVED_FIELDS = Arrays.asList(
+      "document",
+      "location",
+      "text"
+  );
+
   private final @Nullable Document document;
 
   private GenericLabel(Map<@NotNull String, @Nullable Object> backingMap, @Nullable Document document) {
     super(backingMap);
+    for (String key : backingMap.keySet()) {
+      if (RESERVED_FIELDS.contains(key)) {
+        throw new IllegalStateException("Field key name '" + key + "' is reserved.");
+      }
+    }
     this.document = document;
   }
 
@@ -71,10 +83,15 @@ public class GenericLabel extends AbstractJsonObject implements Label {
    * Creates a generic label by copying {@code jsonObject}.
    *
    * @param abstractJsonObject The json object to copy.
-   * @param document The document to retrieve text from.
+   * @param document           The document to retrieve text from.
    */
   public GenericLabel(@NotNull AbstractJsonObject abstractJsonObject, @Nullable Document document) {
     super(abstractJsonObject);
+    for (String key : abstractJsonObject.keySet()) {
+      if (RESERVED_FIELDS.contains(key)) {
+        throw new IllegalStateException("Field key name '" + key + "' is reserved.");
+      }
+    }
     this.document = document;
   }
 
@@ -164,6 +181,12 @@ public class GenericLabel extends AbstractJsonObject implements Label {
       this.endIndex = endIndex;
     }
 
+    /**
+     * Sets the document for the label, for retrieving text.
+     *
+     * @param document The document this label appears on.
+     * @return This builder.
+     */
     public Builder withDocument(Document document) {
       this.document = document;
       return this;
