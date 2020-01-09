@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from abc import ABC, abstractmethod
 from concurrent.futures import Future, wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
+from threading import Lock, Condition
 from time import sleep
 from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Generator
 
@@ -23,6 +25,9 @@ from mtap.events import Event, Document, EventsClient
 from mtap.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
     ProcessingComponent
 from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
+
+
+logger = logging.getLogger(__name__)
 
 
 class ComponentDescriptor(ABC):
@@ -243,6 +248,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         self._n_threads = n_threads
         self._read_ahead = read_ahead
         self._tasks = 0
+        self._task_condition = Condition(Lock())
 
     @property
     def _times_collector(self):
@@ -260,7 +266,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             self.__executor = ThreadPoolExecutor(max_workers=self._n_threads)
             return self.__executor
 
-    def run_multithread(self, source: Iterable[Union[Document, Event]], client: EventsClient,
+    def run_multithread(self, source: Iterable[Union[Document, Event]],
                         *, params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
         """Uses a generator to create
 
@@ -292,29 +298,48 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             >>>         doc = event.create_document('plaintext', txt)
             >>>         yield doc
             >>>
-            >>> pipeline.run_multithread(document_source(), client)
+            >>> pipeline.run_multithread(document_source())
 
         """
         futures = []
         for target in source:
-            event, params = _event_and_params(target, params)
-            event_id = event.event_id
-
-            def cleanup(_):
-                client.close_event(event_id)
-                self._tasks -= 1
-
-            self._tasks += 1
-            future = self._executor.submit(self._run_by_event_id, event_id, params)
-            future.add_done_callback(cleanup)
+            try:
+                event, params = _event_and_params(target, params)
+                event_id = event.event_id
+                self._tasks += 1
+                future = self._executor.submit(self._process, event_id, params)
+                future.add_done_callback(self._create_callback(event))
+            except Exception as e:
+                try:
+                    event = target.event
+                except AttributeError:
+                    event = target
+                event.close()
+                raise e
             futures.append(future)
+            self._task_condition.acquire()
             while self._tasks >= self._n_threads + self._read_ahead:
-                sleep(0.01)
+                self._task_condition.wait()
+            self._task_condition.release()
         wait(futures)
         results = []
         for future in futures:
             results.append(future.result())
         return results
+
+    def _create_callback(self, event):
+        def fn(_):
+            event.close()
+            self._task_condition.acquire()
+            self._tasks -= 1
+            self._task_condition.notify()
+            self._task_condition.release()
+        return fn
+
+    def _process(self, event_id, params):
+        result = self._run_by_event_id(event_id, params)
+        logger.info('Done Processing: event_id "%s"', event_id)
+        return result
 
     def run(self, target: Union[Event, Document], *,
             params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:

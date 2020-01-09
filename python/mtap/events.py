@@ -623,14 +623,16 @@ class EventsClient:
     def open_event(self, event_id: str, only_create_new: bool):
         request = events_pb2.OpenEventRequest(event_id=event_id, only_create_new=only_create_new)
         try:
-            self.stub.OpenEvent(request)
+            response = self.stub.OpenEvent(request)
+            assert response is not None
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.ALREADY_EXISTS:
                 raise ValueError("Event already exists")
 
     def close_event(self, event_id):
         request = events_pb2.CloseEventRequest(event_id=event_id)
-        self.stub.CloseEvent(request)
+        response = self.stub.CloseEvent(request)
+        return response is not None
 
     def get_all_metadata(self, event_id):
         request = events_pb2.GetAllMetadataRequest(event_id=event_id)
@@ -639,7 +641,8 @@ class EventsClient:
 
     def add_metadata(self, event_id, key, value):
         request = events_pb2.AddMetadataRequest(event_id=event_id, key=key, value=value)
-        self.stub.AddMetadata(request)
+        response = self.stub.AddMetadata(request)
+        return response is not None
 
     def get_all_binary_data_names(self, event_id: str) -> List[str]:
         request = events_pb2.GetAllBinaryDataNamesRequest(event_id=event_id)
@@ -650,7 +653,8 @@ class EventsClient:
         request = events_pb2.AddBinaryDataRequest(event_id=event_id,
                                                   binary_data_name=binary_data_name,
                                                   binary_data=binary_data)
-        self.stub.AddBinaryData(request)
+        response = self.stub.AddBinaryData(request)
+        return response is not None
 
     def get_binary_data(self, event_id: str, binary_data_name: str) -> bytes:
         request = events_pb2.GetBinaryDataRequest(event_id=event_id,
@@ -667,7 +671,8 @@ class EventsClient:
         request = events_pb2.AddDocumentRequest(event_id=event_id,
                                                 document_name=document_name,
                                                 text=text)
-        self.stub.AddDocument(request)
+        response = self.stub.AddDocument(request)
+        return response is not None
 
     def get_document_text(self, event_id, document_name):
         request = events_pb2.GetDocumentTextRequest(event_id=event_id,
@@ -695,7 +700,8 @@ class EventsClient:
                                               index_name=index_name,
                                               no_key_validation=True)
         adapter.add_to_message(labels, request)
-        self.stub.AddLabels(request)
+        response = self.stub.AddLabels(request)
+        return response is not None
 
     def get_labels(self, event_id, document_name, index_name, adapter):
         request = events_pb2.GetLabelsRequest(event_id=event_id,
@@ -747,7 +753,8 @@ class _Documents(MutableMapping[str, Document]):
 
     def __setitem__(self, k: str, v: Document) -> None:
         if self.client is not None:
-            self.client.add_document(self.event_id, k, v.text)
+            if not self.client.add_document(self.event_id, k, v.text):
+                raise ValueError()
         v._event = self.event
         v._event_id = self.event_id
         v._client = self.client
@@ -783,7 +790,8 @@ class _Metadata(MutableMapping[str, str]):
             raise KeyError("Metadata already exists with key: " + key)
         self._metadata[key] = value
         if self._client is not None:
-            self._client.add_metadata(self._event_id, key, value)
+            if not self._client.add_metadata(self._event_id, key, value):
+                raise ValueError()
 
     def __getitem__(self, key):
         try:
@@ -829,7 +837,8 @@ class _Binaries(collections.abc.MutableMapping):
         self._names.add(key)
         self._binaries[key] = value
         if self._client is not None:
-            self._client.add_binary_data(self._event_id, key, value)
+            if not self._client.add_binary_data(self._event_id, key, value):
+                raise ValueError()
 
     def __getitem__(self, key):
         try:

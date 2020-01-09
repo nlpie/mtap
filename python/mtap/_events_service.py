@@ -128,6 +128,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return document
 
     def OpenEvent(self, request, context=None):
+        LOGGER.debug("OpenEvent: %s", request.event_id)
         event_id = request.event_id
         if event_id == '':
             msg = "event_id was not set."
@@ -153,6 +154,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.OpenEventResponse(created=created_event)
 
     def CloseEvent(self, request, context=None):
+        LOGGER.debug("CloseEvent: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -216,6 +218,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.GetBinaryDataResponse(binary_data=event.binaries[name])
 
     def AddDocument(self, request, context=None):
+        LOGGER.debug("AddDocument: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -236,6 +239,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.AddDocumentResponse()
 
     def GetAllDocumentNames(self, request, context=None):
+        LOGGER.debug("GetAllDocumentNames: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -244,6 +248,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.GetAllDocumentNamesResponse(document_names=names)
 
     def GetDocumentText(self, request, context=None):
+        LOGGER.debug("GetDocumentText: %s", request.event_id)
         try:
             document = self._get_document(request, context)
         except KeyError:
@@ -286,7 +291,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 for key in label:
                     if key in ["document", "location", "text"]:
                         _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: {}".format(key))
+                                           "Label included a reserved key: %s".format(key))
                         return empty_pb2.Empty()
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()
@@ -299,7 +304,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             labels_type, labels = document.labels[request.index_name]
         except KeyError:
-            msg = "Event: '{}' document: '{} does not have label index: {}'".format(
+            msg = "Event: '{}' document: '{} does not have label index: %s'".format(
                 request.event_id, request.document_name, request.index_name)
             _set_error_context(context, grpc.StatusCode.NOT_FOUND, msg)
             return empty_pb2.Empty()
