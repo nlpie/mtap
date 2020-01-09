@@ -16,7 +16,7 @@ from typing import Dict, Any
 
 import time
 
-from mtap import Pipeline, LocalProcessor, Event
+from mtap import Pipeline, LocalProcessor, Event, EventsClient
 from mtap.processing import EventProcessor
 
 
@@ -34,3 +34,23 @@ def test_time_result():
         results = pipeline.run(event)
         result = results[0]
         assert result.timing_info['process_method'] >= timedelta(seconds=0.001)
+
+
+def test_run_async(mocker):
+    client = mocker.Mock(EventsClient)
+    client.get_all_document_names.return_value = ['plaintext']
+    processor1 = Processor()
+    processor2 = Processor()
+    processor3 = Processor()
+    with Pipeline(
+        LocalProcessor(processor1, component_id='processor1', client=client),
+        LocalProcessor(processor2, component_id='processor2', client=client),
+        LocalProcessor(processor3, component_id='processor3', client=client)
+    ) as pipeline:
+        futures = []
+        for i in range(10):
+            e = Event()
+            futures.append(pipeline.run_async(e, client))
+        for future in futures:
+            results = future.result(timeout=10)
+            assert len(results) == 3

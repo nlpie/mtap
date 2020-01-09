@@ -218,14 +218,15 @@ class SerializationProcessor(EventProcessor):
         output_dir (str): The output_directory.
     """
 
-    def __init__(self, ser: Serializer, output_dir: str):
+    def __init__(self, ser: Serializer, output_dir: str, include_label_text: bool = False):
         self.serializer = ser
         self.output_dir = output_dir
+        self.include_label_text = include_label_text
 
     def process(self, event: Event, params: Dict[str, Any]):
         name = params.get('filename', event.event_id + self.serializer.extension)
         path = Path(self.output_dir, name)
-        self.serializer.event_to_file(event, path)
+        self.serializer.event_to_file(event, path, include_label_text=self.include_label_text)
 
 
 class _JsonSerializer(Serializer):
