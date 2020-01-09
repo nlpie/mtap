@@ -107,7 +107,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       );
       discoveryMechanism.register(serviceInfo);
     }
-    logger.info("Server started on port " + port);
+    logger.info("Server for processor_id: {} started on port: {}", processorId, port);
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       System.err.println("Shutting down processor server ");
       shutdown();

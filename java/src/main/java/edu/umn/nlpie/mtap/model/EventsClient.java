@@ -24,7 +24,6 @@ import io.grpc.ManagedChannel;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -285,7 +284,8 @@ public class EventsClient implements AutoCloseable {
     AddLabelsRequest.Builder requestBuilder = AddLabelsRequest.newBuilder()
         .setEventId(eventID)
         .setDocumentName(documentName)
-        .setIndexName(indexName);
+        .setIndexName(indexName)
+        .setNoKeyValidation(true);
     adapter.addToMessage(labels, requestBuilder);
     AddLabelsRequest request = requestBuilder.build();
 

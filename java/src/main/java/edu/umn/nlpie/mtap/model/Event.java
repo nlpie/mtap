@@ -116,14 +116,14 @@ public class Event implements AutoCloseable {
   }
 
   /**
-   * Adds a document keyed by {@code documentName} and containing {@code text}.
+   * Adds a new document keyed by {@code documentName} and containing {@code text}.
    *
    * @param documentName The key to store the document under.
    * @param text         The text of the document.
    *
    * @return A document object that can be used to interact with the documents service.
    */
-  public @NotNull Document addDocument(@NotNull String documentName, @NotNull String text) {
+  public @NotNull Document createDocument(@NotNull String documentName, @NotNull String text) {
     Document document = new Document(documentName, text);
     getDocuments().put(documentName, document);
     return document;

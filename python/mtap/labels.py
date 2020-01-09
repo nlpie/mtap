@@ -134,18 +134,23 @@ class GenericLabel(Label, Mapping[str, Any]):
         for v in kwargs.values():
             _check_type(v)
         self.__dict__['_document'] = document
-        map(_check_reserved_names, kwargs.keys())
+        for key in kwargs.keys():
+            if self._is_reserved(key):
+                raise ValueError("The key '{}' is a reserved key.".format(key))
         self.__dict__['fields'] = dict(kwargs)
         self.fields['start_index'] = start_index
         self.fields['end_index'] = end_index
+
+    def _is_reserved(self, key):
+        return key in self.__dict__ or key in vars(GenericLabel) or key in vars(Label)
 
     @property
     def document(self) -> 'Document':
         return self._document
 
     @document.setter
-    def document(self, document):
-        self.__dict__['document'] = document
+    def document(self, value: 'Document'):
+        ...  # This is handled by setattr and will not be  called, it's just here for type checking.
 
     @property
     def start_index(self):
@@ -156,21 +161,18 @@ class GenericLabel(Label, Mapping[str, Any]):
         return int(self.fields['end_index'])
 
     def __getattr__(self, item):
-        if item == '_document':
-            return self.__dict__['_document']
-        fields = self.__dict__['fields']
-        if item == 'fields':
-            return fields
-        else:
-            return fields[item]
+        if item in self.__dict__:
+            return self.__dict__[item]
+        return self.fields[item]
 
     def __setattr__(self, key, value):
         if key == 'document':
             self.__dict__['_document'] = value
             return
-        _check_reserved_names(key)
+        if self._is_reserved(key):
+            raise ValueError('The key "{}" is a reserved key.'.format(key))
         _check_type(value, [self])
-        self.__dict__['fields'][key] = value
+        self.fields[key] = value
 
     def __eq__(self, other):
         if not isinstance(other, GenericLabel):
@@ -214,11 +216,6 @@ def label(start_index: int,
 
     """
     return GenericLabel(start_index, end_index, document=document, **kwargs)
-
-
-def _check_reserved_names(attribute: str):
-    if attribute in ['start_index', 'end_index', 'text', 'document', 'location']:
-        raise ValueError(attribute + " is a reserved name on labels.")
 
 
 def _check_type(o: Any, parents=None):

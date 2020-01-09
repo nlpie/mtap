@@ -428,6 +428,8 @@ class Document:
             label_adapter = (DistinctGenericLabelAdapter if distinct else GenericLabelAdapter)
 
         labels = sorted(labels, key=lambda l: l.location)
+        for label in labels:
+            label.document = self
         if self._client is not None:
             self._client.add_labels(event_id=self.event.event_id,
                                     document_name=self.document_name,
@@ -690,7 +692,8 @@ class EventsClient:
 
     def add_labels(self, event_id, document_name, index_name, labels, adapter):
         request = events_pb2.AddLabelsRequest(event_id=event_id, document_name=document_name,
-                                              index_name=index_name)
+                                              index_name=index_name,
+                                              no_key_validation=True)
         adapter.add_to_message(labels, request)
         self.stub.AddLabels(request)
 
