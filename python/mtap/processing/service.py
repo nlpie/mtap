@@ -20,6 +20,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Dict, Any, Optional, Sequence, Mapping
 
 import grpc
+from google.protobuf import empty_pb2
 from grpc_health.v1 import health, health_pb2_grpc
 
 from mtap import _structs
@@ -211,6 +212,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
             logger.error(traceback.format_exc())
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
+            return empty_pb2.Empty()
 
     def GetStats(self, request, context):
         r = processing_pb2.GetStatsResponse(processed=self._runner.processed,

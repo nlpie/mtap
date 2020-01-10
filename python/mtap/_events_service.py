@@ -19,6 +19,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
 
 import grpc
+from google.protobuf import empty_pb2
 from grpc_health.v1 import health
 from grpc_health.v1 import health_pb2_grpc
 
@@ -127,11 +128,12 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return document
 
     def OpenEvent(self, request, context=None):
+        LOGGER.debug("OpenEvent: %s", request.event_id)
         event_id = request.event_id
         if event_id == '':
             msg = "event_id was not set."
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-            return
+            return empty_pb2.Empty()
         created_event = False
         try:
             event = self.events[event_id]
@@ -147,15 +149,16 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         if not created_event and request.only_create_new:
             msg = 'Event already exists: "{}"'.format(event_id)
             _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
-            return
+            return empty_pb2.Empty()
         event.clients += 1
         return events_pb2.OpenEventResponse(created=created_event)
 
     def CloseEvent(self, request, context=None):
+        LOGGER.debug("CloseEvent: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         deleted = False
         with event.c_lock:
             event.clients -= 1
@@ -172,12 +175,12 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             event, _ = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         key = request.key
         if key == '':
             msg = 'metadata key cannot be null or empty'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-            return
+            return empty_pb2.Empty()
         event.metadata[key] = request.value
         return events_pb2.AddMetadataResponse()
 
@@ -185,7 +188,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         names = list(event.binaries.keys())
         return events_pb2.GetAllBinaryDataNamesResponse(binary_data_names=names)
 
@@ -193,12 +196,12 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         name = request.binary_data_name
         if name == '':
             msg = 'binary_data_name cannot be null or empty'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-            return
+            return empty_pb2.Empty()
         event.binaries[name] = request.binary_data
         return events_pb2.AddBinaryDataResponse()
 
@@ -206,54 +209,57 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         name = request.binary_data_name
         if name == '':
             msg = 'binary_data_name cannot be null or empty'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-            return
+            return empty_pb2.Empty()
         return events_pb2.GetBinaryDataResponse(binary_data=event.binaries[name])
 
     def AddDocument(self, request, context=None):
+        LOGGER.debug("AddDocument: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         document_name = request.document_name
         if document_name == '':
             msg = 'document_name was not set.'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-            return
+            return empty_pb2.Empty()
 
         with event.d_lock:
             if document_name in event.documents:
                 msg = "Document '{}' already exists.".format(document_name)
                 _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
-                return
+                return empty_pb2.Empty()
             event.documents[document_name] = _Document(request.text)
 
         return events_pb2.AddDocumentResponse()
 
     def GetAllDocumentNames(self, request, context=None):
+        LOGGER.debug("GetAllDocumentNames: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         names = list(event.documents.keys())
         return events_pb2.GetAllDocumentNamesResponse(document_names=names)
 
     def GetDocumentText(self, request, context=None):
+        LOGGER.debug("GetDocumentText: %s", request.event_id)
         try:
             document = self._get_document(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         return events_pb2.GetDocumentTextResponse(text=document.text)
 
     def GetLabelIndicesInfo(self, request, context=None):
         try:
             document = self._get_document(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         response = events_pb2.GetLabelIndicesInfoResponse()
         for k, v in document.labels.items():
             labels_type, _ = v
@@ -269,7 +275,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             document = self._get_document(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         labels_field = request.WhichOneof('labels')
         if labels_field is None:
             labels = ('json_labels', events_pb2.JsonLabels())
@@ -278,15 +284,15 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             if index_name == '':
                 msg = 'No index_name was set.'
                 _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
-                return
+                return empty_pb2.Empty()
             labels = (labels_field, getattr(request, labels_field))
         if labels_field == 'json_labels' and not request.no_key_validation:
             for label in labels[1].labels:
                 for key in label:
                     if key in ["document", "location", "text"]:
                         _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: {}".format(key))
-                        return
+                                           "Label included a reserved key: %s".format(key))
+                        return empty_pb2.Empty()
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()
 
@@ -294,14 +300,14 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             document = self._get_document(request, context)
         except KeyError:
-            return
+            return empty_pb2.Empty()
         try:
             labels_type, labels = document.labels[request.index_name]
         except KeyError:
-            msg = "Event: '{}' document: '{} does not have label index: {}'".format(
+            msg = "Event: '{}' document: '{} does not have label index: %s'".format(
                 request.event_id, request.document_name, request.index_name)
             _set_error_context(context, grpc.StatusCode.NOT_FOUND, msg)
-            return
+            return empty_pb2.Empty()
         response = events_pb2.GetLabelsResponse()
         if labels_type is not None:
             getattr(response, labels_type).CopyFrom(labels)
