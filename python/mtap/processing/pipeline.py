@@ -11,15 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from abc import ABC, abstractmethod
+from concurrent.futures import Future, wait
+from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
-from typing import Optional, Dict, Any, Union, List, MutableSequence
+from threading import Lock, Condition
+from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable
+
+from tqdm import tqdm
 
 from mtap._config import Config
 from mtap.events import Event, Document, EventsClient
 from mtap.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
     ProcessingComponent
 from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
+
+logger = logging.getLogger(__name__)
 
 
 class ComponentDescriptor(ABC):
@@ -144,6 +152,27 @@ class LocalProcessor(ComponentDescriptor):
             ]))
 
 
+def _event_and_params(target, params):
+    try:
+        document_name = target.document_name
+        params = dict(params or {})
+        params['document_name'] = document_name
+        event = target.event
+    except AttributeError:
+        event = target
+    return event, params
+
+
+def _cancel_callback(pipeline, event):
+    def fn(_):
+        event.close()
+        pipeline._task_condition.acquire()
+        pipeline._tasks -= 1
+        pipeline._task_condition.notify()
+        pipeline._task_condition.release()
+    return fn
+
+
 class Pipeline(MutableSequence[ComponentDescriptor]):
     """An object which can be used to build and run a pipeline of remote and local processors.
 
@@ -218,12 +247,18 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
 
     def __init__(self, *components: ComponentDescriptor,
                  name: Optional[str] = None,
-                 config: Optional[Config] = None):
+                 config: Optional[Config] = None,
+                 n_threads: int = 4,
+                 read_ahead: int = 1):
         self._config = config or Config()
         self._component_ids = {}
         self.name = name or 'pipeline'
         self._components = [desc.create_pipeline_component(self._config, self._component_ids)
                             for desc in components]
+        self._n_threads = n_threads
+        self._read_ahead = read_ahead
+        self._tasks = 0
+        self._task_condition = Condition(Lock())
 
     @property
     def _times_collector(self):
@@ -232,6 +267,83 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         except AttributeError:
             self.__times_collector = ProcessingTimesCollector()
             return self.__times_collector
+
+    @property
+    def _executor(self):
+        try:
+            return self.__executor
+        except AttributeError:
+            self.__executor = ThreadPoolExecutor(max_workers=self._n_threads)
+            return self.__executor
+
+    def run_multithread(self,
+                        source: Iterable[Union[Document, Event]], *,
+                        params: Optional[Dict[str, Any]] = None,
+                        progress: bool = True,
+                        total: Optional[int] = None) -> List[ProcessingResult]:
+        """Uses a generator to create
+
+        This method will ensure that the event remains open on the Event service until the
+        asynchronous processing of the event through the entire pipeline is completed.
+
+        Args:
+            source (~typing.Iterable[~typing.Union[Event, Document]])
+                A generator of events or documents to process.
+            params (dict[str, ~typing.Any]):
+                Json object containing params specific to processing this event, the existing params
+                dictionary defined in :func:`~PipelineBuilder.add_processor` will be updated with
+                the contents of this dict.
+            progress (bool):
+                Whether to print a progress bar using tqdm.
+            total (~typing.Optional[int]):
+                An optional argument indicating the total number of events / documents that will be
+                provided by the iterable, for the progress bar.
+
+        Returns:
+            Future:
+                A future which returns a tuple, the a list of ProcessingResult objects for
+                all the processors and the event that was processed.
+
+        Examples:
+            >>> docs = list(Path('abc/').glob('*.txt'))
+            >>> def document_source():
+            >>>     for path in docs:
+            >>>         with path.open('r') as f:
+            >>>             txt = f.read()
+            >>>         event = Event(event_id=path.name, client=client)
+            >>>         doc = event.create_document('plaintext', txt)
+            >>>         yield doc
+            >>>
+            >>> pipeline.run_multithread(document_source(), total=len(docs))
+
+        """
+        futures = []
+        if progress:
+            source = tqdm(source, total=total, unit=' events', smoothing=0.01)
+        for target in source:
+            try:
+                event, params = _event_and_params(target, params)
+                event_id = event.event_id
+                self._tasks += 1
+                future = self._executor.submit(self._run_by_event_id, event_id, params)
+                future.add_done_callback(_cancel_callback(self, event))
+            except Exception as e:
+                try:
+                    event = target.event
+                except AttributeError:
+                    event = target
+                event.close()
+                raise e
+            futures.append(future)
+            self._task_condition.acquire()
+            while self._tasks >= self._n_threads + self._read_ahead:
+                self._task_condition.wait()
+            self._task_condition.release()
+        wait(futures)
+        results = []
+        for future in futures:
+            results.append(future.result())
+        return results
 
     def run(self, target: Union[Event, Document], *,
             params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
@@ -259,38 +371,32 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             The 'document_name' param is used to indicate to :obj:`~mtap.processing.DocumentProcessor`
             which document on the event to process.
         """
-        try:
-            document_name = target.document_name
-            params = dict(params or {})
-            params['document_name'] = document_name
-            event = target.event
-        except AttributeError:
-            event = target
+        event, params = _event_and_params(target, params)
+        event_id = event.event_id
 
+        results = self._run_by_event_id(event_id, params)
+
+        for result in results:
+            try:
+                event.add_created_indices(result.created_indices)
+            except AttributeError:
+                pass
+        return results
+
+    def _run_by_event_id(self, event_id, params):
         start = datetime.now()
-        results = [component.call_process(event.event_id, params) for component in self._components]
+        results = [component.call_process(event_id, params) for component in self._components]
         total = datetime.now() - start
         times = {}
         for (_, component_times, _), component in zip(results, self._components):
             times.update({component.component_id + ':' + k: v for k, v in component_times.items()})
         times[self.name + 'total'] = total
         self._times_collector.add_times(times)
-
-        for result in results:
-            try:
-                event.add_created_indices(result[2])
-            except AttributeError:
-                pass
-
-        return [
-            ProcessingResult(
-                identifier=component.component_id,
-                results=result[0],
-                timing_info=result[1],
-                created_indices=result[2]
-            )
-            for component, result in zip(self._components, results)
-        ]
+        results = [ProcessingResult(identifier=component.component_id, results=result[0],
+                                    timing_info=result[1], created_indices=result[2]) for
+                   component, result in zip(self._components, results)]
+        logger.debug('Finished processing event_id: %s', event_id)
+        return results
 
     def processor_timer_stats(self) -> List[AggregateTimingInfo]:
         """Returns the timing information for all processors.
@@ -338,6 +444,10 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 component.close()
             except AttributeError:
                 pass
+        try:
+            self.__executor.shutdown(wait=True)
+        except AttributeError:
+            pass
 
     def as_processor(self) -> EventProcessor:
         """Returns the pipeline as a processor.

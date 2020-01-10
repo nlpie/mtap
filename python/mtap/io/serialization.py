@@ -22,12 +22,13 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Dict, Any, Optional
+from typing import Union, Dict, Any, Optional, Callable
 
 from mtap.events import Event, Document, LabelIndexType, EventsClient
 from mtap.label_indices import LabelIndex, label_index
 from mtap.labels import GenericLabel
 from mtap.processing import EventProcessor, processor
+from mtap.processing.base import Stopwatch, Processor
 from mtap.processing.descriptions import parameter
 
 logger = logging.getLogger(__name__)
@@ -218,14 +219,15 @@ class SerializationProcessor(EventProcessor):
         output_dir (str): The output_directory.
     """
 
-    def __init__(self, ser: Serializer, output_dir: str):
+    def __init__(self, ser: Serializer, output_dir: str, include_label_text: bool = False):
         self.serializer = ser
         self.output_dir = output_dir
+        self.include_label_text = include_label_text
 
     def process(self, event: Event, params: Dict[str, Any]):
         name = params.get('filename', event.event_id + self.serializer.extension)
         path = Path(self.output_dir, name)
-        self.serializer.event_to_file(event, path)
+        self.serializer.event_to_file(event, path, include_label_text=self.include_label_text)
 
 
 class _JsonSerializer(Serializer):
@@ -237,26 +239,30 @@ class _JsonSerializer(Serializer):
 
     def event_to_file(self, event: Event, f: Path, *, include_label_text: bool = False):
         import json
-        d = event_to_dict(event, include_label_text=include_label_text)
-        try:
-            json.dump(d, f)
-        except AttributeError:
-            f = Path(f)
-            f.parent.mkdir(parents=True, exist_ok=True)
-            with f.open('w') as f:
-                json.dump(d, f)
+        with Processor.started_stopwatch('transform'):
+            d = event_to_dict(event, include_label_text=include_label_text)
+        with Processor.started_stopwatch('io'):
+            try:
+                    json.dump(d, f)
+            except AttributeError:
+                f = Path(f)
+                f.parent.mkdir(parents=True, exist_ok=True)
+                with f.open('w') as f:
+                    json.dump(d, f)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase],
                       client: Optional[EventsClient] = None) -> Event:
         import json
-        try:
-            d = json.load(f)
-        except AttributeError:
-            if isinstance(f, str):
-                f = Path(f)
-            with f.open('r') as f:
+        with Processor.started_stopwatch('io'):
+            try:
                 d = json.load(f)
-        return dict_to_event(d, client=client)
+            except AttributeError:
+                if isinstance(f, str):
+                    f = Path(f)
+                with f.open('r') as f:
+                    d = json.load(f)
+        with Processor.started_stopwatch('transform'):
+            return dict_to_event(d, client=client)
 
 
 class _YamlSerializer(Serializer):
@@ -272,13 +278,15 @@ class _YamlSerializer(Serializer):
             from yaml import CDumper as Dumper
         except ImportError:
             from yaml import Dumper
-        d = event_to_dict(event, include_label_text=include_label_text)
-        if isinstance(f, io.IOBase):
-            yaml.dump(d, f, Dumper=Dumper)
-        else:
-            f = Path(f)
-            with f.open('w') as f:
+        with Processor.started_stopwatch('transform'):
+            d = event_to_dict(event, include_label_text=include_label_text)
+        with Processor.started_stopwatch('io'):
+            if isinstance(f, io.IOBase):
                 yaml.dump(d, f, Dumper=Dumper)
+            else:
+                f = Path(f)
+                with f.open('w') as f:
+                    yaml.dump(d, f, Dumper=Dumper)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase], *,
                       client: Optional[EventsClient] = None) -> Event:
@@ -287,12 +295,14 @@ class _YamlSerializer(Serializer):
             from yaml import CLoader as Loader
         except ImportError:
             from yaml import Loader
-        if isinstance(f, io.IOBase):
-            d = yaml.load(f, Loader=Loader)
-        else:
-            with Path(f).open() as f:
+        with Processor.started_stopwatch('io'):
+            if isinstance(f, io.IOBase):
                 d = yaml.load(f, Loader=Loader)
-        return dict_to_event(d, client=client)
+            else:
+                with Path(f).open() as f:
+                    d = yaml.load(f, Loader=Loader)
+        with Processor.started_stopwatch('transform'):
+            return dict_to_event(d, client=client)
 
 
 class _PickleSerializer(Serializer):
@@ -304,22 +314,26 @@ class _PickleSerializer(Serializer):
     def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase], *,
                       include_label_text: bool = False):
         import pickle
-        d = event_to_dict(event, include_label_text=include_label_text)
-        try:
-            pickle.dump(d, f)
-        except TypeError:
-            with Path(f).open('wb') as f:
+        with Processor.started_stopwatch('transform'):
+            d = event_to_dict(event, include_label_text=include_label_text)
+        with Processor.started_stopwatch('io'):
+            try:
                 pickle.dump(d, f)
+            except TypeError:
+                with Path(f).open('wb') as f:
+                    pickle.dump(d, f)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase], *,
                       client: Optional[EventsClient] = None) -> Event:
         import pickle
-        try:
-            d = pickle.load(f)
-        except TypeError:
-            with Path(f).open('rb') as f:
+        with Processor.started_stopwatch('io'):
+            try:
                 d = pickle.load(f)
-        return dict_to_event(d, client=client)
+            except TypeError:
+                with Path(f).open('rb') as f:
+                    d = pickle.load(f)
+        with Processor.started_stopwatch('transform'):
+            return dict_to_event(d, client=client)
 
 
 JsonSerializer = _JsonSerializer()

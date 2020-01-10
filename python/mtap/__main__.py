@@ -54,10 +54,10 @@ def run_serializer_processor(args):
 
 
 def main(args=None):
-    logging.basicConfig(level=logging.DEBUG)
     import argparse as argparse
     parser = argparse.ArgumentParser(description='Starts a MTAP gRPC server.',
                                      allow_abbrev=False)
+    parser.add_argument('--log-level', default='INFO')
     subparsers = parser.add_subparsers(title='sub-commands', description='valid sub-commands')
 
     # Documents service sub-command
@@ -85,6 +85,7 @@ def main(args=None):
 
     # parse and execute
     args = parser.parse_args(args)
+    logging.basicConfig(level=args.log_level)
     args.func(args)
 
 

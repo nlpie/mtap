@@ -144,6 +144,7 @@ setup(
         'pyyaml',
         'python-consul',
         'googleapis-common-protos',
+        'tqdm'
     ],
     setup_requires=[
         'pytest-runner',
