@@ -17,15 +17,15 @@ from concurrent.futures import Future, wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from threading import Lock, Condition
-from time import sleep
-from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Generator
+from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable
+
+from tqdm import tqdm
 
 from mtap._config import Config
 from mtap.events import Event, Document, EventsClient
 from mtap.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
     ProcessingComponent
 from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
-
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +163,16 @@ def _event_and_params(target, params):
     return event, params
 
 
+def _cancel_callback(pipeline, event):
+    def fn(_):
+        event.close()
+        pipeline._task_condition.acquire()
+        pipeline._tasks -= 1
+        pipeline._task_condition.notify()
+        pipeline._task_condition.release()
+    return fn
+
+
 class Pipeline(MutableSequence[ComponentDescriptor]):
     """An object which can be used to build and run a pipeline of remote and local processors.
 
@@ -266,8 +276,11 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             self.__executor = ThreadPoolExecutor(max_workers=self._n_threads)
             return self.__executor
 
-    def run_multithread(self, source: Iterable[Union[Document, Event]],
-                        *, params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
+    def run_multithread(self,
+                        source: Iterable[Union[Document, Event]], *,
+                        params: Optional[Dict[str, Any]] = None,
+                        progress: bool = True,
+                        total: Optional[int] = None) -> List[ProcessingResult]:
         """Uses a generator to create
 
         This method will ensure that the event remains open on the Event service until the
@@ -276,13 +289,15 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         Args:
             source (~typing.Iterable[~typing.Union[Event, Document]])
                 A generator of events or documents to process.
-            client (EventsClient):
-                The client used to ensure the event remains open until it is
-                processed.
             params (dict[str, ~typing.Any]):
                 Json object containing params specific to processing this event, the existing params
                 dictionary defined in :func:`~PipelineBuilder.add_processor` will be updated with
                 the contents of this dict.
+            progress (bool):
+                Whether to print a progress bar using tqdm.
+            total (~typing.Optional[int]):
+                An optional argument indicating the total number of events / documents that will be
+                provided by the iterable, for the progress bar.
 
         Returns:
             Future:
@@ -290,25 +305,28 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 all the processors and the event that was processed.
 
         Examples:
+            >>> docs = list(Path('abc/').glob('*.txt'))
             >>> def document_source():
-            >>>     for path in Path('abc/').glob('*.txt'):
+            >>>     for path in docs:
             >>>         with path.open('r') as f:
             >>>             txt = f.read()
             >>>         event = Event(event_id=path.name, client=client)
             >>>         doc = event.create_document('plaintext', txt)
             >>>         yield doc
             >>>
-            >>> pipeline.run_multithread(document_source())
+            >>> pipeline.run_multithread(document_source(), total=len(docs))
 
         """
         futures = []
+        if progress:
+            source = tqdm(source, total=total, unit=' events', smoothing=0.01)
         for target in source:
             try:
                 event, params = _event_and_params(target, params)
                 event_id = event.event_id
                 self._tasks += 1
-                future = self._executor.submit(self._process, event_id, params)
-                future.add_done_callback(self._create_callback(event))
+                future = self._executor.submit(self._run_by_event_id, event_id, params)
+                future.add_done_callback(_cancel_callback(self, event))
             except Exception as e:
                 try:
                     event = target.event
@@ -326,20 +344,6 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         for future in futures:
             results.append(future.result())
         return results
-
-    def _create_callback(self, event):
-        def fn(_):
-            event.close()
-            self._task_condition.acquire()
-            self._tasks -= 1
-            self._task_condition.notify()
-            self._task_condition.release()
-        return fn
-
-    def _process(self, event_id, params):
-        result = self._run_by_event_id(event_id, params)
-        logger.info('Done Processing: event_id "%s"', event_id)
-        return result
 
     def run(self, target: Union[Event, Document], *,
             params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
@@ -391,6 +395,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         results = [ProcessingResult(identifier=component.component_id, results=result[0],
                                     timing_info=result[1], created_indices=result[2]) for
                    component, result in zip(self._components, results)]
+        logger.debug('Finished processing event_id: %s', event_id)
         return results
 
     def processor_timer_stats(self) -> List[AggregateTimingInfo]:
