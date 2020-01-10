@@ -1,5 +1,7 @@
 # MTAP
 
+[nlpie.github.io/mtap](https://nlpie.github.io/mtap)
+
 ## Microservice Text Analysis Platform
 
 MTAP is a framework for distributed text analysis using gRPC and microservices-based architecture. 
@@ -11,90 +13,56 @@ components in either Python or Java.
 - Java 8+ (for java framework, integration tests)
 - Go 13+ (for gateway, integration tests)
 
-# Developer stuff
+## Features
 
-## Building
+### Ease of Use
 
-### Building the generated Python protobuf files
+MTAP takes care of all the communication between different components, and provides a distributed object model for text analysis artifacts. All you have to worry about is writing the text analysis code.
 
-```shell script
-python setup.py clean build_py
+### Flexibility
+
+By using the microservice pattern, text analysis components can be deployed once and then mixed and matched in different pipelines. Components written in different languages can interoperate without hassle. We also provide a RESTful API gateway that lets you call components using HTTP.
+
+### Scalability
+
+MTAP is designed to bridge the gap between prototyping new ideas and deploying them into a production environment. It supports calling components locally without using any network infastructure all the way up to deploying services and using service discovery via Consul to build pipelines.
+
+## Getting started
+
+### Installation
+
+#### Python
+```bash
+pip install mtap
 ```
 
-### Building a python distributable
+#### Java
 
-```shell script
-python setup.py bdist_wheel
+Gradle:
+```groovy
+implementation 'edu.umn.nlpie:mtap:0.2.0-rc0'
 ```
 
-### Building the Java Framework
-
-```shell script
-cd java
-./gradlew build fatJar
+Maven:
+```xml
+<dependency>
+  <groupId>edu.umn.nlpie</groupId>
+  <artifactId>mtap</artifactId>
+  <version>0.2.0-rc0</version>
+</dependency>
 ```
 
-### Building the Go HTTP API Gateway distributables
-First time setup, follow the instructions for 
-[gRPC Gateway](https://github.com/grpc-ecosystem/grpc-gateway) requirements.
+### Instructions
 
-Build stuff:
-```shell script
-cd go
-make proto release
-```
+We make getting started tutorials available on our project website for both [Python](https://nlpie.github.io/mtap/docs/tutorials/python.html) and [Java](https://nlpie.github.io/mtap/docs/tutorials/java.html).
 
-### Installing the Go API Gateway
+### About Us
 
-```shell script
-cd go
-go install mtap-gateway/mtap-gateway.go 
-```
+MTAP is developed at the University of Minnesota by the [NLP/IE Group in the Institute for Health Informatics](https://healthinformatics.umn.edu/research/nlpie-group).
 
-# Testing
+### Acknowledgements
+Funding for this work was provided by:
 
-## Running Python unit tests
-
-The python unit tests run using the version of MTAP installed to the site-packages: 
-
-```shell script
-pip install .\[tests]
-pytest python/tests
-```
-
-## Running the Java unit tests
-
-```shell script
-cd java
-./gradlew test
-```
-
-## Running integration tests
-
-First, the go gateway needs to be installed and ``$GOROOT/bin`` needs to be on your ``$PATH``. From 
-the root directory:
-
-```shell script
-cd go
-go install mtap-gateway/mtap-gateway.go
-```
-
-Second, the Java framework fat jar needs to be built. From the root directory:
-
-```shell script
-cd java
-./gradlew build fatJar
-``` 
-
-If you want to test service discovery via consul, consul needs to be started. From another terminal:
-
-```shell script
-consul agent -dev -ui
-```
-
-Now we're ready to run the integration tests, from the root directory:
-```shell script
-pip install .\[tests]
-MTAP_JAR=java/build/libs/mtap-all-[MTAP VERSION GOES HERE] pytest python/tests --consul --integration
-```
-
+- 1 R01 LM011364-01 NIH-NLM
+- 1 R01 GM102282-01A1 NIH-NIGMS
+- U54 RR026066-01A2 NIH-NCRR
