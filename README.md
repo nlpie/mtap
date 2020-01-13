@@ -9,9 +9,10 @@ MTAP is used to create independent, scalable, interoperable text analysis pipeli
 components in either Python or Java. 
 
 ## Requirements
-- Python 3.5+
-- Java 8+ (for java framework, integration tests)
-- Go 13+ (for gateway, integration tests)
+- Operating System: Ubuntu 18.04 or MacOS Catalina (other operating systems may work, but are not tested).
+- [Python 3.5+](https://www.python.org/downloads/)
+- Optional: [Java JDK 8, 11, or 13](https://adoptopenjdk.net) if you want to create Java Processors.
+- Optional: [Go 13+](https://golang.org) if you want to run the RESTful API Gateway.
 
 ## Features
 
@@ -40,7 +41,7 @@ pip install mtap
 
 Gradle:
 ```groovy
-implementation 'edu.umn.nlpie:mtap:0.2.0-rc0'
+implementation 'edu.umn.nlpie:mtap:0.3.0'
 ```
 
 Maven:
@@ -48,9 +49,11 @@ Maven:
 <dependency>
   <groupId>edu.umn.nlpie</groupId>
   <artifactId>mtap</artifactId>
-  <version>0.2.0-rc0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
+
+Alternatively, on our [releases page](https://github.com/nlpie/mtap/releases) we make a jar containing MTAP and all of its dependencies available.
 
 ### Instructions
 
