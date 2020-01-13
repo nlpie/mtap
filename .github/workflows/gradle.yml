@@ -5,11 +5,11 @@ on: [push, pull_request]
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest, macos-latest]
     strategy:
-       max-parallel: 2
-       matrix:
-         java-version: [1.8, 12]
+      max-parallel: 4
+      matrix:
+        java-version: [1.8, 11, 13]
 
     steps:
     - uses: actions/checkout@v1
