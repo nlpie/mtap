@@ -163,13 +163,13 @@ def _event_and_params(target, params):
     return event, params
 
 
-def _cancel_callback(pipeline, event):
+def _cancel_callback(event, read_ahead, cd, close_events):
     def fn(_):
-        event.close()
-        pipeline._task_condition.acquire()
-        pipeline._tasks -= 1
-        pipeline._task_condition.notify()
-        pipeline._task_condition.release()
+        if close_events:
+            event.close()
+        read_ahead.task_completed()
+        cd.count_down()
+
     return fn
 
 
@@ -256,9 +256,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         self._components = [desc.create_pipeline_component(self._config, self._component_ids)
                             for desc in components]
         self._n_threads = n_threads
-        self._read_ahead = read_ahead
-        self._tasks = 0
-        self._task_condition = Condition(Lock())
+        self._read_ahead = _ReadAhead(n_threads, read_ahead)
 
     @property
     def _times_collector(self):
@@ -280,24 +278,28 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                         source: Iterable[Union[Document, Event]], *,
                         params: Optional[Dict[str, Any]] = None,
                         progress: bool = True,
-                        total: Optional[int] = None) -> List[ProcessingResult]:
-        """Uses a generator to create
+                        total: Optional[int] = None,
+                        close_events: bool = True) -> List[List[ProcessingResult]]:
+        """Runs this pipeline on a source which provides multiple documents / events.
 
-        This method will ensure that the event remains open on the Event service until the
-        asynchronous processing of the event through the entire pipeline is completed.
+        Concurrency is per-event, with each event being provided a thread which runs it through the
+        pipeline.
 
         Args:
             source (~typing.Iterable[~typing.Union[Event, Document]])
                 A generator of events or documents to process.
-            params (dict[str, ~typing.Any]):
+            params (dict[str, ~typing.Any])
                 Json object containing params specific to processing this event, the existing params
                 dictionary defined in :func:`~PipelineBuilder.add_processor` will be updated with
                 the contents of this dict.
-            progress (bool):
+            progress (bool)
                 Whether to print a progress bar using tqdm.
-            total (~typing.Optional[int]):
+            total (~typing.Optional[int])
                 An optional argument indicating the total number of events / documents that will be
                 provided by the iterable, for the progress bar.
+            close_events (bool)
+                Whether the pipeline should close events after they have been fully processed
+                through all components.
 
         Returns:
             Future:
@@ -320,13 +322,15 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         futures = []
         if progress:
             source = tqdm(source, total=total, unit=' events', smoothing=0.01)
+        cd = _CountDown()
         for target in source:
             try:
                 event, params = _event_and_params(target, params)
                 event_id = event.event_id
-                self._tasks += 1
+                self._read_ahead.increment_active_tasks()
+                cd.increment()
                 future = self._executor.submit(self._run_by_event_id, event_id, params)
-                future.add_done_callback(_cancel_callback(self, event))
+                future.add_done_callback(_cancel_callback(event, self._read_ahead, cd, close_events))
             except Exception as e:
                 try:
                     event = target.event
@@ -335,14 +339,12 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 event.close()
                 raise e
             futures.append(future)
-            self._task_condition.acquire()
-            while self._tasks >= self._n_threads + self._read_ahead:
-                self._task_condition.wait()
-            self._task_condition.release()
+            self._read_ahead.wait_to_read()
         wait(futures)
         results = []
         for future in futures:
             results.append(future.result())
+        cd.wait()
         return results
 
     def run(self, target: Union[Event, Document], *,
@@ -505,6 +507,49 @@ class _PipelineProcessor(EventProcessor):
             _PipelineProcessor.current_context().add_time(k, v)
 
         return {'component_results': [result[0] for result in results]}
+
+
+class _ReadAhead:
+    def __init__(self, n_threads, read_ahead):
+        self._active_tasks = 0
+        self._n_threads = n_threads
+        self._cond = Condition(Lock())
+        self._read_ahead = read_ahead
+
+    def increment_active_tasks(self):
+        with self._cond:
+            self._active_tasks += 1
+
+    def task_completed(self):
+        with self._cond:
+            self._active_tasks -= 1
+            self._cond.notify()
+
+    def _read_ready(self):
+        return self._active_tasks < self._n_threads + self._read_ahead
+
+    def wait_to_read(self):
+        with self._cond:
+            self._cond.wait_for(self._read_ready)
+
+
+class _CountDown:
+    def __init__(self):
+        self._count = 0
+        self._condition = Condition(Lock())
+
+    def increment(self):
+        with self._condition:
+            self._count += 1
+
+    def count_down(self):
+        with self._condition:
+            self._count -= 1
+            self._condition.notify_all()
+
+    def wait(self):
+        with self._condition:
+            self._condition.wait_for(lambda: self._count == 0)
 
 
 def _unique_component_id(component_ids, component_id):
