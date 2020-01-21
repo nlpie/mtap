@@ -321,8 +321,8 @@ class ProcessorServer:
         Returns:
             threading.Event: A shutdown event for the server.
         """
-        logger.info('Shutting down processor server with id: "%s"  on address: "%s:%d"',
-                    self.processor_id, self.address, self.port)
+        print('Shutting down processor server with id: "{}"  on address: "{}:{}"'.format(
+            self.processor_id, self.address, self.port))
         self._servicer.shutdown()
         shutdown_event = self._server.stop(grace=grace)
         shutdown_event.wait()

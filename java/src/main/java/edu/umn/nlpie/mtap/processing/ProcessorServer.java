@@ -109,7 +109,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     }
     logger.info("Server for processor_id: {} started on port: {}", processorId, port);
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      System.err.println("Shutting down processor server ");
+      System.out.println("Shutting down processor server for processor_id: \"" + processorId + "\" on port: " + port);
       shutdown();
     }));
   }
