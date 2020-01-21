@@ -70,6 +70,7 @@ def gitVersion = { ->
 
 group = 'edu.umn.nlpie'
 version gitVersion()
+ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 
 compileJava {
     targetCompatibility '1.8'
@@ -231,6 +232,10 @@ publishing {
 signing {
     useGpgCmd()
     sign publishing.publications.mavenJava
+}
+
+tasks.withType(Sign) {
+    onlyIf { isReleaseVersion }
 }
 
 
