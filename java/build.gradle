@@ -1,23 +1,7 @@
-/*
- * Copyright 2019 Regents of the University of Minnesota.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'com.google.protobuf' version '0.8.10'
+    id 'com.google.protobuf' version '0.8.11'
     id 'com.github.ben-manes.versions' version '0.27.0'
     id 'signing'
     id 'com.github.johnrengelman.shadow' version '5.2.0'
@@ -91,9 +75,6 @@ def junitVersion = '5.5.2'
 def sl4fjVersion = '1.7.29'
 
 java {
-    registerFeature('log4j2slf4jBinding') {
-        usingSourceSet(sourceSets.main)
-    }
     withJavadocJar()
     withSourcesJar()
 }
@@ -117,8 +98,6 @@ dependencies {
 
     implementation group: 'io.grpc', name: 'grpc-services', version: grpcVersion
 
-    log4j2slf4jBindingImplementation group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.12.1'
-
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.2.0'
     testImplementation group: 'io.grpc', name: 'grpc-testing', version: grpcVersion
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: junitVersion
@@ -139,14 +118,6 @@ protobuf {
 tasks.withType(JavaCompile) {
     options.compilerArgs << '-Xlint:unchecked'
     options.deprecation = true
-}
-
-javadoc {
-    exclude "edu/umn/nlpie/mtap/api/**"
-    exclude "grpc"
-    if(JavaVersion.current().isJava9Compatible()) {
-        options.addBooleanOption('html5', true)
-    }
 }
 
 sourceSets {
@@ -185,6 +156,14 @@ publishing {
             version = project.version
 
             from components.java
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
 
             pom {
                 name = 'Microservice Text Analysis Platform'
@@ -234,10 +213,21 @@ signing {
     sign publishing.publications.mavenJava
 }
 
+javadoc {
+    exclude "edu/umn/nlpie/mtap/api/**"
+    exclude "grpc"
+    if(JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
+
 tasks.withType(Sign) {
     onlyIf { isReleaseVersion }
 }
 
+tasks.withType(GenerateModuleMetadata) {
+    enabled = false
+}
 
 task execute(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
