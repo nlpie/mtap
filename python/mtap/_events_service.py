@@ -91,7 +91,7 @@ class EventsServer:
         Returns:
             threading.Event: A shutdown event for the server.
         """
-        LOGGER.info("Stopping events server on address: %s:%d", self._address, self._port)
+        print("Stopping events server on address: {}:{}".format(self._address, self._port))
         try:
             self._deregister()
         except AttributeError:
