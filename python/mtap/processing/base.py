@@ -39,7 +39,10 @@ class ProcessorContext:
         self.times = {}
 
     def add_time(self, key, duration):
-        self.times[key] = duration
+        try:
+            self.times[key] += duration
+        except KeyError:
+            self.times[key] = duration
 
 
 class Stopwatch(ContextManager, metaclass=ABCMeta):

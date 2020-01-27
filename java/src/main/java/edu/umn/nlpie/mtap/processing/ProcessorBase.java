@@ -93,7 +93,14 @@ public abstract class ProcessorBase {
       if (!active) {
         throw new IllegalStateException("Attempted to add time to an inactive processor context.");
       }
-      times.put(key, duration);
+      times.compute(key, (unused, value) -> {
+        if (value != null) {
+          value = value.plus(duration);
+        } else {
+          value = duration;
+        }
+        return value;
+      });
     }
 
     @Override

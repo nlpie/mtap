@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 
 import static java.lang.Thread.sleep;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class EventProcessorTest {
@@ -59,6 +60,15 @@ public class EventProcessorTest {
       WithUnstartedStopwatch withUnstartedStopwatch = new WithUnstartedStopwatch();
       withUnstartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
       assertTrue(withUnstartedStopwatch.duration.toMillis() >= 20);
+    }
+  }
+
+  @Test
+  void preservesExistingTimes() {
+    try (ProcessorContext context = ProcessorBase.enterContext("processor")) {
+      context.putTime("foo", Duration.ofSeconds(2));
+      context.putTime("foo", Duration.ofSeconds(2));
+      assertEquals(context.getTimes().get("foo"), Duration.ofSeconds(4));
     }
   }
 
