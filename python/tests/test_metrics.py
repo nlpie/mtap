@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from mtap import Event
-from mtap.metrics import Accuracy, Metrics
+from mtap.metrics import Accuracy, Metrics, BeginTokenBinaryClassification
 
 
 def test_accuracy():
@@ -92,3 +92,23 @@ def test_boundary_fuzz_equals():
         metrics = Metrics(acc, tested='tested', target='target')
         metrics.process_document(doc, params={})
         assert abs(acc.value - 0.8) < 1e-6
+
+
+def test_begin_token_precision_recall_f1():
+    with Event() as event:
+        doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+        with doc.get_labeler('tested') as label_tested:
+            label_tested(0, 9)
+            label_tested(10, 19)
+            label_tested(20, 44)
+        with doc.get_labeler('target') as label_target:
+            label_target(0, 19)
+            label_target(20, 30)
+            label_target(31, 44)
+
+        metric = BeginTokenBinaryClassification()
+        metric.update(doc, doc.get_label_index('tested'), doc.get_label_index('target'))
+        assert metric.precision == 2 / 3
+        assert metric.recall == 2 / 3
+        assert metric.f1 == 2 / 3
+
