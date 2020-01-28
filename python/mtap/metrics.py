@@ -19,6 +19,7 @@ from mtap.events import Document
 from mtap.label_indices import LabelIndex
 from mtap.labels import Label
 from mtap.processing import DocumentProcessor, processor
+from mtap.utilities.tokenization import word_tokenize
 
 
 class Metric(ABC):
@@ -148,3 +149,59 @@ class Accuracy(Metric):
         self.correct += correct
         self.total += total
         return correct / total if total != 0 else 1.
+
+
+def _collect_tokens(index, return_insides=True):
+    begins = set()
+    insides = set()
+    for label in index:
+        for i, token in enumerate(word_tokenize(label.text, label.start_index)):
+            if i == 0:
+                begins.add(token)
+                if not return_insides:
+                    break
+            else:
+                insides.add(token)
+
+    return begins, insides
+
+
+class BeginTokenBinaryClassification(Metric):
+    """A metric which treats the first word token in every label as an example of the positive
+    class and calculates the precision, recall, and f1 binary classification metrics for that
+    positive class. Useful for evaluation of segmentation tasks.
+
+    precision = true positives / (true positives + false positives)
+    recall = true positives / (true positives + false negatives)
+    f1 = 2 * true positives / (2 * true positives + false positives + false negatives)
+
+    Attributes
+    ----------
+    precision (float): Ratio of true positives to the total number of positive predictions.
+    recall (float): Ratio of true positives to the total number of positive ground truths.
+    f1 (float): The harmonic mean of precision and recall.
+    """
+
+    def __init__(self):
+        self._tp = 0
+        self._fn = 0
+        self._fp = 0
+
+    @property
+    def precision(self):
+        return self._tp / (self._tp + self._fp)
+
+    @property
+    def recall(self):
+        return self._tp / (self._tp + self._fn)
+
+    @property
+    def f1(self):
+        return 2 * self._tp / (2 * self._tp + self._fp + self._fn)
+
+    def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
+        tested_tokens, _ = _collect_tokens(tested_index, return_insides=False)
+        target_tokens, _ = _collect_tokens(target_index, return_insides=False)
+        self._tp += len(tested_tokens.intersection(target_tokens))
+        self._fn += len(target_tokens.difference(tested_tokens))
+        self._fp += len(tested_tokens.difference(target_tokens))
