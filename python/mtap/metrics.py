@@ -197,16 +197,24 @@ class BinaryClassificationMatrix(NamedTuple('_BinaryClassificationMatrix',
 
     @property
     def precision(self):
-        return self.true_positives / (self.true_positives + self.false_positives)
+        predicted_positives = self.true_positives + self.false_positives
+        if predicted_positives == 0:
+            return 1
+        return self.true_positives / predicted_positives
 
     @property
     def recall(self):
-        return self.true_positives / (self.true_positives + self.false_negatives)
+        ground_truth_positives = self.true_positives + self.false_negatives
+        if ground_truth_positives == 0:
+            return 1
+        return self.true_positives / ground_truth_positives
 
     @property
     def f1(self):
-        return 2 * self.true_positives / (
-                2 * self.true_positives + self.false_positives + self.false_negatives)
+        divisor = 2 * self.true_positives + self.false_positives + self.false_negatives
+        if divisor == 0:
+            return 1
+        return 2 * self.true_positives / divisor
 
 
 class BeginTokenBinaryClassification(Metric):
