@@ -13,7 +13,7 @@
 # limitations under the License.
 """Provides functionality for measuring processor performance against gold standards."""
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence
+from typing import Dict, Any, Optional, Sequence, NamedTuple
 
 from mtap.events import Document
 from mtap.label_indices import LabelIndex
@@ -124,7 +124,8 @@ class Accuracy(Metric):
         return index
 
     def fields_match(self, tested_label: Label, target_label: Label) -> bool:
-        fields = self.fields if self.fields is not ... else target_label.fields.keys() - {'start_index', 'end_index'}
+        fields = self.fields if self.fields is not ... else target_label.fields.keys() - {
+            'start_index', 'end_index'}
         return all(getattr(tested_label, field) == getattr(target_label, field) for field in fields)
 
     def has_match(self, candidates: LabelIndex, target_label: Label) -> bool:
@@ -166,6 +167,48 @@ def _collect_tokens(index, return_insides=True):
     return begins, insides
 
 
+class BinaryClassificationMatrix(NamedTuple('_BinaryClassificationMatrix',
+                                            [('true_positives', float),
+                                             ('false_positives', float),
+                                             ('false_negatives', float)])):
+    """A representation of a binary classification matrix.
+
+    Attributes
+    ----------
+    true_positives (float): Count of true positive examples.
+    false_positives (float): Count of false positive examples.
+    false_negatives (float): Count of false negative examples.
+    precision (float): Ratio of true positives to the total number of positive predictions.
+    recall (float): Ratio of true positives to the total number of positive ground truths.
+    f1 (float): The harmonic mean of precision and recall.
+
+    """
+
+    def __new__(cls, true_positives: float = 0,
+                false_positives: float = 0,
+                false_negatives: float = 0):
+        self = super().__new__(cls, true_positives, false_positives, false_negatives)
+        return self
+
+    def __add__(self, other):
+        return BinaryClassificationMatrix(self.true_positives + other.true_positives,
+                                          self.false_positives + other.false_positives,
+                                          self.false_negatives + other.false_negatives)
+
+    @property
+    def precision(self):
+        return self.true_positives / (self.true_positives + self.false_positives)
+
+    @property
+    def recall(self):
+        return self.true_positives / (self.true_positives + self.false_negatives)
+
+    @property
+    def f1(self):
+        return 2 * self.true_positives / (
+                2 * self.true_positives + self.false_positives + self.false_negatives)
+
+
 class BeginTokenBinaryClassification(Metric):
     """A metric which treats the first word token in every label as an example of the positive
     class and calculates the precision, recall, and f1 binary classification metrics for that
@@ -182,26 +225,33 @@ class BeginTokenBinaryClassification(Metric):
     f1 (float): The harmonic mean of precision and recall.
     """
 
-    def __init__(self):
-        self._tp = 0
-        self._fn = 0
-        self._fp = 0
+    def __init__(self, name: str = 'begin_token_binary_classification'):
+        self.name = name
+        self._matrix = BinaryClassificationMatrix()
 
     @property
-    def precision(self):
-        return self._tp / (self._tp + self._fp)
+    def precision(self) -> float:
+        return self._matrix.precision
 
     @property
-    def recall(self):
-        return self._tp / (self._tp + self._fn)
+    def recall(self) -> float:
+        return self._matrix.recall
 
     @property
-    def f1(self):
-        return 2 * self._tp / (2 * self._tp + self._fp + self._fn)
+    def f1(self) -> float:
+        return self._matrix.f1
 
     def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
         tested_tokens, _ = _collect_tokens(tested_index, return_insides=False)
         target_tokens, _ = _collect_tokens(target_index, return_insides=False)
-        self._tp += len(tested_tokens.intersection(target_tokens))
-        self._fn += len(target_tokens.difference(tested_tokens))
-        self._fp += len(tested_tokens.difference(target_tokens))
+        local = BinaryClassificationMatrix(
+            true_positives=len(tested_tokens.intersection(target_tokens)),
+            false_negatives=len(target_tokens.difference(tested_tokens)),
+            false_positives=len(tested_tokens.difference(target_tokens))
+        )
+        self._matrix += local
+        return {
+            'precision': local.precision,
+            'recall': local.recall,
+            'f1': local.f1
+        }

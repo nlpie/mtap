@@ -13,7 +13,8 @@
 # limitations under the License.
 
 from mtap import Event
-from mtap.metrics import Accuracy, Metrics, BeginTokenBinaryClassification
+from mtap.metrics import Accuracy, Metrics, BeginTokenBinaryClassification, \
+    BinaryClassificationMatrix
 
 
 def test_accuracy():
@@ -112,3 +113,19 @@ def test_begin_token_precision_recall_f1():
         assert metric.recall == 2 / 3
         assert metric.f1 == 2 / 3
 
+
+def test_bin_classification_iadd():
+    first = BinaryClassificationMatrix(
+        true_positives=2,
+        false_positives=1,
+        false_negatives=1
+    )
+    second = BinaryClassificationMatrix(
+        true_positives=3,
+        false_positives=2,
+        false_negatives=5
+    )
+    first += second
+    assert first.true_positives == 5
+    assert first.false_positives == 3
+    assert first.false_negatives == 6
