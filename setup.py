@@ -141,8 +141,8 @@ setup(
         'mtap': ['defaultConfig.yml']
     },
     install_requires=[
-        'grpcio~=' + GRPC_VERSION,
-        'grpcio-health-checking~=' + GRPC_VERSION,
+        'grpcio==' + GRPC_VERSION,
+        'grpcio-health-checking==' + GRPC_VERSION,
         'googleapis-common-protos',
         'pyyaml',
         'python-consul',
@@ -160,8 +160,8 @@ setup(
         'requests'
     ],
     extras_require={
-        'grpc_tools': ['grpcio-tools~=' + GRPC_VERSION],
-        'tests': ['pytest-runner', 'pytest', 'grpcio-testing~=' + GRPC_VERSION, 'requests', 'pytest-mock'],
+        'grpc_tools': ['grpcio-tools==' + GRPC_VERSION],
+        'tests': ['pytest-runner', 'pytest', 'grpcio-testing==' + GRPC_VERSION, 'requests', 'pytest-mock'],
         'docs': ['sphinx', 'sphinx_rtd_theme']
     },
     cmdclass={
