@@ -23,6 +23,9 @@ from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.test import test as _test
 from pathlib import Path
 
+GRPC_VERSION = '1.26.0'
+
+
 def generate_proto(source, require=True):
     """Invokes the grpc_tools protobuf compiler to generate _pb2.py and _pb2_grpc.py files from
     the given .proto file.  Does nothing if the output already exists and is newer than
@@ -138,12 +141,11 @@ setup(
         'mtap': ['defaultConfig.yml']
     },
     install_requires=[
-        'grpcio>=1.20.0',
-        'grpcio-health-checking>=1.20.0',
-        'protobuf>=3.7.0',
+        'grpcio~=' + GRPC_VERSION,
+        'grpcio-health-checking~=' + GRPC_VERSION,
+        'googleapis-common-protos',
         'pyyaml',
         'python-consul',
-        'googleapis-common-protos',
         'tqdm'
     ],
     setup_requires=[
@@ -158,8 +160,8 @@ setup(
         'requests'
     ],
     extras_require={
-        'grpc_tools': ['grpcio-tools'],
-        'tests': ['pytest-runner', 'pytest', 'grpcio-testing', 'requests', 'pytest-mock'],
+        'grpc_tools': ['grpcio-tools~=' + GRPC_VERSION],
+        'tests': ['pytest-runner', 'pytest', 'grpcio-testing~=' + GRPC_VERSION, 'requests', 'pytest-mock'],
         'docs': ['sphinx', 'sphinx_rtd_theme']
     },
     cmdclass={
