@@ -398,3 +398,12 @@ def test_count_not_label(tested):
 
 def test_count_location_not_in(tested):
     assert tested.count(GenericLabel(4, 5, document=document)) == 0
+
+
+def test_filter(tested):
+    assert tested.filter(lambda x: x.i % 2 == 0) == [
+        GenericLabel(9, 13, document=document, i=0),
+        GenericLabel(9, 10, document=document, i=2),
+        GenericLabel(6, 7, document=document, i=4),
+        GenericLabel(0, 7, document=document, i=6),
+    ]

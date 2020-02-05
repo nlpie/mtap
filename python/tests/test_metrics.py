@@ -13,8 +13,8 @@
 # limitations under the License.
 
 from mtap import Event
-from mtap.metrics import Accuracy, Metrics, BeginTokenBinaryClassification, \
-    BinaryClassificationMatrix
+from mtap.metrics import Accuracy, Metrics, FirstTokenConfusion, \
+    ConfusionMatrix
 
 
 def test_accuracy():
@@ -107,7 +107,7 @@ def test_begin_token_precision_recall_f1():
             label_target(20, 30)
             label_target(31, 44)
 
-        metric = BeginTokenBinaryClassification()
+        metric = FirstTokenConfusion()
         metric.update(doc, doc.get_label_index('tested'), doc.get_label_index('target'))
         assert metric.precision == 2 / 3
         assert metric.recall == 2 / 3
@@ -115,12 +115,12 @@ def test_begin_token_precision_recall_f1():
 
 
 def test_bin_classification_iadd():
-    first = BinaryClassificationMatrix(
+    first = ConfusionMatrix(
         true_positives=2,
         false_positives=1,
         false_negatives=1
     )
-    second = BinaryClassificationMatrix(
+    second = ConfusionMatrix(
         true_positives=3,
         false_positives=2,
         false_negatives=5
