@@ -429,3 +429,12 @@ def test_repr(tested):
                             "GenericLabel(2, 6, i=2), GenericLabel(6, 7, i=3), "
                             "GenericLabel(6, 8, i=4), GenericLabel(9, 10, i=5), "
                             "GenericLabel(9, 13, i=6), GenericLabel(9, 13, i=7)], distinct=False)")
+
+
+def test_filter(tested):
+    assert tested.filter(lambda x: x.i % 2 == 0) == [
+        GenericLabel(0, 5, document=document, i=0),
+        GenericLabel(2, 6, document=document, i=2),
+        GenericLabel(6, 8, document=document, i=4),
+        GenericLabel(9, 13, document=document, i=6),
+    ]

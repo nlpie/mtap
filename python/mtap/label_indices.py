@@ -15,7 +15,7 @@
 from abc import ABCMeta, abstractmethod
 from bisect import bisect_left, bisect_right
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic
+from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic, Callable
 
 from mtap.labels import Label, Location
 
@@ -38,6 +38,19 @@ class LabelIndex(Sequence[L], Generic[L]):
     def distinct(self) -> bool:
         """bool: Whether this label index is distinct, i.e. all of the labels in it are
             non-overlapping.
+        """
+        ...
+
+    @abstractmethod
+    def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
+        """Filters the label index according to a filter function.
+
+        Args:
+            fn (~typing.Callable[[Label], bool]): A filter function, returns ``true`` if the label
+                should be included, ``false`` if it should not be included
+
+        Returns:
+            LabelIndex: A view of this label index.
         """
         ...
 
@@ -337,6 +350,12 @@ class _View(metaclass=ABCMeta):
             raise ValueError
         return self.__class__(self._labels, filtered_indices)
 
+    def filter(self, fn: Callable[[Label], bool]) -> '_View':
+        filtered_indices = list(self._filter_fn(fn))
+        if len(filtered_indices) == 0:
+            raise ValueError
+        return self.__class__(self._labels, filtered_indices)
+
     def _filter(self,
                 min_start: float = 0,
                 max_start: float = float('inf'),
@@ -353,6 +372,12 @@ class _View(metaclass=ABCMeta):
                 break
             if min_end <= location.end_index <= max_end:
                 yield self._indices[i]
+
+    def _filter_fn(self, fn: Callable[[Label], bool]) -> Iterator[int]:
+        for index in self._indices:
+            label = self._labels[index]
+            if fn(label):
+                yield index
 
     def _first_index_location(self,
                               location: Location,
@@ -502,6 +527,9 @@ class _LabelIndex(LabelIndex[L]):
     def distinct(self) -> bool:
         return self._distinct
 
+    def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
+        return self._filtered_or_empty(fn)
+
     @property
     def _reversed(self) -> '_LabelIndex[L]':
         try:
@@ -619,6 +647,13 @@ class _LabelIndex(LabelIndex[L]):
             return EMPTY[self.distinct]
         return _LabelIndex(self.distinct, bounded_view)
 
+    def _filtered_or_empty(self, fn: Callable[[Label], bool]):
+        try:
+            filtered_view = self._view.filter(fn)
+        except ValueError:
+            return EMPTY[self.distinct]
+        return _LabelIndex(self.distinct, filtered_view)
+
 
 class _Empty(LabelIndex):
     def __init__(self, distinct):
@@ -631,7 +666,10 @@ class _Empty(LabelIndex):
     def __getitem__(self, idx):
         raise IndexError
 
-    def at(self, x, ) -> Union[L, 'LabelIndex[L]']:
+    def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
+        return self
+
+    def at(self, x: Union[Label, Location, float], end: Optional[float] = None) -> 'LabelIndex[L]':
         return self
 
     def __len__(self) -> int:

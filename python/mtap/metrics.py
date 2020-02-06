@@ -13,7 +13,7 @@
 # limitations under the License.
 """Provides functionality for measuring processor performance against gold standards."""
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence, NamedTuple
+from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable
 
 from mtap.events import Document
 from mtap.label_indices import LabelIndex
@@ -37,24 +37,34 @@ class Metric(ABC):
 class Metrics(DocumentProcessor):
     """A document process that computes a set of metrics.
 
-    Attributes
-    ----------
-    tested: str
-        The tested index.
-    target: str
-        The target / gold standard index.
+    Args
+    ---
+    tested (str): The name of the index to use as the hypothesis / predictions.
+    target (str): The name of the index to use as the ground truth / gold standard.
+    tested_filter (~typing.Callable[[Label], bool]): A filter to apply to the tested index.
+    target_filter (~typing.Callable[[Label], bool]): A filter to apply to the target index.
 
     """
 
-    def __init__(self, *metrics: Metric, tested: str, target: str):
+    def __init__(self, *metrics: Metric,
+                 tested: str,
+                 target: str,
+                 tested_filter: Callable[[Label], bool] = None,
+                 target_filter: Callable[[Label], bool] = None):
         self.tested = tested
         self.target = target
         self.metrics = metrics
+        self.tested_filter = tested_filter
+        self.target_filter = target_filter
 
     def process_document(self, document: Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         tested = document.get_label_index(self.tested)
+        if self.tested_filter is not None:
+            tested = tested.filter(self.tested_filter)
         target = document.get_label_index(self.target)
+        if self.target_filter is not None:
+            target = target.filter(self.target_filter)
         local = {}
         for metric in self.metrics:
             local[metric.name] = metric.update(document, tested, target)
@@ -167,11 +177,11 @@ def _collect_tokens(index, return_insides=True):
     return begins, insides
 
 
-class BinaryClassificationMatrix(NamedTuple('_BinaryClassificationMatrix',
-                                            [('true_positives', float),
-                                             ('false_positives', float),
-                                             ('false_negatives', float)])):
-    """A representation of a binary classification matrix.
+class ConfusionMatrix(NamedTuple('ConfusionMatrix',
+                                 [('true_positives', float),
+                                  ('false_positives', float),
+                                  ('false_negatives', float)])):
+    """A representation of a confusion matrix.
 
     Attributes
     ----------
@@ -191,9 +201,9 @@ class BinaryClassificationMatrix(NamedTuple('_BinaryClassificationMatrix',
         return self
 
     def __add__(self, other):
-        return BinaryClassificationMatrix(self.true_positives + other.true_positives,
-                                          self.false_positives + other.false_positives,
-                                          self.false_negatives + other.false_negatives)
+        return self.__class__(self.true_positives + other.true_positives,
+                              self.false_positives + other.false_positives,
+                              self.false_negatives + other.false_negatives)
 
     @property
     def precision(self):
@@ -217,14 +227,20 @@ class BinaryClassificationMatrix(NamedTuple('_BinaryClassificationMatrix',
         return 2 * self.true_positives / divisor
 
 
-class BeginTokenBinaryClassification(Metric):
+class FirstTokenConfusion(Metric):
     """A metric which treats the first word token in every label as an example of the positive
-    class and calculates the precision, recall, and f1 binary classification metrics for that
+    class and calculates the precision, recall, and f1 confusion matrix metrics for that
     positive class. Useful for evaluation of segmentation tasks.
 
     precision = true positives / (true positives + false positives)
     recall = true positives / (true positives + false negatives)
     f1 = 2 * true positives / (2 * true positives + false positives + false negatives)
+
+    Args
+    ----
+    name (str): An identifying name for the metric.
+    tested_filter (~typing.Callable[[Label], bool]): A filter to apply to the tested index.
+    target_filter (~typing.Callable[[Label], bool]): A filter to apply to the target index.
 
     Attributes
     ----------
@@ -233,9 +249,13 @@ class BeginTokenBinaryClassification(Metric):
     f1 (float): The harmonic mean of precision and recall.
     """
 
-    def __init__(self, name: str = 'begin_token_binary_classification'):
+    def __init__(self, name: str = 'first_token_confusion',
+                 tested_filter: Callable[[Label], bool] = None,
+                 target_filter: Callable[[Label], bool] = None):
         self.name = name
-        self._matrix = BinaryClassificationMatrix()
+        self._matrix = ConfusionMatrix()
+        self.tested_filter = tested_filter
+        self.target_filter = target_filter
 
     @property
     def precision(self) -> float:
@@ -250,9 +270,13 @@ class BeginTokenBinaryClassification(Metric):
         return self._matrix.f1
 
     def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
+        if self.tested_filter is not None:
+            tested_index = tested_index.filter(self.tested_filter)
+        if self.target_filter is not None:
+            target_index = target_index.filter(self.target_filter)
         tested_tokens, _ = _collect_tokens(tested_index, return_insides=False)
         target_tokens, _ = _collect_tokens(target_index, return_insides=False)
-        local = BinaryClassificationMatrix(
+        local = ConfusionMatrix(
             true_positives=len(tested_tokens.intersection(target_tokens)),
             false_negatives=len(target_tokens.difference(tested_tokens)),
             false_positives=len(tested_tokens.difference(target_tokens))
