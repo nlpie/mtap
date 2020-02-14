@@ -291,7 +291,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 for key in label:
                     if key in ["document", "location", "text"]:
                         _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: %s".format(key))
+                                           "Label included a reserved key: {}".format(key))
                         return empty_pb2.Empty()
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()
@@ -304,7 +304,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         try:
             labels_type, labels = document.labels[request.index_name]
         except KeyError:
-            msg = "Event: '{}' document: '{} does not have label index: %s'".format(
+            msg = "Event: '{}' document: '{} does not have label index: {}'".format(
                 request.event_id, request.document_name, request.index_name)
             _set_error_context(context, grpc.StatusCode.NOT_FOUND, msg)
             return empty_pb2.Empty()
