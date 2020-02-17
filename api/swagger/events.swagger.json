@@ -4,6 +4,10 @@
     "title": "mtap/api/v1/events.proto",
     "version": "version not set"
   },
+  "schemes": [
+    "http",
+    "https"
+  ],
   "consumes": [
     "application/json"
   ],
@@ -570,6 +574,11 @@
         "other_labels": {
           "$ref": "#/definitions/protobufAny",
           "description": "Experimental, a different type of serialized message, which the Events\nservice will store and return directly to clients."
+        },
+        "no_key_validation": {
+          "type": "boolean",
+          "format": "boolean",
+          "description": "Set to \"true\" if the client validates label field keys so to ensure that no reserved key names\noccur. The key names that are reserved are \"text\", \"document\", and \"location\"."
         }
       },
       "description": "Request to add labels to a document."
