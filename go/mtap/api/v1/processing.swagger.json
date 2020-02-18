@@ -4,10 +4,6 @@
     "title": "mtap/api/v1/processing.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],

@@ -164,11 +164,11 @@ def _event_and_params(target, params):
 
 
 def _cancel_callback(event, read_ahead, cd, close_events):
-    def fn(_):
+    def fn(future: Future):
         if close_events:
             event.close()
         read_ahead.task_completed()
-        cd.count_down()
+        cd.count_down(future.exception() is not None)
 
     return fn
 
@@ -279,7 +279,8 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                         params: Optional[Dict[str, Any]] = None,
                         progress: bool = True,
                         total: Optional[int] = None,
-                        close_events: bool = True) -> List[List[ProcessingResult]]:
+                        close_events: bool = True,
+                        max_failures: int = 0) -> List[List[ProcessingResult]]:
         """Runs this pipeline on a source which provides multiple documents / events.
 
         Concurrency is per-event, with each event being provided a thread which runs it through the
@@ -300,6 +301,8 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             close_events (bool)
                 Whether the pipeline should close events after they have been fully processed
                 through all components.
+            max_failures (int)
+                The maximum number of failures
 
         Returns:
             Future:
@@ -312,9 +315,9 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             >>>     for path in docs:
             >>>         with path.open('r') as f:
             >>>             txt = f.read()
-            >>>         event = Event(event_id=path.name, client=client)
-            >>>         doc = event.create_document('plaintext', txt)
-            >>>         yield doc
+            >>>         with Event(event_id=path.name, client=client) as event:
+            >>>             doc = event.create_document('plaintext', txt)
+            >>>             yield doc
             >>>
             >>> pipeline.run_multithread(document_source(), total=len(docs))
 
@@ -324,26 +327,33 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             source = tqdm(source, total=total, unit=' events', smoothing=0.01)
         cd = _CountDown()
         for target in source:
+            cd.increment(max_failures)
+            event, params = _event_and_params(target, params)
+            event_id = event.event_id
             try:
-                event, params = _event_and_params(target, params)
-                event_id = event.event_id
+                event.lease()
                 self._read_ahead.increment_active_tasks()
-                cd.increment()
                 future = self._executor.submit(self._run_by_event_id, event_id, params)
-                future.add_done_callback(_cancel_callback(event, self._read_ahead, cd, close_events))
-            except Exception as e:
-                try:
-                    event = target.event
-                except AttributeError:
-                    event = target
-                event.close()
+                future.add_done_callback(
+                    _cancel_callback(event, self._read_ahead, cd, close_events)
+                )
+            except BaseException as e:
+                # here we failed sometime between taking a new lease and adding the done
+                # callback to the future, meaning the lease will never get freed.
+                event.release_lease()
                 raise e
             futures.append(future)
             self._read_ahead.wait_to_read()
-        wait(futures)
+
         results = []
         for future in futures:
-            results.append(future.result())
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as e:
+                logger.error(e)
+                # we log instead of re-raising here because failure on exception is handled by
+                # max_failures and the cd.increment method.
         cd.wait()
         return results
 
@@ -435,8 +445,6 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-        if exc_val is not None:
-            return False
 
     def close(self):
         """Closes any open connections to remote processors.
@@ -515,6 +523,7 @@ class _ReadAhead:
         self._n_threads = n_threads
         self._cond = Condition(Lock())
         self._read_ahead = read_ahead
+        self._failures = 0
 
     def increment_active_tasks(self):
         with self._cond:
@@ -532,18 +541,26 @@ class _ReadAhead:
         with self._cond:
             self._cond.wait_for(self._read_ready)
 
+    def increment_failures(self):
+        self._failures += 1
+
 
 class _CountDown:
     def __init__(self):
         self._count = 0
         self._condition = Condition(Lock())
+        self._failures = 0
 
-    def increment(self):
+    def increment(self, max_failures):
+        if self._failures > max_failures:
+            raise ValueError("Max failures {} exceeded".format(max_failures))
         with self._condition:
             self._count += 1
 
-    def count_down(self):
+    def count_down(self, failed):
         with self._condition:
+            if failed:
+                self._failures += 1
             self._count -= 1
             self._condition.notify_all()
 
