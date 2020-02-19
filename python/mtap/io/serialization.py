@@ -223,6 +223,7 @@ class SerializationProcessor(EventProcessor):
         self.serializer = ser
         self.output_dir = output_dir
         self.include_label_text = include_label_text
+        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
 
     def process(self, event: Event, params: Dict[str, Any]):
         name = params.get('filename', event.event_id + self.serializer.extension)

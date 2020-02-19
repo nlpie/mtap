@@ -80,7 +80,6 @@ class Event:
         self._lock = threading.RLock()
         if client is not None:
             client.open_event(self._event_id, only_create_new=only_create_new)
-        self._open = True
 
     @property
     def client(self) -> Optional['EventsClient']:
@@ -131,12 +130,8 @@ class Event:
     def close(self):
         """Closes this event. Lets the event service know that we are done with the event,
         allowing to clean up the event if no other clients have open leases to it."""
-        if self.client is not None and self._open is True:
-            with self._lock:
-                # using double locking here to ensure that the event does not
-                if self._open:
-                    self._client.close_event(self._event_id)
-                    self._open = False
+        if self.client is not None:
+            self.release_lease()
 
     def create_document(self, document_name: str, text: str) -> 'Document':
         """Adds a document to the event keyed by `document_name` and
@@ -175,8 +170,6 @@ class Event:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-        if exc_val is not None:
-            raise exc_val
 
     def add_created_indices(self, created_indices):
         for k, v in created_indices.items():
@@ -185,6 +178,14 @@ class Event:
                 doc.add_created_indices(v)
             except KeyError:
                 pass
+
+    def lease(self):
+        if self.client is not None:
+            self.client.open_event(self.event_id, only_create_new=False)
+
+    def release_lease(self):
+        if self.client is not None:
+            self.client.close_event(self.event_id)
 
 
 class LabelIndexType(Enum):
@@ -613,8 +614,6 @@ class EventsClient:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-        if exc_type is not None:
-            return False
 
     def ensure_open(self):
         if not self._is_open:

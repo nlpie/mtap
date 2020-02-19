@@ -83,10 +83,10 @@ class ProcessorRunner(ProcessingComponent):
                 self.failure_count += 1
                 logger.error('Processor "%s" failed while processing event with id: %s',
                              self.component_id, event_id)
+                logger.error(e)
                 raise e
 
     def close(self):
-        self.client.close()
         self.processor.close()
 
 
@@ -140,6 +140,7 @@ class RemoteRunner(ProcessingComponent):
                 self.failure_count += 1
                 logger.error('Processor "%s" failed while processing event with id: %s',
                              self.component_id, event_id)
+                logger.error(e)
                 raise e
 
     def close(self):
