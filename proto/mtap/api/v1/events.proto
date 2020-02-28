@@ -243,12 +243,12 @@ message GetLabelIndicesInfoResponse {
       /* Default, no labels field set or not known.
        */
       UNKNOWN = 0;
-      /* Has the "json_labels" field set.
+      /* Has the "generic_labels" field set.
        */
-      JSON = 1;
-      /* Has the "other_labels" field set.
+      GENERIC = 1;
+      /* Has the "custom_labels" field set.
        */
-      OTHER = 2;
+      CUSTOM = 2;
     }
     LabelIndexType type = 2;
   }
@@ -279,12 +279,12 @@ message AddLabelsRequest {
      * start_index and end_index fields as well as any other fields that
      * the application requires.
      */
-    JsonLabels json_labels = 4;
+    GenericLabels generic_labels = 4;
 
     /* Experimental, a different type of serialized message, which the Events
      * service will store and return directly to clients.
      */
-    google.protobuf.Any other_labels = 5;
+    google.protobuf.Any custom_labels = 5;
   }
 
   /* Set to "true" if the client validates label field keys so to ensure that no reserved key names
@@ -316,7 +316,7 @@ message GetLabelsRequest {
 /* A Label Index of dynamic Labels, which are client/processor specified data
  * objects containing information about an area of text.
  */
-message JsonLabels {
+message GenericLabels {
   /* Whether the label index is distinct, i.e. only consists of non-overlapping,
    * non-empty spans of text.
    */
@@ -326,7 +326,29 @@ message JsonLabels {
    * fields "start_index" and "end_index". Any other fields are application-
    * specific and dynamic.
    */
-  repeated google.protobuf.Struct labels = 2;
+  repeated GenericLabel labels = 2;
+}
+
+message GenericLabel {
+  /* The unique identifier for the label.
+   */
+  uint32 identifier = 1;
+
+  /* The start offset of the label relative to the document.
+   */
+  uint32 start_index = 2;
+
+  /* The end offset of the label relative to the document.
+   */
+  uint32 end_index = 3;
+
+  /* A structure containing the dynamic primitive fields of the label.
+   */
+  google.protobuf.Struct fields = 4;
+
+  /* A structure containing the reference fields of the label.
+   */
+  google.protobuf.Struct reference_ids = 5;
 }
 
 
@@ -336,13 +358,13 @@ message GetLabelsResponse {
   /* The serialized label index that was originally added to the events service.
    */
   oneof labels {
-    /* If the original were JsonLabels.
+    /* If the original were GenericLabels.
      */
-    JsonLabels json_labels = 1;
+    GenericLabels generic_labels = 1;
 
     /* If the original were other_labels.
      */
-    google.protobuf.Any other_labels = 5;
+    google.protobuf.Any custom_labels = 2;
   }
 }
 

@@ -15,9 +15,13 @@
 from abc import ABCMeta, abstractmethod
 from bisect import bisect_left, bisect_right
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic, Callable
+from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic, Callable, \
+    TYPE_CHECKING
 
 from mtap.labels import Label, Location
+
+if TYPE_CHECKING:
+    from mtap.events import ProtoLabelAdapter
 
 L = TypeVar('L', bound=Label)
 
@@ -39,6 +43,11 @@ class LabelIndex(Sequence[L], Generic[L]):
         """bool: Whether this label index is distinct, i.e. all of the labels in it are
             non-overlapping.
         """
+        ...
+
+    @property
+    @abstractmethod
+    def adapter(self) -> Optional['ProtoLabelAdapter']:
         ...
 
     @abstractmethod
@@ -291,12 +300,15 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
 
-def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
+def label_index(labels: List[L],
+                distinct: bool = False,
+                adapter: Optional['ProtoLabelAdapter'] = None) -> LabelIndex[L]:
     """Creates a label index from labels.
 
     Args:
         labels (~typing.List[L]): Zero or more labels to create a label index from.
         distinct (bool): Whether the label index is distinct or not.
+        adapter (ProtoLabelAdapter): The label adapter for these labels.
 
     Returns:
         LabelIndex: The newly created label index.
@@ -314,13 +326,15 @@ def label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
 
     """
     labels = sorted(labels, key=attrgetter('location'))
-    return presorted_label_index(labels, distinct)
+    return presorted_label_index(labels, distinct, adapter=adapter)
 
 
-def presorted_label_index(labels: List[L], distinct: bool = False) -> LabelIndex[L]:
+def presorted_label_index(labels: List[L],
+                          distinct: bool = False,
+                          adapter: Optional['ProtoLabelAdapter'] = None) -> LabelIndex[L]:
     if len(labels) == 0:
         return EMPTY[distinct]
-    return _LabelIndex(distinct, _Ascending(labels))
+    return _LabelIndex(distinct, _Ascending(labels), adapter=adapter)
 
 
 class _View(metaclass=ABCMeta):
@@ -516,16 +530,26 @@ class _LabelIndex(LabelIndex[L]):
     def __init__(self, distinct: bool,
                  view: _View,
                  ascending: bool = True,
-                 reversed_index: '_LabelIndex[L]' = None):
+                 reversed_index: '_LabelIndex[L]' = None,
+                 adapter: Optional['ProtoLabelAdapter'] = None):
         self._distinct = distinct
         self._view = view
         self._ascending = ascending
+        self._adapter = adapter
         if reversed_index is not None:
             self.__reversed = reversed_index
 
     @property
     def distinct(self) -> bool:
         return self._distinct
+
+    @property
+    def adapter(self) -> 'ProtoLabelAdapter[L]':
+        return self._adapter
+
+    @adapter.setter
+    def adapter(self, value: 'ProtoLabelAdapter[L]'):
+        self._adapter = value
 
     def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
         return self._filtered_or_empty(fn)
@@ -656,6 +680,10 @@ class _LabelIndex(LabelIndex[L]):
 
 
 class _Empty(LabelIndex):
+    @property
+    def adapter(self) -> Optional['ProtoLabelAdapter']:
+        return None
+
     def __init__(self, distinct):
         self._distinct = distinct
 

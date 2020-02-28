@@ -59,10 +59,10 @@ class Metrics(DocumentProcessor):
 
     def process_document(self, document: Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        tested = document.get_label_index(self.tested)
+        tested = document.labels[self.tested]
         if self.tested_filter is not None:
             tested = tested.filter(self.tested_filter)
-        target = document.get_label_index(self.target)
+        target = document.labels[self.target]
         if self.target_filter is not None:
             target = target.filter(self.target_filter)
         local = {}

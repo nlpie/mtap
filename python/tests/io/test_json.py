@@ -27,10 +27,12 @@ def test_json_serializer():
     event.metadata['foo'] = "bar"
     document = Document('plaintext', text='Some text.')
     event.add_document(document)
-    document.add_labels('one', [mtap.GenericLabel(start_index=0, end_index=5, x=10),
-                                mtap.GenericLabel(start_index=6, end_index=10, x=15)])
-    document.add_labels('two', [mtap.GenericLabel(start_index=0, end_index=25, a='b'),
-                                mtap.GenericLabel(start_index=26, end_index=42, a='c')])
+    one = mtap.GenericLabel(start_index=0, end_index=5, x=10)
+    two = mtap.GenericLabel(start_index=6, end_index=10, x=15)
+    document.add_labels('one', [one,
+                                two])
+    document.add_labels('two', [mtap.GenericLabel(start_index=0, end_index=25, a='b', b=one),
+                                mtap.GenericLabel(start_index=26, end_index=42, a='c', b=two)])
     document.add_labels('three', [
         mtap.GenericLabel(start_index=0, end_index=10, foo=True),
         mtap.GenericLabel(start_index=11, end_index=15, foo=False)
@@ -48,37 +50,57 @@ def test_json_serializer():
     assert d['text'] == 'Some text.'
     assert len(d['label_indices']) == 3
     assert d['label_indices']['one'] == {
-        'json_labels': [
+        'labels': [
             {
+                'identifier': 0,
                 'start_index': 0,
                 'end_index': 5,
-                'x': 10
+                'fields': {
+                    'x': 10
+                },
+                'reference_ids': {}
             },
             {
+                'identifier': 1,
                 'start_index': 6,
                 'end_index': 10,
-                'x': 15
+                'fields': {
+                    'x': 15
+                },
+                'reference_ids': {}
             }
         ],
         'distinct': False
     }
     assert d['label_indices']['two'] == {
-        'json_labels': [
+        'labels': [
             {
+                'identifier': 0,
                 'start_index': 0,
                 'end_index': 25,
-                'a': 'b'
+                'fields': {
+                    'a': 'b'
+                },
+                'reference_ids': {
+                    'b': 'one:0'
+                }
             },
             {
+                'identifier': 1,
                 'start_index': 26,
                 'end_index': 42,
-                'a': 'c'
+                'fields': {
+                    'a': 'c'
+                },
+                'reference_ids': {
+                    'b': 'one:1'
+                }
             }
         ],
         'distinct': False
     }
     assert d['label_indices']['three'] == {
-        'json_labels': [
+        'labels': [
             {
                 'start_index': 0,
                 'end_index': 10,

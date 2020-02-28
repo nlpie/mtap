@@ -108,7 +108,7 @@ def test_begin_token_precision_recall_f1():
             label_target(31, 44)
 
         metric = FirstTokenConfusion()
-        metric.update(doc, doc.get_label_index('tested'), doc.get_label_index('target'))
+        metric.update(doc, doc.labels['tested'], doc.labels['target'])
         assert metric.precision == 2 / 3
         assert metric.recall == 2 / 3
         assert metric.f1 == 2 / 3

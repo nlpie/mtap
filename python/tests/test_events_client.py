@@ -53,10 +53,10 @@ def test_get_label_index_info(events_channel, events_client_executor):
     response = events_pb2.GetLabelIndicesInfoResponse()
     first = response.label_index_infos.add()
     first.index_name = 'foo'
-    first.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON
+    first.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC
     second = response.label_index_infos.add()
     second.index_name = 'bar'
-    second.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.OTHER
+    second.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.CUSTOM
     third = response.label_index_infos.add()
     third.index_name = 'baz'
 
@@ -66,9 +66,9 @@ def test_get_label_index_info(events_channel, events_client_executor):
     assert infos is not None
     assert len(infos) == 3
     assert infos[0].index_name == 'foo'
-    assert infos[0].type == LabelIndexType.JSON
+    assert infos[0].type == LabelIndexType.GENERIC
     assert infos[1].index_name == 'bar'
-    assert infos[1].type == LabelIndexType.OTHER
+    assert infos[1].type == LabelIndexType.CUSTOM
     assert infos[2].index_name == 'baz'
     assert infos[2].type == LabelIndexType.UNKNOWN
 

@@ -261,14 +261,13 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         except KeyError:
             return empty_pb2.Empty()
         response = events_pb2.GetLabelIndicesInfoResponse()
-        for k, v in document.labels.items():
-            labels_type, _ = v
+        for k, (labels_type, _) in document.labels.items():
             info = response.label_index_infos.add()
             info.index_name = k
-            if labels_type == 'json_labels':
-                info.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON
-            elif labels_type == 'other_labels':
-                info.type = 'OTHER'
+            if labels_type == 'generic_labels':
+                info.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC
+            elif labels_type == 'custom_labels':
+                info.type = events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.CUSTOM
         return response
 
     def AddLabels(self, request, context=None):
@@ -278,7 +277,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             return empty_pb2.Empty()
         labels_field = request.WhichOneof('labels')
         if labels_field is None:
-            labels = ('json_labels', events_pb2.JsonLabels())
+            labels = ('generic_labels', events_pb2.GenericLabels())
         else:
             index_name = request.index_name
             if index_name == '':
@@ -286,10 +285,15 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
                 return empty_pb2.Empty()
             labels = (labels_field, getattr(request, labels_field))
-        if labels_field == 'json_labels' and not request.no_key_validation:
+        if labels_field == 'generic_labels' and not request.no_key_validation:
             for label in labels[1].labels:
-                for key in label:
-                    if key in ["document", "location", "text"]:
+                for key in label.fields:
+                    if key in ["document", "location", "text", "id", "label_index_name"]:
+                        _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
+                                           "Label included a reserved key: {}".format(key))
+                        return empty_pb2.Empty()
+                for key in label.reference_ids:
+                    if key in ["document", "location", "text", "id", "id", "label_index_name"]:
                         _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
                                            "Label included a reserved key: {}".format(key))
                         return empty_pb2.Empty()
