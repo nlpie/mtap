@@ -11,15 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
-from pathlib import Path
 from tempfile import TemporaryFile
 
-from mtap.io.serialization import JsonSerializer
-
 import mtap
-from mtap import GenericLabel
 from mtap.events import Event, Document
+from mtap.io.serialization import JsonSerializer
 
 
 def test_json_serializer():
@@ -42,103 +38,17 @@ def test_json_serializer():
         JsonSerializer.event_to_file(event, tf)
         tf.flush()
         tf.seek(0)
-        o = json.load(tf)
+        e = JsonSerializer.file_to_event(tf)
 
-    assert o['event_id'] == '1'
-    assert o['metadata']['foo'] == 'bar'
-    d = o['documents']['plaintext']
-    assert d['text'] == 'Some text.'
-    assert len(d['label_indices']) == 3
-    assert d['label_indices']['one'] == {
-        'labels': [
-            {
-                'identifier': 0,
-                'start_index': 0,
-                'end_index': 5,
-                'fields': {
-                    'x': 10
-                },
-                'reference_ids': {}
-            },
-            {
-                'identifier': 1,
-                'start_index': 6,
-                'end_index': 10,
-                'fields': {
-                    'x': 15
-                },
-                'reference_ids': {}
-            }
-        ],
-        'distinct': False
-    }
-    assert d['label_indices']['two'] == {
-        'labels': [
-            {
-                'identifier': 0,
-                'start_index': 0,
-                'end_index': 25,
-                'fields': {
-                    'a': 'b'
-                },
-                'reference_ids': {
-                    'b': 'one:0'
-                }
-            },
-            {
-                'identifier': 1,
-                'start_index': 26,
-                'end_index': 42,
-                'fields': {
-                    'a': 'c'
-                },
-                'reference_ids': {
-                    'b': 'one:1'
-                }
-            }
-        ],
-        'distinct': False
-    }
-    assert d['label_indices']['three'] == {
-        'labels': [
-            {
-                'start_index': 0,
-                'end_index': 10,
-                'foo': True
-            },
-            {
-                'start_index': 11,
-                'end_index': 15,
-                'foo': False
-            }
-        ],
-        'distinct': True
-    }
-
-
-def test_deserialization():
-    f = Path(__file__).parent / 'event.json'
-    event = JsonSerializer.file_to_event(f)
-    assert event.event_id == '12345'
-    assert event.metadata['foo'] == 'bar'
-    d = event.documents['plaintext']
-    assert d.text == "The quick brown fox jumps over the lazy dog."
-    assert len(d.get_label_indices_info()) == 3
-    assert d.get_label_index("one") == [
-        GenericLabel(start_index=0, end_index=10, a="b"),
-        GenericLabel(start_index=12, end_index=25, a="c"),
-        GenericLabel(start_index=26, end_index=52, a="d"),
-        GenericLabel(start_index=53, end_index=85, a="e"),
-    ]
-    assert d.get_label_index("two") == [
-        GenericLabel(start_index=0, end_index=10, x=1),
-        GenericLabel(start_index=3, end_index=9, x=3),
-        GenericLabel(start_index=4, end_index=25, x=2),
-        GenericLabel(start_index=5, end_index=25, x=4),
-    ]
-    assert d.get_label_index("three") == [
-        GenericLabel(start_index=0, end_index=10, x=True),
-        GenericLabel(start_index=3, end_index=9, x=True),
-        GenericLabel(start_index=4, end_index=25, x=False),
-        GenericLabel(start_index=5, end_index=25, x=False),
-    ]
+    assert e.event_id == event.event_id
+    assert e.metadata['foo'] == 'bar'
+    d = e.documents['plaintext']
+    assert d.text == document.text
+    index_one = d.labels['one']
+    assert index_one == [one, two]
+    index_two = d.labels['two']
+    assert index_two == [mtap.GenericLabel(start_index=0, end_index=25, a='b', b=one),
+                         mtap.GenericLabel(start_index=26, end_index=42, a='c', b=two)]
+    index_three = d.labels['three']
+    assert index_three == [mtap.GenericLabel(start_index=0, end_index=10, foo=True),
+                           mtap.GenericLabel(start_index=11, end_index=15, foo=False)]

@@ -31,7 +31,7 @@ def test_event_to_dict_include_label_text():
     d_event = event_to_dict(event, include_label_text=True)
     d_doc = d_event['documents']['plaintext']
     d_sentences = d_doc['label_indices']['sentences']
-    assert d_sentences['json_labels'][0]['_text'] == text
-    d_tokens = d_doc['label_indices']['tokens']['json_labels']
+    assert d_sentences['labels'][0]['_text'] == text
+    d_tokens = d_doc['label_indices']['tokens']['labels']
     for i, token in enumerate(d_tokens):
         assert token['_text'] == text[tokens[i][0]:tokens[i][1]]

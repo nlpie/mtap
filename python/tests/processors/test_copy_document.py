@@ -30,7 +30,7 @@ def test_copy_document():
     processor.process(e, {})
     second = e.documents['second']
     assert second is not None
-    assert second.get_label_index('some_index') == [
+    assert second.labels['some_index'] == [
         GenericLabel(0, 3, word='The'),
         GenericLabel(4, 9, word='quick'),
         GenericLabel(10, 15, word='brown')

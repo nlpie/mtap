@@ -331,19 +331,46 @@ class Document:
             self._labels = _LabelIndices(self)
             return self._labels
 
+    def get_label_index(
+            self,
+            label_index_name: str,
+            *, label_adapter: Optional['ProtoLabelAdapter[L]'] = None
+    ) -> LabelIndex[Union[GenericLabel, L]]:
+        """Gets the document's label index with the specified key.
+
+        Will fetch from the events service if it is not cached locally if the document has an event
+        with a client. Uses the `label_adapter` argument to perform unmarshalling from the proto
+        message if specified.
+
+        Args:
+            label_index_name (str): The name of the label index to get.
+            label_adapter (ProtoLabelAdapter): Deprecated, does not do anything.
+
+        Keyword Args:
+            label_adapter (~typing.Optional[ProtoLabelAdapter]):
+                The label adapter for the target type. If omitted :obj:`GenericLabel` will be used.
+
+        Returns:
+            LabelIndex: The requested label index.
+
+
+        ..deprecated:: 0.5
+            Use :func:`Document.labels` instead.
+        """
+        return self.labels[label_index_name]
+
     def get_labeler(self,
                     label_index_name: str,
-                    *,
-                    distinct: Optional[bool] = None) -> 'Labeler':
+                    *, distinct: Optional[bool] = None,
+                    label_adapter: Optional['ProtoLabelAdapter[L]'] = None) -> 'Labeler':
         """Creates a function that can be used to add labels to a label index.
 
         Args:
             label_index_name (str): A document-unique identifier for the label index to be created.
-
-        Keyword Args:
             distinct (~typing.Optional[bool]):
                 Optional, if using generic labels, whether to use distinct generic labels or
                 non-distinct generic labels, will default to False.
+            label_adapter (ProtoLabelAdapter): Deprecated, no longer does anything.
 
         Returns:
             Labeler: A callable when used in conjunction with the 'with' keyword will automatically
@@ -355,6 +382,9 @@ class Document:
             >>>     sentence = labeler(26, 34)
             >>>     sentence.sentence_type = 'FRAGMENT'
 
+        ..deprecated:: 0.5
+            `label_adapter` will be removed before 1.0, since that is handled by the default label
+            adapters set on the document / event.
         """
         if label_index_name in self._labelers:
             raise KeyError("Labeler already in use: " + label_index_name)
@@ -364,32 +394,28 @@ class Document:
         self._labelers.append(label_index_name)
         return labeler
 
-    def add_labels(
-            self,
-            label_index_name: str,
-            labels: Sequence[Union['Label', L]],
-            *,
-            distinct: Optional[bool] = None,
-            label_adapter: Optional['ProtoLabelAdapter'] = None
-    ):
+    def add_labels(self,
+                   label_index_name: str,
+                   labels: Sequence[Union['Label', L]],
+                   *, distinct: Optional[bool] = None,
+                   label_adapter: Optional['ProtoLabelAdapter'] = None):
         """Skips using a labeler and adds the sequence of labels as a new label index.
 
         Args:
             label_index_name (str): The name of the label index.
             labels (~typing.Sequence[Label]): The labels to add.
-
-        Keyword Args:
             distinct (~typing.Optional[bool]):
                 Whether the index is distinct or non-distinct.
+            label_adapter (ProtoLabelAdapter): A label adapter to use.
 
         Returns:
             LabelIndex: The new label index created from the labels.
         """
         if label_index_name in self.labels:
             raise KeyError("Label index already exists with name: " + label_index_name)
-        if distinct is None:
-            distinct = False
         if label_adapter is None:
+            if distinct is None:
+                distinct = False
             label_adapter = self.get_default_adapter(label_index_name, distinct)
         labels, waiting_on = _staticize(labels, self, label_index_name)
         if len(self._waiting_indices) > 0:

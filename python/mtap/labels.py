@@ -267,7 +267,19 @@ class GenericLabel(Label):
     def __eq__(self, other):
         if not isinstance(other, GenericLabel):
             return False
-        return self.location == other.location and self.fields == other.fields and self.reference_field_ids == other.reference_field_ids
+        if other is self:
+            return True
+        if not (self.location == other.location and self.fields == other.fields):
+            return False
+        for k, v in self.reference_field_ids.items():
+            try:
+                other_v = other.reference_field_ids[k]
+                if not v == other_v:
+                    return False
+            except KeyError:
+                if not getattr(self, k, None) == getattr(other, k, None):
+                    return False
+        return True
 
     def __repr__(self):
         try:
@@ -286,7 +298,7 @@ class GenericLabel(Label):
             attributes.append("{}={}".format(k, repr(v)))
         for k, v in self.reference_field_ids.items():
             if k not in self.reference_cache:
-                attributes.append("{}={}".format(k, repr(v)))
+                attributes.append("{}=ref:{}".format(k, repr(v)))
         stack.remove(id(self))
         return "GenericLabel(".format() + ", ".join(attributes) + ")"
 

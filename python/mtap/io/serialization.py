@@ -120,8 +120,8 @@ def dict_to_document(document_name: str, d: Dict, *, event: Optional[Event] = No
     if event is not None:
         event.add_document(document)
     for k, v in d['label_indices'].items():
-        adapter = document.get_default_adapter()
-        index = dict_to_label_index(d=v)
+        adapter = document.get_default_adapter(k)
+        index = adapter.unpack(v, k, document=document)
         document.add_labels(k, index, distinct=index.distinct)
 
     return document
