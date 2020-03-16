@@ -233,6 +233,17 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
         """
         ...
 
+    def default_adapters(self) -> Optional[Mapping[str, ProtoLabelAdapter]]:
+        """Can be overridden to return a mapping from label index names to adapters that will then
+        be used in any documents or events provided to this processor's process methods.
+
+        Returns:
+            Mapping[str, ProtoLabelAdapter]: The mapping (dict-like) of label index names to
+            ProtoLabelAdapters to be used for those indices.
+
+        """
+        pass
+
     def close(self):
         """Can be overridden for cleaning up anything that needs to be cleaned up. Will be called
         by the framework after it's done with the processor."""

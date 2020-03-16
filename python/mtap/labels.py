@@ -323,9 +323,9 @@ def label(start_index: int,
     return GenericLabel(start_index, end_index, document=document, **kwargs)
 
 
-def _staticize(labels: Sequence['GenericLabel'],
+def _staticize(labels: Sequence['Label'],
                document: 'Document',
-               label_index_name: str) -> Tuple[List['GenericLabel'], Set[int]]:
+               label_index_name: str) -> Tuple[List['Label'], Set[int]]:
     """Prepares a label index for serialization by finalizing sort order and setting label
     identifiers.
 

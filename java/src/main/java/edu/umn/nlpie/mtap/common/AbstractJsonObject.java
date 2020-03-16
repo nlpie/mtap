@@ -153,7 +153,6 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
         + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
         " lists of objects of valid types, and maps of strings to objects of valid types");
     return result;
-
   }
 
   private static Object getValue(Value from) {
@@ -182,7 +181,7 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
     }
   }
 
-  private static void checkForReferenceCycle(Object value, Deque<Object> parents) {
+  protected static void checkForReferenceCycle(Object value, Deque<Object> parents) {
     for (Object parent : parents) {
       if (parent == value) {
         throw new IllegalArgumentException("Detected reference cycle.");

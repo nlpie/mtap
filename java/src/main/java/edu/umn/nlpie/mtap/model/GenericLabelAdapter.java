@@ -17,6 +17,7 @@ package edu.umn.nlpie.mtap.model;
 
 import com.google.protobuf.Struct;
 import edu.umn.nlpie.mtap.Internal;
+import edu.umn.nlpie.mtap.api.v1.EventsOuterClass;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -53,14 +54,18 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
 
   @Override
   public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response, @Nullable Document document) {
-    JsonLabels jsonLabels = response.getJsonLabels();
-    boolean isDistinct = jsonLabels.getIsDistinct();
+    GenericLabels genericLabels = response.getGenericLabels();
+    boolean isDistinct = genericLabels.getIsDistinct();
 
     List<GenericLabel> labels = new ArrayList<>();
-    for (Struct struct : jsonLabels.getLabelsList()) {
-      JsonObjectImpl.Builder builder = new JsonObjectImpl.Builder();
-      builder.copyStruct(struct);
-      labels.add(new GenericLabel(builder.build(), document));
+    for (EventsOuterClass.GenericLabel genericLabel : genericLabels.getLabelsList()) {
+      JsonObjectImpl.Builder fieldsBuilder = new JsonObjectImpl.Builder();
+      fieldsBuilder.copyStruct(genericLabel.getFields());
+      JsonObjectImpl.Builder referenceFieldIdsBuilder = new JsonObjectImpl.Builder();
+      referenceFieldIdsBuilder.copyStruct(genericLabel.getReferenceIds());
+      labels.add(new GenericLabel(fieldsBuilder.build(), new HashMap<>(),
+          referenceFieldIdsBuilder.build(),
+          genericLabel.getStartIndex(), genericLabel.getEndIndex()));
     }
 
     return isDistinct ? new DistinctLabelIndex<>(labels) : new StandardLabelIndex<>(labels);
@@ -78,10 +83,19 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   @Override
   public void addToMessage(@NotNull List<@NotNull GenericLabel> labels,
                            @NotNull AddLabelsRequest.Builder builder) {
-    JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
-    jsonLabelsBuilder.setIsDistinct(isDistinct);
+    GenericLabels.Builder genericLabelsBuilder = builder.getGenericLabelsBuilder();
+    genericLabelsBuilder.setIsDistinct(isDistinct);
     for (GenericLabel label : labels) {
-      label.copyToStruct(jsonLabelsBuilder.addLabelsBuilder());
+      EventsOuterClass.GenericLabel.Builder genericLabelBuilder = genericLabelsBuilder.addLabelsBuilder();
+      label.copyToStruct(genericLabelBuilder.getFieldsBuilder());
+      label.getReferenceFieldIds().copyToStruct(genericLabelBuilder.getReferenceIdsBuilder());
+      genericLabelBuilder.setStartIndex(label.getStartIndex());
+      genericLabelBuilder.setEndIndex(label.getEndIndex());
+      Integer identifier = label.getIdentifier();
+      if (identifier == null) {
+        throw new IllegalArgumentException("Labels are not static, they do not have identifiers.");
+      }
+      genericLabelBuilder.setIdentifier(identifier);
     }
   }
 }

@@ -16,12 +16,11 @@
 package edu.umn.nlpie.mtap.model;
 
 import edu.umn.nlpie.mtap.common.AbstractJsonObject;
+import edu.umn.nlpie.mtap.common.JsonObject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A generalized, dynamic label on text which can contain arbitrary key-value items.
@@ -51,48 +50,134 @@ import java.util.Map;
  * </pre>
  */
 public class GenericLabel extends AbstractJsonObject implements Label {
-  /**
-   * Reserved property key for {@link #getStartIndex()}.
-   */
-  public static final String START_INDEX_KEY = "start_index";
-
-  /**
-   * Reserved property key for {@link #getEndIndex()}.
-   */
-  public static final String END_INDEX_KEY = "end_index";
-
   private static final List<String> RESERVED_FIELDS = Arrays.asList(
       "document",
       "location",
-      "text"
+      "text",
+      "identifier",
+      "start_index",
+      "end_index",
+      "label_index_name",
+      "fields",
+      "reference_field_ids",
+      "reference_cache"
   );
 
-  private final @Nullable Document document;
+  private final Map<@NotNull String, Object> referenceCache;
 
-  private GenericLabel(Map<@NotNull String, @Nullable Object> backingMap, @Nullable Document document) {
+  private final JsonObject referenceFieldIds;
+
+  private final int startIndex;
+
+  private final int endIndex;
+
+  private @Nullable Document document;
+  private @Nullable String labelIndexName;
+  private @Nullable Integer identifier;
+
+  private GenericLabel(
+      Map<@NotNull String, @Nullable Object> backingMap,
+      Map<@NotNull String, @NotNull Object> referenceCache,
+      @Nullable JsonObject referenceFieldIds,
+      int startIndex,
+      int endIndex
+  ) {
     super(backingMap);
     for (String key : backingMap.keySet()) {
       if (RESERVED_FIELDS.contains(key)) {
         throw new IllegalStateException("Field key name '" + key + "' is reserved.");
       }
     }
-    this.document = document;
+    this.referenceCache = referenceCache;
+    this.referenceFieldIds = referenceFieldIds;
+    this.startIndex = startIndex;
+    this.endIndex = endIndex;
   }
 
   /**
    * Creates a generic label by copying {@code jsonObject}.
    *
    * @param abstractJsonObject The json object to copy.
-   * @param document           The document to retrieve text from.
    */
-  public GenericLabel(@NotNull AbstractJsonObject abstractJsonObject, @Nullable Document document) {
+  public GenericLabel(@NotNull AbstractJsonObject abstractJsonObject,
+                      Map<@NotNull String, @NotNull Object> referenceCache,
+                      @Nullable JsonObject referenceFieldIds,
+                      int startIndex,
+                      int endIndex) {
     super(abstractJsonObject);
     for (String key : abstractJsonObject.keySet()) {
       if (RESERVED_FIELDS.contains(key)) {
         throw new IllegalStateException("Field key name '" + key + "' is reserved.");
       }
     }
+    this.referenceCache = referenceCache;
+    this.referenceFieldIds = referenceFieldIds;
+    this.startIndex = startIndex;
+    this.endIndex = endIndex;
+  }
+
+  @Override
+  public int getStartIndex() {
+    return startIndex;
+  }
+
+  @Override
+  public int getEndIndex() {
+    return endIndex;
+  }
+
+  @Nullable
+  @Override
+  public Document getDocument() {
+    return document;
+  }
+
+  public void setDocument(@Nullable Document document) {
     this.document = document;
+  }
+
+  @Nullable
+  @Override
+  public String getLabelIndexName() {
+    return labelIndexName;
+  }
+
+  public void setLabelIndexName(@Nullable String labelIndexName) {
+    this.labelIndexName = labelIndexName;
+  }
+
+  @Nullable
+  @Override
+  public Integer getIdentifier() {
+    return identifier;
+  }
+
+  public void setIdentifier(@Nullable Integer identifier) {
+    this.identifier = identifier;
+  }
+
+  public <L extends Label> L getLabelValue(String key) {
+    // TODO: implement this.
+    return null;
+  }
+
+  public <L extends Label> List<L> getLabelListValue(String key) {
+    // TODO: implement this.
+    return null;
+  }
+
+  public <L extends Label> Map<String, L> getLabelMapValue(String key) {
+    // TODO: implement this.
+    return null;
+  }
+
+  public Object getReferentialValue(String key) {
+    // TODO: implement this.
+    return null;
+  }
+
+  public JsonObject getReferenceFieldIds() {
+    return referenceFieldIds;
   }
 
   /**
@@ -143,19 +228,33 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     }
   }
 
-  @Override
-  public @Nullable Document getDocument() {
-    return document;
-  }
-
-  @Override
-  public int getStartIndex() {
-    return getNumberValue(START_INDEX_KEY).intValue();
-  }
-
-  @Override
-  public int getEndIndex() {
-    return getNumberValue(END_INDEX_KEY).intValue();
+  public static void checkReferenceValues(Object value, Deque<Object> parents) {
+    if (value instanceof Map) {
+      checkForReferenceCycle(value, parents);
+      Map<?, ?> map = (Map<?, ?>) value;
+      parents.push(value);
+      for (Map.Entry<?, ?> entry : map.entrySet()) {
+        Object key = entry.getKey();
+        Object val = entry.getValue();
+        if (!(key instanceof String)) {
+          throw new IllegalArgumentException("Nested maps must have keys of String type.");
+        }
+        checkReferenceValues(val, parents);
+      }
+      parents.pop();
+    } else if (value instanceof List) {
+      checkForReferenceCycle(value, parents);
+      List<?> list = (List<?>) value;
+      parents.push(list);
+      for (Object o : list) {
+        checkReferenceValues(o, parents);
+      }
+      parents.pop();
+    } else if (!(value instanceof Label)) {
+      throw new IllegalArgumentException("Value type cannot be represented in json: \""
+          + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
+          " lists of objects of valid types, and maps of strings to objects of valid types");
+    }
   }
 
   /**
@@ -163,11 +262,13 @@ public class GenericLabel extends AbstractJsonObject implements Label {
    */
   public static class Builder extends AbstractJsonObject.AbstractBuilder<Builder, GenericLabel> {
 
+    protected final Map<@NotNull String, Object> referenceCache = new HashMap<>();
+
     private final int startIndex;
 
     private final int endIndex;
 
-    private Document document;
+    private @Nullable JsonObject referenceFieldIds;
 
     /**
      * Default constructor. The {@code startIndex} and {@code endIndex} are required properties
@@ -181,14 +282,22 @@ public class GenericLabel extends AbstractJsonObject implements Label {
       this.endIndex = endIndex;
     }
 
-    /**
-     * Sets the document for the label, for retrieving text.
-     *
-     * @param document The document this label appears on.
-     * @return This builder.
-     */
-    public Builder withDocument(Document document) {
-      this.document = document;
+    public Builder withReference(String fieldName, Object object) {
+      checkReferenceValues(object, new LinkedList<>());
+      this.referenceCache.put(fieldName, object);
+      return this;
+    }
+
+    public Builder withReferences(Map<@NotNull String, Object> references) {
+      for (Entry<String, ?> entry : references.entrySet()) {
+        checkReferenceValues(entry.getValue(), new LinkedList<>());
+      }
+      this.referenceCache.putAll(references);
+      return this;
+    }
+
+    public Builder withReferenceFieldIds(JsonObject referenceFieldIds) {
+      this.referenceFieldIds = referenceFieldIds;
       return this;
     }
 
@@ -201,9 +310,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     @Override
     public GenericLabel build() {
       checkIndexRange(startIndex, endIndex);
-      setProperty(START_INDEX_KEY, startIndex);
-      setProperty(END_INDEX_KEY, endIndex);
-      return new GenericLabel(backingMap, document);
+      return new GenericLabel(backingMap, referenceCache, referenceFieldIds, startIndex, endIndex);
     }
   }
 }

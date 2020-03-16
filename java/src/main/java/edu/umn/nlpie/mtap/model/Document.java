@@ -45,7 +45,8 @@ public class Document {
   @Nullable
   private Event event = null;
 
-  private Map<String, LabelIndex<?>> labelIndexMap = null;
+  @Nullable
+  private LabelIndices labelIndices = null;
 
   private Map<String, Labeler<?>> labelers = null;
 
@@ -116,23 +117,6 @@ public class Document {
   }
 
   /**
-   * Gets information about the label indices in this document.
-   *
-   * @return A list of objects containing information about the label indices.
-   */
-  public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfo() {
-    if (event != null && event.getClient() != null) {
-      return event.getClient().getLabelIndicesInfos(event.getEventID(), documentName);
-    }
-
-    ArrayList<LabelIndexInfo> list = new ArrayList<>();
-    for (Map.Entry<String, LabelIndex<?>> entry : labelIndexMap.entrySet()) {
-      list.add(new LabelIndexInfo(entry.getKey(), LabelIndexInfo.LabelIndexType.JSON));
-    }
-    return list;
-  }
-
-  /**
    * Gets a label index from the events service.
    *
    * @param labelIndexName The name of the label index.
@@ -145,17 +129,9 @@ public class Document {
   @SuppressWarnings("unchecked")
   public @NotNull <L extends Label> LabelIndex<L> getLabelIndex(
       @NotNull String labelIndexName,
-      @NotNull ProtoLabelAdapter<L> labelAdapter
+      @Deprecated @NotNull ProtoLabelAdapter<L> labelAdapter
   ) {
-    LabelIndex<?> index = getLabelIndexMap().get(labelIndexName);
-    if (index == null && event != null && event.getClient() != null) {
-      index = event.getClient().getLabels(this, labelIndexName, labelAdapter);
-      getLabelIndexMap().put(labelIndexName, index);
-    }
-    if (index == null) {
-      throw new NoSuchElementException();
-    }
-    return (LabelIndex<L>) index;
+    return (LabelIndex<L>) getLabelIndices().get(labelIndexName);
   }
 
   /**
@@ -300,16 +276,33 @@ public class Document {
       @NotNull ProtoLabelAdapter<L> labelAdapter,
       @NotNull List<@NotNull L> labels
   ) {
+    if (getLabelIndices().containsKey(labelIndexName)) {
+      throw new IllegalArgumentException("Already contains index with name: " + labelIndexName);
+    }
+
+    // TODO: STATICIZE, CHECK WAITING, FINALIZE
+
     labels.sort((Comparator<Label>) Label::compareLocation);
 
     LabelIndex<L> index = labelAdapter.createLabelIndex(labels);
-    getLabelIndexMap().put(labelIndexName, index);
+    getLabelIndices().cache.put(labelIndexName, index);
+    getLabelIndices().nameCache.add(labelIndexName);
     if (event != null && event.getClient() != null) {
       event.getClient().addLabels(event.getEventID(), documentName, labelIndexName, labels,
           labelAdapter);
     }
     getCreatedIndices().add(labelIndexName);
     return index;
+  }
+
+  private void staticize(@NotNull List<@NotNull ? extends Label> labels,
+                         String labelIndexName) {
+    labels.sort(Label::compareLocation);
+    Set<Integer> waitingOn = new HashSet<>();
+    int i = 0;
+    for (Label label : labels) {
+      label.setD
+    }
   }
 
   /**
@@ -328,18 +321,23 @@ public class Document {
     getCreatedIndices().addAll(createdIndices);
   }
 
-  private Map<String, LabelIndex<?>> getLabelIndexMap() {
-    if (labelIndexMap == null) {
-      labelIndexMap = new HashMap<>();
-    }
-    return labelIndexMap;
-  }
-
   private Map<String, Labeler<?>> getLabelers() {
     if (labelers == null) {
       labelers = new HashMap<>();
     }
     return labelers;
+  }
+
+  private LabelIndices getLabelIndices() {
+    if (labelIndices == null) {
+      labelIndices = new LabelIndices();
+    }
+    return labelIndices;
+  }
+
+  private ProtoLabelAdapter<?> getDefaultAdapter(String labelIndexName) {
+    // TODO: Implement this.
+    return null;
   }
 
   private class LabelerImpl<L extends Label> implements Labeler<L> {
@@ -378,6 +376,107 @@ public class Document {
     @Override
     public void close() {
       done();
+    }
+  }
+
+  private class LabelIndices extends AbstractMap<String, LabelIndex<?>> {
+    private final Map<String, LabelIndex<?>> cache = new HashMap<>();
+    private final Set<String> nameCache = new HashSet<>();
+
+    @NotNull
+    @Override
+    public Set<Entry<String, LabelIndex<?>>> entrySet() {
+      refreshNames();
+      return new AbstractSet<Entry<String, LabelIndex<?>>>() {
+        @Override
+        public Iterator<Entry<String, LabelIndex<?>>> iterator() {
+          Iterator<String> it = nameCache.iterator();
+          return new Iterator<Entry<String, LabelIndex<?>>>() {
+            @Override
+            public boolean hasNext() {
+              return it.hasNext();
+            }
+
+            @Override
+            public Entry<String, LabelIndex<?>> next() {
+              String name = it.next();
+              return new DelayedLabelIndexEntry(name);
+            }
+          };
+        }
+
+        @Override
+        public int size() {
+          return nameCache.size();
+        }
+      };
+    }
+
+    @Override
+    public LabelIndex<?> get(Object key) {
+      if (!(key instanceof String)) {
+        return null;
+      }
+      if (!containsKey(key)) {
+        return null;
+      }
+      String labelIndexName = (String) key;
+      LabelIndex<?> index = cache.get(key);
+      if (index == null && event != null && event.getClient() != null) {
+        index = event.getClient().getLabels(Document.this, labelIndexName, getDefaultAdapter(labelIndexName));
+        nameCache.add(labelIndexName);
+        cache.put(labelIndexName, index);
+      }
+      return index;
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      if (nameCache.contains(key)) {
+        return true;
+      }
+      refreshNames();
+      return nameCache.contains(key);
+    }
+
+    @NotNull
+    @Override
+    public Set<String> keySet() {
+      refreshNames();
+      return Collections.unmodifiableSet(nameCache);
+    }
+
+    private void refreshNames() {
+      if (event != null && event.getClient() != null) {
+        List<@NotNull LabelIndexInfo> infos = event.getClient().getLabelIndicesInfos(event.getEventID(), documentName);
+        for (LabelIndexInfo info : infos) {
+          nameCache.add(info.getIndexName());
+        }
+      }
+    }
+
+
+    private class DelayedLabelIndexEntry implements Map.Entry<String, LabelIndex<?>> {
+      private final String labelIndexName;
+
+      DelayedLabelIndexEntry(String labelIndexName) {
+        this.labelIndexName = labelIndexName;
+      }
+
+      @Override
+      public String getKey() {
+        return labelIndexName;
+      }
+
+      @Override
+      public LabelIndex<?> getValue() {
+        return get(labelIndexName);
+      }
+
+      @Override
+      public LabelIndex<?> setValue(LabelIndex<?> value) {
+        throw new UnsupportedOperationException();
+      }
     }
   }
 }

@@ -32,6 +32,29 @@ public interface Label {
   @Nullable Document getDocument();
 
   /**
+   * Sets the document that the label appears on.
+   *
+   * @param document
+   */
+  void setDocument(@Nullable Document document);
+
+  /**
+   * The name of the label index this label appears in.
+   *
+   * @return A string or {@code null}.
+   */
+  @Nullable String getLabelIndexName();
+
+  void
+
+  /**
+   * Returns the label-index unique identifier / index of the label.
+   *
+   * @return An integer object or {@code null}.
+   */
+  @Nullable Integer getIdentifier();
+
+  /**
    * The index of the first character included in the label.
    *
    * @return Integer index.
