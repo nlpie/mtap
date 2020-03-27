@@ -62,7 +62,6 @@ public class EventsClient implements AutoCloseable {
         .setOnlyCreateNew(onlyCreateNew)
         .build();
     try {
-      //noinspection ResultOfMethodCallIgnored
       stub.openEvent(request);
     } catch (StatusRuntimeException e) {
       if (e.getStatus().getCode() == Status.Code.ALREADY_EXISTS) {
@@ -85,7 +84,6 @@ public class EventsClient implements AutoCloseable {
     CloseEventRequest request = CloseEventRequest.newBuilder()
         .setEventId(eventID)
         .build();
-    //noinspection ResultOfMethodCallIgnored
     stub.closeEvent(request);
   }
 
@@ -117,7 +115,6 @@ public class EventsClient implements AutoCloseable {
         .setKey(key)
         .setValue(value)
         .build();
-    //noinspection ResultOfMethodCallIgnored
     stub.addMetadata(req);
   }
 
@@ -153,7 +150,6 @@ public class EventsClient implements AutoCloseable {
         .setBinaryDataName(binaryDataName)
         .setBinaryData(ByteString.copyFrom(bytes))
         .build();
-    //noinspection ResultOfMethodCallIgnored
     stub.addBinaryData(request);
   }
 
@@ -207,7 +203,6 @@ public class EventsClient implements AutoCloseable {
         .setDocumentName(documentName)
         .setText(text)
         .build();
-    //noinspection ResultOfMethodCallIgnored
     stub.addDocument(request);
   }
 
@@ -249,11 +244,11 @@ public class EventsClient implements AutoCloseable {
     for (GetLabelIndicesInfoResponse.LabelIndexInfo info : response.getLabelIndexInfosList()) {
       LabelIndexInfo.LabelIndexType type;
       switch (info.getType()) {
-        case OTHER:
-          type = LabelIndexInfo.LabelIndexType.OTHER;
+        case CUSTOM:
+          type = LabelIndexInfo.LabelIndexType.CUSTOM;
           break;
-        case JSON:
-          type = LabelIndexInfo.LabelIndexType.JSON;
+        case GENERIC:
+          type = LabelIndexInfo.LabelIndexType.GENERIC;
           break;
         default:
           type = LabelIndexInfo.LabelIndexType.UNKNOWN;
@@ -288,8 +283,6 @@ public class EventsClient implements AutoCloseable {
         .setNoKeyValidation(true);
     adapter.addToMessage(labels, requestBuilder);
     AddLabelsRequest request = requestBuilder.build();
-
-    //noinspection ResultOfMethodCallIgnored
     stub.addLabels(request);
   }
 

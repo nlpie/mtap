@@ -15,7 +15,7 @@
 import threading
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Tuple, Set
-from typing import TypeVar, NamedTuple, Any, Mapping, Iterator, Sequence, Union, Optional
+from typing import TypeVar, NamedTuple, Any, Mapping, Sequence, Union, Optional
 
 if TYPE_CHECKING:
     from mtap.events import Document
@@ -258,7 +258,7 @@ class GenericLabel(Label):
             return
         if self._is_reserved(key):
             raise ValueError('The key "{}" is a reserved key.'.format(key))
-        is_ref = _is_referential(value, [self])
+        is_ref = _is_referential(value, [id(self)])
         if is_ref:
             self.reference_cache[key] = value
         else:
@@ -343,15 +343,11 @@ def _staticize(labels: Sequence['Label'],
         l.document = document
         l.identifier = i
         l.label_index_name = label_index_name
-        _collect_floating_references(waiting_on, l.reference_cache)
+        try:
+            _collect_floating_references(waiting_on, l.reference_cache)
+        except AttributeError:
+            pass
     return labels, waiting_on
-
-
-def _store_references(labels: Sequence['GenericLabel']):
-    for label in labels:
-        for k, v in label.reference_cache.items():
-            if k not in label.reference_field_ids:
-                label.reference_field_ids[k] = _convert_to_references(v)
 
 
 def _collect_floating_references(s, o):
@@ -367,7 +363,7 @@ def _collect_floating_references(s, o):
 
 def _is_referential(o: Any, parents=None) -> bool:
     if parents is None:
-        parents = [o]
+        parents = [id(o)]
     if isinstance(o, (str, float, bool, int)) or o is None:
         return False
     elif isinstance(o, Label):
@@ -375,9 +371,9 @@ def _is_referential(o: Any, parents=None) -> bool:
     elif isinstance(o, Mapping):
         map_is_ref = None
         for v in o.values():
-            if v in parents:
+            if id(v) in parents:
                 raise ValueError('Recursive loop')
-            x = _is_referential(v, parents + [v])
+            x = _is_referential(v, parents + [id(v)])
             if map_is_ref is None:
                 map_is_ref = x
             elif x != map_is_ref:
@@ -387,9 +383,9 @@ def _is_referential(o: Any, parents=None) -> bool:
     elif isinstance(o, Sequence):
         seq_is_ref = None
         for v in o:
-            if v in parents:
+            if id(v) in parents:
                 raise ValueError('Recursive loop')
-            x = _is_referential(v, parents + [v])
+            x = _is_referential(v, parents + [id(v)])
             if seq_is_ref is None:
                 seq_is_ref = x
             elif x != seq_is_ref:
@@ -401,30 +397,18 @@ def _is_referential(o: Any, parents=None) -> bool:
 
 
 def _dereference(o: Any, document: 'Document') -> Any:
+    if o is None:
+        return o
     if isinstance(o, str):
         label_index_name, label_id = o.split(':')
         label_index = document.labels[label_index_name]
         label_ = label_index[int(label_id)]
         return label_
-    elif isinstance(o, Mapping):
+    if isinstance(o, Mapping):
         replacement = {}
         for k, v in o.items():
             replacement[k] = _dereference(v, document)
         return replacement
-    elif isinstance(o, Sequence):
+    if isinstance(o, Sequence):
         replacement = [_dereference(v, document) for v in o]
         return replacement
-
-
-def _convert_to_references(o):
-    if isinstance(o, Label):
-        ref = '{}:{}'.format(o.label_index_name, o.identifier)
-        return ref
-    elif isinstance(o, Mapping):
-        rep = {}
-        for k, v in o.items():
-            rep[k] = _convert_to_references(v)
-        return rep
-    elif isinstance(o, Sequence):
-        rep = [_convert_to_references(v) for v in o]
-        return rep

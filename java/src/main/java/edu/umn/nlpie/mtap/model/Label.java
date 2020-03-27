@@ -18,6 +18,8 @@ package edu.umn.nlpie.mtap.model;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Set;
+
 /**
  * An interface for a span of text that has been determined to have some specific meaning or
  * function.
@@ -34,7 +36,7 @@ public interface Label {
   /**
    * Sets the document that the label appears on.
    *
-   * @param document
+   * @param document The Document object that this label appears on.
    */
   void setDocument(@Nullable Document document);
 
@@ -45,7 +47,12 @@ public interface Label {
    */
   @Nullable String getLabelIndexName();
 
-  void
+  /**
+   * Sets the name of the label index.
+   *
+   * @param labelIndexName String identifier name for the label index.
+   */
+  void setLabelIndexName(@Nullable String labelIndexName);
 
   /**
    * Returns the label-index unique identifier / index of the label.
@@ -53,6 +60,13 @@ public interface Label {
    * @return An integer object or {@code null}.
    */
   @Nullable Integer getIdentifier();
+
+  /**
+   * Sets the unique identifier for the label.
+   *
+   * @param identifier The unique identifier / index of the label.
+   */
+  void setIdentifier(@Nullable Integer identifier);
 
   /**
    * The index of the first character included in the label.
@@ -161,5 +175,15 @@ public interface Label {
    */
   default int compareStart(@NotNull Label other) {
     return Integer.compare(getStartIndex(), other.getStartIndex());
+  }
+
+  /**
+   * Used to add any memory address identifiers for labels that this label references to a list
+   * to wait on before uploading this label.
+   *
+   * @param referenceIds The collection of references.
+   */
+  default void collectFloatingReferences(Set<Integer> referenceIds) {
+
   }
 }

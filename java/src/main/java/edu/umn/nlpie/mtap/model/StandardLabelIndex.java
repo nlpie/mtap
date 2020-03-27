@@ -103,6 +103,11 @@ public final class StandardLabelIndex<L extends Label> extends AbstractLabelInde
     return new AsList();
   }
 
+  @Override
+  public L get(int i) {
+    return labels.get(i);
+  }
+
   class AsList extends AbstractList<L> implements RandomAccess {
 
     @Override
@@ -611,6 +616,11 @@ public final class StandardLabelIndex<L extends Label> extends AbstractLabelInde
       public void add(@NotNull L l) {
         throw new UnsupportedOperationException("Add not supported.");
       }
+    }
+
+    @Override
+    public L get(int i) {
+      return labels.get(i);
     }
   }
 

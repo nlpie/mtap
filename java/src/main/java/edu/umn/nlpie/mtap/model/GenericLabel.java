@@ -40,7 +40,7 @@ import java.util.*;
  *     }
  *
  *     public static PosTag create(int startIndex, int endIndex, String tag) {
- *       GenericLabel label = GenericLabel.newBuilder(startIndex, endIndex)
+ *       GenericLabel label = GenericLabel.withSpan(startIndex, endIndex)
  *           .setProperty("tag", tag)
  *           .build();
  *       return new PosTag(label);
@@ -65,7 +65,6 @@ public class GenericLabel extends AbstractJsonObject implements Label {
 
   private final Map<@NotNull String, Object> referenceCache;
 
-  private final JsonObject referenceFieldIds;
 
   private final int startIndex;
 
@@ -74,6 +73,8 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   private @Nullable Document document;
   private @Nullable String labelIndexName;
   private @Nullable Integer identifier;
+
+  private @Nullable JsonObject referenceFieldIds = null;
 
   private GenericLabel(
       Map<@NotNull String, @Nullable Object> backingMap,
@@ -94,16 +95,11 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     this.endIndex = endIndex;
   }
 
-  /**
-   * Creates a generic label by copying {@code jsonObject}.
-   *
-   * @param abstractJsonObject The json object to copy.
-   */
-  public GenericLabel(@NotNull AbstractJsonObject abstractJsonObject,
-                      Map<@NotNull String, @NotNull Object> referenceCache,
-                      @Nullable JsonObject referenceFieldIds,
-                      int startIndex,
-                      int endIndex) {
+  GenericLabel(@NotNull AbstractJsonObject abstractJsonObject,
+               Map<@NotNull String, @NotNull Object> referenceCache,
+               @Nullable JsonObject referenceFieldIds,
+               int startIndex,
+               int endIndex) {
     super(abstractJsonObject);
     for (String key : abstractJsonObject.keySet()) {
       if (RESERVED_FIELDS.contains(key)) {
@@ -114,70 +110,6 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     this.referenceFieldIds = referenceFieldIds;
     this.startIndex = startIndex;
     this.endIndex = endIndex;
-  }
-
-  @Override
-  public int getStartIndex() {
-    return startIndex;
-  }
-
-  @Override
-  public int getEndIndex() {
-    return endIndex;
-  }
-
-  @Nullable
-  @Override
-  public Document getDocument() {
-    return document;
-  }
-
-  public void setDocument(@Nullable Document document) {
-    this.document = document;
-  }
-
-  @Nullable
-  @Override
-  public String getLabelIndexName() {
-    return labelIndexName;
-  }
-
-  public void setLabelIndexName(@Nullable String labelIndexName) {
-    this.labelIndexName = labelIndexName;
-  }
-
-  @Nullable
-  @Override
-  public Integer getIdentifier() {
-    return identifier;
-  }
-
-  public void setIdentifier(@Nullable Integer identifier) {
-    this.identifier = identifier;
-  }
-
-  public <L extends Label> L getLabelValue(String key) {
-    // TODO: implement this.
-    return null;
-  }
-
-  public <L extends Label> List<L> getLabelListValue(String key) {
-    // TODO: implement this.
-    return null;
-  }
-
-  public <L extends Label> Map<String, L> getLabelMapValue(String key) {
-    // TODO: implement this.
-    return null;
-  }
-
-  public Object getReferentialValue(String key) {
-    // TODO: implement this.
-    return null;
-  }
-
-  public JsonObject getReferenceFieldIds() {
-    return referenceFieldIds;
   }
 
   /**
@@ -228,6 +160,37 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     }
   }
 
+  public static Object dereference(Object o, Document document) {
+    if (o == null) {
+      return null;
+    }
+    if (o instanceof String) {
+      String[] split = ((String) o).split(":");
+      String labelIndexName = split[0];
+      int identifier = Integer.parseInt(split[1]);
+      LabelIndex<?> index = document.getLabelIndices().get(labelIndexName);
+      return index.get(identifier);
+    }
+    if (o instanceof Map) {
+      Map<?, ?> map = (Map<?, ?>) o;
+      Map<String, Object> copy = new HashMap<>();
+      for (Entry<?, ?> entry : map.entrySet()) {
+        String key = (String) entry.getKey();
+        copy.put(key, dereference(entry.getValue(), document));
+      }
+      return copy;
+    }
+    if (o instanceof List) {
+      List<?> list = (List<?>) o;
+      List<Object> copy = new ArrayList<>();
+      for (Object ref : list) {
+        copy.add(dereference(ref, document));
+      }
+      return copy;
+    }
+    throw new IllegalArgumentException("Usupported class: " + o.getClass().getCanonicalName());
+  }
+
   public static void checkReferenceValues(Object value, Deque<Object> parents) {
     if (value instanceof Map) {
       checkForReferenceCycle(value, parents);
@@ -254,6 +217,111 @@ public class GenericLabel extends AbstractJsonObject implements Label {
       throw new IllegalArgumentException("Value type cannot be represented in json: \""
           + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
           " lists of objects of valid types, and maps of strings to objects of valid types");
+    }
+  }
+
+  @Override
+  public int getStartIndex() {
+    return startIndex;
+  }
+
+  @Override
+  public int getEndIndex() {
+    return endIndex;
+  }
+
+  @Nullable
+  @Override
+  public Document getDocument() {
+    return document;
+  }
+
+  public void setDocument(@Nullable Document document) {
+    this.document = document;
+  }
+
+  @Nullable
+  @Override
+  public String getLabelIndexName() {
+    return labelIndexName;
+  }
+
+  public void setLabelIndexName(@Nullable String labelIndexName) {
+    this.labelIndexName = labelIndexName;
+  }
+
+  @Nullable
+  @Override
+  public Integer getIdentifier() {
+    return identifier;
+  }
+
+  public void setIdentifier(@Nullable Integer identifier) {
+    this.identifier = identifier;
+  }
+
+  /**
+   * Gets a field value that references
+   *
+   * @param key
+   * @param <L>
+   * @return
+   */
+  @SuppressWarnings("unchecked")
+  public <L extends Label> L getLabelValue(String key) {
+    return (L) getReferentialValue(key);
+  }
+
+  @SuppressWarnings("unchecked")
+  public <L extends Label> List<L> getLabelListValue(String key) {
+    return (List<L>) getReferentialValue(key);
+  }
+
+  @SuppressWarnings("unchecked")
+  public <L extends Label> Map<String, L> getLabelMapValue(String key) {
+    return (Map<String, L>) getReferentialValue(key);
+  }
+
+  public Object getReferentialValue(String key) {
+    if (referenceCache.containsKey(key)) {
+      return referenceCache.get(key);
+    }
+    if (referenceFieldIds != null && referenceFieldIds.containsKey(key)) {
+      Object refValue = referenceFieldIds.get(key);
+      Object realValue = dereference(refValue, document);
+      referenceCache.put(key, realValue);
+      return realValue;
+    }
+    return null;
+  }
+
+  public @Nullable JsonObject getReferenceFieldIds() {
+    return referenceFieldIds;
+  }
+
+  public void setReferenceFieldIds(@Nullable JsonObject referenceFieldIds) {
+    this.referenceFieldIds = referenceFieldIds;
+  }
+
+  public Map<String, Object> getReferenceCache() {
+    return referenceCache;
+  }
+
+  @Override
+  public void collectFloatingReferences(Set<Integer> referenceIds) {
+    Deque<Object> queue = new ArrayDeque<>(referenceCache.values());
+    while (!queue.isEmpty()) {
+      Object o = queue.pop();
+      if (o instanceof Label) {
+        if (((Label) o).getIdentifier() == null) {
+          referenceIds.add(System.identityHashCode(o));
+        }
+      } else if (o instanceof Map) {
+        Map<?, ?> map = (Map<?, ?>) o;
+        queue.addAll(map.values());
+      } else if (o instanceof List) {
+        queue.addAll((List<?>) o);
+      }
     }
   }
 

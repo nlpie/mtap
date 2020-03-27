@@ -20,6 +20,8 @@ import edu.umn.nlpie.mtap.exc.EventExistsException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -34,6 +36,7 @@ public class EventBuilder {
   private @Nullable String eventID = null;
   private @Nullable EventsClient eventsClient = null;
   private boolean onlyCreateNew = false;
+  private Map<String, ProtoLabelAdapter<?>> defaultAdapters;
 
   public static @NotNull EventBuilder newBuilder() {
     return new EventBuilder();
@@ -139,6 +142,30 @@ public class EventBuilder {
   }
 
   /**
+   * Sets a map of label index names to default adapters, that will be used by any documents on
+   * this event.
+   *
+   * @param defaultAdapters a map from strings to proto label adapters.
+   */
+  public void setDefaultAdapters(Map<String, ProtoLabelAdapter<?>> defaultAdapters) {
+    this.defaultAdapters = defaultAdapters;
+  }
+
+  /**
+   * Builder method which sets a map of label index names to default adapters, that will be used by
+   * any documents on this event.
+   *
+   * @param defaultAdapters a map from strings to proto label adapters.
+   * @return this builder.
+   */
+  public @NotNull EventBuilder withDefaultAdapters(
+      Map<String, ProtoLabelAdapter<?>> defaultAdapters
+  ) {
+    this.defaultAdapters = defaultAdapters;
+    return this;
+  }
+
+  /**
    * Creates a new event.
    *
    * @return The event object.
@@ -150,6 +177,10 @@ public class EventBuilder {
     if (eventsClient != null) {
       eventsClient.openEvent(eventID, onlyCreateNew);
     }
-    return new Event(eventID, eventsClient);
+    Map<String, ProtoLabelAdapter<?>> defaultAdapters = this.defaultAdapters;
+    if (defaultAdapters == null) {
+      defaultAdapters = Collections.emptyMap();
+    }
+    return new Event(eventID, eventsClient, defaultAdapters);
   }
 }

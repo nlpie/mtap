@@ -306,4 +306,12 @@ public interface LabelIndex<L extends Label> extends Collection<@NotNull L> {
    * @return View of all the labels in this label index.
    */
   @NotNull List<@NotNull L> asList();
+
+  /**
+   * Gets the label with identifier i.
+   *
+   * @param i An integer identifier.
+   * @return The label with identifier i.
+   */
+  L get(int i);
 }

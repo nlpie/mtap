@@ -16,16 +16,15 @@
 
 package edu.umn.nlpie.mtap.model;
 
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class DocumentTest {
@@ -81,52 +80,77 @@ class DocumentTest {
   @Test
   void getLabelIndicesInfos() {
     when(eventsClient.getLabelIndicesInfos(anyString(), anyString())).thenReturn(
-        Arrays.asList(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.JSON),
-            new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.OTHER),
+        Arrays.asList(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.GENERIC),
+            new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.CUSTOM),
             new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN))
     );
-    List<@NotNull LabelIndexInfo> infos = tested.getLabelIndicesInfo();
+    Document.LabelIndices labelIndices = tested.getLabelIndices();
+    assertEquals(3, labelIndices.size());
+    assertTrue(labelIndices.containsKey("foo"));
+    assertTrue(labelIndices.containsKey("bar"));
+    assertTrue(labelIndices.containsKey("baz"));
     verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
-    assertEquals(3, infos.size());
-    assertEquals(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.JSON),
-        infos.get(0));
-    assertEquals(new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.OTHER),
-        infos.get(1));
-    assertEquals(new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN),
-        infos.get(2));
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void getLabelIndex() {
+    when(eventsClient.getLabelIndicesInfos(eq(event.getEventID()), eq("plaintext")))
+        .thenReturn(
+            Collections.singletonList(
+                new LabelIndexInfo("index", LabelIndexInfo.LabelIndexType.GENERIC)
+            )
+        );
     when(eventsClient.getLabels(eq(tested), anyString(), any())).thenReturn(labelIndex);
-    assertSame(labelIndex, tested.getLabelIndex("index", labelAdapter));
-    verify(eventsClient).getLabels(tested, "index", labelAdapter);
+    assertSame(labelIndex, tested.getLabelIndex("index"));
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
+    verify(eventsClient).getLabels(eq(tested), eq("index"), any(ProtoLabelAdapter.class));
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void getLabelIndexCaches() {
+    when(eventsClient.getLabelIndicesInfos(eq(event.getEventID()), eq("plaintext")))
+        .thenReturn(
+            Collections.singletonList(
+                new LabelIndexInfo("index", LabelIndexInfo.LabelIndexType.GENERIC)
+            )
+        );
     when(eventsClient.getLabels(eq(tested), anyString(), any())).thenReturn(labelIndex);
-    tested.getLabelIndex("index", labelAdapter);
-    verify(eventsClient).getLabels(tested, "index", labelAdapter);
-    tested.getLabelIndex("index", labelAdapter);
+    tested.getLabelIndex("index");
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
+    verify(eventsClient).getLabels(eq(tested), eq("index"), any(ProtoLabelAdapter.class));
+    tested.getLabelIndex("index");
     verifyNoMoreInteractions(eventsClient);
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void getGenericLabelIndex() {
-    when(eventsClient.getLabels(eq(tested), anyString(), any(ProtoLabelAdapter.class))).thenReturn(labelIndex);
-    assertSame(labelIndex, tested.getLabelIndex("index"));
+    when(eventsClient.getLabelIndicesInfos(eq(event.getEventID()), eq("plaintext")))
+        .thenReturn(
+            Collections.singletonList(
+                new LabelIndexInfo("index", LabelIndexInfo.LabelIndexType.GENERIC)
+            )
+        );
+    when(eventsClient.getLabels(any(Document.class), anyString(), any(ProtoLabelAdapter.class))).thenReturn(labelIndex);
+    LabelIndex<GenericLabel> index = tested.getLabelIndex("index");
+    assertSame(labelIndex, index);
     verify(eventsClient).getLabels(eq(tested), eq("index"), eq(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
   }
 
   @Test
   @SuppressWarnings("unchecked")
   void getGenericLabelIndexCaches() {
+    when(eventsClient.getLabelIndicesInfos(eq(event.getEventID()), eq("plaintext")))
+        .thenReturn(
+            Collections.singletonList(
+                new LabelIndexInfo("index", LabelIndexInfo.LabelIndexType.GENERIC)
+            )
+        );
     when(eventsClient.getLabels(eq(tested), anyString(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER))).thenReturn(labelIndex);
     tested.getLabelIndex("index");
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
     verify(eventsClient).getLabels(tested, "index", GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
     tested.getLabelIndex("index");
     verifyNoMoreInteractions(eventsClient);
@@ -141,6 +165,7 @@ class DocumentTest {
       labeler.add(GenericLabel.createSpan(0, 10));
     }
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
         captor.capture(), same(labelAdapter));
     List value = captor.getValue();
@@ -158,6 +183,7 @@ class DocumentTest {
       labeler.add(GenericLabel.withSpan(0, 10));
     }
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
         captor.capture(), same(GenericLabelAdapter.DISTINCT_ADAPTER));
     List value = captor.getValue();
@@ -178,6 +204,7 @@ class DocumentTest {
     );
     tested.addLabels("index", false, labels);
     ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
         captor.capture(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
     List value = captor.getValue();
@@ -187,5 +214,37 @@ class DocumentTest {
     );
     tested.getLabelIndex("index");
     verifyNoMoreInteractions(eventsClient);
+  }
+
+  @Test
+  void addReferenceLabels() {
+    List<GenericLabel> labels = Arrays.asList(
+        GenericLabel.createSpan(0, 10),
+        GenericLabel.createSpan(10, 20),
+        GenericLabel.createSpan(21, 30)
+    );
+    List<GenericLabel> referencingLabels = Arrays.asList(
+        GenericLabel.withSpan(0, 20)
+            .withReference("a", Arrays.asList(labels.get(0), labels.get(1)))
+            .build(),
+        GenericLabel.withSpan(21, 30)
+            .withReference("a", Collections.singletonList(labels.get(2)))
+            .build()
+    );
+    tested.addLabels("ref_index", false, referencingLabels);
+    verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
+    verifyNoMoreInteractions(eventsClient);
+    tested.addLabels("index", false, labels);
+    ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+    verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
+        captor.capture(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
+    List value = captor.getValue();
+    assertEquals(
+        Arrays.asList(GenericLabel.createSpan(0, 10), GenericLabel.createSpan(10, 20), GenericLabel.createSpan(21, 30)),
+        value
+    );
+    ArgumentCaptor<List> captor2 = ArgumentCaptor.forClass(List.class);
+    verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("ref_index"),
+        captor2.capture(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
   }
 }

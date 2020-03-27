@@ -37,7 +37,7 @@ from mtap._config import Config
 from mtap.api.v1 import events_pb2_grpc, events_pb2
 from mtap.constants import EVENTS_SERVICE_NAME
 from mtap.label_indices import label_index, LabelIndex, presorted_label_index
-from mtap.labels import GenericLabel, Label, _staticize, _store_references
+from mtap.labels import GenericLabel, Label, _staticize
 
 __all__ = [
     'Event',
@@ -438,7 +438,7 @@ class Document:
         self._waiting_indices = waiting_indices
 
     def _finalize_labels(self, label_adapter, label_index_name, labels):
-        _store_references(labels)
+        label_adapter.store_references(labels)
         if self._client is not None:
             self._client.add_labels(event_id=self.event.event_id,
                                     document_name=self.document_name,
@@ -618,6 +618,14 @@ class ProtoLabelAdapter(ABC, Generic[L]):
         Returns:
             LabelIndex[L]: The label index.
 
+        """
+        ...
+
+    def store_references(self, labels: Sequence[L]):
+        """Take all the references for the labels and turn them into static references.
+
+        Args:
+             labels (Sequence[L]): The labels to store the references on.
         """
         ...
 
@@ -950,7 +958,7 @@ class _LabelIndices(Mapping[str, LabelIndex]):
                                             adapter=label_adapter)
             for label in index:
                 label.label_index_name = k
-                label.document = self
+                label.document = self._document
             self._cache[k] = index
             self._names_cache.add(k)
             return index
@@ -1007,7 +1015,9 @@ class _GenericLabelAdapter(ProtoLabelAdapter[GenericLabel]):
         generic_labels = request.generic_labels
         for label in labels:
             label_message = generic_labels.labels.add()
-            label_message.identifier = label.id
+            label_message.identifier = label.identifier
+            label_message.start_index = label.start_index
+            label_message.end_index = label.end_index
             _structs.copy_dict_to_struct(label.fields, label_message.fields, [label])
             _structs.copy_dict_to_struct(label.reference_field_ids, label_message.reference_ids,
                                          [label])
@@ -1026,6 +1036,28 @@ class _GenericLabelAdapter(ProtoLabelAdapter[GenericLabel]):
             [_dict_to_label(d, label_index_name, document) for d in packed['labels']],
             distinct=packed['distinct'], adapter=self
         )
+
+    def store_references(self, labels: Sequence['GenericLabel']):
+        for label in labels:
+            for k, v in label.reference_cache.items():
+                if k not in label.reference_field_ids:
+                    label.reference_field_ids[k] = _convert_to_references(v)
+
+
+def _convert_to_references(o):
+    if o is None:
+        return o
+    if isinstance(o, Label):
+        ref = '{}:{}'.format(o.label_index_name, o.identifier)
+        return ref
+    if isinstance(o, Mapping):
+        rep = {}
+        for k, v in o.items():
+            rep[k] = _convert_to_references(v)
+        return rep
+    if isinstance(o, Sequence):
+        rep = [_convert_to_references(v) for v in o]
+        return rep
 
 
 def _label_to_dict(label, include_label_text):

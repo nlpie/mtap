@@ -250,7 +250,7 @@ func (ps *ProcessorsServer) doUpdate() error {
 
 func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProcessor) (*processorGateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v with address: %v", manualProcessor.Identifier, manualProcessor.Endpoint)
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	ctx, cancel := context.WithCancel(ps.ctx)
 	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
 		ctx,
@@ -267,7 +267,7 @@ func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProc
 
 func (ps *ProcessorsServer) newProcessorGateway(pn string) (*processorGateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v", pn)
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	ctx, cancel := context.WithCancel(ps.ctx)
 	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
 		ctx,

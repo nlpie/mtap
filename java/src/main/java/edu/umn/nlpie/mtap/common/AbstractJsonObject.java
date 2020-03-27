@@ -110,8 +110,10 @@ public abstract class AbstractJsonObject extends AbstractMap<@NotNull String, @N
    */
   protected static Object jsonify(Object value, Deque<Object> parents) {
     Object result;
-    if (value == null || value instanceof Double || value instanceof String || value instanceof Boolean) {
+    if (value == null || value instanceof Double || value instanceof String || value instanceof Boolean || value instanceof JsonObject) {
       result = value;
+    } else if (value instanceof AbstractJsonObject.AbstractBuilder) {
+      result = ((AbstractBuilder<?, ?>) value).build();
     } else if (value instanceof Map) {
       checkForReferenceCycle(value, parents);
       Map<?, ?> map = (Map<?, ?>) value;

@@ -41,14 +41,19 @@ public class Event implements AutoCloseable {
 
   @Nullable
   private final EventsClient client;
+  private final Map<String, ProtoLabelAdapter<?>> defaultAdapters;
 
   private Metadata metadata = null;
   private BinaryData binaryData = null;
   private Documents documents = null;
 
-  Event(@NotNull String eventID, @Nullable EventsClient client) {
+
+  Event(@NotNull String eventID,
+        @Nullable EventsClient client,
+        Map<String, ProtoLabelAdapter<?>> defaultAdapters) {
     this.eventID = eventID;
     this.client = client;
+    this.defaultAdapters = defaultAdapters;
   }
 
   /**
@@ -140,6 +145,15 @@ public class Event implements AutoCloseable {
       createdIndices.put(document.getName(), document.getCreatedIndices());
     }
     return createdIndices;
+  }
+
+  /**
+   * Returns an unmodifiable map from index name to default adapters
+   *
+   * @return a view of the default adapters map.
+   */
+  public @NotNull Map<String, ProtoLabelAdapter<?>> getDefaultAdapters() {
+    return Collections.unmodifiableMap(defaultAdapters);
   }
 
   @Override

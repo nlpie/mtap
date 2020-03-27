@@ -35,11 +35,11 @@ public final class LabelIndexInfo {
     /**
      * JSON / generic label index.
      */
-    JSON,
+    GENERIC,
     /**
      * Other / custom protobuf index.
      */
-    OTHER
+    CUSTOM
   }
 
   private final String indexName;

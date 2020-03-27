@@ -52,6 +52,10 @@ public class Document {
 
   private List<String> createdIndices = null;
 
+  private List<WaitingIndex<?>> waitingIndices = new ArrayList<>();
+
+  private Map<String, ProtoLabelAdapter<?>> defaultAdapters = new HashMap<>();
+
   /**
    * Constructor for existing documents used by Event class.
    *
@@ -120,16 +124,15 @@ public class Document {
    * Gets a label index from the events service.
    *
    * @param labelIndexName The name of the label index.
-   * @param labelAdapter   The adapter to use.
+   * @param labelAdapter   This parameter doesn't do anything and will be removed.
    * @param <L>            The type of label in the index.
-   *
    * @return The existing label index with the specified name.
    */
   @ExperimentalApi
   @SuppressWarnings("unchecked")
   public @NotNull <L extends Label> LabelIndex<L> getLabelIndex(
       @NotNull String labelIndexName,
-      @Deprecated @NotNull ProtoLabelAdapter<L> labelAdapter
+      @NotNull ProtoLabelAdapter<L> labelAdapter
   ) {
     return (LabelIndex<L>) getLabelIndices().get(labelIndexName);
   }
@@ -138,7 +141,6 @@ public class Document {
    * Gets a label index containing {@link GenericLabel} from the document service.
    *
    * @param labelIndexName The name identifier of the label index.
-   *
    * @return The existing label index with the specified name.
    */
   public @NotNull LabelIndex<GenericLabel> getLabelIndex(@NotNull String labelIndexName) {
@@ -163,14 +165,16 @@ public class Document {
    * @param labelIndexName The label index name that the labels will be uploaded to.
    * @param adapter        The adapter.
    * @param <L>            The label type.
-   *
    * @return Labeler object.
-   *
    * @see ProtoLabelAdapter
    */
   @ExperimentalApi
+  @SuppressWarnings("unchecked")
   public @NotNull <L extends Label> Labeler<L> getLabeler(@NotNull String labelIndexName,
-                                                          @NotNull ProtoLabelAdapter<L> adapter) {
+                                                          @Nullable ProtoLabelAdapter<L> adapter) {
+    if (adapter == null) {
+      adapter = (ProtoLabelAdapter<L>) getDefaultAdapter(labelIndexName);
+    }
     @SuppressWarnings("unchecked")
     Labeler<L> existing = (Labeler<L>) getLabelers().get(labelIndexName);
     if (existing == null) {
@@ -196,7 +200,6 @@ public class Document {
    * </pre>
    *
    * @param labelIndexName The index name to store the labels under.
-   *
    * @return Labeler object, must be "closed" to send labels to server.
    */
   public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName) {
@@ -225,7 +228,6 @@ public class Document {
    * @param labelIndexName The index name.
    * @param isDistinct     {@code true} if the labels are distinct (non-overlapping), {@code false}
    *                       otherwise.
-   *
    * @return Labeler object.
    */
   public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName,
@@ -240,25 +242,34 @@ public class Document {
   }
 
   /**
+   * Adds the list of Generic labels, looking up the label adapter from the default adapters map.
+   *
+   * @param labelIndexName The name of the label index.
+   * @param labels The labels.
+   */
+  public void addLabels(@NotNull String labelIndexName,
+                        @NotNull List<@NotNull ? extends Label> labels) {
+    addLabels(labelIndexName, null, labels);
+  }
+
+  /**
    * Adds the list of generic labels as a new label index.
    *
    * @param labelIndexName The index name.
    * @param isDistinct     {@code true} if the labels are distinct (non-overlapping), {@code false}
    *                       otherwise
    * @param labels         The list of labels.
-   *
-   * @return A label index of the labels.
    */
-  public @NotNull LabelIndex<GenericLabel> addLabels(@NotNull String labelIndexName,
-                                                     boolean isDistinct,
-                                                     @NotNull List<@NotNull GenericLabel> labels) {
+  public void addLabels(@NotNull String labelIndexName,
+                        boolean isDistinct,
+                        @NotNull List<@NotNull GenericLabel> labels) {
     ProtoLabelAdapter<GenericLabel> adapter;
     if (isDistinct) {
       adapter = GenericLabelAdapter.DISTINCT_ADAPTER;
     } else {
       adapter = GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
     }
-    return addLabels(labelIndexName, adapter, labels);
+    addLabels(labelIndexName, adapter, labels);
   }
 
   /**
@@ -268,41 +279,69 @@ public class Document {
    * @param labelAdapter   The adapter to use to convert the labels to proto messages.
    * @param labels         The labels.
    * @param <L>            The label type.
-   *
-   * @return A label index of the labels.
    */
-  public <L extends Label> @NotNull LabelIndex<L> addLabels(
+  @SuppressWarnings("unchecked")
+  public <L extends Label> void addLabels(
       @NotNull String labelIndexName,
-      @NotNull ProtoLabelAdapter<L> labelAdapter,
+      @Nullable ProtoLabelAdapter<L> labelAdapter,
       @NotNull List<@NotNull L> labels
   ) {
     if (getLabelIndices().containsKey(labelIndexName)) {
       throw new IllegalArgumentException("Already contains index with name: " + labelIndexName);
     }
 
-    // TODO: STATICIZE, CHECK WAITING, FINALIZE
-
-    labels.sort((Comparator<Label>) Label::compareLocation);
-
-    LabelIndex<L> index = labelAdapter.createLabelIndex(labels);
-    getLabelIndices().cache.put(labelIndexName, index);
-    getLabelIndices().nameCache.add(labelIndexName);
-    if (event != null && event.getClient() != null) {
-      event.getClient().addLabels(event.getEventID(), documentName, labelIndexName, labels,
-          labelAdapter);
+    if (labelAdapter == null) {
+      labelAdapter = (ProtoLabelAdapter<L>) getDefaultAdapter(labelIndexName);
     }
+
+    Set<Integer> waitingOn = staticize(labels, labelIndexName);
+    if (waitingIndices.size() > 0) {
+      Set<Integer> updatedIds = new HashSet<>();
+      for (Label label : labels) {
+        updatedIds.add(System.identityHashCode(label));
+      }
+      checkWaitingIndices(updatedIds);
+    }
+
     getCreatedIndices().add(labelIndexName);
-    return index;
+    LabelIndex<L> labelIndex = labelAdapter.createLabelIndex(labels);
+    getLabelIndices().cache.put(labelIndexName, labelIndex);
+    getLabelIndices().nameCache.add(labelIndexName);
+
+    WaitingIndex<@NotNull L> waitingIndex = new WaitingIndex<>(labelIndexName, labels, labelAdapter, waitingOn);
+    if (waitingOn.size() > 0) {
+      waitingIndices.add(waitingIndex);
+    } else {
+      waitingIndex.finalizeLabels();
+    }
   }
 
-  private void staticize(@NotNull List<@NotNull ? extends Label> labels,
-                         String labelIndexName) {
+  private void checkWaitingIndices(Set<Integer> updatedIds) {
+    List<WaitingIndex<?>> newWaitingIndices = new ArrayList<>();
+    for (WaitingIndex<?> waitingIndex : waitingIndices) {
+      waitingIndex.waitingOn.removeAll(updatedIds);
+      if (waitingIndex.waitingOn.size() == 0) {
+        waitingIndex.finalizeLabels();
+      } else {
+        newWaitingIndices.add(waitingIndex);
+      }
+    }
+    waitingIndices = newWaitingIndices;
+  }
+
+  private Set<Integer> staticize(@NotNull List<@NotNull ? extends Label> labels,
+                                 String labelIndexName) {
     labels.sort(Label::compareLocation);
     Set<Integer> waitingOn = new HashSet<>();
     int i = 0;
     for (Label label : labels) {
-      label.setD
+      label.setDocument(this);
+      label.setIdentifier(i);
+      label.setLabelIndexName(labelIndexName);
+      label.collectFloatingReferences(waitingOn);
+      i++;
     }
+    return waitingOn;
   }
 
   /**
@@ -328,16 +367,26 @@ public class Document {
     return labelers;
   }
 
-  private LabelIndices getLabelIndices() {
+  public LabelIndices getLabelIndices() {
     if (labelIndices == null) {
       labelIndices = new LabelIndices();
     }
     return labelIndices;
   }
 
-  private ProtoLabelAdapter<?> getDefaultAdapter(String labelIndexName) {
-    // TODO: Implement this.
-    return null;
+  private @NotNull ProtoLabelAdapter<?> getDefaultAdapter(String labelIndexName) {
+    ProtoLabelAdapter<?> adapter = defaultAdapters.get(labelIndexName);
+    if (adapter != null) {
+      return adapter;
+    }
+    Event event = getEvent();
+    if (event != null) {
+      adapter = event.getDefaultAdapters().get(labelIndexName);
+      if (adapter != null) {
+        return adapter;
+      }
+    }
+    return GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
   }
 
   private class LabelerImpl<L extends Label> implements Labeler<L> {
@@ -379,7 +428,7 @@ public class Document {
     }
   }
 
-  private class LabelIndices extends AbstractMap<String, LabelIndex<?>> {
+  public class LabelIndices extends AbstractMap<String, LabelIndex<?>> {
     private final Map<String, LabelIndex<?>> cache = new HashMap<>();
     private final Set<String> nameCache = new HashSet<>();
 
@@ -413,6 +462,12 @@ public class Document {
     }
 
     @Override
+    public int size() {
+      refreshNames();
+      return nameCache.size();
+    }
+
+    @Override
     public LabelIndex<?> get(Object key) {
       if (!(key instanceof String)) {
         return null;
@@ -432,6 +487,9 @@ public class Document {
 
     @Override
     public boolean containsKey(Object key) {
+      if (!(key instanceof String)) {
+        return false;
+      }
       if (nameCache.contains(key)) {
         return true;
       }
@@ -476,6 +534,30 @@ public class Document {
       @Override
       public LabelIndex<?> setValue(LabelIndex<?> value) {
         throw new UnsupportedOperationException();
+      }
+    }
+  }
+
+  private class WaitingIndex<L extends Label> {
+    private final String labelIndexName;
+    private final List<L> labels;
+    private final ProtoLabelAdapter<L> adapter;
+    private final Set<Integer> waitingOn;
+
+    public WaitingIndex(String labelIndexName,
+                        List<L> labels,
+                        ProtoLabelAdapter<L> adapter,
+                        Set<Integer> waitingOn) {
+      this.labelIndexName = labelIndexName;
+      this.labels = labels;
+      this.adapter = adapter;
+      this.waitingOn = waitingOn;
+    }
+
+    private void finalizeLabels() {
+      if (event != null && event.getClient() != null) {
+        event.getClient().addLabels(event.getEventID(), documentName, labelIndexName, labels,
+            adapter);
       }
     }
   }

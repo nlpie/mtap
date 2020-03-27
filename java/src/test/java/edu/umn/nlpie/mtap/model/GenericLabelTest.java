@@ -19,6 +19,8 @@ package edu.umn.nlpie.mtap.model;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -46,11 +48,9 @@ class GenericLabelTest {
   @Test
   void createGenericLabelCopy() {
     JsonObjectImpl jsonObject = JsonObjectImpl.newBuilder()
-        .setProperty("start_index", 0)
-        .setProperty("end_index", 5)
         .setProperty("foo", "bar")
         .build();
-    GenericLabel genericLabel = new GenericLabel(jsonObject, null);
+    GenericLabel genericLabel = new GenericLabel(jsonObject, new HashMap<>(), null, 0, 5);
     assertEquals(0, genericLabel.getStartIndex());
     assertEquals(5, genericLabel.getEndIndex());
     assertEquals("bar", genericLabel.getStringValue("foo"));
@@ -102,14 +102,16 @@ class GenericLabelTest {
   @Test
   void coveredText() {
     Document document = new Document("text", "foo bar");
-    GenericLabel span = GenericLabel.withSpan(4, 7).withDocument(document).build();
+    GenericLabel span = GenericLabel.withSpan(4, 7).build();
+    span.setDocument(document);
     assertEquals("bar", span.getText());
   }
 
   @Test
   void coveredTextDocument() {
     Document document = mock(Document.class);
-    GenericLabel span = GenericLabel.withSpan(4, 7).withDocument(document).build();
+    GenericLabel span = GenericLabel.withSpan(4, 7).build();
+    span.setDocument(document);
     when(document.getText()).thenReturn("foo bar");
     assertEquals("bar", span.getText());
   }
