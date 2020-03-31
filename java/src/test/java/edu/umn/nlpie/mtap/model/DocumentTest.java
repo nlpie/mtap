@@ -217,6 +217,7 @@ class DocumentTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void addReferenceLabels() {
     List<GenericLabel> labels = Arrays.asList(
         GenericLabel.createSpan(0, 10),
@@ -235,15 +236,15 @@ class DocumentTest {
     verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
     verifyNoMoreInteractions(eventsClient);
     tested.addLabels("index", false, labels);
-    ArgumentCaptor<List> captor = ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<List<GenericLabel>> captor = ArgumentCaptor.forClass(List.class);
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("index"),
         captor.capture(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
-    List value = captor.getValue();
+    List<GenericLabel> value = captor.getValue();
     assertEquals(
         Arrays.asList(GenericLabel.createSpan(0, 10), GenericLabel.createSpan(10, 20), GenericLabel.createSpan(21, 30)),
         value
     );
-    ArgumentCaptor<List> captor2 = ArgumentCaptor.forClass(List.class);
+    ArgumentCaptor<List<GenericLabel>> captor2 = ArgumentCaptor.forClass(List.class);
     verify(eventsClient).addLabels(eq("1"), eq("plaintext"), eq("ref_index"),
         captor2.capture(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER));
   }

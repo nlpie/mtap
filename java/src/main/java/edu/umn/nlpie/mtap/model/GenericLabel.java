@@ -261,27 +261,47 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   }
 
   /**
-   * Gets a field value that references
+   * Gets a field value that references another label.
    *
-   * @param key
-   * @param <L>
-   * @return
+   * @param key The field name/key for the field.
+   * @param <L> The label type.
+   * @return The label that is being referenced.
    */
   @SuppressWarnings("unchecked")
   public <L extends Label> L getLabelValue(String key) {
     return (L) getReferentialValue(key);
   }
 
+  /**
+   * Gets a list of label reference values.
+   *
+   * @param key The field name/key for the field.
+   * @param <L> The label type.
+   * @return The label list.
+   */
   @SuppressWarnings("unchecked")
   public <L extends Label> List<L> getLabelListValue(String key) {
     return (List<L>) getReferentialValue(key);
   }
 
+  /**
+   * Gets a map of label reference values.
+   *
+   * @param key The field name/key for the field.
+   * @param <L> The label type.
+   * @return The label map.
+   */
   @SuppressWarnings("unchecked")
   public <L extends Label> Map<String, L> getLabelMapValue(String key) {
     return (Map<String, L>) getReferentialValue(key);
   }
 
+  /**
+   * Gets a label reference value, without casting.
+   *
+   * @param key The field name/key for the field.
+   * @return The referential field.
+   */
   public Object getReferentialValue(String key) {
     if (referenceCache.containsKey(key)) {
       return referenceCache.get(key);
