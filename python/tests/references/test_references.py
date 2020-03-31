@@ -75,6 +75,7 @@ def test_java_references(python_events, java_references_processor):
             assert list_references[1].ref == [GenericLabel(2, 3), GenericLabel(3, 4)]
 
 
+@pytest.mark.integration
 def test_python_references(python_events, python_references_processor):
     with EventsClient(address=python_events) as client, Pipeline(
             RemoteProcessor('mtap-python-references-example', address='localhost:50501')
