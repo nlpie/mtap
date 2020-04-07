@@ -358,6 +358,8 @@ public class GenericLabel extends AbstractJsonObject implements Label {
 
     private @Nullable JsonObject referenceFieldIds;
 
+    private @Nullable Document document;
+
     /**
      * Default constructor. The {@code startIndex} and {@code endIndex} are required properties
      * of generic labels.
@@ -368,6 +370,11 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     public Builder(int startIndex, int endIndex) {
       this.startIndex = startIndex;
       this.endIndex = endIndex;
+    }
+
+    public Builder withDocument(Document document) {
+      this.document = document;
+      return this;
     }
 
     public Builder withReference(String fieldName, Object object) {
@@ -398,7 +405,9 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     @Override
     public GenericLabel build() {
       checkIndexRange(startIndex, endIndex);
-      return new GenericLabel(backingMap, referenceCache, referenceFieldIds, startIndex, endIndex);
+      GenericLabel label = new GenericLabel(backingMap, referenceCache, referenceFieldIds, startIndex, endIndex);
+      label.setDocument(document);
+      return label;
     }
   }
 }

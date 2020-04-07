@@ -46,6 +46,7 @@ class DocumentTest {
 
     labelAdapter = mock(ProtoLabelAdapter.class);
     labelIndex = mock(LabelIndex.class);
+    when(labelIndex.iterator()).thenReturn(Collections.emptyIterator());
 
     tested = new Document("plaintext");
     tested.setEvent(event);

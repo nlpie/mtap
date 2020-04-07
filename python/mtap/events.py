@@ -970,9 +970,11 @@ class _LabelIndices(Mapping[str, LabelIndex]):
         return item in self._names_cache
 
     def __len__(self) -> int:
+        self._refresh_names()
         return len(self._names_cache)
 
     def __iter__(self) -> Iterator[str]:
+        self._refresh_names()
         return iter(self._names_cache)
 
     def _refresh_names(self):

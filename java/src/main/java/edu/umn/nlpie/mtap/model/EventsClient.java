@@ -310,7 +310,7 @@ public class EventsClient implements AutoCloseable {
         .setIndexName(indexName)
         .build();
     GetLabelsResponse response = stub.getLabels(request);
-    return adapter.createIndexFromResponse(response, document);
+    return adapter.createIndexFromResponse(response);
   }
 
   /**

@@ -323,7 +323,7 @@ class EventsClientTest {
     }).when(eventsService).getLabels(any(), any());
     Event event = EventBuilder.newBuilder().withEventID("1").build();
     Document document = event.createDocument("plaintext", "");
-    when(adapter.createIndexFromResponse(any(), any()))
+    when(adapter.createIndexFromResponse(any()))
         .thenReturn(new StandardLabelIndex(Collections.singletonList(GenericLabel.createSpan(0, 5))));
     tested.getLabels(document, "index", adapter);
     ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
@@ -332,6 +332,6 @@ class EventsClientTest {
     assertEquals("1", request.getEventId());
     assertEquals("plaintext", request.getDocumentName());
     assertEquals("index", request.getIndexName());
-    verify(adapter).createIndexFromResponse(any(), eq(document));
+    verify(adapter).createIndexFromResponse(any());
   }
 }

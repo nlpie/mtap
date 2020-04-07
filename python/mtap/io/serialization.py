@@ -24,7 +24,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union, Dict, Any, Optional, Callable
 
-from mtap.events import Event, Document, LabelIndexType, EventsClient
+from mtap.events import Event, Document, LabelIndexType, EventsClient, GenericLabelAdapter
 from mtap.label_indices import LabelIndex, label_index
 from mtap.labels import GenericLabel
 from mtap.processing import EventProcessor, processor
@@ -79,6 +79,8 @@ def document_to_dict(document: Document, *, include_label_text: bool = False) ->
 
     for index_name, index in document.labels.items():
         adapter = index.adapter
+        if adapter is None:
+            adapter = GenericLabelAdapter
         d['label_indices'][index_name] = adapter.pack(
             index,
             include_label_text=include_label_text

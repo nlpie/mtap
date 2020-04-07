@@ -53,7 +53,7 @@ class GenericLabelAdapterTest {
         )
         .build();
 
-    LabelIndex<GenericLabel> index = GenericLabelAdapter.NOT_DISTINCT_ADAPTER.createIndexFromResponse(response, null);
+    LabelIndex<GenericLabel> index = GenericLabelAdapter.NOT_DISTINCT_ADAPTER.createIndexFromResponse(response);
     assertEquals(Arrays.asList(GenericLabel.withSpan(0, 10).build(),
         GenericLabel.withSpan(10, 20).build()), index.asList());
     assertTrue(index.isDistinct());

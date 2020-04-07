@@ -333,7 +333,7 @@ def presorted_label_index(labels: List[L],
                           distinct: bool = False,
                           adapter: Optional['ProtoLabelAdapter'] = None) -> LabelIndex[L]:
     if len(labels) == 0:
-        return EMPTY[distinct]
+        return _Empty(distinct, adapter)
     return _LabelIndex(distinct, _Ascending(labels), adapter=adapter)
 
 
@@ -570,7 +570,7 @@ class _LabelIndex(LabelIndex[L]):
         if isinstance(idx, int):
             return self._view[idx]
         elif isinstance(idx, slice):
-            return _LabelIndex(self.distinct, self._view[idx])
+            return _LabelIndex(self.distinct, self._view[idx], adapter=self.adapter)
         else:
             raise TypeError("Index must be int or slice.")
 
@@ -668,24 +668,25 @@ class _LabelIndex(LabelIndex[L]):
             bounded_view = self._view.bound(min_start=min_start, max_start=max_start,
                                             min_end=min_end, max_end=max_end)
         except ValueError:
-            return EMPTY[self.distinct]
-        return _LabelIndex(self.distinct, bounded_view)
+            return _Empty(self.distinct, self.adapter)
+        return _LabelIndex(self.distinct, bounded_view, adapter=self.adapter)
 
     def _filtered_or_empty(self, fn: Callable[[Label], bool]):
         try:
             filtered_view = self._view.filter(fn)
         except ValueError:
-            return EMPTY[self.distinct]
-        return _LabelIndex(self.distinct, filtered_view)
+            return _Empty(self.distinct, self.adapter)
+        return _LabelIndex(self.distinct, filtered_view, adapter=self.adapter)
 
 
 class _Empty(LabelIndex):
     @property
     def adapter(self) -> Optional['ProtoLabelAdapter']:
-        return None
+        return self._adapter
 
-    def __init__(self, distinct):
+    def __init__(self, distinct, adapter=None):
         self._distinct = distinct
+        self._adapter = adapter
 
     @property
     def distinct(self) -> bool:
@@ -750,9 +751,3 @@ class _Empty(LabelIndex):
 
     def __repr__(self):
         return "label_index([], distinct={})".format(self.distinct)
-
-
-EMPTY = {
-    True: _Empty(True),
-    False: _Empty(False)
-}

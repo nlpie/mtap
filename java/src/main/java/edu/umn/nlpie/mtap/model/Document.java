@@ -479,6 +479,10 @@ public class Document {
       LabelIndex<?> index = cache.get(key);
       if (index == null && event != null && event.getClient() != null) {
         index = event.getClient().getLabels(Document.this, labelIndexName, getDefaultAdapter(labelIndexName));
+        for (Label label : index) {
+          label.setDocument(Document.this);
+          label.setLabelIndexName(labelIndexName);
+        }
         nameCache.add(labelIndexName);
         cache.put(labelIndexName, index);
       }

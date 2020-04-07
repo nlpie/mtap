@@ -55,7 +55,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   }
 
   @Override
-  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response, @Nullable Document document) {
+  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response) {
     GenericLabels genericLabels = response.getGenericLabels();
     boolean isDistinct = genericLabels.getIsDistinct();
 
@@ -65,9 +65,11 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
       fieldsBuilder.copyStruct(genericLabel.getFields());
       JsonObjectImpl.Builder referenceFieldIdsBuilder = new JsonObjectImpl.Builder();
       referenceFieldIdsBuilder.copyStruct(genericLabel.getReferenceIds());
-      labels.add(new GenericLabel(fieldsBuilder.build(), new HashMap<>(),
+      GenericLabel label = new GenericLabel(fieldsBuilder.build(), new HashMap<>(),
           referenceFieldIdsBuilder.build(),
-          genericLabel.getStartIndex(), genericLabel.getEndIndex()));
+          genericLabel.getStartIndex(), genericLabel.getEndIndex());
+      label.setIdentifier(genericLabel.getIdentifier());
+      labels.add(label);
     }
 
     return isDistinct ? new DistinctLabelIndex<>(labels) : new StandardLabelIndex<>(labels);
