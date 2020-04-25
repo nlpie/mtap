@@ -16,6 +16,15 @@
 
 package edu.umn.nlpie.mtap.processing;
 
+import edu.umn.nlpie.mtap.common.Config;
+import edu.umn.nlpie.mtap.common.ConfigImpl;
+import edu.umn.nlpie.mtap.discovery.Discovery;
+import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
+import edu.umn.nlpie.mtap.model.EventsClient;
+import edu.umn.nlpie.mtap.model.EventsClientBuilder;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.services.HealthStatusManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
@@ -207,10 +216,7 @@ public class ProcessorServerOptions {
    *
    * @return String identifier or a random UUID if not set.
    */
-  public @NotNull String getUniqueServiceId() {
-    if (uniqueServiceId == null) {
-      uniqueServiceId = UUID.randomUUID().toString();
-    }
+  public @Nullable String getUniqueServiceId() {
     return uniqueServiceId;
   }
 
@@ -223,5 +229,44 @@ public class ProcessorServerOptions {
    */
   public void setUniqueServiceId(@NotNull String uniqueServiceId) {
     this.uniqueServiceId = uniqueServiceId;
+  }
+
+  /**
+   * Creates a processor server using the options specified in this object.
+   *
+   * @param processor The processor to host.
+   * @return Object which can be used to control a server's lifecycle.
+   */
+  public ProcessorServer createServer(EventProcessor processor) {
+    Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
+    DiscoveryMechanism discoveryMechanism = Discovery.getDiscoveryMechanism(config);
+    EventsClient eventsClient = EventsClientBuilder.newBuilder()
+        .withAddress(getEventsTarget())
+        .withConfig(config)
+        .withDiscoveryMechanism(discoveryMechanism)
+        .build();
+    ProcessorRunner runner = new LocalProcessorRunner(eventsClient, processor);
+    String processorId = this.identifier;
+    if (processorId == null) {
+      processorId = processor.getProcessorName();
+    }
+    String uniqueServiceId = this.uniqueServiceId;
+    if (uniqueServiceId == null) {
+      uniqueServiceId = UUID.randomUUID().toString();
+    }
+    HealthService healthService = new HSMHealthService();
+    ProcessorService processorService = new DefaultProcessorService(
+        runner,
+        new DefaultTimingService(),
+        discoveryMechanism,
+        healthService,
+        processorId,
+        uniqueServiceId,
+        getRegister()
+    );
+    Server grpcServer = ServerBuilder.forPort(port)
+        .addService(healthService.getService())
+        .addService(processorService).build();
+    return new ProcessorServer(processorService, grpcServer);
   }
 }

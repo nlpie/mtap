@@ -29,21 +29,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
-class LocalRunnerTest {
+class LocalProcessorRunnerTest {
 
   private EventProcessor processor;
   private EventsClient events;
-  private LocalRunner runner;
+  private LocalProcessorRunner runner;
 
   @BeforeEach
   void setUp() {
     processor = mock(EventProcessor.class);
     events = mock(EventsClient.class);
-    runner = new LocalRunner(
+    runner = new LocalProcessorRunner(
         events,
-        processor,
-        "processorName",
-        "processorId"
+        processor
     );
   }
 
@@ -63,16 +61,6 @@ class LocalRunnerTest {
 
     assertTrue(processingResult.getTimes().get("process_method").toNanos() > 0);
     assertEquals("bar", processingResult.getResult().getStringValue("foo"));
-  }
-
-  @Test
-  void getProcessorName() {
-    assertEquals("processorName", runner.getProcessorName());
-  }
-
-  @Test
-  void getProcessorId() {
-    assertEquals("processorId", runner.getProcessorId());
   }
 
   @Test

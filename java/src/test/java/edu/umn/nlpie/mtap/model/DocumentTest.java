@@ -227,10 +227,10 @@ class DocumentTest {
     );
     List<GenericLabel> referencingLabels = Arrays.asList(
         GenericLabel.withSpan(0, 20)
-            .withReference("a", Arrays.asList(labels.get(0), labels.get(1)))
+            .setReference("a", Arrays.asList(labels.get(0), labels.get(1)))
             .build(),
         GenericLabel.withSpan(21, 30)
-            .withReference("a", Collections.singletonList(labels.get(2)))
+            .setReference("a", Collections.singletonList(labels.get(2)))
             .build()
     );
     tested.addLabels("ref_index", false, referencingLabels);

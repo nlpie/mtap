@@ -40,7 +40,7 @@ public class EventProcessorTest {
 
   @Test
   void startedStopwatchWithContext() {
-    try (ProcessorContext ignored = ProcessorBase.enterContext("processor")) {
+    try (ProcessorContext ignored = ProcessorBase.enterContext()) {
       WithStartedStopwatch withStartedStopwatch = new WithStartedStopwatch();
       withStartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
       assertTrue(withStartedStopwatch.duration.toMillis() >= 1);
@@ -56,7 +56,7 @@ public class EventProcessorTest {
 
   @Test
   void unstartedStopwatchWithContext() {
-    try (ProcessorContext ignored = ProcessorBase.enterContext("processor")) {
+    try (ProcessorContext ignored = ProcessorBase.enterContext()) {
       WithUnstartedStopwatch withUnstartedStopwatch = new WithUnstartedStopwatch();
       withUnstartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
       assertTrue(withUnstartedStopwatch.duration.toMillis() >= 20);
@@ -65,7 +65,7 @@ public class EventProcessorTest {
 
   @Test
   void preservesExistingTimes() {
-    try (ProcessorContext context = ProcessorBase.enterContext("processor")) {
+    try (ProcessorContext context = ProcessorBase.enterContext()) {
       context.putTime("foo", Duration.ofSeconds(2));
       context.putTime("foo", Duration.ofSeconds(2));
       assertEquals(context.getTimes().get("foo"), Duration.ofSeconds(4));

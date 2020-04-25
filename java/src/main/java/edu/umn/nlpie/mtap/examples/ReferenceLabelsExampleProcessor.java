@@ -88,7 +88,7 @@ public class ReferenceLabelsExampleProcessor extends DocumentProcessor {
     map.put("d", referenced.get(3));
     List<GenericLabel> mapReference = Collections.singletonList(
         GenericLabel.withSpan(0, 4)
-            .withReference("ref", map)
+            .setReference("ref", map)
             .build()
     );
     // the referenced labels don't actually need to be uploaded yet.
@@ -99,21 +99,21 @@ public class ReferenceLabelsExampleProcessor extends DocumentProcessor {
     // them via "addLabels".
     try (Labeler<GenericLabel> labeler = document.getLabeler("list_references")) {
       labeler.add(GenericLabel.withSpan(0, 2)
-          .withReference("ref", Arrays.asList(referenced.get(0), referenced.get(1)))
+          .setReference("ref", Arrays.asList(referenced.get(0), referenced.get(1)))
           .build());
       labeler.add(GenericLabel.withSpan(2, 4)
-          .withReference("ref", Arrays.asList(referenced.get(2), referenced.get(3)))
+          .setReference("ref", Arrays.asList(referenced.get(2), referenced.get(3)))
           .build());
     }
 
     // references can be direct
     try (Labeler<GenericLabel> labeler = document.getLabeler("references")) {
       labeler.add(GenericLabel.withSpan(0, 2)
-          .withReference("a", referenced.get(0))
-          .withReference("b", referenced.get(1)));
+          .setReference("a", referenced.get(0))
+          .setReference("b", referenced.get(1)));
       labeler.add(GenericLabel.withSpan(2, 4)
-          .withReference("a", referenced.get(2))
-          .withReference("b", referenced.get(3))
+          .setReference("a", referenced.get(2))
+          .setReference("b", referenced.get(3))
           .build());
     }
     // accessing label references
@@ -133,7 +133,7 @@ public class ReferenceLabelsExampleProcessor extends DocumentProcessor {
     try {
       parser.parseArgument(args);
       ReferenceLabelsExampleProcessor processor = new ReferenceLabelsExampleProcessor();
-      Server server = ProcessorServerBuilder.forProcessor(processor, options).build();
+      Server server = options.createServer(processor);
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {

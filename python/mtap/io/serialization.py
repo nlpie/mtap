@@ -22,13 +22,11 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Dict, Any, Optional, Callable
+from typing import Union, Dict, Any, Optional
 
-from mtap.events import Event, Document, LabelIndexType, EventsClient, GenericLabelAdapter
-from mtap.label_indices import LabelIndex, label_index
-from mtap.labels import GenericLabel
+from mtap.events import Event, Document, EventsClient, GenericLabelAdapter
 from mtap.processing import EventProcessor, processor
-from mtap.processing.base import Stopwatch, Processor
+from mtap.processing.base import Processor
 from mtap.processing.descriptions import parameter
 
 logger = logging.getLogger(__name__)

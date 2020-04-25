@@ -75,7 +75,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
     try {
       parser.parseArgument(args);
       WordOccurrencesExampleProcessor processor = new WordOccurrencesExampleProcessor(options.word);
-      Server server = ProcessorServerBuilder.forProcessor(processor, options).build();
+      Server server = options.createServer(processor);
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {

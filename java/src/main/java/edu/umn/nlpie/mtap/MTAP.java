@@ -62,6 +62,7 @@ public final class MTAP {
    * @return A builder object.
    *
    * @see ProcessorServer
+   * @deprecated Use {@link ProcessorServerOptions#createServer(EventProcessor)}
    */
   public static @NotNull ProcessorServerBuilder processorServerBuilder(
       EventProcessor eventProcessor,

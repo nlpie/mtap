@@ -28,32 +28,24 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Map;
 
 @Internal
-class LocalRunner implements Runner {
+class LocalProcessorRunner implements ProcessorRunner {
   private final EventsClient client;
   private final EventProcessor processor;
-  private final String processorName;
-  private final String processorId;
   private final Map<String, Object> processorMeta;
 
-  LocalRunner(EventsClient client,
-              EventProcessor processor,
-              String processorName,
-              String processorId) {
+  LocalProcessorRunner(
+      EventsClient client,
+      EventProcessor processor
+  ) {
     this.client = client;
     this.processor = processor;
-    this.processorName = processorName;
-    this.processorId = processorId;
 
     processorMeta = processor.getProcessorMetadata();
   }
 
-  public static @NotNull Builder forProcessor(@NotNull EventProcessor processor) {
-    return new Builder(processor);
-  }
-
   @Override
   public ProcessingResult process(String eventID, JsonObject params) {
-    try (ProcessorContext context = ProcessorBase.enterContext(processorId)) {
+    try (ProcessorContext context = ProcessorBase.enterContext()) {
       try (Event event = Event.newBuilder().withEventID(eventID).withEventsClient(client).build()) {
         JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
         Stopwatch stopwatch = ProcessorBase.startedStopwatch("process_method");
@@ -68,72 +60,13 @@ class LocalRunner implements Runner {
     }
   }
 
-  EventProcessor getProcessor() {
-    return processor;
-  }
-
-  @Override
-  public String getProcessorName() {
-    return processorName;
-  }
-
-  @Override
-  public String getProcessorId() {
-    return processorId;
-  }
-
   @Override
   public Map<String, Object> getProcessorMeta() {
     return processorMeta;
   }
 
-
-
   @Override
   public void close() {
     processor.shutdown();
-  }
-
-  public static class Builder {
-    private final EventProcessor processor;
-    private EventsClient client;
-    private String processorName;
-    private String processorId;
-
-    public Builder(EventProcessor processor) {
-      this.processor = processor;
-    }
-
-    public @NotNull Builder withClient(EventsClient client) {
-      this.client = client;
-      return this;
-    }
-
-    public @NotNull Builder withProcessorName(@Nullable String processorName) {
-      this.processorName = processorName;
-      return this;
-    }
-
-    public @NotNull Builder withProcessorId(String processorId) {
-      this.processorId = processorId;
-      return this;
-    }
-
-    public Runner build() {
-      String processorName = this.processorName;
-      if (processorName == null) {
-        processorName = processor.getProcessorName();
-      }
-      String processorId = this.processorId;
-      if (processorId == null) {
-        processorId = processorName;
-      }
-      return new LocalRunner(
-          client,
-          processor,
-          processorName,
-          processorId
-      );
-    }
   }
 }

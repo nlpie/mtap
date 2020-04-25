@@ -22,12 +22,8 @@ import edu.umn.nlpie.mtap.common.JsonObject;
 import java.util.Map;
 
 @Internal
-public interface Runner extends AutoCloseable {
+public interface ProcessorRunner extends AutoCloseable {
   ProcessingResult process(String eventID, JsonObject params);
-
-  String getProcessorName();
-
-  String getProcessorId();
 
   Map<String, Object> getProcessorMeta();
 

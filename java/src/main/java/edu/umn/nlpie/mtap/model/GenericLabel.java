@@ -377,13 +377,13 @@ public class GenericLabel extends AbstractJsonObject implements Label {
       return this;
     }
 
-    public Builder withReference(String fieldName, Object object) {
+    public Builder setReference(String fieldName, Object object) {
       checkReferenceValues(object, new LinkedList<>());
       this.referenceCache.put(fieldName, object);
       return this;
     }
 
-    public Builder withReferences(Map<@NotNull String, Object> references) {
+    public Builder setReferences(Map<@NotNull String, Object> references) {
       for (Entry<String, ?> entry : references.entrySet()) {
         checkReferenceValues(entry.getValue(), new LinkedList<>());
       }

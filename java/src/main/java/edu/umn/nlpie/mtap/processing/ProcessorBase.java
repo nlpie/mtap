@@ -34,11 +34,8 @@ public abstract class ProcessorBase {
   private static final ThreadLocal<ProcessorContextImpl> contextLocal = new ThreadLocal<>();
 
   @Internal
-  public static @NotNull ProcessorContext enterContext(@NotNull String identifier) {
+  public static @NotNull ProcessorContext enterContext() {
     ProcessorContextImpl existing = contextLocal.get();
-    if (existing != null) {
-      identifier = existing + "." + identifier;
-    }
     ProcessorContextImpl context = new ProcessorContextImpl(existing);
     contextLocal.set(context);
     return context;
