@@ -166,3 +166,17 @@ def test_construct_with_reserved():
         GenericLabel(0, 0, location=1)
     with pytest.raises(ValueError):
         GenericLabel(0, 0, text='some text')
+
+
+def test_infinite_recursion_equals():
+    a = GenericLabel(0, 15)
+    b = GenericLabel(0, 13)
+    a.b = b
+    b.a = a
+
+    a2 = GenericLabel(0, 15)
+    b2 = GenericLabel(0, 13)
+    a2.b = b2
+    b2.a = a2
+
+    assert a == a2

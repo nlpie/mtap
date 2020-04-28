@@ -140,4 +140,10 @@ class GenericLabelTest {
     assertThrows(IllegalStateException.class,
         () -> GenericLabel.withSpan(0, 0).setProperty("location", "").build());
   }
+
+  @Test
+  void nullReference() {
+    GenericLabel blah = GenericLabel.withSpan(0, 5).setReference("blah", null).build();
+    assertNull(blah.getReferentialValue("blah"));
+  }
 }

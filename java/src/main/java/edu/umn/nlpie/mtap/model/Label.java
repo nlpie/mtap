@@ -183,7 +183,7 @@ public interface Label {
    *
    * @param referenceIds The collection of references.
    */
-  default void collectFloatingReferences(Set<Integer> referenceIds) {
+  default void  collectFloatingReferences(Set<Integer> referenceIds) {
 
   }
 }

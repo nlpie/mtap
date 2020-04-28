@@ -13,7 +13,8 @@
 # limitations under the License.
 """Labels functionality."""
 import threading
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
+from queue import Queue
 from typing import TYPE_CHECKING, List, Tuple, Set
 from typing import TypeVar, NamedTuple, Any, Mapping, Sequence, Union, Optional
 
@@ -29,13 +30,13 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
     Args:
         start_index (float):
             The start index inclusive of the location in text.
-        end_index (float);
+        end_index (float):
             The end index exclusive of the location in text.
 
     Attributes:
         start_index (float):
             The start index inclusive of the location in text.
-        end_index (float);
+        end_index (float):
             The end index exclusive of the location in text.
     """
 
@@ -52,7 +53,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
         return self.start_index <= other.start_index and self.end_index >= other.end_index
 
 
-class Label(ABC):
+class Label(ABC, metaclass=ABCMeta):
     """An abstract base class for a label of attributes on text.
     """
 
@@ -133,6 +134,24 @@ class Label(ABC):
         if it is not cached locally.
         """
         return self.document.text[self.start_index:self.end_index]
+
+    @abstractmethod
+    def shallow_fields_equal(self, other) -> bool:
+        """Tests if the fields on this label and locations of references are the same as another
+        label.
+
+        Args:
+            other: The other label to test.
+
+        Returns:
+            True if all of the fields are equal and the references ar
+
+        """
+        pass
+
+    @abstractmethod
+    def collect_floating_references(self, s):
+        pass
 
 
 L = TypeVar('L', bound=Label)
@@ -269,16 +288,28 @@ class GenericLabel(Label):
             return False
         if other is self:
             return True
-        if not (self.location == other.location and self.fields == other.fields):
+        if not self.location == other.location:
             return False
-        for k, v in self.reference_field_ids.items():
+        return self.shallow_fields_equal(other)
+
+    def shallow_fields_equal(self, other):
+        if not self.fields == other.fields:
+            return False
+        refs = set(self.reference_field_ids.keys()).union(self.reference_cache.keys())
+        other_refs = set(other.reference_field_ids.keys()).union(other.reference_cache.keys())
+        if not refs == other_refs:
+            return False
+        for k in refs:
             try:
-                other_v = other.reference_field_ids[k]
-                if not v == other_v:
-                    return False
+                if self.reference_field_ids[k] == other.reference_field_ids[k]:
+                    continue
             except KeyError:
-                if not getattr(self, k, None) == getattr(other, k, None):
-                    return False
+                pass
+            self_k = getattr(self, k)
+            other_k = getattr(other, k)
+            if not _collect_locations(self_k) == _collect_locations(other_k):
+                return False
+
         return True
 
     def __repr__(self):
@@ -302,6 +333,25 @@ class GenericLabel(Label):
         stack.remove(id(self))
         return "GenericLabel(".format() + ", ".join(attributes) + ")"
 
+    def collect_floating_references(self, s):
+        queue = Queue()
+        for k, v in self.reference_cache.items():
+            if v is not None:
+                queue.put(v)
+        while not queue.empty():
+            o = queue.get_nowait()
+            if isinstance(o, Label):
+                if o.identifier is None:
+                    s.add(id(o))
+            elif isinstance(o, Mapping):
+                for _, v in o.items():
+                    if v is not None:
+                        queue.put(v)
+            elif isinstance(o, Sequence):
+                for v in o:
+                    if v is not None:
+                        queue.put(v)
+
 
 def label(start_index: int,
           end_index: int,
@@ -312,8 +362,6 @@ def label(start_index: int,
     Args:
         start_index (int): The index of the first character in text to be included in the label.
         end_index (int): The index after the last character in text to be included in the label.
-
-    Keyword Args:
         document (~typing.Optional[Document]): The parent document of the label. This will be
             automatically set if a the label is created via labeler.
         **kwargs : Arbitrary, any other fields that should be added to the label, values must be
@@ -343,22 +391,9 @@ def _staticize(labels: Sequence['Label'],
         l.document = document
         l.identifier = i
         l.label_index_name = label_index_name
-        try:
-            _collect_floating_references(waiting_on, l.reference_cache)
-        except AttributeError:
-            pass
+    for l in labels:
+        l.collect_floating_references(waiting_on)
     return labels, waiting_on
-
-
-def _collect_floating_references(s, o):
-    if isinstance(o, Label) and o.identifier is None:
-        s.add(id(o))
-    elif isinstance(o, Mapping):
-        for _, v in o.items():
-            _collect_floating_references(s, v)
-    elif isinstance(o, Sequence):
-        for v in o:
-            _collect_floating_references(s, v)
 
 
 def _is_referential(o: Any, parents=None) -> bool:
@@ -412,3 +447,14 @@ def _dereference(o: Any, document: 'Document') -> Any:
     if isinstance(o, Sequence):
         replacement = [_dereference(v, document) for v in o]
         return replacement
+
+
+def _collect_locations(o):
+    if o is None:
+        return None
+    if isinstance(o, Label):
+        return o.location
+    if isinstance(o, Mapping):
+        return {k: _collect_locations(v) for k, v in o.items()}
+    if isinstance(o, Sequence):
+        return [_collect_locations(v) for v in o]

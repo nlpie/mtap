@@ -338,8 +338,10 @@ public class Document {
       label.setDocument(this);
       label.setIdentifier(i);
       label.setLabelIndexName(labelIndexName);
-      label.collectFloatingReferences(waitingOn);
       i++;
+    }
+    for (Label label : labels) {
+      label.collectFloatingReferences(waitingOn);
     }
     return waitingOn;
   }

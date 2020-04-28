@@ -1,5 +1,6 @@
 package edu.umn.nlpie.mtap.processing;
 
+import edu.umn.nlpie.mtap.Internal;
 import edu.umn.nlpie.mtap.api.v1.Processing;
 
 import java.util.AbstractMap;
@@ -11,6 +12,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+@Internal
 public class DefaultTimingService implements TimingService {
   private final ExecutorService timingExecutor = Executors.newSingleThreadExecutor();
   private final Map<String, RunningVariance> timesMap = new HashMap<>();

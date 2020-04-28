@@ -192,11 +192,14 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   }
 
   public static void checkReferenceValues(Object value, Deque<Object> parents) {
+    if (value == null || value instanceof Label) {
+      return;
+    }
     if (value instanceof Map) {
       checkForReferenceCycle(value, parents);
       Map<?, ?> map = (Map<?, ?>) value;
       parents.push(value);
-      for (Map.Entry<?, ?> entry : map.entrySet()) {
+      for (Entry<?, ?> entry : map.entrySet()) {
         Object key = entry.getKey();
         Object val = entry.getValue();
         if (!(key instanceof String)) {
@@ -213,7 +216,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
         checkReferenceValues(o, parents);
       }
       parents.pop();
-    } else if (!(value instanceof Label)) {
+    } else {
       throw new IllegalArgumentException("Value type cannot be represented in json: \""
           + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
           " lists of objects of valid types, and maps of strings to objects of valid types");
@@ -329,7 +332,12 @@ public class GenericLabel extends AbstractJsonObject implements Label {
 
   @Override
   public void collectFloatingReferences(Set<Integer> referenceIds) {
-    Deque<Object> queue = new ArrayDeque<>(referenceCache.values());
+    Deque<Object> queue = new ArrayDeque<>(referenceCache.size());
+    for (Object value : referenceCache.values()) {
+      if (value != null) {
+        queue.add(value);
+      }
+    }
     while (!queue.isEmpty()) {
       Object o = queue.pop();
       if (o instanceof Label) {
@@ -338,9 +346,17 @@ public class GenericLabel extends AbstractJsonObject implements Label {
         }
       } else if (o instanceof Map) {
         Map<?, ?> map = (Map<?, ?>) o;
-        queue.addAll(map.values());
+        for (Object value : map.values()) {
+          if (value != null) {
+            queue.add(value);
+          }
+        }
       } else if (o instanceof List) {
-        queue.addAll((List<?>) o);
+        for (Object value : (List<?>) o) {
+          if (value != null) {
+            queue.add(value);
+          }
+        }
       }
     }
   }

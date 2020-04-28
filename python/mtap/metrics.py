@@ -90,9 +90,10 @@ def fields_match_test(fields: Optional[Sequence[str]] = ...):
 
     """
     def fields_match(tested_label: Label, target_label: Label) -> bool:
-        f = (fields if fields is not ...
-             else target_label.fields.keys() - {'start_index', 'end_index'})
-        return all(getattr(tested_label, field) == getattr(target_label, field) for field in f)
+        if fields is not ...:
+            return all(getattr(tested_label, field) == getattr(target_label, field) for field in fields)
+        else:
+            return tested_label.shallow_fields_equal(target_label)
     return fields_match
 
 
@@ -102,6 +103,7 @@ class Accuracy(Metric):
                  mode: str = 'equals',
                  print_debug: bool = False,
                  boundary_fuzz: int = 0,
+                 fields: Optional[Sequence[str]] = ...,
                  equivalence_test: Optional[Callable[[Any, Any], bool]] = fields_match_test(...)):
         """An accuracy metric with several options for equivalence.
 
@@ -131,7 +133,10 @@ class Accuracy(Metric):
         self.mode = mode
         self.print_debug = print_debug
         self.boundary_fuzz = boundary_fuzz
-        self.equivalence_test = equivalence_test
+        if fields is ...:
+            self.equivalence_test = equivalence_test
+        else:
+            self.equivalence_test = fields_match_test(fields)
 
     @property
     def value(self) -> float:
