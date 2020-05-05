@@ -16,7 +16,6 @@
 
 package edu.umn.nlpie.mtap.model;
 
-import edu.umn.nlpie.mtap.ExperimentalApi;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,13 +47,11 @@ public class Document {
   @Nullable
   private LabelIndices labelIndices = null;
 
-  private Map<String, Labeler<?>> labelers = null;
-
   private List<String> createdIndices = null;
 
   private List<WaitingIndex<?>> waitingIndices = new ArrayList<>();
 
-  private Map<String, ProtoLabelAdapter<?>> defaultAdapters = new HashMap<>();
+  private final Map<String, ProtoLabelAdapter<Label>> defaultAdapters = new HashMap<>();
 
   /**
    * Constructor for existing documents used by Event class.
@@ -121,67 +118,16 @@ public class Document {
   }
 
   /**
-   * Gets a label index from the events service.
-   *
-   * @param labelIndexName The name of the label index.
-   * @param labelAdapter   This parameter doesn't do anything and will be removed.
-   * @param <L>            The type of label in the index.
-   * @return The existing label index with the specified name.
-   */
-  @ExperimentalApi
-  @SuppressWarnings("unchecked")
-  public @NotNull <L extends Label> LabelIndex<L> getLabelIndex(
-      @NotNull String labelIndexName,
-      @NotNull ProtoLabelAdapter<L> labelAdapter
-  ) {
-    return (LabelIndex<L>) getLabelIndices().get(labelIndexName);
-  }
-
-  /**
    * Gets a label index containing {@link GenericLabel} from the document service.
    *
    * @param labelIndexName The name identifier of the label index.
+   * @param <L> The label index type. If a default ProtoLabelAdapter has been set it will be the
+   *           type of that proto label adapter, otherwise will be GenericLabel.
    * @return The existing label index with the specified name.
    */
-  public @NotNull LabelIndex<GenericLabel> getLabelIndex(@NotNull String labelIndexName) {
-    return getLabelIndex(labelIndexName, GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
-  }
-
-  /**
-   * Returns a labeler for the type specified by {@code <L>} to the label index keyed by
-   * {@code labelIndexName} using {@code adapter} to perform message adapting.
-   * <p>
-   * Example:
-   * <pre>
-   *     {@code
-   *     try (Labeler<GenericLabel> labeler = document.getLabeler("sentences", Sentence.ADAPTER)) {
-   *        labeler.add(GenericLabel.newBuilder(0, 22).build());
-   *        labeler.add(GenericLabel.newBuilder(33, 55).build());
-   *        labeler.add(GenericLabel.newBuilder(56, 88).build());
-   *     }
-   *     }
-   * </pre>
-   *
-   * @param labelIndexName The label index name that the labels will be uploaded to.
-   * @param adapter        The adapter.
-   * @param <L>            The label type.
-   * @return Labeler object.
-   * @see ProtoLabelAdapter
-   */
-  @ExperimentalApi
   @SuppressWarnings("unchecked")
-  public @NotNull <L extends Label> Labeler<L> getLabeler(@NotNull String labelIndexName,
-                                                          @Nullable ProtoLabelAdapter<L> adapter) {
-    if (adapter == null) {
-      adapter = (ProtoLabelAdapter<L>) getDefaultAdapter(labelIndexName);
-    }
-    @SuppressWarnings("unchecked")
-    Labeler<L> existing = (Labeler<L>) getLabelers().get(labelIndexName);
-    if (existing == null) {
-      existing = new LabelerImpl<>(labelIndexName, adapter);
-      getLabelers().put(labelIndexName, existing);
-    }
-    return existing;
+  public @NotNull <L extends Label> LabelIndex<L> getLabelIndex(@NotNull String labelIndexName) {
+    return (LabelIndex<L>) getLabelIndices().get(labelIndexName);
   }
 
 
@@ -200,10 +146,14 @@ public class Document {
    * </pre>
    *
    * @param labelIndexName The index name to store the labels under.
+   * @param <L> The label index type. If a default ProtoLabelAdapter has been set it will be the
+   *           type of that proto label adapter, otherwise will be GenericLabel.
    * @return Labeler object, must be "closed" to send labels to server.
    */
-  public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName) {
-    return getLabeler(labelIndexName, false);
+  @SuppressWarnings("unchecked")
+  public @NotNull <L extends Label> Labeler<L> getLabeler(@NotNull String labelIndexName) {
+    ProtoLabelAdapter<L> adapter = (ProtoLabelAdapter<L>) getDefaultAdapter(labelIndexName);
+    return new LabelerImpl<>(labelIndexName, adapter);
   }
 
   /**
@@ -232,20 +182,16 @@ public class Document {
    */
   public @NotNull Labeler<GenericLabel> getLabeler(@NotNull String labelIndexName,
                                                    boolean isDistinct) {
-    ProtoLabelAdapter<GenericLabel> adapter;
-    if (isDistinct) {
-      adapter = GenericLabelAdapter.DISTINCT_ADAPTER;
-    } else {
-      adapter = GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
-    }
-    return getLabeler(labelIndexName, adapter);
+    ProtoLabelAdapter<GenericLabel> adapter = isDistinct ?
+        GenericLabelAdapter.DISTINCT_ADAPTER : GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
+    return new LabelerImpl<>(labelIndexName, adapter);
   }
 
   /**
    * Adds the list of Generic labels, looking up the label adapter from the default adapters map.
    *
    * @param labelIndexName The name of the label index.
-   * @param labels The labels.
+   * @param labels         The labels.
    */
   public void addLabels(@NotNull String labelIndexName,
                         @NotNull List<@NotNull ? extends Label> labels) {
@@ -305,8 +251,9 @@ public class Document {
 
     getCreatedIndices().add(labelIndexName);
     LabelIndex<L> labelIndex = labelAdapter.createLabelIndex(labels);
-    getLabelIndices().cache.put(labelIndexName, labelIndex);
-    getLabelIndices().nameCache.add(labelIndexName);
+    LabelIndices labelIndices = (LabelIndices) getLabelIndices();
+    labelIndices.cache.put(labelIndexName, labelIndex);
+    labelIndices.nameCache.add(labelIndexName);
 
     WaitingIndex<@NotNull L> waitingIndex = new WaitingIndex<>(labelIndexName, labels, labelAdapter, waitingOn);
     if (waitingOn.size() > 0) {
@@ -362,14 +309,12 @@ public class Document {
     getCreatedIndices().addAll(createdIndices);
   }
 
-  private Map<String, Labeler<?>> getLabelers() {
-    if (labelers == null) {
-      labelers = new HashMap<>();
-    }
-    return labelers;
-  }
-
-  public LabelIndices getLabelIndices() {
+  /**
+   * The mapping from strings to label indices.
+   *
+   * @return a map view that allows label indices to be returned by name.
+   */
+  public @NotNull Map<@NotNull String, @NotNull LabelIndex<?>> getLabelIndices() {
     if (labelIndices == null) {
       labelIndices = new LabelIndices();
     }
@@ -389,6 +334,15 @@ public class Document {
       }
     }
     return GenericLabelAdapter.NOT_DISTINCT_ADAPTER;
+  }
+
+  /**
+   * The map of default adapters to use for label indices.
+   *
+   * @return adapters map.
+   */
+  public @NotNull Map<@NotNull String, @NotNull ProtoLabelAdapter<Label>> getDefaultAdapters() {
+    return defaultAdapters;
   }
 
   private class LabelerImpl<L extends Label> implements Labeler<L> {
@@ -430,7 +384,7 @@ public class Document {
     }
   }
 
-  public class LabelIndices extends AbstractMap<String, LabelIndex<?>> {
+  private class LabelIndices extends AbstractMap<String, LabelIndex<?>> {
     private final Map<String, LabelIndex<?>> cache = new HashMap<>();
     private final Set<String> nameCache = new HashSet<>();
 
@@ -440,7 +394,7 @@ public class Document {
       refreshNames();
       return new AbstractSet<Entry<String, LabelIndex<?>>>() {
         @Override
-        public Iterator<Entry<String, LabelIndex<?>>> iterator() {
+        public @NotNull Iterator<Entry<String, LabelIndex<?>>> iterator() {
           Iterator<String> it = nameCache.iterator();
           return new Iterator<Entry<String, LabelIndex<?>>>() {
             @Override
@@ -518,7 +472,6 @@ public class Document {
         }
       }
     }
-
 
     private class DelayedLabelIndexEntry implements Map.Entry<String, LabelIndex<?>> {
       private final String labelIndexName;

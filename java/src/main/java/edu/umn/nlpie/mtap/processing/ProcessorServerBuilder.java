@@ -15,13 +15,9 @@
  */
 package edu.umn.nlpie.mtap.processing;
 
-import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.model.EventsClient;
-import edu.umn.nlpie.mtap.model.EventsClientBuilder;
 import edu.umn.nlpie.mtap.common.Config;
-import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.services.HealthStatusManager;
 import org.jetbrains.annotations.NotNull;
@@ -32,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ProcessorServerBuilder {
   private final EventProcessor processor;
-  private final ProcessorServerOptions options;
+  private final ProcessorServer.Builder options;
 
   private @Nullable Config config = null;
   private @Nullable EventsClient eventsClient = null;
@@ -42,7 +38,7 @@ public class ProcessorServerBuilder {
 
   public ProcessorServerBuilder(
       @NotNull EventProcessor eventProcessor,
-      @NotNull ProcessorServerOptions options
+      @NotNull ProcessorServer.Builder options
   ) {
     processor = eventProcessor;
     this.options = options;
@@ -50,7 +46,7 @@ public class ProcessorServerBuilder {
 
   public static @NotNull ProcessorServerBuilder forProcessor(
       @NotNull EventProcessor processor,
-      @NotNull ProcessorServerOptions options
+      @NotNull ProcessorServer.Builder options
   ) {
     return new ProcessorServerBuilder(processor, options);
   }
@@ -96,7 +92,7 @@ public class ProcessorServerBuilder {
     return this;
   }
 
-  public @NotNull ProcessorServerOptions getOptions() {
+  public @NotNull ProcessorServer.Builder getOptions() {
     return options;
   }
 
@@ -135,13 +131,13 @@ public class ProcessorServerBuilder {
 
   /**
    * Builds a processor server that can be used to host the processor using a grpc server builder.
-   * The port specified by {@link ProcessorServerOptions#getPort()} will not be used and instead
+   * The port specified by {@link ProcessorServer.Builder#getPort()} will not be used and instead
    * the one already configured on the {@code serverBuilder} parameter will be used.
    *
    * @param serverBuilder The grpc server builder.
    * @return Processor server object.
    */
   public @NotNull ProcessorServer build(@Nullable ServerBuilder<?> serverBuilder) {
-    return options.createServer(processor);
+    return options.build(processor);
   }
 }

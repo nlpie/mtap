@@ -99,7 +99,7 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
       genericLabelBuilder.setEndIndex(label.getEndIndex());
       Integer identifier = label.getIdentifier();
       if (identifier == null) {
-        throw new IllegalArgumentException("Labels are not static, they do not have identifiers.");
+        throw new IllegalArgumentException("Labels are not static, but they do not have identifiers.");
       }
       genericLabelBuilder.setIdentifier(identifier);
     }

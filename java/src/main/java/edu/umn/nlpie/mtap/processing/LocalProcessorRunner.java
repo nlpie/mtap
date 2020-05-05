@@ -22,21 +22,27 @@ import edu.umn.nlpie.mtap.model.EventsClient;
 import edu.umn.nlpie.mtap.common.JsonObject;
 import edu.umn.nlpie.mtap.common.JsonObjectBuilder;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
+import io.grpc.ManagedChannel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Internal
 class LocalProcessorRunner implements ProcessorRunner {
+  private final @Nullable
+  ManagedChannel eventsChannel;
   private final EventsClient client;
   private final EventProcessor processor;
   private final Map<String, Object> processorMeta;
 
   LocalProcessorRunner(
+      @Nullable ManagedChannel eventsChannel,
       EventsClient client,
       EventProcessor processor
   ) {
+    this.eventsChannel = eventsChannel;
     this.client = client;
     this.processor = processor;
 
@@ -44,19 +50,20 @@ class LocalProcessorRunner implements ProcessorRunner {
   }
 
   @Override
-  public ProcessingResult process(String eventID, JsonObject params) {
-    try (ProcessorContext context = ProcessorBase.enterContext()) {
-      try (Event event = Event.newBuilder().withEventID(eventID).withEventsClient(client).build()) {
-        JsonObjectBuilder resultBuilder = JsonObjectImpl.newBuilder();
-        Stopwatch stopwatch = ProcessorBase.startedStopwatch("process_method");
-        processor.process(event, params, resultBuilder);
-        stopwatch.stop();
-        return new ProcessingResult(
-            event.getCreatedIndices(),
-            context.getTimes(),
-            resultBuilder.build()
-        );
-      }
+  public ProcessingResult process(@NotNull String eventID, @NotNull JsonObject params) {
+    try (ProcessorContext context = ProcessorBase.enterContext();
+         Event event = Event.newBuilder().eventID(eventID).eventsClient(client)
+             .defaultAdapters(processor.getDefaultAdapters()).build()
+    ) {
+      JsonObjectBuilder<?, ?> resultBuilder = JsonObjectImpl.newBuilder();
+      Stopwatch stopwatch = ProcessorBase.startedStopwatch("process_method");
+      processor.process(event, params, resultBuilder);
+      stopwatch.stop();
+      return new ProcessingResult(
+          event.getCreatedIndices(),
+          context.getTimes(),
+          resultBuilder.build()
+      );
     }
   }
 
@@ -66,7 +73,16 @@ class LocalProcessorRunner implements ProcessorRunner {
   }
 
   @Override
-  public void close() {
+  public EventProcessor getProcessor() {
+    return processor;
+  }
+
+  @Override
+  public void close() throws InterruptedException {
+    if (eventsChannel != null) {
+      eventsChannel.shutdown();
+      eventsChannel.awaitTermination(5, TimeUnit.SECONDS);
+    }
     processor.shutdown();
   }
 }

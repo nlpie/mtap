@@ -24,7 +24,7 @@ import edu.umn.nlpie.mtap.model.GenericLabel;
 import edu.umn.nlpie.mtap.model.Labeler;
 import edu.umn.nlpie.mtap.processing.DocumentProcessor;
 import edu.umn.nlpie.mtap.processing.Processor;
-import edu.umn.nlpie.mtap.processing.ProcessorServerOptions;
+import edu.umn.nlpie.mtap.processing.ProcessorServer;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 
@@ -43,11 +43,11 @@ public class HelloWorldExample extends DocumentProcessor {
   }
 
   public static void main(String[] args) {
-    ProcessorServerOptions options = new ProcessorServerOptions();
+    ProcessorServer.Builder options = new ProcessorServer.Builder();
     CmdLineParser parser = new CmdLineParser(options);
     try {
       parser.parseArgument(args);
-      Server server = options.createServer(new HelloWorldExample());
+      Server server = options.build(new HelloWorldExample());
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
@@ -55,7 +55,7 @@ public class HelloWorldExample extends DocumentProcessor {
     } catch (InterruptedException e) {
       System.err.println("Server interrupted.");
     } catch (CmdLineException e) {
-      ProcessorServerOptions.printHelp(parser, HelloWorldExample.class, e, null);
+      ProcessorServer.Builder.printHelp(parser, HelloWorldExample.class, e, null);
     }
   }
 }

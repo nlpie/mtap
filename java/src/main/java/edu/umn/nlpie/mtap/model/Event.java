@@ -16,6 +16,7 @@
 package edu.umn.nlpie.mtap.model;
 
 import com.google.common.collect.AbstractIterator;
+import edu.umn.nlpie.mtap.exc.EventExistsException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,7 @@ import java.util.*;
  * local and the events client is {@code null} / not set, the close method is a no-op and does not
  * need to be called.
  *
- * @see EventBuilder
+ * @see Builder
  */
 public class Event implements AutoCloseable {
   private final String eventID;
@@ -61,8 +62,8 @@ public class Event implements AutoCloseable {
    *
    * @return Builder object for an event.
    */
-  public static EventBuilder newBuilder() {
-    return new EventBuilder();
+  public static Builder newBuilder() {
+    return new Builder();
   }
 
   /**
@@ -165,7 +166,7 @@ public class Event implements AutoCloseable {
 
 
   private class Metadata extends AbstractMap<String, String> {
-    private Map<String, String> metadata = new HashMap<>();
+    private final Map<String, String> metadata = new HashMap<>();
 
     private Metadata() {
       if (client != null) {
@@ -217,7 +218,7 @@ public class Event implements AutoCloseable {
   }
 
   private class BinaryData extends AbstractMap<String, byte[]> {
-    private Map<String, byte[]> binaryData = new HashMap<>();
+    private final Map<String, byte[]> binaryData = new HashMap<>();
 
     @Override
     public byte[] get(Object key) {
@@ -269,12 +270,12 @@ public class Event implements AutoCloseable {
     }
   }
 
-  private class Documents extends AbstractMap<String, Document> {
+  private class Documents extends AbstractMap<@NotNull String, @NotNull Document> {
+    private final List<Document> documents = new ArrayList<>();
     private EntrySet entries = null;
-    private List<Document> documents = new ArrayList<>();
 
     @Override
-    public Document put(String key, @NotNull Document document) {
+    public Document put(String key, Document document) {
       if (document == null) {
         throw new IllegalArgumentException("Document cannot be null.");
       }
@@ -375,6 +376,165 @@ public class Event implements AutoCloseable {
       public int size() {
         return Documents.this.size();
       }
+    }
+  }
+
+  /**
+   * A builder for events, whether they are local objects, or distributed objects shared via an
+   * events service.
+   * <p>
+   * The {@link #getEventsClient()} property controls whether the object will be local or
+   * distributed. If it is not set / {@code null}, the object will be local, if it is set, the object
+   * will be shared with the events service.
+   */
+  public static class Builder {
+    private @Nullable String eventID = null;
+    private @Nullable EventsClient eventsClient = null;
+    private boolean onlyCreateNew = false;
+    private Map<String, ProtoLabelAdapter<?>> defaultAdapters;
+
+    /**
+     * Gets the unique event identifier, using a random UUID string if the event id has not been set.
+     *
+     * @return The unique event identifier that will be used for the created event.
+     */
+    public @NotNull String getEventID() {
+      if (eventID == null) {
+        eventID = UUID.randomUUID().toString();
+      }
+      return eventID;
+    }
+
+    /**
+     * Sets the unique event identifier.
+     *
+     * @param eventID The unique event identifier that will be used for the created event.
+     */
+    public void setEventID(@NotNull String eventID) {
+      this.eventID = eventID;
+    }
+
+    /**
+     * Sets the unique event identifier.
+     *
+     * @param eventID The unique event identifier that will be used for the created event.
+     *
+     * @return this builder.
+     */
+    public @NotNull Event.Builder eventID(@NotNull String eventID) {
+      this.eventID = eventID;
+      return this;
+    }
+
+    /**
+     * The events client that will be used to connect to an events service and share data added to
+     * the event with other services and processors. If it is not set, the
+     *
+     * @return The events client or {@code null} if it has not been set.
+     */
+    public @Nullable EventsClient getEventsClient() {
+      return eventsClient;
+    }
+
+    /**
+     * The events client that will be used to connect to an events service and share data added to
+     * the event with other services and processors.
+     *
+     * @param eventsClient Events client object.
+     */
+    public void setEventsClient(@Nullable EventsClient eventsClient) {
+      this.eventsClient = eventsClient;
+    }
+
+    /**
+     * The events client that will be used to connect to an events service and share data added to
+     * the event with other services and processors.
+     *
+     * @param eventsClient Events client object.
+     *
+     * @return This builder.
+     */
+    public @NotNull Event.Builder eventsClient(@Nullable EventsClient eventsClient) {
+      this.eventsClient = eventsClient;
+      return this;
+    }
+
+    /**
+     * If the events client is set, this controls whether the builder will fail if the event already
+     * exists.
+     *
+     * @return Boolean indicator of whether it should fail, {@code true} causes failure if an event
+     * already exists with the same identifier.
+     */
+    public boolean isOnlyCreateNew() {
+      return onlyCreateNew;
+    }
+
+    /**
+     * If the events client is set, this controls whether the builder will fail if the event already
+     * exists.
+     *
+     * @param onlyCreateNew Boolean indicator of whether it should fail, {@code true} causes failure
+     *                      if an event already exists with the same identifier.
+     */
+    public void setOnlyCreateNew(boolean onlyCreateNew) {
+      this.onlyCreateNew = onlyCreateNew;
+    }
+
+
+    /**
+     * If the events client is set, this controls whether the builder will fail if the event already
+     * exists.
+     *
+     * @param onlyCreateNew only create new flag.
+     * @return this builder.
+     */
+    public @NotNull Event.Builder onlyCreateNew(boolean onlyCreateNew) {
+      this.onlyCreateNew = onlyCreateNew;
+      return this;
+    }
+
+    /**
+     * Sets a map of label index names to default adapters, that will be used by any documents on
+     * this event.
+     *
+     * @param defaultAdapters a map from strings to proto label adapters.
+     */
+    public void setDefaultAdapters(Map<String, ProtoLabelAdapter<?>> defaultAdapters) {
+      this.defaultAdapters = defaultAdapters;
+    }
+
+    /**
+     * Builder method which sets a map of label index names to default adapters, that will be used by
+     * any documents on this event.
+     *
+     * @param defaultAdapters a map from strings to proto label adapters.
+     * @return this builder.
+     */
+    public @NotNull Event.Builder defaultAdapters(
+        Map<String, ProtoLabelAdapter<?>> defaultAdapters
+    ) {
+      this.defaultAdapters = defaultAdapters;
+      return this;
+    }
+
+    /**
+     * Creates a new event.
+     *
+     * @return The event object.
+     * @throws EventExistsException if the event already exists on the events
+     *                                                  service and only create new is set.
+     */
+    public @NotNull Event build() {
+      String eventID = getEventID();
+      if (eventsClient != null) {
+        eventsClient.openEvent(eventID, onlyCreateNew);
+      }
+      Map<String, ProtoLabelAdapter<?>> defaultAdapters = this.defaultAdapters;
+      if (defaultAdapters == null) {
+        defaultAdapters = Collections.emptyMap();
+      }
+      return new Event(eventID, eventsClient, defaultAdapters);
     }
   }
 }

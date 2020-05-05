@@ -18,15 +18,19 @@ package edu.umn.nlpie.mtap.processing;
 
 import edu.umn.nlpie.mtap.Internal;
 import edu.umn.nlpie.mtap.common.JsonObject;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
 @Internal
 public interface ProcessorRunner extends AutoCloseable {
-  ProcessingResult process(String eventID, JsonObject params);
+  ProcessingResult process(@NotNull String eventID, @NotNull JsonObject params);
 
-  Map<String, Object> getProcessorMeta();
+  Map<@NotNull String, @Nullable Object> getProcessorMeta();
+
+  EventProcessor getProcessor();
 
   @Override
-  void close();
+  void close() throws InterruptedException;
 }

@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -85,7 +86,7 @@ class DocumentTest {
             new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.CUSTOM),
             new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN))
     );
-    Document.LabelIndices labelIndices = tested.getLabelIndices();
+    Map<String, LabelIndex<?>> labelIndices = tested.getLabelIndices();
     assertEquals(3, labelIndices.size());
     assertTrue(labelIndices.containsKey("foo"));
     assertTrue(labelIndices.containsKey("bar"));
@@ -161,7 +162,8 @@ class DocumentTest {
   @SuppressWarnings("unchecked")
   void getLabeler() {
     when(labelAdapter.createLabelIndex(anyList())).thenReturn(labelIndex);
-    try (Labeler<GenericLabel> labeler = tested.getLabeler("index", labelAdapter)) {
+    tested.getDefaultAdapters().put("index", labelAdapter);
+    try (Labeler<GenericLabel> labeler = tested.getLabeler("index")) {
       labeler.add(GenericLabel.createSpan(10, 20));
       labeler.add(GenericLabel.createSpan(0, 10));
     }

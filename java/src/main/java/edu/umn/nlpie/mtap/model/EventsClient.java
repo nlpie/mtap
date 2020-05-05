@@ -19,24 +19,32 @@ package edu.umn.nlpie.mtap.model;
 import com.google.protobuf.ByteString;
 import edu.umn.nlpie.mtap.api.v1.EventsGrpc;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.*;
+import edu.umn.nlpie.mtap.common.Config;
+import edu.umn.nlpie.mtap.common.ConfigImpl;
+import edu.umn.nlpie.mtap.discovery.Discovery;
+import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.exc.EventExistsException;
 import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+
+import static edu.umn.nlpie.mtap.MTAP.EVENTS_SERVICE_NAME;
 
 /**
  * A client to an events service.
  */
-public class EventsClient implements AutoCloseable {
+public class EventsClient {
 
   private final EventsGrpc.EventsBlockingStub stub;
-  private final ManagedChannel channel;
 
   /**
    * Creates a client.
@@ -45,7 +53,15 @@ public class EventsClient implements AutoCloseable {
    */
   public EventsClient(ManagedChannel channel) {
     stub = EventsGrpc.newBlockingStub(channel);
-    this.channel = channel;
+  }
+
+  /**
+   * The stub for the events service.
+   *
+   * @param stub stub object
+   */
+  public EventsClient(EventsGrpc.EventsBlockingStub stub) {
+    this.stub = stub;
   }
 
   /**
@@ -54,8 +70,9 @@ public class EventsClient implements AutoCloseable {
    * @param eventID       The unique event identifier.
    * @param onlyCreateNew Fail if the event already exists.
    * @throws EventExistsException if the event already exists on the events
-   *                                                  service and only create new is set.
+   *                              service and only create new is set.
    */
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public void openEvent(@NotNull String eventID, boolean onlyCreateNew) {
     OpenEventRequest request = OpenEventRequest.newBuilder()
         .setEventId(eventID)
@@ -80,6 +97,7 @@ public class EventsClient implements AutoCloseable {
    *
    * @param eventID The event identifier.
    */
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public void closeEvent(@NotNull String eventID) {
     CloseEventRequest request = CloseEventRequest.newBuilder()
         .setEventId(eventID)
@@ -91,7 +109,6 @@ public class EventsClient implements AutoCloseable {
    * Returns a map of all the metadata on the event.
    *
    * @param eventID The unique event identifier.
-   *
    * @return A map of all the current metadata on the event.
    */
   public @NotNull Map<String, String> getAllMetadata(@NotNull String eventID) {
@@ -109,6 +126,7 @@ public class EventsClient implements AutoCloseable {
    * @param key     The metadata's key.
    * @param value   The metadata's value.
    */
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public void addMetadata(@NotNull String eventID, @NotNull String key, @NotNull String value) {
     AddMetadataRequest req = AddMetadataRequest.newBuilder()
         .setEventId(eventID)
@@ -122,7 +140,6 @@ public class EventsClient implements AutoCloseable {
    * Get all of the keys that have associated binary data in the event's binaries map.
    *
    * @param eventID The unique event identifier.
-   *
    * @return A collection of all of the binary data names.
    */
   public @NotNull Collection<String> getAllBinaryDataNames(@NotNull String eventID) {
@@ -140,6 +157,7 @@ public class EventsClient implements AutoCloseable {
    * @param binaryDataName The key for the binary data.
    * @param bytes          The binary data.
    */
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public void addBinaryData(
       @NotNull String eventID,
       @NotNull String binaryDataName,
@@ -158,7 +176,6 @@ public class EventsClient implements AutoCloseable {
    *
    * @param eventID        The unique event identifier.
    * @param binaryDataName The key for the binary data.
-   *
    * @return The binary data.
    */
   public byte[] getBinaryData(@NotNull String eventID, @NotNull String binaryDataName) {
@@ -174,7 +191,6 @@ public class EventsClient implements AutoCloseable {
    * Gets all of the names of documents that are stored on an event.
    *
    * @param eventID The unique event identifier.
-   *
    * @return A collection of document name strings.
    */
   public @NotNull Collection<String> getAllDocumentNames(@NotNull String eventID) {
@@ -193,6 +209,7 @@ public class EventsClient implements AutoCloseable {
    * @param documentName An identifier string for the document relative to the event.
    * @param text         The document text.
    */
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public void addDocument(
       @NotNull String eventID,
       @NotNull String documentName,
@@ -211,7 +228,6 @@ public class EventsClient implements AutoCloseable {
    *
    * @param eventID      The unique event identifier.
    * @param documentName The event-unique document identifier.
-   *
    * @return A string of the document text.
    */
   public @NotNull String getDocumentText(@NotNull String eventID, @NotNull String documentName) {
@@ -228,7 +244,6 @@ public class EventsClient implements AutoCloseable {
    *
    * @param eventID      The unique event identifier.
    * @param documentName The event-unique document identifier.
-   *
    * @return A list of LabelIndexInfo objects which contain the name and type of the label indices.
    */
   public @NotNull List<@NotNull LabelIndexInfo> getLabelIndicesInfos(
@@ -269,6 +284,7 @@ public class EventsClient implements AutoCloseable {
    * @param adapter      An adapter which transforms the labels into proto messages.
    * @param <L>          The label type.
    */
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   public <L extends Label> void addLabels(
       @NotNull String eventID,
       @NotNull String documentName,
@@ -289,11 +305,10 @@ public class EventsClient implements AutoCloseable {
   /**
    * Retrieves a label index from a document.
    *
-   * @param document The document the labels appear on.
-   * @param indexName    The label index identifier.
-   * @param adapter      An adapter which will transform proto messages into labels.
-   * @param <L>          The label type.
-   *
+   * @param document  The document the labels appear on.
+   * @param indexName The label index identifier.
+   * @param adapter   An adapter which will transform proto messages into labels.
+   * @param <L>       The label type.
    * @return A label index containing the specified labels.
    */
   public <L extends Label> @NotNull LabelIndex<L> getLabels(
@@ -311,13 +326,5 @@ public class EventsClient implements AutoCloseable {
         .build();
     GetLabelsResponse response = stub.getLabels(request);
     return adapter.createIndexFromResponse(response);
-  }
-
-  /**
-   * Cleans up by shutting down the channel.
-   */
-  @Override
-  public void close() {
-    channel.shutdown();
   }
 }

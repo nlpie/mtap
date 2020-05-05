@@ -65,7 +65,7 @@ class DefaultProcessorServiceTest {
   }
 
   @Test
-  void testLifecycleWithRegistration() throws UnknownHostException {
+  void testLifecycleWithRegistration() throws UnknownHostException, InterruptedException {
     DefaultProcessorService sut = createProcessorService(true);
 
     sut.started(8888);
@@ -195,11 +195,10 @@ class DefaultProcessorServiceTest {
     return new DefaultProcessorService(
         mockRunner,
         mockTimingService,
-        mockDiscoveryMechanism,
+        register ? mockDiscoveryMechanism : null,
         mockHealthService,
         processorId,
-        uniqueServiceId,
-        register
+        uniqueServiceId
     );
   }
 

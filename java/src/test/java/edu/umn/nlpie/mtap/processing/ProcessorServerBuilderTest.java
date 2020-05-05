@@ -25,12 +25,12 @@ import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ProcessorServerOptionsTest {
-  private ProcessorServerOptions options;
+class ProcessorServerBuilderTest {
+  private ProcessorServer.Builder options;
 
   @BeforeEach
   void setUp() {
-    options = ProcessorServerOptions.defaultOptions();
+    options = new ProcessorServer.Builder();
   }
 
   @Test
@@ -126,7 +126,7 @@ class ProcessorServerOptionsTest {
     assertEquals("foo", options.extra);
   }
 
-  public static class Subclass extends ProcessorServerOptions {
+  public static class Subclass extends ProcessorServer.Builder {
     @Option(
         name = "--extra",
         required = true

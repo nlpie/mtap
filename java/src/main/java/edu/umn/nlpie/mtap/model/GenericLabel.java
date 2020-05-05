@@ -74,7 +74,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   private @Nullable String labelIndexName;
   private @Nullable Integer identifier;
 
-  private @Nullable JsonObject referenceFieldIds = null;
+  private @Nullable JsonObject referenceFieldIds;
 
   private GenericLabel(
       Map<@NotNull String, @Nullable Object> backingMap,
@@ -318,15 +318,15 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     return null;
   }
 
-  public @Nullable JsonObject getReferenceFieldIds() {
+  @Nullable JsonObject getReferenceFieldIds() {
     return referenceFieldIds;
   }
 
-  public void setReferenceFieldIds(@Nullable JsonObject referenceFieldIds) {
+  void setReferenceFieldIds(@Nullable JsonObject referenceFieldIds) {
     this.referenceFieldIds = referenceFieldIds;
   }
 
-  public Map<String, Object> getReferenceCache() {
+  Map<String, Object> getReferenceCache() {
     return referenceCache;
   }
 
@@ -372,10 +372,6 @@ public class GenericLabel extends AbstractJsonObject implements Label {
 
     private final int endIndex;
 
-    private @Nullable JsonObject referenceFieldIds;
-
-    private @Nullable Document document;
-
     /**
      * Default constructor. The {@code startIndex} and {@code endIndex} are required properties
      * of generic labels.
@@ -388,27 +384,30 @@ public class GenericLabel extends AbstractJsonObject implements Label {
       this.endIndex = endIndex;
     }
 
-    public Builder withDocument(Document document) {
-      this.document = document;
-      return this;
-    }
-
+    /**
+     * Sets a reference field, a field on the label which references another label.
+     *
+     * @param fieldName The field name string.
+     * @param object    Either a label, a map of strings to labels, or a list of labels.
+     * @return this builder.
+     */
     public Builder setReference(String fieldName, Object object) {
       checkReferenceValues(object, new LinkedList<>());
       this.referenceCache.put(fieldName, object);
       return this;
     }
 
+    /**
+     * Sets multiple reference fields, fields on the label which reference another label.
+     *
+     * @param references The mapping from strings to reference objects.
+     * @return this builder.
+     */
     public Builder setReferences(Map<@NotNull String, Object> references) {
       for (Entry<String, ?> entry : references.entrySet()) {
         checkReferenceValues(entry.getValue(), new LinkedList<>());
       }
       this.referenceCache.putAll(references);
-      return this;
-    }
-
-    public Builder withReferenceFieldIds(JsonObject referenceFieldIds) {
-      this.referenceFieldIds = referenceFieldIds;
       return this;
     }
 
@@ -421,9 +420,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     @Override
     public GenericLabel build() {
       checkIndexRange(startIndex, endIndex);
-      GenericLabel label = new GenericLabel(backingMap, referenceCache, referenceFieldIds, startIndex, endIndex);
-      label.setDocument(document);
-      return label;
+      return new GenericLabel(backingMap, referenceCache, null, startIndex, endIndex);
     }
   }
 }

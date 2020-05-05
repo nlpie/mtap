@@ -15,6 +15,7 @@ import io.grpc.Status;
 import io.grpc.protobuf.ProtoUtils;
 import io.grpc.stub.StreamObserver;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,6 +25,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 @Internal
@@ -32,12 +34,11 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
   private final @NotNull ProcessorRunner runner;
   private final @NotNull TimingService timingService;
-  private final @NotNull DiscoveryMechanism discoveryMechanism;
+  private final @Nullable DiscoveryMechanism discoveryMechanism;
   private final @NotNull HealthService healthService;
 
   private final @NotNull String processorId;
   private final @NotNull String uniqueServiceId;
-  private final boolean register;
 
   private int processed = 0;
   private int failures = 0;
@@ -45,25 +46,23 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
   public DefaultProcessorService(
       @NotNull ProcessorRunner runner,
       @NotNull TimingService timingService,
-      @NotNull DiscoveryMechanism discoveryMechanism,
+      @Nullable DiscoveryMechanism discoveryMechanism,
       @NotNull HealthService healthService,
-      @NotNull String processorId,
-      @NotNull String uniqueServiceId,
-      boolean register
+      @Nullable String processorId,
+      @Nullable String uniqueServiceId
   ) {
     this.runner = runner;
     this.timingService = timingService;
     this.discoveryMechanism = discoveryMechanism;
     this.healthService = healthService;
-    this.processorId = processorId;
-    this.uniqueServiceId = uniqueServiceId;
-    this.register = register;
+    this.processorId = processorId != null ? processorId : runner.getProcessor().getProcessorName();
+    this.uniqueServiceId = uniqueServiceId != null ? uniqueServiceId : UUID.randomUUID().toString();
   }
 
   @Override
   public void started(int port) throws UnknownHostException {
     healthService.startedServing(processorId);
-    if (register) {
+    if (discoveryMechanism != null) {
       InetAddress localHost = InetAddress.getLocalHost();
       ServiceInfo serviceInfo = new ServiceInfo(
           processorId,
@@ -165,7 +164,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
   }
 
   @Override
-  public void close() {
+  public void close() throws InterruptedException {
     System.out.println("Shutting down processor server for processor_id: \"" + processorId + "\"");
     ServiceInfo serviceInfo = new ServiceInfo(
         processorId,
@@ -175,7 +174,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
         Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
     );
     healthService.stoppedServing(processorId);
-    if (register) {
+    if (discoveryMechanism != null) {
       discoveryMechanism.deregister(serviceInfo);
     }
     runner.close();

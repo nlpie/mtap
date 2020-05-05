@@ -6,7 +6,7 @@ import io.grpc.stub.StreamObserver;
 import java.io.Closeable;
 import java.net.UnknownHostException;
 
-public interface ProcessorService extends io.grpc.BindableService, Closeable {
+public interface ProcessorService extends io.grpc.BindableService, AutoCloseable {
   void started(int port) throws UnknownHostException;
 
   void process(
@@ -25,5 +25,5 @@ public interface ProcessorService extends io.grpc.BindableService, Closeable {
   );
 
   @Override
-  void close();
+  void close() throws InterruptedException;
 }

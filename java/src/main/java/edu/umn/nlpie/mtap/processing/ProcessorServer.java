@@ -16,17 +16,37 @@
 
 package edu.umn.nlpie.mtap.processing;
 
+import edu.umn.nlpie.mtap.MTAP;
+import edu.umn.nlpie.mtap.common.Config;
+import edu.umn.nlpie.mtap.common.ConfigImpl;
+import edu.umn.nlpie.mtap.discovery.Discovery;
+import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
+import edu.umn.nlpie.mtap.model.EventsClient;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.nio.file.Path;
+
+import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
 
 /**
  * Responsible for running and hosting {@link EventProcessor} and {@link DocumentProcessor} classes.
  *
- * @see ProcessorServerOptions
+ * @see Builder
  */
 public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
@@ -60,7 +80,11 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     if (!running) {
       return;
     }
-    processorService.close();
+    try {
+      processorService.close();
+    } catch (InterruptedException e) {
+      logger.error("Exception closing processor service", e);
+    }
     server.shutdown();
     running = false;
   }
@@ -82,5 +106,309 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
   public Server getServer() {
     return server;
+  }
+
+  /**
+   * Args4j command-line supported options bean for processor servers.
+   */
+  public static class Builder {
+    @Option(name = "-p", aliases = {"--port"}, metaVar = "PORT",
+        usage = "Port to host the processor service on or 0 if it should bind to a random " +
+            "available port.")
+    private int port = 0;
+
+    @Option(name = "-r", aliases = {"--register"},
+        usage = "Whether to register with service discovery.")
+    private boolean register = false;
+
+    @Nullable
+    @Option(name = "-e", aliases = {"--events", "--events-address"}, metaVar = "EVENTS_TARGET",
+        usage = "Events service GRPC target.")
+    private String eventsTarget = null;
+
+    @Nullable
+    private EventsClient eventsClient = null;
+
+    @Nullable
+    @Option(name = "-c", aliases = {"--config"}, handler = PathOptionHandler.class,
+        metaVar = "CONFIG_PATH", usage = "A path to a config file to load.")
+    private Path configFile = null;
+
+    @Nullable
+    @Option(name = "-i", aliases = {"--identifier"}, metaVar = "PROCESSOR_ID",
+        usage = "The identifier to register the processor under. If not specified will default " +
+            "to the @Processor annotation name.")
+    private String identifier = null;
+
+    @Nullable
+    @Option(name = "-u", aliases = {"--unique-service-id"}, metaVar = "UNIQUE_SERVICE_ID",
+        usage = "A unique per-instance server id that will be used to register and deregister the processor")
+    private String uniqueServiceId = null;
+
+    /**
+     * Prints a help message.
+     *
+     * @param parser    The CmdLineParser that was used to parse.
+     * @param mainClass The main class this was invoked from.
+     * @param e         Optional: the exception thrown by the parser.
+     * @param output    Optional: An output stream to write the help message to, by default will use
+     *                  {@code System.err}.
+     */
+    public static void printHelp(@NotNull CmdLineParser parser,
+                                 @NotNull Class<?> mainClass,
+                                 @Nullable CmdLineException e,
+                                 @Nullable OutputStream output) {
+      if (output == null) {
+        output = System.err;
+      }
+      PrintWriter writer = new PrintWriter(output);
+      if (e != null) {
+        writer.println(e.getMessage());
+      }
+      writer.println("java " + mainClass.getCanonicalName() + " [options...]");
+      writer.flush();
+      parser.printUsage(output);
+      writer.println();
+
+      writer.println("Example: " + mainClass.getCanonicalName() + parser.printExample(ALL));
+      writer.flush();
+    }
+
+    /**
+     * @return The bind port for the server
+     */
+    public int getPort() {
+      return port;
+    }
+
+    /**
+     * @param port The bind port for the server.
+     */
+    public void setPort(int port) {
+      this.port = port;
+    }
+
+    /**
+     * @param port The bind port for the server
+     * @return this builder.
+     */
+    public @NotNull Builder port(int port) {
+      this.port = port;
+      return this;
+    }
+
+    /**
+     * @return Whether the server should register with service discovery.
+     */
+    public boolean getRegister() {
+      return register;
+    }
+
+    /**
+     * @param register Whether the server should register with service discovery.
+     */
+    public void setRegister(boolean register) {
+      this.register = register;
+    }
+
+    /**
+     * @param register Whether the server should register with service discovery.
+     * @return this builder.
+     */
+    public @NotNull Builder register(boolean register) {
+      this.register = register;
+      return this;
+    }
+
+    /**
+     * @return A grpc target for the events service.
+     */
+    public @Nullable String getEventsTarget() {
+      return eventsTarget;
+    }
+
+    /**
+     * @param eventsTarget A grpc target for the events service.
+     */
+    public void setEventsTarget(@Nullable String eventsTarget) {
+      this.eventsTarget = eventsTarget;
+    }
+
+    /**
+     * @param eventsTarget A grpc target for the events service.
+     * @return this builder
+     */
+    public @NotNull Builder eventsTarget(@Nullable String eventsTarget) {
+      this.eventsTarget = eventsTarget;
+      return this;
+    }
+
+    /**
+     * @return A client to use for communication with the events service.
+     */
+    public @Nullable EventsClient getEventsClient() {
+      return eventsClient;
+    }
+
+    /**
+     * @param eventsClient A client to use for communication with the events service.
+     */
+    public void setEventsClient(@Nullable EventsClient eventsClient) {
+      this.eventsClient = eventsClient;
+    }
+
+    /**
+     * @param eventsClient A client to use for communication with the events service.
+     * @return this builder.
+     */
+    public Builder eventsClient(EventsClient eventsClient) {
+      this.eventsClient = eventsClient;
+      return this;
+    }
+
+    /**
+     * @return Override for the location of the configuration file.
+     */
+    public @Nullable Path getConfigFile() {
+      return configFile;
+    }
+
+    /**
+     * @param configFile Override for the location of the configuration file.
+     */
+    public void setConfigFile(@Nullable Path configFile) {
+      this.configFile = configFile;
+    }
+
+    /**
+     * @param configFile Override for the location of the configuration file.
+     * @return this builder
+     */
+    public @NotNull Builder configFile(Path configFile) {
+      this.configFile = configFile;
+      return this;
+    }
+
+    /**
+     * An optional identifier to replace the processor's default identifier for service registration
+     * and discovery.
+     *
+     * @return A dns-complaint (only alphanumeric characters and dashes -) string
+     */
+    public @Nullable String getIdentifier() {
+      return identifier;
+    }
+
+    /**
+     * Sets the optional identifier to replace the processor's default identifier for service
+     * registration and discovery.
+     *
+     * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
+     */
+    public void setIdentifier(@Nullable String identifier) {
+      this.identifier = identifier;
+    }
+
+    /**
+     * Sets the optional identifier to replace the processor's default identifier for service
+     * registration and discovery.
+     *
+     * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
+     * @return this builder.
+     */
+    public @NotNull Builder identifier(@Nullable String identifier) {
+      this.identifier = identifier;
+      return this;
+    }
+
+    /**
+     * Gets a unique, per-instance service identifier used to register and deregister the processor
+     * with service discovery. Note: This identifier is not used to discover the service like
+     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     *
+     * @return String identifier or a random UUID if not set.
+     */
+    public @Nullable String getUniqueServiceId() {
+      return uniqueServiceId;
+    }
+
+    /**
+     * Sets a unique, per-instance service identifier used to register and deregister the processor
+     * with service discovery. Note: This identifier is not used to discover the service like
+     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     *
+     * @param uniqueServiceId A string identifier unique to this service instance.
+     */
+    public void setUniqueServiceId(@NotNull String uniqueServiceId) {
+      this.uniqueServiceId = uniqueServiceId;
+    }
+
+    /**
+     * Sets a unique, per-instance service identifier used to register and deregister the processor
+     * with service discovery. Note: This identifier is not used to discover the service like
+     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     *
+     * @param uniqueServiceId A string identifier unique to this service instance.
+     * @return this builder
+     */
+    public @NotNull Builder uniqueServiceId(@NotNull String uniqueServiceId) {
+      this.uniqueServiceId = uniqueServiceId;
+      return this;
+    }
+
+    /**
+     * Creates a processor server using the options specified in this object.
+     *
+     * @param processor The processor to host.
+     * @return Object which can be used to control a server's lifecycle.
+     */
+    public ProcessorServer build(EventProcessor processor) {
+      Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
+      ManagedChannelBuilder<?> channelBuilder;
+      DiscoveryMechanism discoveryMechanism = null;
+      EventsClient eventsClient = this.eventsClient;
+      ManagedChannel eventsChannel = null;
+      if (eventsClient == null) {
+        if (eventsTarget == null) {
+          discoveryMechanism = Discovery.getDiscoveryMechanism(config);
+          String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
+          channelBuilder = ManagedChannelBuilder.forTarget(target)
+              .nameResolverFactory(discoveryMechanism.getNameResolverFactory());
+        } else {
+          channelBuilder = ManagedChannelBuilder.forTarget(eventsTarget);
+        }
+        eventsChannel = channelBuilder.build();
+        eventsClient = new EventsClient(eventsChannel);
+      }
+      ProcessorRunner runner = new LocalProcessorRunner(eventsChannel, eventsClient, processor);
+      if (register) {
+        discoveryMechanism = discoveryMechanism != null ? discoveryMechanism : Discovery.getDiscoveryMechanism(config);
+      } else {
+        discoveryMechanism = null;
+      }
+      HealthService healthService = new HSMHealthService();
+      ProcessorService processorService = new DefaultProcessorService(
+          runner,
+          new DefaultTimingService(),
+          discoveryMechanism,
+          healthService,
+          identifier,
+          uniqueServiceId
+      );
+      Server grpcServer = ServerBuilder.forPort(port)
+          .addService(healthService.getService())
+          .addService(processorService).build();
+      return new ProcessorServer(processorService, grpcServer);
+    }
+
+    /**
+     * Alias for {@link #build}
+     *
+     * @param processor The processor to host.
+     * @return A server object that can be used to control the lifecycle of the server.
+     */
+    public ProcessorServer createServer(EventProcessor processor) {
+      return build(processor);
+    }
   }
 }

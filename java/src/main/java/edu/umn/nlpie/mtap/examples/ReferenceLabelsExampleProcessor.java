@@ -128,12 +128,12 @@ public class ReferenceLabelsExampleProcessor extends DocumentProcessor {
   }
 
   public static void main(String[] args) {
-    ProcessorServerOptions options = new ProcessorServerOptions();
+    ProcessorServer.Builder options = new ProcessorServer.Builder();
     CmdLineParser parser = new CmdLineParser(options);
     try {
       parser.parseArgument(args);
       ReferenceLabelsExampleProcessor processor = new ReferenceLabelsExampleProcessor();
-      Server server = options.createServer(processor);
+      Server server = options.build(processor);
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
@@ -141,7 +141,7 @@ public class ReferenceLabelsExampleProcessor extends DocumentProcessor {
     } catch (InterruptedException e) {
       System.err.println("Server interrupted.");
     } catch (CmdLineException e) {
-      ProcessorServerOptions.printHelp(parser, WordOccurrencesExampleProcessor.class, e, null);
+      ProcessorServer.Builder.printHelp(parser, WordOccurrencesExampleProcessor.class, e, null);
     }
   }
 }

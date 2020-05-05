@@ -321,7 +321,7 @@ class EventsClientTest {
       observer.onCompleted();
       return null;
     }).when(eventsService).getLabels(any(), any());
-    Event event = EventBuilder.newBuilder().withEventID("1").build();
+    Event event = new Event.Builder().eventID("1").build();
     Document document = event.createDocument("plaintext", "");
     when(adapter.createIndexFromResponse(any()))
         .thenReturn(new StandardLabelIndex(Collections.singletonList(GenericLabel.createSpan(0, 5))));

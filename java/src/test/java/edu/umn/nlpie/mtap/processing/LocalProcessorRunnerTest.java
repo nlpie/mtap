@@ -40,7 +40,7 @@ class LocalProcessorRunnerTest {
     processor = mock(EventProcessor.class);
     events = mock(EventsClient.class);
     runner = new LocalProcessorRunner(
-        events,
+        null, events,
         processor
     );
   }
@@ -64,7 +64,7 @@ class LocalProcessorRunnerTest {
   }
 
   @Test
-  void close() {
+  void close() throws InterruptedException {
     runner.close();
 
     verify(processor).shutdown();
