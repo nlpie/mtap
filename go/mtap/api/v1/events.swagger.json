@@ -4,10 +4,6 @@
     "title": "mtap/api/v1/events.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
@@ -24,6 +20,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1CloseEventResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -56,6 +58,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1OpenEventResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -90,6 +98,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetAllBinaryDataNamesResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -114,6 +128,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetBinaryDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -144,6 +164,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddBinaryDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -186,6 +212,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetAllDocumentNamesResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -211,6 +243,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetDocumentTextResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -242,6 +280,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -284,6 +328,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetLabelIndicesInfoResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -316,6 +366,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetLabelsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -354,6 +410,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddLabelsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -403,6 +465,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetAllMetadataResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -428,6 +496,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -506,6 +580,27 @@
       ],
       "default": "NULL_VALUE",
       "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\n The JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     },
     "v1AddBinaryDataRequest": {
       "type": "object",

@@ -364,11 +364,11 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
      */
     public ProcessorServer build(EventProcessor processor) {
       Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
-      ManagedChannelBuilder<?> channelBuilder;
       DiscoveryMechanism discoveryMechanism = null;
       EventsClient eventsClient = this.eventsClient;
       ManagedChannel eventsChannel = null;
       if (eventsClient == null) {
+        ManagedChannelBuilder<?> channelBuilder;
         if (eventsTarget == null) {
           discoveryMechanism = Discovery.getDiscoveryMechanism(config);
           String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
@@ -377,7 +377,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
         } else {
           channelBuilder = ManagedChannelBuilder.forTarget(eventsTarget);
         }
-        eventsChannel = channelBuilder.build();
+        eventsChannel = channelBuilder.usePlaintext().build();
         eventsClient = new EventsClient(eventsChannel);
       }
       ProcessorRunner runner = new LocalProcessorRunner(eventsChannel, eventsClient, processor);
