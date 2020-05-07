@@ -151,6 +151,11 @@ public class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
   }
 
   @Override
+  public L get(int i) {
+    return labels.get(i);
+  }
+
+  @Override
   public Iterator<L> iterator() {
     return labels.iterator();
   }
@@ -475,6 +480,11 @@ public class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     }
 
     @Override
+    public L get(int i) {
+      return labels.get(i);
+    }
+
+    @Override
     public Iterator<L> iterator() {
       return asList().iterator();
     }
@@ -552,6 +562,11 @@ public class DistinctLabelIndex<L extends Label> extends AbstractLabelIndex<L> {
     @Override
     public @NotNull List<@NotNull L> asList() {
       return new DescendingListView();
+    }
+
+    @Override
+    public L get(int i) {
+      return labels.get(i);
     }
 
     @Override

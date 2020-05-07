@@ -28,6 +28,22 @@ def test_get_repr():
     assert 'z=20.0' in rep
 
 
+def test_get_repr_ref():
+    label = GenericLabel(0, 20, document=document, a=GenericLabel(0, 20, x="a"))
+
+    rep = repr(label)
+    assert rep == 'GenericLabel(0, 20, a=GenericLabel(0, 20, x=\'a\'))'
+
+
+def test_get_repr_infinite_recursion():
+    label = GenericLabel(0, 20, document=document)
+    b = GenericLabel(0, 20, document=document, a=label)
+    label.b = b
+
+    rep = repr(label)
+    assert rep == 'GenericLabel(0, 20, b=GenericLabel(0, 20, a=GenericLabel(...)))'
+
+
 def test_get_attr():
     label = GenericLabel(0, 20, document=document, a="x", y=20, z=20.0)
 
@@ -35,8 +51,6 @@ def test_get_attr():
     assert label.y == 20
     assert label.z == 20.0
     assert label.fields == {
-        'start_index': 0,
-        'end_index': 20,
         'a': 'x',
         'y': 20,
         'z': 20.0
@@ -76,30 +90,9 @@ def test_not_eq():
     assert label != label2
 
 
-def test_len():
-    label = GenericLabel(0, 20, document=document, a="x", y=20, z=20.0)
-    assert len(label) == 5
-
-
 def test_location():
     label = GenericLabel(0, 20, document=document, a="x", y=20, z=20.0)
     assert label.location == (0, 20)
-
-
-def test_get_item():
-    label = GenericLabel(0, 20, document=document, a="x", y=20, z=20.0)
-    assert label['a'] == 'x'
-
-
-def test_iter():
-    label = GenericLabel(0, 20, document=document, a="x", y=20, z=20.0)
-    i = list(iter(label))
-    assert len(i) == 5
-    assert 'start_index' in i
-    assert 'end_index' in i
-    assert 'a' in i
-    assert 'y' in i
-    assert 'z' in i
 
 
 def test_get_covered_text():
@@ -163,11 +156,7 @@ def test_set_document():
 def test_try_assign_reserved():
     l = GenericLabel(0, 0)
     with pytest.raises(ValueError):
-        l.start_index = 15
-    with pytest.raises(ValueError):
         l.location = 10
-    with pytest.raises(ValueError):
-        l.end_index = 10
     with pytest.raises(ValueError):
         l.text = 'blah'
 
@@ -177,3 +166,17 @@ def test_construct_with_reserved():
         GenericLabel(0, 0, location=1)
     with pytest.raises(ValueError):
         GenericLabel(0, 0, text='some text')
+
+
+def test_infinite_recursion_equals():
+    a = GenericLabel(0, 15)
+    b = GenericLabel(0, 13)
+    a.b = b
+    b.a = a
+
+    a2 = GenericLabel(0, 15)
+    b2 = GenericLabel(0, 13)
+    a2.b = b2
+    b2.a = a2
+
+    assert a == a2

@@ -13,153 +13,126 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package edu.umn.nlpie.mtap.processing;
 
-import edu.umn.nlpie.mtap.MTAP;
-import edu.umn.nlpie.mtap.common.ConfigImpl;
-import edu.umn.nlpie.mtap.model.EventsClient;
-import edu.umn.nlpie.mtap.common.Config;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.testing.GrpcCleanupRule;
-import org.junit.Rule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
 
-import java.io.IOException;
-import java.util.concurrent.ExecutorService;
+import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 class ProcessorServerBuilderTest {
-  @Rule
-  public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
-
-  private ProcessorServerOptions options;
-  private EventProcessor mockProcessor;
-
-  private ProcessorServerBuilder builder;
-  private DiscoveryMechanism mockDiscoveryMechanism;
+  private ProcessorServer.Builder options;
 
   @BeforeEach
   void setUp() {
-    options = ProcessorServerOptions.defaultOptions();
-    mockProcessor = mock(EventProcessor.class);
-    builder = ProcessorServerBuilder.forProcessor(mockProcessor, options);
-
-    mockDiscoveryMechanism = mock(DiscoveryMechanism.class);
+    options = new ProcessorServer.Builder();
   }
 
   @Test
-  void getConfigNotNull() {
-    assertNotNull(builder.getConfig());
+  void parseArgs() throws CmdLineException {
+    CmdLineParser cmdLineParser = new CmdLineParser(options);
+    cmdLineParser.parseArgument(
+        "--events",
+        "localhost:8080",
+        "--register",
+        "--port",
+        "10",
+        "--identifier",
+        "blah",
+        "--config",
+        "/etc/config",
+        "--unique-service-id",
+        "2");
+    assertEquals("localhost:8080", options.getEventsTarget());
+    assertTrue(options.getRegister());
+    assertEquals(10, options.getPort());
+    assertEquals("blah", options.getIdentifier());
+    assertEquals(Paths.get("/etc/config"), options.getConfigFile());
+    assertEquals("2", options.getUniqueServiceId());
   }
 
   @Test
-  void setConfig() {
-    Config config = ConfigImpl.defaultConfig();
-    builder.setConfig(config);
-    assertSame(config, builder.getConfig());
+  void hasDefaultPort0() throws CmdLineException {
+    String[] args = new String[]{};
+    CmdLineParser parser = new CmdLineParser(options);
+    parser.parseArgument(args);
+    assertEquals(0, options.getPort());
   }
 
   @Test
-  void withConfig() {
-    Config config = ConfigImpl.defaultConfig();
-    builder.withConfig(config);
-    assertSame(config, builder.getConfig());
+  void setPort() {
+    options.setPort(50555);
+    assertEquals(50555, options.getPort());
   }
 
   @Test
-  void getEventsClientNotNull() {
-    DiscoveryMechanism mockMechanism = mock(DiscoveryMechanism.class);
-    when(mockMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME, "v1")).thenReturn("dns:///localhost:0");
-    builder.withDiscoveryMechanism(mockMechanism);
-    EventsClient eventsClient = builder.getEventsClient();
-    assertNotNull(eventsClient);
-    eventsClient.close();
+  void defaultRegisterFalse() {
+    assertFalse(options.getRegister());
   }
 
   @Test
-  void setEventsClient() {
-    EventsClient client = mock(EventsClient.class);
-    builder.setEventsClient(client);
-    assertSame(client, builder.getEventsClient());
+  void setRegister() {
+    options.setRegister(true);
+    assertTrue(options.getRegister());
   }
 
   @Test
-  void withEventsClient() {
-    EventsClient mockClient = mock(EventsClient.class);
-    builder.withEventsClient(mockClient);
-    assertSame(mockClient, builder.getEventsClient());
+  void setEventsTarget() {
+    options.setEventsTarget("localhost:9090");
+    assertEquals("localhost:9090", options.getEventsTarget());
   }
 
   @Test
-  void getDiscoveryMechanismNotNull() {
-    assertNotNull(builder.getDiscoveryMechanism());
+  void setConfigFile() {
+    options.setConfigFile(Paths.get("blub"));
+    assertEquals(Paths.get("blub"), options.getConfigFile());
   }
 
   @Test
-  void setDiscoveryMechanism() {
-    DiscoveryMechanism mockMechanism = mock(DiscoveryMechanism.class);
-    builder.setDiscoveryMechanism(mockMechanism);
-    assertSame(mockMechanism, builder.getDiscoveryMechanism());
+  void setIdentifier() {
+    options.setIdentifier("foo");
+    assertEquals("foo", options.getIdentifier());
   }
 
   @Test
-  void withDiscoveryMechanism() {
-    DiscoveryMechanism mockMechanism = mock(DiscoveryMechanism.class);
-    builder.withDiscoveryMechanism(mockMechanism);
-    assertSame(mockMechanism, builder.getDiscoveryMechanism());
+  void subclassing() throws CmdLineException {
+    Subclass options = new Subclass();
+    CmdLineParser parser = new CmdLineParser(options);
+    parser.parseArgument(
+        "--events",
+        "localhost:8080",
+        "--register",
+        "--port",
+        "10",
+        "--identifier",
+        "blah",
+        "--config",
+        "/etc/config",
+        "--unique-service-id",
+        "2",
+        "--extra",
+        "foo");
+    assertEquals("localhost:8080", options.getEventsTarget());
+    assertTrue(options.getRegister());
+    assertEquals(10, options.getPort());
+    assertEquals("blah", options.getIdentifier());
+    assertEquals(Paths.get("/etc/config"), options.getConfigFile());
+    assertEquals("2", options.getUniqueServiceId());
+    assertEquals("foo", options.extra);
   }
 
-  @Test
-  void getOptions() {
-    assertSame(options, builder.getOptions());
-  }
-
-  @Test
-  void getBackgroundExecutorNotNull() {
-    assertNotNull(builder.getBackgroundExecutor());
-  }
-
-  @Test
-  void setBackgroundExecutor() {
-    ExecutorService mockExecutorService = mock(ExecutorService.class);
-    builder.setBackgroundExecutor(mockExecutorService);
-    assertSame(builder.getBackgroundExecutor(), mockExecutorService);
-  }
-
-  @Test
-  void withBackgroundExecutor() {
-    ExecutorService mockExecutorService = mock(ExecutorService.class);
-    builder.withBackgroundExecutor(mockExecutorService);
-    assertSame(builder.getBackgroundExecutor(), mockExecutorService);
-  }
-
-  @Test
-  void build() {
-    when(mockProcessor.getProcessorName()).thenReturn("test-processor");
-    EventsClient mockEventsClient = mock(EventsClient.class);
-    builder.setEventsClient(mockEventsClient);
-    assertNotNull(builder.build());
-  }
-
-  @Test
-  void buildWithServerBuilder() throws IOException {
-    when(mockProcessor.getProcessorName()).thenReturn("test-processor");
-    EventsClient mockEventsClient = mock(EventsClient.class);
-    builder.setEventsClient(mockEventsClient);
-    String name = InProcessServerBuilder.generateName();
-    ServerBuilder serverBuilder = InProcessServerBuilder.forName(name).directExecutor();
-    ProcessorServer server = builder.build(serverBuilder);
-    server.start();
-    Server grpcServer = grpcCleanup.register(server.getServer());
-    assertNotNull(grpcServer);
-    server.shutdown();
+  public static class Subclass extends ProcessorServer.Builder {
+    @Option(
+        name = "--extra",
+        required = true
+    )
+    private String extra;
 
   }
 }
+

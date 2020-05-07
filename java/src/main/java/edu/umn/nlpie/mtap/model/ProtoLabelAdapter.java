@@ -41,13 +41,11 @@ public interface ProtoLabelAdapter<L extends Label> {
    * Creates a label index from a response message from the events service.
    *
    * @param response The response message from the events service.
-   * @param document A document to store on the labels for fetching text.
    *
    * @return A label index containing all of the labels in the response.
    */
   @NotNull LabelIndex<L> createIndexFromResponse(
-      @NotNull EventsOuterClass.GetLabelsResponse response,
-      @Nullable Document document
+      @NotNull EventsOuterClass.GetLabelsResponse response
   );
 
   /**

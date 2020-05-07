@@ -17,7 +17,6 @@
 package edu.umn.nlpie.mtap.processing;
 
 import edu.umn.nlpie.mtap.model.Event;
-import edu.umn.nlpie.mtap.model.EventBuilder;
 import edu.umn.nlpie.mtap.common.JsonObject;
 import edu.umn.nlpie.mtap.common.JsonObjectBuilder;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
@@ -34,15 +33,15 @@ public class EventProcessorTest {
   @Test
   void startedStopwatchNoContext() {
     WithStartedStopwatch withStartedStopwatch = new WithStartedStopwatch();
-    withStartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
+    withStartedStopwatch.process(new Event.Builder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
     assertTrue(withStartedStopwatch.duration.toMillis() >= 1);
   }
 
   @Test
   void startedStopwatchWithContext() {
-    try (ProcessorContext ignored = ProcessorBase.enterContext("processor")) {
+    try (ProcessorContext ignored = ProcessorBase.enterContext()) {
       WithStartedStopwatch withStartedStopwatch = new WithStartedStopwatch();
-      withStartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
+      withStartedStopwatch.process(new Event.Builder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
       assertTrue(withStartedStopwatch.duration.toMillis() >= 1);
     }
   }
@@ -50,22 +49,22 @@ public class EventProcessorTest {
   @Test
   void unstartedStopwatchNoContext() {
     WithUnstartedStopwatch withUnstartedStopwatch = new WithUnstartedStopwatch();
-    withUnstartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
+    withUnstartedStopwatch.process(new Event.Builder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
     assertTrue(withUnstartedStopwatch.duration.toMillis() >= 20);
   }
 
   @Test
   void unstartedStopwatchWithContext() {
-    try (ProcessorContext ignored = ProcessorBase.enterContext("processor")) {
+    try (ProcessorContext ignored = ProcessorBase.enterContext()) {
       WithUnstartedStopwatch withUnstartedStopwatch = new WithUnstartedStopwatch();
-      withUnstartedStopwatch.process(EventBuilder.newBuilder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
+      withUnstartedStopwatch.process(new Event.Builder().build(), JsonObjectImpl.newBuilder().build(), JsonObjectImpl.newBuilder());
       assertTrue(withUnstartedStopwatch.duration.toMillis() >= 20);
     }
   }
 
   @Test
   void preservesExistingTimes() {
-    try (ProcessorContext context = ProcessorBase.enterContext("processor")) {
+    try (ProcessorContext context = ProcessorBase.enterContext()) {
       context.putTime("foo", Duration.ofSeconds(2));
       context.putTime("foo", Duration.ofSeconds(2));
       assertEquals(context.getTimes().get("foo"), Duration.ofSeconds(4));

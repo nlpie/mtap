@@ -56,7 +56,7 @@ func NewBuilder() resolver.Builder {
 	return &consulBuilder{}
 }
 
-func (*consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
+func (*consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	glog.V(3).Infof("Creating resolver for target %v", target)
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = target.Authority
@@ -87,7 +87,7 @@ func (*consulBuilder) Scheme() string {
 	return "consul"
 }
 
-func (r *consulResolver) ResolveNow(opts resolver.ResolveNowOption) {
+func (r *consulResolver) ResolveNow(opts resolver.ResolveNowOptions) {
 	print("resolve now called")
 	select {
 	case r.rn <- struct{}{}:

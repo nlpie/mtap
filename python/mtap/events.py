@@ -26,7 +26,7 @@ import uuid
 from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Iterator, List, Dict, MutableMapping, Generic, TypeVar, NamedTuple, \
-    ContextManager, Iterable, Optional, Sequence, Union
+    ContextManager, Iterable, Optional, Sequence, Union, Any, Mapping
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2
@@ -36,8 +36,8 @@ from mtap import _structs
 from mtap._config import Config
 from mtap.api.v1 import events_pb2_grpc, events_pb2
 from mtap.constants import EVENTS_SERVICE_NAME
-from mtap.label_indices import label_index, LabelIndex
-from mtap.labels import GenericLabel, Label
+from mtap.label_indices import label_index, LabelIndex, presorted_label_index
+from mtap.labels import GenericLabel, Label, _staticize
 
 __all__ = [
     'Event',
@@ -74,10 +74,12 @@ class Event:
     """
 
     def __init__(self, *, event_id: Optional[str] = None, client: Optional['EventsClient'] = None,
-                 only_create_new: bool = False):
+                 only_create_new: bool = False,
+                 default_adapters: Optional[Mapping[str, 'ProtoLabelAdapter']] = None):
         self._event_id = event_id or str(uuid.uuid4())
         self._client = client
         self._lock = threading.RLock()
+        self.default_adapters = default_adapters or {}
         if client is not None:
             client.open_event(self._event_id, only_create_new=only_create_new)
 
@@ -193,16 +195,16 @@ class LabelIndexType(Enum):
     UNKNOWN = 0
     """Label index not set or type not known."""
 
-    JSON = 1
+    GENERIC = 1
     """JSON / Generic Label index"""
 
-    OTHER = 2
+    CUSTOM = 2
     """Other / custom protobuf label index"""
 
 
 LabelIndexType.UNKNOWN.__doc__ = """Label index not set or type not known."""
-LabelIndexType.JSON.__doc__ = """JSON / Generic Label index"""
-LabelIndexType.OTHER.__doc__ = """Other / custom protobuf label index"""
+LabelIndexType.GENERIC.__doc__ = """JSON / Generic Label index"""
+LabelIndexType.CUSTOM.__doc__ = """Other / custom protobuf label index"""
 
 LabelIndexInfo = NamedTuple('LabelIndexInfo',
                             [('index_name', str),
@@ -210,6 +212,14 @@ LabelIndexInfo = NamedTuple('LabelIndexInfo',
 LabelIndexInfo.__doc__ = """Information about a label index contained on a document."""
 LabelIndexInfo.index_name.__doc__ = """str: The name of the label index."""
 LabelIndexInfo.type.__doc__ = """LabelIndexType: The type of the label index."""
+
+
+class _WaitingIndex(NamedTuple('_WaitingIndex',
+                               [('index_name', str),
+                                ('labels', List[GenericLabel]),
+                                ('waiting_on', List[int])])):
+    """A label index that is waiting on some labels to be staticized before uploading.
+    """
 
 
 class Document:
@@ -265,7 +275,12 @@ class Document:
 
     """
 
-    def __init__(self, document_name: str, *, text: Optional[str] = None, event: Optional[Event] = None):
+    def __init__(self,
+                 document_name: str,
+                 *,
+                 text: Optional[str] = None,
+                 event: Optional[Event] = None,
+                 default_adapters: Optional[Mapping[str, 'ProtoLabelAdapter']] = None):
         if not isinstance(document_name, str):
             raise TypeError('Document name is not string.')
         self._document_name = document_name
@@ -276,9 +291,10 @@ class Document:
             self._client = event.client
             self._event_id = event.event_id
         self._text = text
-        self._label_indices = {}
         self._labelers = []
         self._created_indices = []
+        self._waiting_indices = []
+        self.default_adapters = default_adapters or {}
         if self._client is None and text is None:
             raise ValueError('Document without text or an event with a client to fetch the text '
                              'from.')
@@ -307,16 +323,13 @@ class Document:
                 this document."""
         return list(self._created_indices)
 
-    def get_label_indices_info(self) -> List[LabelIndexInfo]:
-        """The list of label index information objects.
-
-        Returns:
-            ~typing.List[LabelIndexInfo]:
-                A list of objects containing information about all label indices on this document.
-        """
-        if self._client is not None:
-            return self._client.get_label_index_info(self._event_id, self._document_name)
-        return [LabelIndexInfo(k, LabelIndexType.JSON) for k, v in self._label_indices.items()]
+    @property
+    def labels(self) -> Mapping[str, LabelIndex]:
+        try:
+            return self._labels
+        except AttributeError:
+            self._labels = _LabelIndices(self)
+            return self._labels
 
     def get_label_index(
             self,
@@ -331,6 +344,7 @@ class Document:
 
         Args:
             label_index_name (str): The name of the label index to get.
+            label_adapter (ProtoLabelAdapter): Deprecated, does not do anything.
 
         Keyword Args:
             label_adapter (~typing.Optional[ProtoLabelAdapter]):
@@ -338,39 +352,25 @@ class Document:
 
         Returns:
             LabelIndex: The requested label index.
-        """
 
-        if label_index_name in self._label_indices:
-            return self._label_indices[label_index_name]
-        if label_adapter is None:
-            label_adapter = GenericLabelAdapter
-        if self._client is not None:
-            index = self._client.get_labels(self._event_id, self._document_name,
-                                            label_index_name,
-                                            adapter=label_adapter)
-            for label in index:
-                label.document = self
-            self._label_indices[label_index_name] = index
-            return index
-        else:
-            raise KeyError('Document does not have label index:', label_index_name)
+
+        ..deprecated:: 0.5
+            Use :func:`Document.labels` instead.
+        """
+        return self.labels[label_index_name]
 
     def get_labeler(self,
                     label_index_name: str,
-                    *,
-                    distinct: Optional[bool] = None,
+                    *, distinct: Optional[bool] = None,
                     label_adapter: Optional['ProtoLabelAdapter[L]'] = None) -> 'Labeler':
         """Creates a function that can be used to add labels to a label index.
 
         Args:
             label_index_name (str): A document-unique identifier for the label index to be created.
-
-        Keyword Args:
             distinct (~typing.Optional[bool]):
                 Optional, if using generic labels, whether to use distinct generic labels or
                 non-distinct generic labels, will default to False.
-            label_adapter (~typing.Optional[ProtoLabelAdapter[L]]):
-                The label adapter to use to perform marshalling of objects to proto messages.
+            label_adapter (ProtoLabelAdapter): Deprecated, no longer does anything.
 
         Returns:
             Labeler: A callable when used in conjunction with the 'with' keyword will automatically
@@ -382,55 +382,63 @@ class Document:
             >>>     sentence = labeler(26, 34)
             >>>     sentence.sentence_type = 'FRAGMENT'
 
+        ..deprecated:: 0.5
+            `label_adapter` will be removed before 1.0, since that is handled by the default label
+            adapters set on the document / event.
         """
         if label_index_name in self._labelers:
             raise KeyError("Labeler already in use: " + label_index_name)
-        if label_adapter is not None and distinct is not None:
-            raise ValueError("Either 'distinct' or 'label_type_id' can be set, but not both.")
-        if label_adapter is None:
-            if distinct is None:
-                distinct = False
-            label_adapter = (DistinctGenericLabelAdapter if distinct else GenericLabelAdapter)
+        label_adapter = self.get_default_adapter(label_index_name, distinct)
 
         labeler = Labeler(self._client, self, label_index_name, label_adapter)
         self._labelers.append(label_index_name)
         return labeler
 
-    def add_labels(
-            self,
-            label_index_name: str,
-            labels: Sequence[Union['Label', L]],
-            *,
-            distinct: Optional[bool] = None,
-            label_adapter: Optional['ProtoLabelAdapter[L]'] = None
-    ) -> LabelIndex[Union[GenericLabel, L]]:
+    def add_labels(self,
+                   label_index_name: str,
+                   labels: Sequence[Union['Label', L]],
+                   *, distinct: Optional[bool] = None,
+                   label_adapter: Optional['ProtoLabelAdapter'] = None):
         """Skips using a labeler and adds the sequence of labels as a new label index.
 
         Args:
             label_index_name (str): The name of the label index.
             labels (~typing.Sequence[Label]): The labels to add.
-
-        Keyword Args:
             distinct (~typing.Optional[bool]):
                 Whether the index is distinct or non-distinct.
-            label_adapter (~typing.Optional[ProtoLabelAdapter[L]]):
-                The label adapter to use to perform marshalling of objects to proto messages.
+            label_adapter (ProtoLabelAdapter): A label adapter to use.
 
         Returns:
             LabelIndex: The new label index created from the labels.
         """
-        if label_index_name in self._label_indices:
+        if label_index_name in self.labels:
             raise KeyError("Label index already exists with name: " + label_index_name)
-        if distinct is not None and label_adapter is not None:
-            raise ValueError("Arguments 'distinct' and 'label_adapter' are mutually exclusive.")
-        if distinct is None:
-            distinct = False
         if label_adapter is None:
-            label_adapter = (DistinctGenericLabelAdapter if distinct else GenericLabelAdapter)
+            if distinct is None:
+                distinct = False
+            label_adapter = self.get_default_adapter(label_index_name, distinct)
+        labels, waiting_on = _staticize(labels, self, label_index_name)
+        if len(self._waiting_indices) > 0:
+            label_ids = {id(label) for label in labels}
+            self._check_waiting_indices(label_ids)
 
-        labels = sorted(labels, key=lambda l: l.location)
-        for label in labels:
-            label.document = self
+        if len(waiting_on) > 0:
+            self._waiting_indices.append((label_index_name, labels, label_adapter, waiting_on))
+        else:
+            self._finalize_labels(label_adapter, label_index_name, labels)
+
+    def _check_waiting_indices(self, updated_ids):
+        waiting_indices = []
+        for label_index_name, labels, label_adapter, waiting_on in self._waiting_indices:
+            still_waiting = waiting_on.difference(updated_ids)
+            if len(still_waiting) == 0:
+                self._finalize_labels(label_adapter, label_index_name, labels)
+            else:
+                waiting_indices.append((label_index_name, labels, label_adapter, still_waiting))
+        self._waiting_indices = waiting_indices
+
+    def _finalize_labels(self, label_adapter, label_index_name, labels):
+        label_adapter.store_references(labels)
         if self._client is not None:
             self._client.add_labels(event_id=self.event.event_id,
                                     document_name=self.document_name,
@@ -439,8 +447,19 @@ class Document:
                                     adapter=label_adapter)
         self._created_indices.append(label_index_name)
         index = label_adapter.create_index(labels)
-        self._label_indices[label_index_name] = index
+        self.labels.add_to_cache(label_index_name, index)
         return index
+
+    def get_default_adapter(self, label_index_name: str,
+                            distinct: Optional[bool] = None) -> Optional['ProtoLabelAdapter']:
+        try:
+            return self.default_adapters[label_index_name]
+        except KeyError:
+            pass
+        try:
+            return self.event.default_adapters[label_index_name]
+        except (AttributeError, KeyError):
+            return DistinctGenericLabelAdapter if distinct else GenericLabelAdapter
 
     def add_created_indices(self, created_indices: Iterable[str]):
         # Internal, used by the pipeline to add any indices created remotely to the
@@ -568,6 +587,48 @@ class ProtoLabelAdapter(ABC, Generic[L]):
         """
         ...
 
+    @abstractmethod
+    def pack(self, index: LabelIndex[L], *, include_label_text: bool = False) -> Any:
+        """Prepares to serialize a label index by transforming the label index into a representation
+        that can be dumped to json, yml, pickle, etc.
+
+        Args:
+            index: The index itself.
+            include_label_text:
+                Whether to include the label's text in the serialized representation
+                (for informative reasons).
+
+        Returns:
+            A dictionary representation of the label index.
+
+        """
+        ...
+
+    @abstractmethod
+    def unpack(self, packed: Any,
+               label_index_name: str,
+               *, document: Optional[Document] = None) -> LabelIndex[L]:
+        """Takes a packed, serializable object and turns it into a full label index.
+
+        Args:
+            packed (Any): The packed representation.
+            label_index_name (str): The index name of the label index.
+            document (Document): The document this label index occurs on.
+
+        Returns:
+            LabelIndex[L]: The label index.
+
+        """
+        ...
+
+    def store_references(self, labels: Sequence[L]):
+        """Take all the references for the labels and turn them into static references.
+
+        Args:
+             labels (Sequence[L]): The labels to store the references on.
+        """
+        ...
+
 
 class EventsClient:
     """A client object for interacting with the events service.
@@ -685,10 +746,10 @@ class EventsClient:
         response = self.stub.GetLabelIndicesInfo(request)
         result = []
         for index in response.label_index_infos:
-            if index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON:
-                index_type = LabelIndexType.JSON
-            elif index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.OTHER:
-                index_type = LabelIndexType.OTHER
+            if index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC:
+                index_type = LabelIndexType.GENERIC
+            elif index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.CUSTOM:
+                index_type = LabelIndexType.CUSTOM
             else:
                 index_type = LabelIndexType.UNKNOWN
             result.append(LabelIndexInfo(index.index_name, index_type))
@@ -867,7 +928,67 @@ class _Binaries(collections.abc.MutableMapping):
             self._names.update(response)
 
 
-class _GenericLabelAdapter(ProtoLabelAdapter):
+class _LabelIndices(Mapping[str, LabelIndex]):
+    def __init__(self, document: Document):
+        self._document = document
+        self._document_name = document.document_name
+        try:
+            self._event_id = document.event.event_id
+            self._client = document.event.client
+        except AttributeError:
+            self._event_id = None
+            self._client = None
+        self._cache = {}
+        self._names_cache = set()
+
+    def __getitem__(self, k: str) -> LabelIndex:
+        try:
+            return self._cache[k]
+        except KeyError:
+            pass
+
+        if k not in self:
+            raise KeyError
+
+        if self._client is not None:
+            label_adapter = self._document.get_default_adapter(k)
+            if label_adapter is None:
+                label_adapter = GenericLabelAdapter
+            index = self._client.get_labels(self._event_id, self._document_name, k,
+                                            adapter=label_adapter)
+            for label in index:
+                label.label_index_name = k
+                label.document = self._document
+            self._cache[k] = index
+            self._names_cache.add(k)
+            return index
+        else:
+            raise KeyError('Document does not have label index: ' + k)
+
+    def __contains__(self, item):
+        self._refresh_names()
+        return item in self._names_cache
+
+    def __len__(self) -> int:
+        self._refresh_names()
+        return len(self._names_cache)
+
+    def __iter__(self) -> Iterator[str]:
+        self._refresh_names()
+        return iter(self._names_cache)
+
+    def _refresh_names(self):
+        if self._client is not None:
+            infos = self._client.get_label_index_info(self._event_id, self._document_name)
+            for info in infos:
+                self._names_cache.add(info.index_name)
+
+    def add_to_cache(self, label_index_name, index):
+        self._cache[label_index_name] = index
+        self._names_cache.add(label_index_name)
+
+
+class _GenericLabelAdapter(ProtoLabelAdapter[GenericLabel]):
     def __init__(self, distinct):
         self.distinct = distinct
 
@@ -875,23 +996,87 @@ class _GenericLabelAdapter(ProtoLabelAdapter):
         return GenericLabel(*args, **kwargs)
 
     def create_index(self, labels: List[L]):
-        return label_index(labels, self.distinct)
+        return label_index(labels, self.distinct, adapter=self)
 
     def create_index_from_response(self, response):
-        json_labels = response.json_labels
+        generic_labels = response.generic_labels
         labels = []
-        for label in json_labels.labels:
-            d = {}
-            _structs.copy_struct_to_dict(label, d)
-            generic_label = GenericLabel(**d)
+        for label_message in generic_labels.labels:
+            fields = {}
+            _structs.copy_struct_to_dict(label_message.fields, fields)
+            reference_field_ids = {}
+            _structs.copy_struct_to_dict(label_message.reference_ids, reference_field_ids)
+            generic_label = GenericLabel(label_message.start_index, label_message.end_index,
+                                         identifier=label_message.identifier, fields=fields,
+                                         reference_field_ids=reference_field_ids)
             labels.append(generic_label)
 
-        return label_index(labels, json_labels.is_distinct)
+        return presorted_label_index(labels, generic_labels.is_distinct, adapter=self)
 
-    def add_to_message(self, labels, request):
-        json_labels = request.json_labels
+    def add_to_message(self, labels: List[GenericLabel], request):
+        generic_labels = request.generic_labels
         for label in labels:
-            _structs.copy_dict_to_struct(label.fields, json_labels.labels.add(), [label])
+            label_message = generic_labels.labels.add()
+            label_message.identifier = label.identifier
+            label_message.start_index = label.start_index
+            label_message.end_index = label.end_index
+            _structs.copy_dict_to_struct(label.fields, label_message.fields, [label])
+            _structs.copy_dict_to_struct(label.reference_field_ids, label_message.reference_ids,
+                                         [label])
+
+    def pack(self, index: LabelIndex[GenericLabel], *, include_label_text: bool = False) -> Any:
+        d = {
+            'labels': [_label_to_dict(label, include_label_text) for label in index],
+            'distinct': index.distinct
+        }
+        return d
+
+    def unpack(self, packed: Any,
+               label_index_name: str,
+               *, document: Optional[Document] = None) -> LabelIndex[L]:
+        return label_index(
+            [_dict_to_label(d, label_index_name, document) for d in packed['labels']],
+            distinct=packed['distinct'], adapter=self
+        )
+
+    def store_references(self, labels: Sequence['GenericLabel']):
+        for label in labels:
+            for k, v in label.reference_cache.items():
+                if k not in label.reference_field_ids:
+                    label.reference_field_ids[k] = _convert_to_references(v)
+
+
+def _convert_to_references(o):
+    if o is None:
+        return o
+    if isinstance(o, Label):
+        ref = '{}:{}'.format(o.label_index_name, o.identifier)
+        return ref
+    if isinstance(o, Mapping):
+        rep = {}
+        for k, v in o.items():
+            rep[k] = _convert_to_references(v)
+        return rep
+    if isinstance(o, Sequence):
+        rep = [_convert_to_references(v) for v in o]
+        return rep
+
+
+def _label_to_dict(label, include_label_text):
+    d = {'start_index': label.start_index,
+         'end_index': label.end_index,
+         'identifier': label.identifier,
+         'fields': label.fields,
+         'reference_ids': label.reference_field_ids}
+    if include_label_text:
+        d['_text'] = label.text
+    return d
+
+
+def _dict_to_label(d, label_index_name, document):
+    return GenericLabel(d['start_index'], d['end_index'], identifier=d['identifier'],
+                        fields=d['fields'], reference_field_ids=d['reference_ids'],
+                        label_index_name=label_index_name, document=document)
 
 
 GenericLabelAdapter = _GenericLabelAdapter(False)

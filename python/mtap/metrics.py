@@ -59,10 +59,10 @@ class Metrics(DocumentProcessor):
 
     def process_document(self, document: Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        tested = document.get_label_index(self.tested)
+        tested = document.labels[self.tested]
         if self.tested_filter is not None:
             tested = tested.filter(self.tested_filter)
-        target = document.get_label_index(self.target)
+        target = document.labels[self.target]
         if self.target_filter is not None:
             target = target.filter(self.target_filter)
         local = {}
@@ -80,13 +80,31 @@ def print_overlapping(document, target_label, tested_index):
         print('"', overlap.text(document.text), '"')
 
 
+def fields_match_test(fields: Optional[Sequence[str]] = ...):
+    """Creates an equivalence test that tests whether the specified fields are equal on both labels.
+
+    Parameters
+    ----------
+    fields: Optional[Sequence[str]]
+        The fields to test or ... if all fields should be tested.
+
+    """
+    def fields_match(tested_label: Label, target_label: Label) -> bool:
+        if fields is not ...:
+            return all(getattr(tested_label, field) == getattr(target_label, field) for field in fields)
+        else:
+            return tested_label.shallow_fields_equal(target_label)
+    return fields_match
+
+
 class Accuracy(Metric):
     def __init__(self,
                  name: str = 'accuracy',
                  mode: str = 'equals',
                  print_debug: bool = False,
                  boundary_fuzz: int = 0,
-                 fields: Optional[Sequence[str]] = ...):
+                 fields: Optional[Sequence[str]] = ...,
+                 equivalence_test: Optional[Callable[[Any, Any], bool]] = fields_match_test(...)):
         """An accuracy metric with several options for equivalence.
 
         Parameters
@@ -105,8 +123,9 @@ class Accuracy(Metric):
         boundary_fuzz: int
             How different the target label boundaries can be from the tested boundaries before it
             doesn't count as a match.
-        fields: Sequence[str]
-            The field names to compare for equivalency.
+        equivalence_test: callable
+            A function which takes two argument labels, and returns true if the labels are
+            equivalent for the purpose of the test.
         """
         self.correct = 0
         self.total = 0
@@ -114,7 +133,10 @@ class Accuracy(Metric):
         self.mode = mode
         self.print_debug = print_debug
         self.boundary_fuzz = boundary_fuzz
-        self.fields = fields
+        if fields is ...:
+            self.equivalence_test = equivalence_test
+        else:
+            self.equivalence_test = fields_match_test(fields)
 
     @property
     def value(self) -> float:
@@ -133,18 +155,13 @@ class Accuracy(Metric):
             )
         return index
 
-    def fields_match(self, tested_label: Label, target_label: Label) -> bool:
-        fields = self.fields if self.fields is not ... else target_label.fields.keys() - {
-            'start_index', 'end_index'}
-        return all(getattr(tested_label, field) == getattr(target_label, field) for field in fields)
-
     def has_match(self, candidates: LabelIndex, target_label: Label) -> bool:
         if self.mode == 'equals':
-            return len(candidates) == 1 and self.fields_match(candidates[0], target_label)
+            return len(candidates) == 1 and self.equivalence_test(candidates[0], target_label)
         elif self.mode == 'location':
             return len(candidates) > 0
         elif self.mode == 'any':
-            return any(self.fields_match(candidate, target_label) for candidate in candidates)
+            return any(self.equivalence_test(candidate, target_label) for candidate in candidates)
 
     def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
         correct = 0

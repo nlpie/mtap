@@ -75,7 +75,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
     try {
       parser.parseArgument(args);
       WordOccurrencesExampleProcessor processor = new WordOccurrencesExampleProcessor(options.word);
-      Server server = ProcessorServerBuilder.forProcessor(processor, options).build();
+      Server server = options.build(processor);
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
@@ -83,7 +83,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
     } catch (InterruptedException e) {
       System.err.println("Server interrupted.");
     } catch (CmdLineException e) {
-      ProcessorServerOptions.printHelp(parser, WordOccurrencesExampleProcessor.class, e, null);
+      ProcessorServer.Builder.printHelp(parser, WordOccurrencesExampleProcessor.class, e, null);
     }
   }
 
@@ -121,7 +121,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
     result.setProperty("answer", 42);
   }
 
-  public static class Options extends ProcessorServerOptions {
+  public static class Options extends ProcessorServer.Builder {
     @Option(name = "--word",
         aliases = {
             "--word"

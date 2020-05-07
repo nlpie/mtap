@@ -269,8 +269,8 @@ class EventsClientTest {
     doAnswer((Answer<Void>) invocation -> {
       StreamObserver<GetLabelIndicesInfoResponse> observer = invocation.getArgument(1);
       GetLabelIndicesInfoResponse.Builder builder = GetLabelIndicesInfoResponse.newBuilder();
-      builder.addLabelIndexInfosBuilder().setIndexName("foo").setType(LabelIndexType.JSON).build();
-      builder.addLabelIndexInfosBuilder().setIndexName("bar").setType(LabelIndexType.OTHER).build();
+      builder.addLabelIndexInfosBuilder().setIndexName("foo").setType(LabelIndexType.GENERIC).build();
+      builder.addLabelIndexInfosBuilder().setIndexName("bar").setType(LabelIndexType.CUSTOM).build();
       builder.addLabelIndexInfosBuilder().setIndexName("baz").setType(LabelIndexType.UNKNOWN)
           .build();
       observer.onNext(builder.build());
@@ -283,8 +283,8 @@ class EventsClientTest {
         .forClass(GetLabelIndicesInfoRequest.class);
     verify(eventsService).getLabelIndicesInfo(captor.capture(), any());
     assertEquals(3, infos.size());
-    assertEquals(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.JSON), infos.get(0));
-    assertEquals(new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.OTHER), infos.get(1));
+    assertEquals(new LabelIndexInfo("foo", LabelIndexInfo.LabelIndexType.GENERIC), infos.get(0));
+    assertEquals(new LabelIndexInfo("bar", LabelIndexInfo.LabelIndexType.CUSTOM), infos.get(1));
     assertEquals(new LabelIndexInfo("baz", LabelIndexInfo.LabelIndexType.UNKNOWN), infos.get(2));
     GetLabelIndicesInfoRequest req = captor.getValue();
     assertEquals("1", req.getEventId());
@@ -321,9 +321,9 @@ class EventsClientTest {
       observer.onCompleted();
       return null;
     }).when(eventsService).getLabels(any(), any());
-    Event event = EventBuilder.newBuilder().withEventID("1").build();
+    Event event = new Event.Builder().eventID("1").build();
     Document document = event.createDocument("plaintext", "");
-    when(adapter.createIndexFromResponse(any(), any()))
+    when(adapter.createIndexFromResponse(any()))
         .thenReturn(new StandardLabelIndex(Collections.singletonList(GenericLabel.createSpan(0, 5))));
     tested.getLabels(document, "index", adapter);
     ArgumentCaptor<GetLabelsRequest> captor = ArgumentCaptor.forClass(GetLabelsRequest.class);
@@ -332,6 +332,6 @@ class EventsClientTest {
     assertEquals("1", request.getEventId());
     assertEquals("plaintext", request.getDocumentName());
     assertEquals("index", request.getIndexName());
-    verify(adapter).createIndexFromResponse(any(), eq(document));
+    verify(adapter).createIndexFromResponse(any());
   }
 }

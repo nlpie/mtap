@@ -44,7 +44,7 @@ public abstract class DocumentProcessor extends EventProcessor {
   @Override
   public final void process(@NotNull Event event,
                             @NotNull JsonObject params,
-                            @NotNull JsonObjectBuilder result) {
+                            @NotNull JsonObjectBuilder<?, ?> result) {
     String documentName = params.getStringValue("document_name");
     Document document = event.getDocuments().get(documentName);
     process(document, params, result);
@@ -59,6 +59,6 @@ public abstract class DocumentProcessor extends EventProcessor {
   protected abstract void process(
       @NotNull Document document,
       @NotNull JsonObject params,
-      @NotNull JsonObjectBuilder result
+      @NotNull JsonObjectBuilder<?, ?> result
   );
 }

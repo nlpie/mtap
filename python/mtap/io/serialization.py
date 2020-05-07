@@ -22,13 +22,11 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Dict, Any, Optional, Callable
+from typing import Union, Dict, Any, Optional
 
-from mtap.events import Event, Document, LabelIndexType, EventsClient
-from mtap.label_indices import LabelIndex, label_index
-from mtap.labels import GenericLabel
+from mtap.events import Event, Document, EventsClient, GenericLabelAdapter
 from mtap.processing import EventProcessor, processor
-from mtap.processing.base import Stopwatch, Processor
+from mtap.processing.base import Processor
 from mtap.processing.descriptions import parameter
 
 logger = logging.getLogger(__name__)
@@ -77,39 +75,14 @@ def document_to_dict(document: Document, *, include_label_text: bool = False) ->
         'label_indices': {}
     }
 
-    for index_info in document.get_label_indices_info():
-        if index_info.type == LabelIndexType.OTHER or index_info.type == LabelIndexType.UNKNOWN:
-            logger.warning(
-                'Index {} of type {} will not be included in serialization.'.format(
-                    index_info.index_name, index_info.type.name
-                )
-            )
-            continue
-        d['label_indices'][index_info.index_name] = label_index_to_dict(
-            document.get_label_index(index_info.index_name),
+    for index_name, index in document.labels.items():
+        adapter = index.adapter
+        if adapter is None:
+            adapter = GenericLabelAdapter
+        d['label_indices'][index_name] = adapter.pack(
+            index,
             include_label_text=include_label_text
         )
-    return d
-
-
-def label_index_to_dict(label_index: LabelIndex[GenericLabel],
-                        *, include_label_text: bool = False) -> Dict:
-    """A helper method that turns a label index into a python dictionary.
-
-    Args:
-        label_index (LabelIndex[GenericLabel]): The label index itself.
-
-    Keyword Args:
-        include_label_text (bool): Whether to include the text labels cover with the labels.
-
-    Returns:
-        dict: A dictionary representing the label index.
-    """
-    d = {
-        'json_labels': [dict(label.fields, _text=label.text) if include_label_text else label.fields
-                        for label in label_index],
-        'distinct': label_index.distinct
-    }
     return d
 
 
@@ -147,23 +120,11 @@ def dict_to_document(document_name: str, d: Dict, *, event: Optional[Event] = No
     if event is not None:
         event.add_document(document)
     for k, v in d['label_indices'].items():
-        index = dict_to_label_index(d=v)
+        adapter = document.get_default_adapter(k)
+        index = adapter.unpack(v, k, document=document)
         document.add_labels(k, index, distinct=index.distinct)
 
     return document
-
-
-def dict_to_label_index(d: Dict) -> LabelIndex:
-    """Turns a serialized dictionary into a label index.
-
-    Args:
-        d (dict): The dictionary representation of the label index.
-
-    Returns:
-        LabelIndex: The deserialized label index.
-    """
-    return label_index([GenericLabel(**{k: v for k, v in x.items() if not k.startswith('_')})
-                        for x in d['json_labels']], distinct=d['distinct'])
 
 
 class Serializer(ABC):

@@ -17,7 +17,6 @@
 package edu.umn.nlpie.mtap.model;
 
 import edu.umn.nlpie.mtap.Internal;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
@@ -25,9 +24,10 @@ import java.util.Objects;
 @Internal
 final class Span implements Label {
 
-  private final @Nullable Document document;
   private final int startIndex;
   private final int endIndex;
+
+  private @Nullable Document document;
 
   private Span(@Nullable Document document, int startIndex, int endIndex) {
     this.document = document;
@@ -46,6 +46,31 @@ final class Span implements Label {
   @Override
   public @Nullable Document getDocument() {
     return document;
+  }
+
+  @Override
+  public void setDocument(@Nullable Document document) {
+    this.document = document;
+  }
+
+  @Override
+  public @Nullable String getLabelIndexName() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setLabelIndexName(@Nullable String labelIndexName) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public @Nullable Integer getIdentifier() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setIdentifier(@Nullable Integer identifier) {
+    throw new UnsupportedOperationException();
   }
 
   @Override

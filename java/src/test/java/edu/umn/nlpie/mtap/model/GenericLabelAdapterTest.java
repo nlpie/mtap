@@ -16,15 +16,17 @@
 
 package edu.umn.nlpie.mtap.model;
 
-import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
+import edu.umn.nlpie.mtap.api.v1.EventsOuterClass;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.AddLabelsRequest;
+import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.GenericLabels;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.GetLabelsResponse;
-import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.JsonLabels;
+import edu.umn.nlpie.mtap.common.JsonObjectImpl;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,18 +34,18 @@ class GenericLabelAdapterTest {
   @Test
   void createIndexFromResponse() {
     GetLabelsResponse response = GetLabelsResponse.newBuilder()
-        .setJsonLabels(
-            JsonLabels.newBuilder()
+        .setGenericLabels(
+            GenericLabels.newBuilder()
                 .addLabels(
-                    Struct.newBuilder()
-                        .putFields("start_index", Value.newBuilder().setNumberValue(0).build())
-                        .putFields("end_index", Value.newBuilder().setNumberValue(10).build())
+                    EventsOuterClass.GenericLabel.newBuilder()
+                        .setStartIndex(0)
+                        .setEndIndex(10)
                         .build()
                 )
                 .addLabels(
-                    Struct.newBuilder()
-                        .putFields("start_index", Value.newBuilder().setNumberValue(10).build())
-                        .putFields("end_index", Value.newBuilder().setNumberValue(20).build())
+                    EventsOuterClass.GenericLabel.newBuilder()
+                        .setStartIndex(10)
+                        .setEndIndex(20)
                         .build()
                 )
                 .setIsDistinct(true)
@@ -51,7 +53,7 @@ class GenericLabelAdapterTest {
         )
         .build();
 
-    LabelIndex<GenericLabel> index = GenericLabelAdapter.NOT_DISTINCT_ADAPTER.createIndexFromResponse(response, null);
+    LabelIndex<GenericLabel> index = GenericLabelAdapter.NOT_DISTINCT_ADAPTER.createIndexFromResponse(response);
     assertEquals(Arrays.asList(GenericLabel.withSpan(0, 10).build(),
         GenericLabel.withSpan(10, 20).build()), index.asList());
     assertTrue(index.isDistinct());
@@ -75,14 +77,19 @@ class GenericLabelAdapterTest {
   @Test
   void addToMessage() {
     AddLabelsRequest.Builder builder = AddLabelsRequest.newBuilder();
-    GenericLabelAdapter.NOT_DISTINCT_ADAPTER.addToMessage(Arrays.asList(GenericLabel.withSpan(0, 10).build(),
-        GenericLabel.withSpan(10, 20).build()), builder);
+    List<@NotNull GenericLabel> labels = Arrays.asList(GenericLabel.withSpan(0, 10).build(),
+        GenericLabel.withSpan(10, 20).build());
+    int i = 0;
+    for (GenericLabel label : labels) {
+      label.setIdentifier(i++);
+    }
+    GenericLabelAdapter.NOT_DISTINCT_ADAPTER.addToMessage(labels, builder);
     AddLabelsRequest request = builder.build();
-    JsonLabels jsonLabels = request.getJsonLabels();
+    GenericLabels jsonLabels = request.getGenericLabels();
     assertFalse(jsonLabels.getIsDistinct());
     assertEquals(2, jsonLabels.getLabelsCount());
-    assertEquals(10, jsonLabels.getLabels(0).getFieldsOrThrow("end_index").getNumberValue());
-    assertEquals(20, jsonLabels.getLabels(1).getFieldsOrThrow("end_index").getNumberValue());
+    assertEquals(10, jsonLabels.getLabels(0).getEndIndex());
+    assertEquals(20, jsonLabels.getLabels(1).getEndIndex());
   }
 
   @Test

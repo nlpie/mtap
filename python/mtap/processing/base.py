@@ -15,11 +15,10 @@
 import contextlib
 import threading
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from datetime import timedelta, datetime
-from typing import List, ContextManager, Any, Dict, NamedTuple, Optional
+from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping
 
-from mtap.events import Event, Document
+from mtap.events import Event, Document, ProtoLabelAdapter
 
 __all__ = [
     'ProcessorContext',
@@ -131,6 +130,15 @@ class Processor:
         if self._health_callback is not None:
             self._health_callback(status)
 
+    @property
+    def custom_label_adapters(self) -> Mapping[str, ProtoLabelAdapter]:
+        """Used to provide non-standard proto label adapters for specific index names.
+
+        Returns:
+
+        """
+        return {}
+
     @staticmethod
     def current_context() -> Optional[ProcessorContext]:
         return getattr(processor_local, 'context', None)
@@ -224,6 +232,17 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
                 returned to the caller, even remotely.
         """
         ...
+
+    def default_adapters(self) -> Optional[Mapping[str, ProtoLabelAdapter]]:
+        """Can be overridden to return a mapping from label index names to adapters that will then
+        be used in any documents or events provided to this processor's process methods.
+
+        Returns:
+            Mapping[str, ProtoLabelAdapter]: The mapping (dict-like) of label index names to
+            ProtoLabelAdapters to be used for those indices.
+
+        """
+        pass
 
     def close(self):
         """Can be overridden for cleaning up anything that needs to be cleaned up. Will be called

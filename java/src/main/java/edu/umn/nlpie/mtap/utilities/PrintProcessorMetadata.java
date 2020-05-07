@@ -55,7 +55,7 @@ public class PrintProcessorMetadata {
   public static void dump(Path filePath, Class... processorClasses) throws IOException {
     List<Map<String, Object>> lists = new ArrayList<>();
     for (Class processorClass : processorClasses) {
-      lists.add(EventProcessor.metadataMap(processorClass));
+      lists.add(ProcessorBase.metadataMap(processorClass));
     }
     Yaml yaml = new Yaml();
     try (

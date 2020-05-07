@@ -15,13 +15,16 @@
  */
 package edu.umn.nlpie.mtap.model;
 
-import com.google.protobuf.Struct;
 import edu.umn.nlpie.mtap.Internal;
+import edu.umn.nlpie.mtap.api.v1.EventsOuterClass;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static edu.umn.nlpie.mtap.api.v1.EventsOuterClass.*;
 
@@ -52,15 +55,21 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   }
 
   @Override
-  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response, @Nullable Document document) {
-    JsonLabels jsonLabels = response.getJsonLabels();
-    boolean isDistinct = jsonLabels.getIsDistinct();
+  public @NotNull LabelIndex<GenericLabel> createIndexFromResponse(@NotNull GetLabelsResponse response) {
+    GenericLabels genericLabels = response.getGenericLabels();
+    boolean isDistinct = genericLabels.getIsDistinct();
 
     List<GenericLabel> labels = new ArrayList<>();
-    for (Struct struct : jsonLabels.getLabelsList()) {
-      JsonObjectImpl.Builder builder = new JsonObjectImpl.Builder();
-      builder.copyStruct(struct);
-      labels.add(new GenericLabel(builder.build(), document));
+    for (EventsOuterClass.GenericLabel genericLabel : genericLabels.getLabelsList()) {
+      JsonObjectImpl.Builder fieldsBuilder = new JsonObjectImpl.Builder();
+      fieldsBuilder.copyStruct(genericLabel.getFields());
+      JsonObjectImpl.Builder referenceFieldIdsBuilder = new JsonObjectImpl.Builder();
+      referenceFieldIdsBuilder.copyStruct(genericLabel.getReferenceIds());
+      GenericLabel label = new GenericLabel(fieldsBuilder.build(), new HashMap<>(),
+          referenceFieldIdsBuilder.build(),
+          genericLabel.getStartIndex(), genericLabel.getEndIndex());
+      label.setIdentifier(genericLabel.getIdentifier());
+      labels.add(label);
     }
 
     return isDistinct ? new DistinctLabelIndex<>(labels) : new StandardLabelIndex<>(labels);
@@ -78,10 +87,65 @@ final class GenericLabelAdapter implements ProtoLabelAdapter<GenericLabel> {
   @Override
   public void addToMessage(@NotNull List<@NotNull GenericLabel> labels,
                            @NotNull AddLabelsRequest.Builder builder) {
-    JsonLabels.Builder jsonLabelsBuilder = builder.getJsonLabelsBuilder();
-    jsonLabelsBuilder.setIsDistinct(isDistinct);
+    GenericLabels.Builder genericLabelsBuilder = builder.getGenericLabelsBuilder();
+    genericLabelsBuilder.setIsDistinct(isDistinct);
+    storeReferences(labels);
     for (GenericLabel label : labels) {
-      label.copyToStruct(jsonLabelsBuilder.addLabelsBuilder());
+      EventsOuterClass.GenericLabel.Builder genericLabelBuilder = genericLabelsBuilder.addLabelsBuilder();
+      label.copyToStruct(genericLabelBuilder.getFieldsBuilder());
+      assert label.getReferenceFieldIds() != null;
+      label.getReferenceFieldIds().copyToStruct(genericLabelBuilder.getReferenceIdsBuilder());
+      genericLabelBuilder.setStartIndex(label.getStartIndex());
+      genericLabelBuilder.setEndIndex(label.getEndIndex());
+      Integer identifier = label.getIdentifier();
+      if (identifier == null) {
+        throw new IllegalArgumentException("Labels are not static, but they do not have identifiers.");
+      }
+      genericLabelBuilder.setIdentifier(identifier);
     }
+  }
+
+  private void storeReferences(@NotNull List<@NotNull GenericLabel> labels) {
+    for (GenericLabel label : labels) {
+      JsonObjectImpl.Builder builder = JsonObjectImpl.newBuilder();
+      for (Map.Entry<String, Object> entry : label.getReferenceCache().entrySet()) {
+        Object o = convertToReference(entry.getValue());
+        builder.setProperty(entry.getKey(), o);
+      }
+      JsonObjectImpl jsonObject = builder.build();
+      label.setReferenceFieldIds(jsonObject);
+    }
+  }
+
+  public static @Nullable Object convertToReference(@Nullable Object ref) {
+    if (ref == null) {
+      return null;
+    }
+    if (ref instanceof Label) {
+      Label label = (Label) ref;
+      return String.format("%s:%s", label.getLabelIndexName(), label.getIdentifier());
+    }
+    if (ref instanceof Map) {
+      Map<?, ?> map = (Map<?, ?>) ref;
+      JsonObjectImpl.Builder child = JsonObjectImpl.newBuilder();
+      for (Map.Entry<?, ?> entry : map.entrySet()) {
+        Object childKey = entry.getKey();
+        if (!(childKey instanceof String)) {
+          throw new IllegalArgumentException("Reference maps must only contain string keys.");
+        }
+        Object o = convertToReference(entry.getValue());
+        child.put(((String) childKey), o);
+      }
+      return child.build();
+    }
+    if (ref instanceof List) {
+      ArrayList<Object> copy = new ArrayList<>();
+      for (Object o : (List<?>) ref) {
+        Object o2 = convertToReference(o);
+        copy.add(o2);
+      }
+      return copy;
+    }
+    throw new IllegalArgumentException("Reference unsupported type: " + ref.getClass());
   }
 }

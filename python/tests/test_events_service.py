@@ -528,16 +528,17 @@ def test_GetLabelIndicesInfo(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
-    s = request.json_labels.labels.add()
-    s['start_index'] = 15
-    s['end_index'] = 20
-    s['some_other_field'] = 'blah'
-    events_server.invoke_unary_unary(
+    s = request.generic_labels.labels.add()
+    s.start_index = 15
+    s.end_index = 20
+    s.fields['some_other_field'] = 'blah'
+    _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
         {},
         request,
         None
-    )
+    ).termination()
+    assert status_code == grpc.StatusCode.OK
     request = events_pb2.GetLabelIndicesInfoRequest(event_id='1', document_name='plaintext')
     res, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabelIndicesInfo'],
@@ -548,17 +549,17 @@ def test_GetLabelIndicesInfo(events_server):
     assert status_code == grpc.StatusCode.OK
     assert len(res.label_index_infos) == 1
     assert res.label_index_infos[0].index_name == 'labels'
-    assert res.label_index_infos[0].type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.JSON
+    assert res.label_index_infos[0].type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC
 
 
 def test_AddLabels_bad_event(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
-    label = request.json_labels.labels.add()
-    label['start_index'] = 15
-    label['end_index'] = 20
-    label['some_other_field'] = 'blah'
+    label = request.generic_labels.labels.add()
+    label.start_index = 15
+    label.end_index = 20
+    label.fields['some_other_field'] = 'blah'
 
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
@@ -579,10 +580,10 @@ def test_AddLabels_bad_document(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
-    label = request.json_labels.labels.add()
-    label['start_index'] = 15
-    label['end_index'] = 20
-    label['some_other_field'] = 'blah'
+    label = request.generic_labels.labels.add()
+    label.start_index = 15
+    label.end_index = 20
+    label.fields['some_other_field'] = 'blah'
 
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
@@ -611,10 +612,10 @@ def test_AddLabels_bad_index_name(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='')
-    label = request.json_labels.labels.add()
-    label['start_index'] = 15
-    label['end_index'] = 20
-    label['some_other_field'] = 'blah'
+    label = request.generic_labels.labels.add()
+    label.start_index = 15
+    label.end_index = 20
+    label.fields['some_other_field'] = 'blah'
 
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
@@ -643,10 +644,10 @@ def test_AddLabels(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
-    s = request.json_labels.labels.add()
-    s['start_index'] = 15
-    s['end_index'] = 20
-    s['some_other_field'] = 'blah'
+    s = request.generic_labels.labels.add()
+    s.start_index = 15
+    s.end_index = 20
+    s.fields['some_other_field'] = 'blah'
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
         {},
@@ -766,7 +767,7 @@ def test_GetLabels_no_labels(events_server):
         req,
         None
     ).termination()
-    assert len(res.json_labels.labels) == 0
+    assert len(res.generic_labels.labels) == 0
 
 
 def test_GetLabels(events_server):
@@ -787,10 +788,10 @@ def test_GetLabels(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
-    s = request.json_labels.labels.add()
-    s['start_index'] = 15
-    s['end_index'] = 20
-    s['some_other_field'] = 'blah'
+    s = request.generic_labels.labels.add()
+    s.start_index = 15
+    s.end_index = 20
+    s.fields['some_other_field'] = 'blah'
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
         {},
@@ -805,8 +806,8 @@ def test_GetLabels(events_server):
         req,
         None
     ).termination()
-    assert len(res.json_labels.labels) == 1
-    label = res.json_labels.labels[0]
-    assert label['start_index'] == 15
-    assert label['end_index'] == 20
-    assert label['some_other_field'] == 'blah'
+    assert len(res.generic_labels.labels) == 1
+    label = res.generic_labels.labels[0]
+    assert label.start_index == 15
+    assert label.end_index == 20
+    assert label.fields['some_other_field'] == 'blah'

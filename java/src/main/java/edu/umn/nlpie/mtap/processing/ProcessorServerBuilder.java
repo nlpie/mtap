@@ -15,241 +15,129 @@
  */
 package edu.umn.nlpie.mtap.processing;
 
-import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.model.EventsClient;
-import edu.umn.nlpie.mtap.model.EventsClientBuilder;
 import edu.umn.nlpie.mtap.common.Config;
-import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import io.grpc.ServerBuilder;
+import io.grpc.services.HealthStatusManager;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Builder for processor servers, performs dependency injection of all the various components
- * needed by the processor server.
+ * @deprecated
  */
 public class ProcessorServerBuilder {
   private final EventProcessor processor;
-  private final ProcessorServerOptions options;
+  private final ProcessorServer.Builder options;
 
-  private Config config = null;
-  private EventsClient eventsClient = null;
-  private DiscoveryMechanism discoveryMechanism = null;
-  private ExecutorService backgroundExecutor = null;
+  private @Nullable Config config = null;
+  private @Nullable EventsClient eventsClient = null;
+  private @Nullable DiscoveryMechanism discoveryMechanism = null;
+  private @Nullable TimingService timingService = null;
+  private @Nullable HealthStatusManager healthStatusManager = null;
 
   public ProcessorServerBuilder(
       @NotNull EventProcessor eventProcessor,
-      @NotNull ProcessorServerOptions options
+      @NotNull ProcessorServer.Builder options
   ) {
     processor = eventProcessor;
     this.options = options;
   }
 
-  /**
-   * Creates a new processor server builder.
-   *
-   * @param processor The event or document processor to host.
-   * @param options   The runtime options for the server.
-   *
-   * @return A new processor server builder.
-   */
   public static @NotNull ProcessorServerBuilder forProcessor(
       @NotNull EventProcessor processor,
-      @NotNull ProcessorServerOptions options
+      @NotNull ProcessorServer.Builder options
   ) {
     return new ProcessorServerBuilder(processor, options);
   }
 
-  /**
-   * Gets the configuration that will be used for the processor server, loading from the location
-   * specified in the options, or the default locations if the configuration has not been
-   * previously set.
-   *
-   * @return A configuration object containing the system configuration.
-   */
-  public @NotNull Config getConfig() {
-    if (config == null) {
-      config = ConfigImpl.loadConfigFromLocationOrDefaults(options.getConfigFile());
-    }
+  public @Nullable Config getConfig() {
     return config;
   }
 
-  /**
-   * Setter for the configuration.
-   *
-   * @param config Configuration object.
-   */
-  public void setConfig(@NotNull Config config) {
+  public void setConfig(@Nullable Config config) {
     this.config = config;
   }
 
-  /**
-   * Fluent interface method for setting the configuration.
-   *
-   * @param config Configuration object.
-   *
-   * @return this builder.
-   */
-  public @NotNull ProcessorServerBuilder withConfig(@NotNull Config config) {
+  public @NotNull ProcessorServerBuilder withConfig(@Nullable Config config) {
     this.config = config;
     return this;
   }
 
-  /**
-   * Returns the event client for interacting with the events service,
-   * if it has not been set one will be created.
-   *
-   * @return Events client object.
-   */
-  public @NotNull EventsClient getEventsClient() {
-    if (eventsClient == null) {
-      eventsClient = EventsClientBuilder.newBuilder()
-          .withAddress(options.getEventsTarget())
-          .withConfig(getConfig())
-          .withDiscoveryMechanism(getDiscoveryMechanism())
-          .build();
-    }
+  public @Nullable EventsClient getEventsClient() {
     return eventsClient;
   }
 
-  /**
-   * Sets the events client that will be used by the framework to retrieve events and documents for
-   * the processor.
-   *
-   * @param eventsClient The events client.
-   */
-  public void setEventsClient(@NotNull EventsClient eventsClient) {
+  public void setEventsClient(@Nullable EventsClient eventsClient) {
     this.eventsClient = eventsClient;
   }
 
-  /**
-   * Sets the events client that will be used by the framework to retrieve events and documents for
-   * the processor.
-   *
-   * @param eventsClient The events client.
-   *
-   * @return this builder.
-   */
-  public @NotNull ProcessorServerBuilder withEventsClient(@NotNull EventsClient eventsClient) {
+  public @NotNull ProcessorServerBuilder withEventsClient(@Nullable EventsClient eventsClient) {
     this.eventsClient = eventsClient;
     return this;
   }
 
-  /**
-   * Gets the discovery mechanism to be used by the framework if needed to register the processor
-   * or discover the events service.
-   *
-   * @return The discovery mechanism object.
-   */
-  public @NotNull DiscoveryMechanism getDiscoveryMechanism() {
-    if (discoveryMechanism == null) {
-      discoveryMechanism = Discovery.getDiscoveryMechanism(getConfig());
-    }
+  public @Nullable DiscoveryMechanism getDiscoveryMechanism() {
     return discoveryMechanism;
   }
 
-  /**
-   * Gets the discovery mechanism to be used by the framework if needed to register the processor
-   * or discover the events service.
-   *
-   * @param discoveryMechanism The discovery mechanism object.
-   */
   public void setDiscoveryMechanism(@NotNull DiscoveryMechanism discoveryMechanism) {
     this.discoveryMechanism = discoveryMechanism;
   }
 
-  /**
-   * Gets the discovery mechanism to be used by the framework if needed to register the processor
-   * or discover the events service.
-   *
-   * @param discoveryMechanism The discovery mechanism object.
-   *
-   * @return this builder.
-   */
   public @NotNull ProcessorServerBuilder withDiscoveryMechanism(
-      @NotNull DiscoveryMechanism discoveryMechanism
+      @Nullable DiscoveryMechanism discoveryMechanism
   ) {
     this.discoveryMechanism = discoveryMechanism;
     return this;
   }
 
-  /**
-   * Gets the command-line processor options passed during creation of this builder.
-   *
-   * @return options object.
-   */
-  public @NotNull ProcessorServerOptions getOptions() {
+  public @NotNull ProcessorServer.Builder getOptions() {
     return options;
   }
 
-  /**
-   * Gets the executor service that will be used for background tasks like timing. If one has not
-   * been created {@link Executors#newSingleThreadExecutor()} will be used.
-   *
-   * @return An executor service for background tasks.
-   */
-  public @NotNull ExecutorService getBackgroundExecutor() {
-    if (backgroundExecutor == null) {
-      backgroundExecutor = Executors.newSingleThreadExecutor();
+  public TimingService getTimingService() {
+    if (timingService == null) {
+      timingService = new DefaultTimingService();
     }
-    return backgroundExecutor;
+    return timingService;
   }
 
-  /**
-   * Sets the executor service that will be used for background tasks like timing.
-   *
-   * @param executorService An executor service for background tasks.
-   */
-  public void setBackgroundExecutor(@NotNull ExecutorService executorService) {
-    this.backgroundExecutor = executorService;
+  public void setTimingService(@Nullable TimingService timingService) {
+    this.timingService = timingService;
   }
 
-  /**
-   * Sets the executor service that will be used for background tasks like timing.
-   *
-   * @param executorService An executor service for background tasks.
-   *
-   * @return this builder.
-   */
-  public @NotNull ProcessorServerBuilder withBackgroundExecutor(
-      @NotNull ExecutorService executorService
-  ) {
-    this.backgroundExecutor = executorService;
+  public @NotNull ProcessorServerBuilder withTimingService(@Nullable TimingService timingService) {
+    this.timingService = timingService;
     return this;
   }
 
-  /**
-   * Builds a processor server that can be used to host the processor on the port specified by
-   * {@link ProcessorServerOptions#getPort()}.
-   *
-   * @return Processor server object.
-   */
+  public @Nullable HealthStatusManager getHealthStatusManager() {
+    return healthStatusManager;
+  }
+
+  public void setHealthStatusManager(@Nullable HealthStatusManager healthStatusManager) {
+    this.healthStatusManager = healthStatusManager;
+  }
+
+  public @NotNull ProcessorServerBuilder withHealthStatusManager(@Nullable HealthStatusManager healthStatusManager) {
+    this.healthStatusManager = healthStatusManager;
+    return this;
+  }
+
   public @NotNull ProcessorServer build() {
-    return build(ServerBuilder.forPort(options.getPort()));
+    return build(null);
   }
 
   /**
    * Builds a processor server that can be used to host the processor using a grpc server builder.
-   * The port specified by {@link ProcessorServerOptions#getPort()} will not be used and instead
+   * The port specified by {@link ProcessorServer.Builder#getPort()} will not be used and instead
    * the one already configured on the {@code serverBuilder} parameter will be used.
    *
    * @param serverBuilder The grpc server builder.
    * @return Processor server object.
    */
-  public @NotNull ProcessorServer build(@NotNull ServerBuilder serverBuilder) {
-    Runner runner = LocalRunner.forProcessor(processor)
-        .withClient(getEventsClient())
-        .withProcessorId(options.getIdentifier())
-        .build();
-    return new ProcessorServer(serverBuilder,
-        runner,
-        options.getUniqueServiceId(),
-        options.getRegister(),
-        getDiscoveryMechanism(),
-        getBackgroundExecutor());
+  public @NotNull ProcessorServer build(@Nullable ServerBuilder<?> serverBuilder) {
+    return options.build(processor);
   }
-
 }

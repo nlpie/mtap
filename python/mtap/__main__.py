@@ -34,7 +34,7 @@ def run_events_server(args):
     with Config() as c:
         if args.mtap_config is not None:
             c.update_from_yaml(args.mtap_config)
-        server = EventsServer(args.address, port=args.port, register=args.register, workers=args.workers)
+        server = EventsServer(args.host, port=args.port, register=args.register, workers=args.workers)
         server.start()
         e = threading.Event()
 
@@ -62,7 +62,7 @@ def main(args=None):
 
     # Documents service sub-command
     events_parser = subparsers.add_parser('events', help='starts a events service')
-    events_parser.add_argument('--address', '-a', default="127.0.0.1", metavar="HOST",
+    events_parser.add_argument('--host', '--address', '-a', default="127.0.0.1", metavar="HOST",
                                help='the address to serve the service on')
     events_parser.add_argument('--port', '-p', type=int, default=0, metavar="PORT",
                                help='the port to serve the service on')

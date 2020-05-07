@@ -41,10 +41,9 @@ def copy_document(event: Event,
     target_document = Document(target_document_name, text=source_document.text)
     event.add_document(target_document)
     if index_names is ...:
-        info = source_document.get_label_indices_info()
-        index_names = [i.index_name for i in info]
+        index_names = list(source_document.labels)
     for index_name in index_names:
-        index = source_document.get_label_index(index_name)
+        index = source_document.labels[index_name]
         target_document.add_labels(index_name, index, distinct=index.distinct)
 
 

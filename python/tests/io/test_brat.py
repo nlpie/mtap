@@ -25,7 +25,7 @@ def test_read_brat_documents():
                                      encoding='utf8'):
         doc = event.documents['the_gold']
         assert doc.document_name == 'the_gold'
-        sentences = doc.get_label_index('brat-Sentence')
+        sentences = doc.labels['brat-Sentence']
         assert sentences == [
             GenericLabel(2, 26),
             GenericLabel(29, 67),
@@ -34,7 +34,7 @@ def test_read_brat_documents():
             GenericLabel(144, 217),
             GenericLabel(223, 269)
         ]
-        unsures = doc.get_label_index('brat-Unsure')
+        unsures = doc.labels['brat-Unsure']
         assert unsures == [
             GenericLabel(2348, 2397)
         ]

@@ -17,7 +17,7 @@
 package edu.umn.nlpie.mtap.utilities;
 
 import edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor;
-import edu.umn.nlpie.mtap.processing.EventProcessor;
+import edu.umn.nlpie.mtap.processing.ProcessorBase;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
 
@@ -34,7 +34,7 @@ class PrintProcessorMetadataTest {
     try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("edu/umn/nlpie/mtap/ExampleMeta.yaml")) {
       Yaml yaml = new Yaml();
       List o = yaml.load(is);
-      Map<String, Object> actual = EventProcessor.metadataMap(WordOccurrencesExampleProcessor.class);
+      Map<String, Object> actual = ProcessorBase.metadataMap(WordOccurrencesExampleProcessor.class);
       assertEquals(o.get(0), actual);
     }
   }

@@ -67,7 +67,7 @@ def run_processor(proc: 'EventProcessor',
         if namespace.mtap_config is not None:
             c.update_from_yaml(namespace.mtap_config)
         server = ProcessorServer(proc=proc,
-                                 address=namespace.address,
+                                 host=namespace.host,
                                  port=namespace.port,
                                  register=namespace.register,
                                  workers=namespace.workers,
@@ -104,7 +104,7 @@ def processor_parser() -> ArgumentParser:
 
     """
     processors_parser = ArgumentParser(add_help=False)
-    processors_parser.add_argument('--address', '-a', default="127.0.0.1", metavar="HOST",
+    processors_parser.add_argument('--host', '--address', '-a', default="127.0.0.1", metavar="HOST",
                                    help='the address to serve the service on')
     processors_parser.add_argument('--port', '-p', type=int, default=0, metavar="PORT",
                                    help='the port to serve the service on')
@@ -237,7 +237,7 @@ class ProcessorServer:
 
     Args:
         proc (EventProcessor): The event processor to host.
-        address (str): The address / hostname / IP to host the server on.
+        host (str): The address / hostname / IP to host the server on.
         port (int): The port to host the server on, or 0 to use a random port.
 
     Keyword Args:
@@ -256,7 +256,7 @@ class ProcessorServer:
 
     def __init__(self,
                  proc: EventProcessor,
-                 address: str,
+                 host: str,
                  port: int = 0,
                  *,
                  register: bool = False,
@@ -265,7 +265,7 @@ class ProcessorServer:
                  workers: Optional[int] = None,
                  params: Optional[Mapping[str, Any]] = None):
         self.pr = proc
-        self.address = address
+        self.host = host
         self._port = port
         self.processor_id = processor_id or proc.metadata['name']
         self.params = params or {}
@@ -276,7 +276,7 @@ class ProcessorServer:
         self._servicer = _ProcessorServicer(
             config=Config(),
             pr=proc,
-            address=address,
+            address=host,
             health_servicer=self._health_servicer,
             register=register,
             processor_id=processor_id,
@@ -288,7 +288,7 @@ class ProcessorServer:
         self._server = grpc.server(thread_pool)
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
-        self._port = self._server.add_insecure_port("{}:{}".format(self.address, self.port))
+        self._port = self._server.add_insecure_port("{}:{}".format(self.host, self.port))
         self._stopped_event = threading.Event()
 
     @property
@@ -303,7 +303,7 @@ class ProcessorServer:
         self._server.start()
         self._servicer.start(self.port)
         logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
-                    self.processor_id, self.address, self.port)
+                    self.processor_id, self.host, self.port)
 
     def stop(self, *, grace: Optional[float] = None):
         """De-registers (if registered with service discovery) the service and immediately stops
@@ -322,7 +322,7 @@ class ProcessorServer:
             threading.Event: A shutdown event for the server.
         """
         print('Shutting down processor server with id: "{}"  on address: "{}:{}"'.format(
-            self.processor_id, self.address, self.port))
+            self.processor_id, self.host, self.port))
         self._servicer.shutdown()
         shutdown_event = self._server.stop(grace=grace)
         shutdown_event.wait()

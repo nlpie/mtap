@@ -16,74 +16,52 @@
 
 package edu.umn.nlpie.mtap.processing;
 
-import com.google.protobuf.Struct;
-import com.google.protobuf.util.Durations;
-import com.google.rpc.DebugInfo;
 import edu.umn.nlpie.mtap.MTAP;
-import edu.umn.nlpie.mtap.api.v1.Processing;
-import edu.umn.nlpie.mtap.api.v1.Processing.GetInfoResponse;
-import edu.umn.nlpie.mtap.api.v1.Processing.TimerStats;
-import edu.umn.nlpie.mtap.api.v1.ProcessorGrpc;
-import edu.umn.nlpie.mtap.common.JsonObjectImpl;
+import edu.umn.nlpie.mtap.common.Config;
+import edu.umn.nlpie.mtap.common.ConfigImpl;
+import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import edu.umn.nlpie.mtap.discovery.ServiceInfo;
-import io.grpc.Metadata;
+import edu.umn.nlpie.mtap.model.EventsClient;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.Status;
-import io.grpc.health.v1.HealthCheckResponse.ServingStatus;
-import io.grpc.protobuf.ProtoUtils;
-import io.grpc.services.HealthStatusManager;
-import io.grpc.stub.StreamObserver;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.InetSocketAddress;
+import java.nio.file.Path;
+
+import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
 
 /**
  * Responsible for running and hosting {@link EventProcessor} and {@link DocumentProcessor} classes.
  *
- * @see ProcessorServerBuilder
+ * @see Builder
  */
 public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
-  private final Map<String, RunningVariance> timesMap = new HashMap<>();
-  private final Runner runner;
-  private final String uniqueServiceId;
-  private final boolean register;
-  private final DiscoveryMechanism discoveryMechanism;
-  private final ExecutorService timingExecutor;
 
-  private HealthStatusManager healthStatusManager;
-  private Server server;
+  private final Server server;
+  private final ProcessorService processorService;
   private boolean running = false;
 
   ProcessorServer(
-      ServerBuilder serverBuilder,
-      Runner runner,
-      String uniqueServiceId,
-      boolean register,
-      DiscoveryMechanism discoveryMechanism,
-      ExecutorService timingExecutor
+      ProcessorService processorService,
+      Server grpcServer
   ) {
-    Servicer servicer = new Servicer();
-    healthStatusManager = new HealthStatusManager();
-    serverBuilder.addService(healthStatusManager.getHealthService());
-    serverBuilder.addService(servicer);
-    server = serverBuilder.build();
-    this.runner = runner;
-    this.uniqueServiceId = uniqueServiceId;
-    this.register = register;
-    this.discoveryMechanism = discoveryMechanism;
-    this.timingExecutor = timingExecutor;
+    this.processorService = processorService;
+    server = grpcServer;
   }
 
   @Override
@@ -94,24 +72,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     running = true;
     server.start();
     int port = server.getPort();
-    String processorId = runner.getProcessorId();
-    healthStatusManager.setStatus(processorId, ServingStatus.SERVING);
-    if (register) {
-      InetAddress localHost = InetAddress.getLocalHost();
-      ServiceInfo serviceInfo = new ServiceInfo(
-          processorId,
-          uniqueServiceId,
-          localHost.getHostAddress(),
-          port,
-          Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
-      );
-      discoveryMechanism.register(serviceInfo);
-    }
-    logger.info("Server for processor_id: {} started on port: {}", processorId, port);
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      System.out.println("Shutting down processor server for processor_id: \"" + processorId + "\" on port: " + port);
-      shutdown();
-    }));
+    processorService.started(port);
+    Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
 
   @Override
@@ -119,21 +81,12 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     if (!running) {
       return;
     }
-    ServiceInfo serviceInfo = new ServiceInfo(
-        runner.getProcessorId(),
-        uniqueServiceId,
-        null,
-        -1,
-        Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
-    );
-    healthStatusManager.setStatus(serviceInfo.getName(), ServingStatus.NOT_SERVING);
-    healthStatusManager.enterTerminalState();
-    if (register) {
-      discoveryMechanism.deregister(serviceInfo);
+    try {
+      processorService.close();
+    } catch (InterruptedException e) {
+      logger.error("Exception closing processor service", e);
     }
-    runner.close();
     server.shutdown();
-    healthStatusManager = null;
     running = false;
   }
 
@@ -156,115 +109,330 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     return server;
   }
 
-  void addTime(String key, long nanos) {
-    timingExecutor.submit(() -> {
-      RunningVariance runningVariance = timesMap.computeIfAbsent(key,
-          unused -> new RunningVariance());
-      runningVariance.addTime(nanos);
-    });
-  }
+  /**
+   * Args4j command-line supported options bean for processor servers.
+   */
+  public static class Builder {
+    @Option(name = "--host", metaVar = "HOST",
+        usage = "Host i.e. IP address or hostname to bind to.")
+    private String host = "127.0.0.1";
 
-  public Map<String, TimerStats> getTimerStats() throws InterruptedException, ExecutionException {
-    Future<Map<String, TimerStats>> future = timingExecutor.submit(
-        () -> timesMap.entrySet().stream()
-            .map(e -> new AbstractMap.SimpleImmutableEntry<>(
-                e.getKey(),
-                e.getValue().createStats())
-            )
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
-    );
-    return future.get();
-  }
+    @Option(name = "-p", aliases = {"--port"}, metaVar = "PORT",
+        usage = "Port to host the processor service on or 0 if it should bind to a random " +
+            "available port.")
+    private int port = 0;
 
-  private class Servicer extends ProcessorGrpc.ProcessorImplBase {
+    @Option(name = "-r", aliases = {"--register"},
+        usage = "Whether to register with service discovery.")
+    private boolean register = false;
 
-    private int processed = 0;
-    private int failures = 0;
+    @Nullable
+    @Option(name = "-e", aliases = {"--events", "--events-address"}, metaVar = "EVENTS_TARGET",
+        usage = "Events service GRPC target.")
+    private String eventsTarget = null;
 
-    @Override
-    public void process(
-        Processing.ProcessRequest request,
-        StreamObserver<Processing.ProcessResponse> responseObserver
-    ) {
-      JsonObjectImpl params = JsonObjectImpl.newBuilder().copyStruct(request.getParams()).build();
+    @Nullable
+    private EventsClient eventsClient = null;
 
-      String eventID = request.getEventId();
-      try {
-        ProcessingResult result = runner.process(eventID, params);
+    @Nullable
+    @Option(name = "-c", aliases = {"--config"}, handler = PathOptionHandler.class,
+        metaVar = "CONFIG_PATH", usage = "A path to a config file to load.")
+    private Path configFile = null;
 
-        Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder()
-            .setResult(result.getResult().copyToStruct(Struct.newBuilder()));
-        for (Map.Entry<String, List<String>> entry : result.getCreatedIndices().entrySet()) {
-          for (String indexName : entry.getValue()) {
-            responseBuilder.addCreatedIndices(Processing.CreatedIndex.newBuilder()
-                .setDocumentName(entry.getKey())
-                .setIndexName(indexName)
-                .build());
-          }
-        }
-        for (Map.Entry<String, Duration> entry : result.getTimes().entrySet()) {
-          long nanos = entry.getValue().toNanos();
-          addTime(entry.getKey(), nanos);
-          responseBuilder.putTimingInfo(entry.getKey(), Durations.fromNanos(nanos));
-        }
-        responseObserver.onNext(responseBuilder.build());
-        responseObserver.onCompleted();
-        processed++;
-      } catch (RuntimeException e) {
-        logger.error("Exception during processing of event '{}'", eventID, e);
-        Metadata trailers = new Metadata();
-        Metadata.Key<DebugInfo> key = ProtoUtils.keyForProto(DebugInfo.getDefaultInstance());
-        DebugInfo.Builder debugInfoBuilder = DebugInfo.newBuilder();
-        for (StackTraceElement stackTraceElement : e.getStackTrace()) {
-          debugInfoBuilder.addStackEntries(stackTraceElement.toString());
-        }
-        trailers.put(key, debugInfoBuilder.build());
-        responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
-            .asRuntimeException(trailers));
-        failures++;
+    @Nullable
+    @Option(name = "-i", aliases = {"--identifier"}, metaVar = "PROCESSOR_ID",
+        usage = "The identifier to register the processor under. If not specified will default " +
+            "to the @Processor annotation name.")
+    private String identifier = null;
+
+    @Nullable
+    @Option(name = "-u", aliases = {"--unique-service-id"}, metaVar = "UNIQUE_SERVICE_ID",
+        usage = "A unique per-instance server id that will be used to register and deregister the processor")
+    private String uniqueServiceId = null;
+
+    /**
+     * Prints a help message.
+     *
+     * @param parser    The CmdLineParser that was used to parse.
+     * @param mainClass The main class this was invoked from.
+     * @param e         Optional: the exception thrown by the parser.
+     * @param output    Optional: An output stream to write the help message to, by default will use
+     *                  {@code System.err}.
+     */
+    public static void printHelp(@NotNull CmdLineParser parser,
+                                 @NotNull Class<?> mainClass,
+                                 @Nullable CmdLineException e,
+                                 @Nullable OutputStream output) {
+      if (output == null) {
+        output = System.err;
       }
+      PrintWriter writer = new PrintWriter(output);
+      if (e != null) {
+        writer.println(e.getMessage());
+      }
+      writer.println("java " + mainClass.getCanonicalName() + " [options...]");
+      writer.flush();
+      parser.printUsage(output);
+      writer.println();
+
+      writer.println("Example: " + mainClass.getCanonicalName() + parser.printExample(ALL));
+      writer.flush();
     }
 
-    @Override
-    public void getInfo(
-        Processing.GetInfoRequest request,
-        StreamObserver<GetInfoResponse> responseObserver
-    ) {
-      Map<String, Object> processorMeta = runner.getProcessorMeta();
-      try {
-        JsonObjectImpl.Builder jsonObjectBuilder = JsonObjectImpl.newBuilder();
-        jsonObjectBuilder.putAll(processorMeta);
-        JsonObjectImpl jsonObject = jsonObjectBuilder.build();
-
-        GetInfoResponse.Builder builder = GetInfoResponse.newBuilder();
-        jsonObject.copyToStruct(builder.getMetadataBuilder());
-        responseObserver.onNext(builder.build());
-        responseObserver.onCompleted();
-      } catch (RuntimeException e) {
-        responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
-            .withCause(e)
-            .asRuntimeException());
-      }
+    /**
+     * @return The host that the server will bind to.
+     */
+    public @NotNull String getHost() {
+      return host;
     }
 
-    @Override
-    public void getStats(
-        Processing.GetStatsRequest request,
-        StreamObserver<Processing.GetStatsResponse> responseObserver
-    ) {
-      try {
-        Processing.GetStatsResponse.Builder builder = Processing.GetStatsResponse.newBuilder()
-            .setProcessed(processed)
-            .setFailures(failures);
-        Map<String, TimerStats> timerStatsMap = getTimerStats();
-        builder.putAllTimingStats(timerStatsMap);
-        responseObserver.onNext(builder.build());
-        responseObserver.onCompleted();
-      } catch (RuntimeException | InterruptedException | ExecutionException e) {
-        responseObserver.onError(Status.INTERNAL.withDescription(e.toString())
-            .withCause(e)
-            .asRuntimeException());
+    /**
+     * @param host The host that the server will bind to.
+     */
+    public void setHost(@NotNull String host) {
+      this.host = host;
+    }
+
+    public @NotNull Builder host(@NotNull String host) {
+      this.host = host;
+      return this;
+    }
+
+    /**
+     * @return The bind port for the server
+     */
+    public int getPort() {
+      return port;
+    }
+
+    /**
+     * @param port The bind port for the server.
+     */
+    public void setPort(int port) {
+      this.port = port;
+    }
+
+    /**
+     * @param port The bind port for the server
+     * @return this builder.
+     */
+    public @NotNull Builder port(int port) {
+      this.port = port;
+      return this;
+    }
+
+    /**
+     * @return Whether the server should register with service discovery.
+     */
+    public boolean getRegister() {
+      return register;
+    }
+
+    /**
+     * @param register Whether the server should register with service discovery.
+     */
+    public void setRegister(boolean register) {
+      this.register = register;
+    }
+
+    /**
+     * @param register Whether the server should register with service discovery.
+     * @return this builder.
+     */
+    public @NotNull Builder register(boolean register) {
+      this.register = register;
+      return this;
+    }
+
+    /**
+     * @return A grpc target for the events service.
+     */
+    public @Nullable String getEventsTarget() {
+      return eventsTarget;
+    }
+
+    /**
+     * @param eventsTarget A grpc target for the events service.
+     */
+    public void setEventsTarget(@Nullable String eventsTarget) {
+      this.eventsTarget = eventsTarget;
+    }
+
+    /**
+     * @param eventsTarget A grpc target for the events service.
+     * @return this builder
+     */
+    public @NotNull Builder eventsTarget(@Nullable String eventsTarget) {
+      this.eventsTarget = eventsTarget;
+      return this;
+    }
+
+    /**
+     * @return A client to use for communication with the events service.
+     */
+    public @Nullable EventsClient getEventsClient() {
+      return eventsClient;
+    }
+
+    /**
+     * @param eventsClient A client to use for communication with the events service.
+     */
+    public void setEventsClient(@Nullable EventsClient eventsClient) {
+      this.eventsClient = eventsClient;
+    }
+
+    /**
+     * @param eventsClient A client to use for communication with the events service.
+     * @return this builder.
+     */
+    public Builder eventsClient(EventsClient eventsClient) {
+      this.eventsClient = eventsClient;
+      return this;
+    }
+
+    /**
+     * @return Override for the location of the configuration file.
+     */
+    public @Nullable Path getConfigFile() {
+      return configFile;
+    }
+
+    /**
+     * @param configFile Override for the location of the configuration file.
+     */
+    public void setConfigFile(@Nullable Path configFile) {
+      this.configFile = configFile;
+    }
+
+    /**
+     * @param configFile Override for the location of the configuration file.
+     * @return this builder
+     */
+    public @NotNull Builder configFile(Path configFile) {
+      this.configFile = configFile;
+      return this;
+    }
+
+    /**
+     * An optional identifier to replace the processor's default identifier for service registration
+     * and discovery.
+     *
+     * @return A dns-complaint (only alphanumeric characters and dashes -) string
+     */
+    public @Nullable String getIdentifier() {
+      return identifier;
+    }
+
+    /**
+     * Sets the optional identifier to replace the processor's default identifier for service
+     * registration and discovery.
+     *
+     * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
+     */
+    public void setIdentifier(@Nullable String identifier) {
+      this.identifier = identifier;
+    }
+
+    /**
+     * Sets the optional identifier to replace the processor's default identifier for service
+     * registration and discovery.
+     *
+     * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
+     * @return this builder.
+     */
+    public @NotNull Builder identifier(@Nullable String identifier) {
+      this.identifier = identifier;
+      return this;
+    }
+
+    /**
+     * Gets a unique, per-instance service identifier used to register and deregister the processor
+     * with service discovery. Note: This identifier is not used to discover the service like
+     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     *
+     * @return String identifier or a random UUID if not set.
+     */
+    public @Nullable String getUniqueServiceId() {
+      return uniqueServiceId;
+    }
+
+    /**
+     * Sets a unique, per-instance service identifier used to register and deregister the processor
+     * with service discovery. Note: This identifier is not used to discover the service like
+     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     *
+     * @param uniqueServiceId A string identifier unique to this service instance.
+     */
+    public void setUniqueServiceId(@NotNull String uniqueServiceId) {
+      this.uniqueServiceId = uniqueServiceId;
+    }
+
+    /**
+     * Sets a unique, per-instance service identifier used to register and deregister the processor
+     * with service discovery. Note: This identifier is not used to discover the service like
+     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     *
+     * @param uniqueServiceId A string identifier unique to this service instance.
+     * @return this builder
+     */
+    public @NotNull Builder uniqueServiceId(@NotNull String uniqueServiceId) {
+      this.uniqueServiceId = uniqueServiceId;
+      return this;
+    }
+
+    /**
+     * Creates a processor server using the options specified in this object.
+     *
+     * @param processor The processor to host.
+     * @return Object which can be used to control a server's lifecycle.
+     */
+    public ProcessorServer build(EventProcessor processor) {
+      Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
+      DiscoveryMechanism discoveryMechanism = null;
+      EventsClient eventsClient = this.eventsClient;
+      ManagedChannel eventsChannel = null;
+      if (eventsClient == null) {
+        ManagedChannelBuilder<?> channelBuilder;
+        if (eventsTarget == null) {
+          discoveryMechanism = Discovery.getDiscoveryMechanism(config);
+          String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
+          channelBuilder = ManagedChannelBuilder.forTarget(target)
+              .nameResolverFactory(discoveryMechanism.getNameResolverFactory());
+        } else {
+          channelBuilder = ManagedChannelBuilder.forTarget(eventsTarget);
+        }
+        eventsChannel = channelBuilder.usePlaintext().build();
+        eventsClient = new EventsClient(eventsChannel);
       }
+      ProcessorRunner runner = new LocalProcessorRunner(eventsChannel, eventsClient, processor);
+      if (register) {
+        discoveryMechanism = discoveryMechanism != null ? discoveryMechanism : Discovery.getDiscoveryMechanism(config);
+      } else {
+        discoveryMechanism = null;
+      }
+      HealthService healthService = new HSMHealthService();
+      ProcessorService processorService = new DefaultProcessorService(
+          runner,
+          new DefaultTimingService(),
+          discoveryMechanism,
+          healthService,
+          identifier,
+          uniqueServiceId
+      );
+      Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
+          .addService(healthService.getService())
+          .addService(processorService).build();
+      return new ProcessorServer(processorService, grpcServer);
+    }
+
+    /**
+     * Alias for {@link #build}
+     *
+     * @param processor The processor to host.
+     * @return A server object that can be used to control the lifecycle of the server.
+     */
+    public ProcessorServer createServer(EventProcessor processor) {
+      return build(processor);
     }
   }
 }

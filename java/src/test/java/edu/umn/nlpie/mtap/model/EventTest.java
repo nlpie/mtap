@@ -33,7 +33,7 @@ class EventTest {
   @BeforeEach
   void setUp() {
     mockClient = mock(EventsClient.class);
-    tested = EventBuilder.newBuilder().withEventID("1").withEventsClient(mockClient).build();
+    tested = new Event.Builder().eventID("1").eventsClient(mockClient).build();
   }
 
   @Test

@@ -21,6 +21,12 @@
             "schema": {
               "$ref": "#/definitions/v1CloseEventResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -52,6 +58,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1OpenEventResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -86,6 +98,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetAllBinaryDataNamesResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -110,6 +128,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetBinaryDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -140,6 +164,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddBinaryDataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -182,6 +212,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetAllDocumentNamesResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -207,6 +243,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetDocumentTextResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -238,6 +280,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddDocumentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -280,6 +328,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetLabelIndicesInfoResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -312,6 +366,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetLabelsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -350,6 +410,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddLabelsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -399,6 +465,12 @@
             "schema": {
               "$ref": "#/definitions/v1GetAllMetadataResponse"
             }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
           }
         },
         "parameters": [
@@ -424,6 +496,12 @@
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1AddMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -474,11 +552,11 @@
       "type": "string",
       "enum": [
         "UNKNOWN",
-        "JSON",
-        "OTHER"
+        "GENERIC",
+        "CUSTOM"
       ],
       "default": "UNKNOWN",
-      "description": " - UNKNOWN: Default, no labels field set or not known.\n - JSON: Has the \"json_labels\" field set.\n - OTHER: Has the \"other_labels\" field set."
+      "description": " - UNKNOWN: Default, no labels field set or not known.\n - GENERIC: Has the \"generic_labels\" field set.\n - CUSTOM: Has the \"custom_labels\" field set."
     },
     "protobufAny": {
       "type": "object",
@@ -502,6 +580,27 @@
       ],
       "default": "NULL_VALUE",
       "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\n The JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     },
     "v1AddBinaryDataRequest": {
       "type": "object",
@@ -563,11 +662,11 @@
           "type": "string",
           "description": "A document-unique identifier for the index to create on the document."
         },
-        "json_labels": {
-          "$ref": "#/definitions/v1JsonLabels",
+        "generic_labels": {
+          "$ref": "#/definitions/v1GenericLabels",
           "description": "JsonLabels, which are a generic JSON object that should have the\nstart_index and end_index fields as well as any other fields that\nthe application requires."
         },
-        "other_labels": {
+        "custom_labels": {
           "$ref": "#/definitions/protobufAny",
           "description": "Experimental, a different type of serialized message, which the Events\nservice will store and return directly to clients."
         },
@@ -615,6 +714,52 @@
         }
       },
       "description": "Response from the service for closing events."
+    },
+    "v1GenericLabel": {
+      "type": "object",
+      "properties": {
+        "identifier": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The unique identifier for the label."
+        },
+        "start_index": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The start offset of the label relative to the document."
+        },
+        "end_index": {
+          "type": "integer",
+          "format": "int64",
+          "description": "The end offset of the label relative to the document."
+        },
+        "fields": {
+          "type": "object",
+          "description": "A structure containing the dynamic primitive fields of the label."
+        },
+        "reference_ids": {
+          "type": "object",
+          "description": "A structure containing the reference fields of the label."
+        }
+      }
+    },
+    "v1GenericLabels": {
+      "type": "object",
+      "properties": {
+        "is_distinct": {
+          "type": "boolean",
+          "format": "boolean",
+          "description": "Whether the label index is distinct, i.e. only consists of non-overlapping,\nnon-empty spans of text."
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1GenericLabel"
+          },
+          "description": "The labels, which are dynamic JSON objects and must contain the number\nfields \"start_index\" and \"end_index\". Any other fields are application-\nspecific and dynamic."
+        }
+      },
+      "description": "A Label Index of dynamic Labels, which are client/processor specified data\nobjects containing information about an area of text."
     },
     "v1GetAllBinaryDataNamesResponse": {
       "type": "object",
@@ -690,34 +835,16 @@
     "v1GetLabelsResponse": {
       "type": "object",
       "properties": {
-        "json_labels": {
-          "$ref": "#/definitions/v1JsonLabels",
-          "description": "If the original were JsonLabels."
+        "generic_labels": {
+          "$ref": "#/definitions/v1GenericLabels",
+          "description": "If the original were GenericLabels."
         },
-        "other_labels": {
+        "custom_labels": {
           "$ref": "#/definitions/protobufAny",
           "description": "If the original were other_labels."
         }
       },
       "description": "The response for retrieving labels from an event and document."
-    },
-    "v1JsonLabels": {
-      "type": "object",
-      "properties": {
-        "is_distinct": {
-          "type": "boolean",
-          "format": "boolean",
-          "description": "Whether the label index is distinct, i.e. only consists of non-overlapping,\nnon-empty spans of text."
-        },
-        "labels": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          },
-          "description": "The labels, which are dynamic JSON objects and must contain the number\nfields \"start_index\" and \"end_index\". Any other fields are application-\nspecific and dynamic."
-        }
-      },
-      "description": "A Label Index of dynamic Labels, which are client/processor specified data\nobjects containing information about an area of text."
     },
     "v1OpenEventRequest": {
       "type": "object",

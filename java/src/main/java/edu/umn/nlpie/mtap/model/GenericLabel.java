@@ -16,12 +16,11 @@
 package edu.umn.nlpie.mtap.model;
 
 import edu.umn.nlpie.mtap.common.AbstractJsonObject;
+import edu.umn.nlpie.mtap.common.JsonObject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A generalized, dynamic label on text which can contain arbitrary key-value items.
@@ -41,7 +40,7 @@ import java.util.Map;
  *     }
  *
  *     public static PosTag create(int startIndex, int endIndex, String tag) {
- *       GenericLabel label = GenericLabel.newBuilder(startIndex, endIndex)
+ *       GenericLabel label = GenericLabel.withSpan(startIndex, endIndex)
  *           .setProperty("tag", tag)
  *           .build();
  *       return new PosTag(label);
@@ -51,48 +50,66 @@ import java.util.Map;
  * </pre>
  */
 public class GenericLabel extends AbstractJsonObject implements Label {
-  /**
-   * Reserved property key for {@link #getStartIndex()}.
-   */
-  public static final String START_INDEX_KEY = "start_index";
-
-  /**
-   * Reserved property key for {@link #getEndIndex()}.
-   */
-  public static final String END_INDEX_KEY = "end_index";
-
   private static final List<String> RESERVED_FIELDS = Arrays.asList(
       "document",
       "location",
-      "text"
+      "text",
+      "identifier",
+      "start_index",
+      "end_index",
+      "label_index_name",
+      "fields",
+      "reference_field_ids",
+      "reference_cache"
   );
 
-  private final @Nullable Document document;
+  private final Map<@NotNull String, Object> referenceCache;
 
-  private GenericLabel(Map<@NotNull String, @Nullable Object> backingMap, @Nullable Document document) {
+
+  private final int startIndex;
+
+  private final int endIndex;
+
+  private @Nullable Document document;
+  private @Nullable String labelIndexName;
+  private @Nullable Integer identifier;
+
+  private @Nullable JsonObject referenceFieldIds;
+
+  private GenericLabel(
+      Map<@NotNull String, @Nullable Object> backingMap,
+      Map<@NotNull String, @NotNull Object> referenceCache,
+      @Nullable JsonObject referenceFieldIds,
+      int startIndex,
+      int endIndex
+  ) {
     super(backingMap);
     for (String key : backingMap.keySet()) {
       if (RESERVED_FIELDS.contains(key)) {
         throw new IllegalStateException("Field key name '" + key + "' is reserved.");
       }
     }
-    this.document = document;
+    this.referenceCache = referenceCache;
+    this.referenceFieldIds = referenceFieldIds;
+    this.startIndex = startIndex;
+    this.endIndex = endIndex;
   }
 
-  /**
-   * Creates a generic label by copying {@code jsonObject}.
-   *
-   * @param abstractJsonObject The json object to copy.
-   * @param document           The document to retrieve text from.
-   */
-  public GenericLabel(@NotNull AbstractJsonObject abstractJsonObject, @Nullable Document document) {
+  GenericLabel(@NotNull AbstractJsonObject abstractJsonObject,
+               Map<@NotNull String, @NotNull Object> referenceCache,
+               @Nullable JsonObject referenceFieldIds,
+               int startIndex,
+               int endIndex) {
     super(abstractJsonObject);
     for (String key : abstractJsonObject.keySet()) {
       if (RESERVED_FIELDS.contains(key)) {
         throw new IllegalStateException("Field key name '" + key + "' is reserved.");
       }
     }
-    this.document = document;
+    this.referenceCache = referenceCache;
+    this.referenceFieldIds = referenceFieldIds;
+    this.startIndex = startIndex;
+    this.endIndex = endIndex;
   }
 
   /**
@@ -143,19 +160,205 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     }
   }
 
-  @Override
-  public @Nullable Document getDocument() {
-    return document;
+  public static Object dereference(Object o, Document document) {
+    if (o == null) {
+      return null;
+    }
+    if (o instanceof String) {
+      String[] split = ((String) o).split(":");
+      String labelIndexName = split[0];
+      int identifier = Integer.parseInt(split[1]);
+      LabelIndex<?> index = document.getLabelIndices().get(labelIndexName);
+      return index.get(identifier);
+    }
+    if (o instanceof Map) {
+      Map<?, ?> map = (Map<?, ?>) o;
+      Map<String, Object> copy = new HashMap<>();
+      for (Entry<?, ?> entry : map.entrySet()) {
+        String key = (String) entry.getKey();
+        copy.put(key, dereference(entry.getValue(), document));
+      }
+      return copy;
+    }
+    if (o instanceof List) {
+      List<?> list = (List<?>) o;
+      List<Object> copy = new ArrayList<>();
+      for (Object ref : list) {
+        copy.add(dereference(ref, document));
+      }
+      return copy;
+    }
+    throw new IllegalArgumentException("Usupported class: " + o.getClass().getCanonicalName());
+  }
+
+  public static void checkReferenceValues(Object value, Deque<Object> parents) {
+    if (value == null || value instanceof Label) {
+      return;
+    }
+    if (value instanceof Map) {
+      checkForReferenceCycle(value, parents);
+      Map<?, ?> map = (Map<?, ?>) value;
+      parents.push(value);
+      for (Entry<?, ?> entry : map.entrySet()) {
+        Object key = entry.getKey();
+        Object val = entry.getValue();
+        if (!(key instanceof String)) {
+          throw new IllegalArgumentException("Nested maps must have keys of String type.");
+        }
+        checkReferenceValues(val, parents);
+      }
+      parents.pop();
+    } else if (value instanceof List) {
+      checkForReferenceCycle(value, parents);
+      List<?> list = (List<?>) value;
+      parents.push(list);
+      for (Object o : list) {
+        checkReferenceValues(o, parents);
+      }
+      parents.pop();
+    } else {
+      throw new IllegalArgumentException("Value type cannot be represented in json: \""
+          + value.getClass().getName() + "\". Valid types are Java primitive objects, " +
+          " lists of objects of valid types, and maps of strings to objects of valid types");
+    }
   }
 
   @Override
   public int getStartIndex() {
-    return getNumberValue(START_INDEX_KEY).intValue();
+    return startIndex;
   }
 
   @Override
   public int getEndIndex() {
-    return getNumberValue(END_INDEX_KEY).intValue();
+    return endIndex;
+  }
+
+  @Nullable
+  @Override
+  public Document getDocument() {
+    return document;
+  }
+
+  public void setDocument(@Nullable Document document) {
+    this.document = document;
+  }
+
+  @Nullable
+  @Override
+  public String getLabelIndexName() {
+    return labelIndexName;
+  }
+
+  public void setLabelIndexName(@Nullable String labelIndexName) {
+    this.labelIndexName = labelIndexName;
+  }
+
+  @Nullable
+  @Override
+  public Integer getIdentifier() {
+    return identifier;
+  }
+
+  public void setIdentifier(@Nullable Integer identifier) {
+    this.identifier = identifier;
+  }
+
+  /**
+   * Gets a field value that references another label.
+   *
+   * @param key The field name/key for the field.
+   * @param <L> The label type.
+   * @return The label that is being referenced.
+   */
+  @SuppressWarnings("unchecked")
+  public <L extends Label> L getLabelValue(String key) {
+    return (L) getReferentialValue(key);
+  }
+
+  /**
+   * Gets a list of label reference values.
+   *
+   * @param key The field name/key for the field.
+   * @param <L> The label type.
+   * @return The label list.
+   */
+  @SuppressWarnings("unchecked")
+  public <L extends Label> List<L> getLabelListValue(String key) {
+    return (List<L>) getReferentialValue(key);
+  }
+
+  /**
+   * Gets a map of label reference values.
+   *
+   * @param key The field name/key for the field.
+   * @param <L> The label type.
+   * @return The label map.
+   */
+  @SuppressWarnings("unchecked")
+  public <L extends Label> Map<String, L> getLabelMapValue(String key) {
+    return (Map<String, L>) getReferentialValue(key);
+  }
+
+  /**
+   * Gets a label reference value, without casting.
+   *
+   * @param key The field name/key for the field.
+   * @return The referential field.
+   */
+  public Object getReferentialValue(String key) {
+    if (referenceCache.containsKey(key)) {
+      return referenceCache.get(key);
+    }
+    if (referenceFieldIds != null && referenceFieldIds.containsKey(key)) {
+      Object refValue = referenceFieldIds.get(key);
+      Object realValue = dereference(refValue, document);
+      referenceCache.put(key, realValue);
+      return realValue;
+    }
+    return null;
+  }
+
+  @Nullable JsonObject getReferenceFieldIds() {
+    return referenceFieldIds;
+  }
+
+  void setReferenceFieldIds(@Nullable JsonObject referenceFieldIds) {
+    this.referenceFieldIds = referenceFieldIds;
+  }
+
+  Map<String, Object> getReferenceCache() {
+    return referenceCache;
+  }
+
+  @Override
+  public void collectFloatingReferences(Set<Integer> referenceIds) {
+    Deque<Object> queue = new ArrayDeque<>(referenceCache.size());
+    for (Object value : referenceCache.values()) {
+      if (value != null) {
+        queue.add(value);
+      }
+    }
+    while (!queue.isEmpty()) {
+      Object o = queue.pop();
+      if (o instanceof Label) {
+        if (((Label) o).getIdentifier() == null) {
+          referenceIds.add(System.identityHashCode(o));
+        }
+      } else if (o instanceof Map) {
+        Map<?, ?> map = (Map<?, ?>) o;
+        for (Object value : map.values()) {
+          if (value != null) {
+            queue.add(value);
+          }
+        }
+      } else if (o instanceof List) {
+        for (Object value : (List<?>) o) {
+          if (value != null) {
+            queue.add(value);
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -163,11 +366,11 @@ public class GenericLabel extends AbstractJsonObject implements Label {
    */
   public static class Builder extends AbstractJsonObject.AbstractBuilder<Builder, GenericLabel> {
 
+    protected final Map<@NotNull String, Object> referenceCache = new HashMap<>();
+
     private final int startIndex;
 
     private final int endIndex;
-
-    private Document document;
 
     /**
      * Default constructor. The {@code startIndex} and {@code endIndex} are required properties
@@ -182,13 +385,29 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     }
 
     /**
-     * Sets the document for the label, for retrieving text.
+     * Sets a reference field, a field on the label which references another label.
      *
-     * @param document The document this label appears on.
-     * @return This builder.
+     * @param fieldName The field name string.
+     * @param object    Either a label, a map of strings to labels, or a list of labels.
+     * @return this builder.
      */
-    public Builder withDocument(Document document) {
-      this.document = document;
+    public Builder setReference(String fieldName, Object object) {
+      checkReferenceValues(object, new LinkedList<>());
+      this.referenceCache.put(fieldName, object);
+      return this;
+    }
+
+    /**
+     * Sets multiple reference fields, fields on the label which reference another label.
+     *
+     * @param references The mapping from strings to reference objects.
+     * @return this builder.
+     */
+    public Builder setReferences(Map<@NotNull String, Object> references) {
+      for (Entry<String, ?> entry : references.entrySet()) {
+        checkReferenceValues(entry.getValue(), new LinkedList<>());
+      }
+      this.referenceCache.putAll(references);
       return this;
     }
 
@@ -201,9 +420,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     @Override
     public GenericLabel build() {
       checkIndexRange(startIndex, endIndex);
-      setProperty(START_INDEX_KEY, startIndex);
-      setProperty(END_INDEX_KEY, endIndex);
-      return new GenericLabel(backingMap, document);
+      return new GenericLabel(backingMap, referenceCache, null, startIndex, endIndex);
     }
   }
 }

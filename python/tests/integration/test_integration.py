@@ -159,18 +159,26 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert text == PHASERS
 
     body = {
-        'json_labels': {
+        'generic_labels': {
             'is_distinct': True,
             'labels': [
                 {
+                    'identifier': 0,
                     'start_index': 4,
                     'end_index': 10,
-                    'foo': 'bar'
+                    'reference_ids': {},
+                    'fields': {
+                        'foo': 'bar'
+                    }
                 },
                 {
+                    'identifier': 1,
                     'start_index': 10,
                     'end_index': 20,
-                    'foo': 'baz'
+                    'reference_ids': {},
+                    'fields': {
+                        'foo': 'baz'
+                    }
                 }
             ]
         }
@@ -182,9 +190,9 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
     assert resp.status_code == 200
     labels = resp.json()
-    json_labels = labels['json_labels']
-    assert json_labels['is_distinct']
-    assert json_labels['labels'] == body['json_labels']['labels']
+    generic_labels = labels['generic_labels']
+    assert generic_labels['is_distinct']
+    assert generic_labels['labels'] == body['generic_labels']['labels']
 
     body = {
         'processor_id': 'mtap-example-processor-python',
@@ -206,19 +214,27 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     )
     assert resp.status_code == 200
     labels = resp.json()
-    json_labels = labels['json_labels']
-    assert json_labels['labels'] == [
+    generic_labels = labels['generic_labels']
+    assert generic_labels['labels'] == [
         {
+            'identifier': 0,
             'start_index': 0,
             'end_index': len(PHASERS),
-            'letter': 'a',
-            'count': 23
+            'reference_ids': None,
+            'fields': {
+                'letter': 'a',
+                'count': 23
+            }
         },
         {
+            'identifier': 1,
             'start_index': 0,
             'end_index': len(PHASERS),
-            'letter': 'b',
-            'count': 6
+            'reference_ids': None,
+            'fields': {
+                'letter': 'b',
+                'count': 6
+            }
         }
     ]
 
@@ -241,11 +257,14 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
         "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
     )
     assert resp.status_code == 200
-    labels = resp.json()['json_labels']['labels']
+    labels = resp.json()['generic_labels']['labels']
     assert labels == [
         {
+            'identifier': 0,
             'start_index': 121,
-            'end_index': 124
+            'end_index': 124,
+            'fields': {},
+            'reference_ids': {}
         }
     ]
 
@@ -256,9 +275,9 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     indices = resp.json()['label_index_infos']
     assert {
                'index_name': 'mtap.examples.letter_counts',
-               'type': 'JSON'
+               'type': 'GENERIC'
            } in indices
     assert {
                'index_name': 'mtap.examples.word_occurrences',
-               'type': 'JSON'
+               'type': 'GENERIC'
            } in indices

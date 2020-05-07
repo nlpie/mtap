@@ -108,7 +108,7 @@ func run() error {
 	}
 	m.PathPrefix("/v1/processors").Handler(server.Dispatcher)
 
-	gwmux := runtime.NewServeMux()
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	eventsLookup := viper.Get("gateway.events")
 	var eventsAddr string
 	if eventsLookup != nil {

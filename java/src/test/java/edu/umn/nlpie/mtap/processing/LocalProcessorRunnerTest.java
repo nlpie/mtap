@@ -29,21 +29,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
-class LocalRunnerTest {
+class LocalProcessorRunnerTest {
 
   private EventProcessor processor;
   private EventsClient events;
-  private LocalRunner runner;
+  private LocalProcessorRunner runner;
 
   @BeforeEach
   void setUp() {
     processor = mock(EventProcessor.class);
     events = mock(EventsClient.class);
-    runner = new LocalRunner(
-        events,
-        processor,
-        "processorName",
-        "processorId"
+    runner = new LocalProcessorRunner(
+        null, events,
+        processor
     );
   }
 
@@ -66,17 +64,7 @@ class LocalRunnerTest {
   }
 
   @Test
-  void getProcessorName() {
-    assertEquals("processorName", runner.getProcessorName());
-  }
-
-  @Test
-  void getProcessorId() {
-    assertEquals("processorId", runner.getProcessorId());
-  }
-
-  @Test
-  void close() {
+  void close() throws InterruptedException {
     runner.close();
 
     verify(processor).shutdown();
