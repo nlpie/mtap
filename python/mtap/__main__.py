@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import signal
-import threading
+
+from time import sleep
 
 from mtap import processor_parser, run_processor
 from mtap._config import Config
@@ -36,15 +36,11 @@ def run_events_server(args):
             c.update_from_yaml(args.mtap_config)
         server = EventsServer(args.host, port=args.port, register=args.register, workers=args.workers)
         server.start()
-        e = threading.Event()
-
-        def handler(sig, frame):
-            print("Shutting down", flush=True)
-            server.stop()
-            e.set()
-
-        signal.signal(signal.SIGINT, handler)
-        e.wait()
+        try:
+            while True:
+                sleep(_ONE_DAY_IN_SECONDS)
+        except KeyboardInterrupt:
+            server.stop(grace=5.0)
 
 
 def run_serializer_processor(args):

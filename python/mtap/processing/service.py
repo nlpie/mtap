@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-import signal
 import threading
 import traceback
 from argparse import Namespace, ArgumentParser
@@ -22,6 +21,7 @@ from typing import Dict, Any, Optional, Sequence, Mapping
 import grpc
 from google.protobuf import empty_pb2
 from grpc_health.v1 import health, health_pb2_grpc
+from time import sleep
 
 from mtap import _structs
 from mtap._config import Config
@@ -31,6 +31,7 @@ from mtap.processing._runners import ProcessorRunner, ProcessingTimesCollector
 from mtap.processing.base import EventProcessor
 
 logger = logging.getLogger(__name__)
+_ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
 def run_processor(proc: 'EventProcessor',
@@ -74,15 +75,11 @@ def run_processor(proc: 'EventProcessor',
                                  processor_id=namespace.identifier,
                                  events_address=namespace.events_address)
         server.start()
-        e = threading.Event()
-
-        def handler(_a, _b):
-            print("Shutting down", flush=True)
-            server.stop()
-            e.set()
-
-        signal.signal(signal.SIGINT, handler)
-        e.wait()
+        try:
+            while True:
+                sleep(_ONE_DAY_IN_SECONDS)
+        except KeyboardInterrupt:
+            server.stop(grace=5.0)
 
 
 def processor_parser() -> ArgumentParser:
