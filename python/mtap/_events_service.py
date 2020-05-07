@@ -34,7 +34,7 @@ class EventsServer:
     """Server which hosts events.
 
     Args:
-        address (str): The address / hostname / IP to host the server on.
+        host (str): The address / hostname / IP to host the server on.
 
     Keyword Args:
         port (int): The port to host the server on.
@@ -42,7 +42,7 @@ class EventsServer:
         workers: The number of workers that should handle requests.
     """
 
-    def __init__(self, address: str, *, port: int, register: bool = False, workers: int = 10):
+    def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10):
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         server = grpc.server(thread_pool)
         servicer = EventsServicer()
@@ -51,9 +51,9 @@ class EventsServer:
         health_servicer.set('', 'SERVING')
         health_servicer.set(constants.EVENTS_SERVICE_NAME, 'SERVING')
         health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
-        self._port = server.add_insecure_port(address + ':' + str(port))
+        self._port = server.add_insecure_port(host + ':' + str(port))
         self._server = server
-        self._address = address
+        self._address = host
         self._config = Config()
         self._register = register
 

@@ -25,7 +25,7 @@ import edu.umn.nlpie.mtap.model.EventsClient;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.nio.file.Path;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
@@ -112,6 +113,10 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
    * Args4j command-line supported options bean for processor servers.
    */
   public static class Builder {
+    @Option(name = "--host", metaVar = "HOST",
+        usage = "Host i.e. IP address or hostname to bind to.")
+    private String host = "127.0.0.1";
+
     @Option(name = "-p", aliases = {"--port"}, metaVar = "PORT",
         usage = "Port to host the processor service on or 0 if it should bind to a random " +
             "available port.")
@@ -172,6 +177,25 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
       writer.println("Example: " + mainClass.getCanonicalName() + parser.printExample(ALL));
       writer.flush();
+    }
+
+    /**
+     * @return The host that the server will bind to.
+     */
+    public @NotNull String getHost() {
+      return host;
+    }
+
+    /**
+     * @param host The host that the server will bind to.
+     */
+    public void setHost(@NotNull String host) {
+      this.host = host;
+    }
+
+    public @NotNull Builder host(@NotNull String host) {
+      this.host = host;
+      return this;
     }
 
     /**
@@ -395,7 +419,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           identifier,
           uniqueServiceId
       );
-      Server grpcServer = ServerBuilder.forPort(port)
+      Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
           .addService(healthService.getService())
           .addService(processorService).build();
       return new ProcessorServer(processorService, grpcServer);

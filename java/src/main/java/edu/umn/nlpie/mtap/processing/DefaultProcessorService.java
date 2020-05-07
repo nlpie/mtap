@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutionException;
 
 @Internal
 public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase implements ProcessorService {
-  private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
+  private static final Logger logger = LoggerFactory.getLogger(DefaultProcessorService.class);
 
   private final @NotNull ProcessorRunner runner;
   private final @NotNull TimingService timingService;
