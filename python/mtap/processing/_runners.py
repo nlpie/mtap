@@ -82,8 +82,7 @@ class ProcessorRunner(ProcessingComponent):
             except Exception as e:
                 self.failure_count += 1
                 logger.error('Processor "%s" failed while processing event with id: %s',
-                             self.component_id, event_id)
-                logger.error(e)
+                             self.component_id, event_id, exc_info=1)
                 raise e
 
     def close(self):
