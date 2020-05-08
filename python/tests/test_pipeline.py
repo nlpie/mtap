@@ -24,6 +24,8 @@ class Processor(EventProcessor):
         self.identifier = identifier
 
     def process(self, event: Event, params: Dict[str, Any]):
+        if 'fail' in event.event_id:
+            raise ValueError("fail")
         time.sleep(0.001)
         event.metadata[self.identifier] = 'True'
 
@@ -39,7 +41,7 @@ def test_time_result():
         assert result.timing_info['process_method'] >= timedelta(seconds=0.001)
 
 
-def test_run_multi(mocker):
+def test_run_concurrently(mocker):
     client = mocker.Mock(EventsClient)
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
@@ -55,3 +57,23 @@ def test_run_multi(mocker):
         results = pipeline.run_multithread(events, progress=False)
         for result in results:
             assert len(result) == 3
+
+
+def test_run_concurrently_with_failure(mocker):
+    client = mocker.Mock(EventsClient)
+    client.get_all_document_names.return_value = ['plaintext']
+    client.get_all_metadata.return_value = {}
+    processor1 = Processor('1')
+    processor2 = Processor('2')
+    processor3 = Processor('3')
+    with Pipeline(
+            LocalProcessor(processor1, component_id='processor1', client=client),
+            LocalProcessor(processor2, component_id='processor2', client=client),
+            LocalProcessor(processor3, component_id='processor3', client=client)
+    ) as pipeline:
+        events = [Event(event_id=str(i), client=client) for i in range(7)] + [Event(event_id='fail_' + str(i), client=client) for i in range(4)]
+        results = pipeline.run_multithread(events, progress=False, max_failures=2)
+        assert len(results) == 7
+        
+
+

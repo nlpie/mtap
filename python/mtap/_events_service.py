@@ -96,8 +96,7 @@ class EventsServer:
             self._deregister()
         except AttributeError:
             pass
-        shutdown_event = self._server.stop(grace=grace)
-        shutdown_event.wait()
+        return self._server.stop(grace=grace)
 
 
 class EventsServicer(events_pb2_grpc.EventsServicer):
