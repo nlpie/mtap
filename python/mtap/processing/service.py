@@ -41,8 +41,6 @@ def run_processor(proc: 'EventProcessor',
 
     Args:
         proc (EventProcessor): The processor to host.
-
-    Keyword Args:
         namespace (~typing.Optional[~argparse.Namespace]): The parsed arguments from the parser
             returned by :func:`processor_parser`.
         args (~typing.Optional[~typing.Sequence[str]]): Arguments to parse server settings from if
@@ -79,7 +77,7 @@ def run_processor(proc: 'EventProcessor',
             while True:
                 sleep(_ONE_DAY_IN_SECONDS)
         except KeyboardInterrupt:
-            server.stop(grace=5.0)
+            server.stop()
 
 
 def processor_parser() -> ArgumentParser:
@@ -302,7 +300,7 @@ class ProcessorServer:
         logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.host, self.port)
 
-    def stop(self, *, grace: Optional[float] = None):
+    def stop(self, *, grace: Optional[float] = None) -> threading.Event:
         """De-registers (if registered with service discovery) the service and immediately stops
         accepting requests, completely stopping the service after a specified `grace` time.
 
@@ -321,5 +319,4 @@ class ProcessorServer:
         print('Shutting down processor server with id: "{}"  on address: "{}:{}"'.format(
             self.processor_id, self.host, self.port))
         self._servicer.shutdown()
-        shutdown_event = self._server.stop(grace=grace)
-        shutdown_event.wait()
+        return self._server.stop(grace=grace)

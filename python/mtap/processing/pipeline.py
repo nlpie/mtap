@@ -13,7 +13,7 @@
 # limitations under the License.
 import logging
 from abc import ABC, abstractmethod
-from concurrent.futures import Future, wait
+from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from threading import Lock, Condition
@@ -24,7 +24,7 @@ from tqdm import tqdm
 from mtap._config import Config
 from mtap.events import Event, Document, EventsClient
 from mtap.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
-    ProcessingComponent
+    ProcessingComponent, ProcessingError
 from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
 
 logger = logging.getLogger(__name__)
@@ -247,16 +247,12 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
 
     def __init__(self, *components: ComponentDescriptor,
                  name: Optional[str] = None,
-                 config: Optional[Config] = None,
-                 n_threads: int = 4,
-                 read_ahead: int = 1):
+                 config: Optional[Config] = None):
         self._config = config or Config()
         self._component_ids = {}
         self.name = name or 'pipeline'
         self._components = [desc.create_pipeline_component(self._config, self._component_ids)
                             for desc in components]
-        self._n_threads = n_threads
-        self._read_ahead = _ReadAhead(n_threads, read_ahead)
 
     @property
     def _times_collector(self):
@@ -266,21 +262,15 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             self.__times_collector = ProcessingTimesCollector()
             return self.__times_collector
 
-    @property
-    def _executor(self):
-        try:
-            return self.__executor
-        except AttributeError:
-            self.__executor = ThreadPoolExecutor(max_workers=self._n_threads)
-            return self.__executor
-
     def run_multithread(self,
                         source: Iterable[Union[Document, Event]], *,
                         params: Optional[Dict[str, Any]] = None,
                         progress: bool = True,
                         total: Optional[int] = None,
                         close_events: bool = True,
-                        max_failures: int = 0) -> List[List[ProcessingResult]]:
+                        max_failures: int = 0,
+                        n_threads: int = 4,
+                        read_ahead: int = 1) -> List[List[ProcessingResult]]:
         """Runs this pipeline on a source which provides multiple documents / events.
 
         Concurrency is per-event, with each event being provided a thread which runs it through the
@@ -303,6 +293,10 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 through all components.
             max_failures (int)
                 The maximum number of failures
+            n_threads (int)
+                The number of threads to process documents on.
+            read_ahead
+                The number of source documents to read ahead into memory before processing.
 
         Returns:
             Future:
@@ -322,40 +316,10 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             >>> pipeline.run_multithread(document_source(), total=len(docs))
 
         """
-        futures = []
-        if progress:
-            source = tqdm(source, total=total, unit=' events', smoothing=0.01)
-        cd = _CountDown()
-        for target in source:
-            cd.increment(max_failures)
-            event, params = _event_and_params(target, params)
-            event_id = event.event_id
-            try:
-                event.lease()
-                self._read_ahead.increment_active_tasks()
-                future = self._executor.submit(self._run_by_event_id, event_id, params)
-                future.add_done_callback(
-                    _cancel_callback(event, self._read_ahead, cd, close_events)
-                )
-            except BaseException as e:
-                # here we failed sometime between taking a new lease and adding the done
-                # callback to the future, meaning the lease will never get freed.
-                event.release_lease()
-                raise e
-            futures.append(future)
-            self._read_ahead.wait_to_read()
-
-        results = []
-        for future in futures:
-            try:
-                result = future.result()
-                results.append(result)
-            except Exception as e:
-                logger.error(e)
-                # we log instead of re-raising here because failure on exception is handled by
-                # max_failures and the cd.increment method.
-        cd.wait()
-        return results
+        with _PipelineMultiRunner(self, source, params, progress, total, close_events, max_failures,
+                                  n_threads, read_ahead) as runner:
+            result = runner.run()
+        return result
 
     def run(self, target: Union[Event, Document], *,
             params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
@@ -386,28 +350,13 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         event, params = _event_and_params(target, params)
         event_id = event.event_id
 
-        results = self._run_by_event_id(event_id, params)
+        results = _run_by_event_id(self, event_id, params)
 
         for result in results:
             try:
                 event.add_created_indices(result.created_indices)
             except AttributeError:
                 pass
-        return results
-
-    def _run_by_event_id(self, event_id, params):
-        start = datetime.now()
-        results = [component.call_process(event_id, params) for component in self._components]
-        total = datetime.now() - start
-        times = {}
-        for (_, component_times, _), component in zip(results, self._components):
-            times.update({component.component_id + ':' + k: v for k, v in component_times.items()})
-        times[self.name + 'total'] = total
-        self._times_collector.add_times(times)
-        results = [ProcessingResult(identifier=component.component_id, results=result[0],
-                                    timing_info=result[1], created_indices=result[2]) for
-                   component, result in zip(self._components, results)]
-        logger.debug('Finished processing event_id: %s', event_id)
         return results
 
     def processor_timer_stats(self) -> List[AggregateTimingInfo]:
@@ -454,10 +403,6 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 component.close()
             except AttributeError:
                 pass
-        try:
-            self.__executor.shutdown(wait=True)
-        except AttributeError:
-            pass
 
     def as_processor(self) -> EventProcessor:
         """Returns the pipeline as a processor.
@@ -500,6 +445,22 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             [repr(component.descriptor) for component in self._components]) + ')'
 
 
+def _run_by_event_id(pipeline, event_id, params):
+    start = datetime.now()
+    results = [component.call_process(event_id, params) for component in pipeline._components]
+    total = datetime.now() - start
+    times = {}
+    for (_, component_times, _), component in zip(results, pipeline._components):
+        times.update({component.component_id + ':' + k: v for k, v in component_times.items()})
+    times[pipeline.name + 'total'] = total
+    pipeline._times_collector.add_times(times)
+    results = [ProcessingResult(identifier=component.component_id, results=result[0],
+                                timing_info=result[1], created_indices=result[2]) for
+               component, result in zip(pipeline._components, results)]
+    logger.debug('Finished processing event_id: %s', event_id)
+    return results
+
+
 class _PipelineProcessor(EventProcessor):
     def __init__(self, components: List[ProcessingComponent]):
         self._components = components
@@ -517,56 +478,102 @@ class _PipelineProcessor(EventProcessor):
         return {'component_results': [result[0] for result in results]}
 
 
-class _ReadAhead:
-    def __init__(self, n_threads, read_ahead):
-        self._active_tasks = 0
-        self._n_threads = n_threads
-        self._cond = Condition(Lock())
-        self._read_ahead = read_ahead
-        self._failures = 0
+class _PipelineMultiRunner:
+    def __init__(self, pipeline, source, params, progress, total, close_events, max_failures,
+                 n_threads, read_ahead):
+        self.pipeline = pipeline
+        self.failures = 0
+        self.max_failures = max_failures
+        self.targets_cond = Condition(Lock())
+        self.active_targets = 0
+        self.close_events = close_events
+        self.max_targets = n_threads + read_ahead
+        self.executor = ThreadPoolExecutor(max_workers=n_threads)
+        self.progress_bar = tqdm(total=total, unit='event', smoothing=0.01) if progress else None
+
+        self.source = source
+        self.params = params
+
+    def max_failures_exceeded(self):
+        return self.failures > self.max_failures
 
     def increment_active_tasks(self):
-        with self._cond:
-            self._active_tasks += 1
+        with self.targets_cond:
+            self.active_targets += 1
 
     def task_completed(self):
-        with self._cond:
-            self._active_tasks -= 1
-            self._cond.notify()
+        with self.targets_cond:
+            if self.progress_bar is not None:
+                self.progress_bar.update(1)
+            self.active_targets -= 1
+            self.targets_cond.notify()
 
-    def _read_ready(self):
-        return self._active_tasks < self._n_threads + self._read_ahead
+    def read_ready(self):
+        return self.active_targets < self.max_targets
 
     def wait_to_read(self):
-        with self._cond:
-            self._cond.wait_for(self._read_ready)
+        with self.targets_cond:
+            self.targets_cond.wait_for(self.read_ready)
 
-    def increment_failures(self):
-        self._failures += 1
+    def process_task(self, event, params):
+        try:
+            return _run_by_event_id(self.pipeline, event.event_id, params)
+        except ProcessingError:
+            self.failures += 1
+            raise
+        finally:
+            self.task_completed()
+            if self.close_events:
+                event.release_lease()
 
+    def run(self):
+        futures = []
+        it = iter(self.source)
+        try:
+            while True:
+                if self.max_failures_exceeded():
+                    break
+                try:
+                    target = next(it)
+                except StopIteration:
+                    break
+                event, params = _event_and_params(target, self.params)
+                try:
+                    event.lease()
+                    self.increment_active_tasks()
+                    future = self.executor.submit(self.process_task, event, params)
+                except BaseException as e:
+                    # here we failed sometime between taking a new lease and adding the done
+                    # callback to the future, meaning the lease will never get freed.
+                    event.release_lease()
+                    raise e
+                futures.append(future)
+                self.wait_to_read()
+        finally:
+            # If it is using a generator as in the code examples close it to force any release
+            # of event objects.
+            if hasattr(it, 'close'):
+                it.close()
 
-class _CountDown:
-    def __init__(self):
-        self._count = 0
-        self._condition = Condition(Lock())
-        self._failures = 0
+        results = []
+        for future in futures:
+            try:
+                result = future.result()
+                results.append(result)
+            except ProcessingError:
+                logger.error('Failure while processing', exc_info=1)
+                # we log instead of re-raising here because failure on exception is handled by
+                # max_failures and the cd.increment method.
+        return results
 
-    def increment(self, max_failures):
-        if self._failures > max_failures:
-            raise ValueError("Max failures {} exceeded".format(max_failures))
-        with self._condition:
-            self._count += 1
+    def __enter__(self):
+        return self
 
-    def count_down(self, failed):
-        with self._condition:
-            if failed:
-                self._failures += 1
-            self._count -= 1
-            self._condition.notify_all()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
-    def wait(self):
-        with self._condition:
-            self._condition.wait_for(lambda: self._count == 0)
+    def close(self):
+        self.executor.shutdown(wait=True)
 
 
 def _unique_component_id(component_ids, component_id):

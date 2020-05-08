@@ -687,7 +687,7 @@ class EventsClient:
             assert response is not None
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.ALREADY_EXISTS:
-                raise ValueError("Event already exists")
+                raise ValueError("Event already exists") from e
 
     def close_event(self, event_id):
         request = events_pb2.CloseEventRequest(event_id=event_id)

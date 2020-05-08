@@ -57,6 +57,11 @@ class ProcessingComponent(ABC):
         ...
 
 
+class ProcessingError(Exception):
+    """Exception for when processing results in a failure."""
+    pass
+
+
 class ProcessorRunner(ProcessingComponent):
     def __init__(self, proc: EventProcessor, client: EventsClient, identifier: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
@@ -83,7 +88,7 @@ class ProcessorRunner(ProcessingComponent):
                 self.failure_count += 1
                 logger.error('Processor "%s" failed while processing event with id: %s',
                              self.component_id, event_id, exc_info=1)
-                raise e
+                raise ProcessingError() from e
 
     def close(self):
         self.processor.close()
@@ -112,35 +117,37 @@ class RemoteRunner(ProcessingComponent):
             p.update(params)
 
         with EventProcessor.enter_context() as context:
-            try:
-                request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
-                                                        event_id=event_id)
-                _structs.copy_dict_to_struct(p, request.params, [p])
-                with Processor.started_stopwatch('remote_call'):
+            request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
+                                                    event_id=event_id)
+            _structs.copy_dict_to_struct(p, request.params, [p])
+            with Processor.started_stopwatch('remote_call'):
+                try:
                     response = self._stub.Process(request)
-                r = {}
-                _structs.copy_struct_to_dict(response.result, r)
+                except grpc.RpcError as e:
+                    if e.code() == grpc.StatusCode.CANCELLED:
+                        logger.error('event_id: %s CANCELLED', event_id)
+                    else:
+                        self.failure_count += 1
+                        logger.error('Processor "%s" failed while processing event with id: %s',
+                                     self.component_id, event_id, exc_info=1)
+                    raise ProcessingError() from e
+            r = {}
+            _structs.copy_struct_to_dict(response.result, r)
 
-                timing_info = response.timing_info
-                for k, v in timing_info.items():
-                    context.add_time(k, v.ToTimedelta())
+            timing_info = response.timing_info
+            for k, v in timing_info.items():
+                context.add_time(k, v.ToTimedelta())
 
-                created_indices = {}
-                for created_index in response.created_indices:
-                    try:
-                        doc_created_indices = created_indices[created_index.document_name]
-                    except KeyError:
-                        doc_created_indices = []
-                        created_indices[created_index.document_name] = doc_created_indices
-                    doc_created_indices.append(created_index.index_name)
+            created_indices = {}
+            for created_index in response.created_indices:
+                try:
+                    doc_created_indices = created_indices[created_index.document_name]
+                except KeyError:
+                    doc_created_indices = []
+                    created_indices[created_index.document_name] = doc_created_indices
+                doc_created_indices.append(created_index.index_name)
 
-                return r, context.times, created_indices
-            except Exception as e:
-                self.failure_count += 1
-                logger.error('Processor "%s" failed while processing event with id: %s',
-                             self.component_id, event_id)
-                logger.error(e)
-                raise e
+            return r, context.times, created_indices
 
     def close(self):
         self._channel.close()
@@ -204,4 +211,4 @@ class ProcessingTimesCollector:
         return future.result()
 
     def close(self):
-        self._executor.shutdown(wait=True)
+        self._executor.shutdown()
