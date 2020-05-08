@@ -74,20 +74,6 @@ def test_run_concurrently_with_failure(mocker):
         events = [Event(event_id=str(i), client=client) for i in range(7)] + [Event(event_id='fail_' + str(i), client=client) for i in range(4)]
         results = pipeline.run_multithread(events, progress=False, max_failures=2)
         assert len(results) == 7
-        opened_counts = {}
-        for open_call in client.open_event.call_args_list:
-            event_id = open_call[0]
-            try:
-                opened_counts[event_id] += 1
-            except KeyError:
-                opened_counts[event_id] = 1
-        closed_counts = {}
-        for close_call in client.close_event.call_args_list:
-            event_id = close_call[0]
-            try:
-                closed_counts[event_id] += 1
-            except KeyError:
-                closed_counts[event_id] = 1
-        assert opened_counts == {k: v + 1 for k, v in closed_counts.items()}
+        
 
 
