@@ -4,10 +4,6 @@
     "title": "mtap/api/v1/processing.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
@@ -18,12 +14,18 @@
     "/v1/processors/{processor_id}/info": {
       "get": {
         "summary": "Gets information about the processor.",
-        "operationId": "GetInfo",
+        "operationId": "Processor_GetInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetInfoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -44,12 +46,18 @@
     "/v1/processors/{processor_id}/process/{event_id}": {
       "post": {
         "summary": "Processes an event.",
-        "operationId": "Process",
+        "operationId": "Processor_Process",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1ProcessResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -85,12 +93,18 @@
     "/v1/processors/{processor_id}/stats": {
       "get": {
         "summary": "Gets globally-aggregated statistics about the processor.",
-        "operationId": "GetStats",
+        "operationId": "Processor_GetStats",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/v1GetStatsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -110,6 +124,18 @@
     }
   },
   "definitions": {
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
     "protobufNullValue": {
       "type": "string",
       "enum": [
@@ -117,6 +143,27 @@
       ],
       "default": "NULL_VALUE",
       "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\n The JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     },
     "v1CreatedIndex": {
       "type": "object",
