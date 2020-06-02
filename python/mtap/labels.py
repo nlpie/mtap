@@ -52,6 +52,56 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
         """
         return self.start_index <= other.start_index and self.end_index >= other.end_index
 
+    def relative_to(self, location: Union['Location', 'Label', int]) -> 'Location':
+        """Creates a location relative to the the same origin as ``location`` and makes it relative
+        to ``location``.
+
+        Args:
+            location (int or Location or Label): A location to relativize this location to.
+
+        Returns:
+            Location
+
+        Examples:
+            >>> sentence = Location(10, 20)
+            >>> token = Location(10, 15)
+            >>> token.relative_to(sentence)
+            Location(start_index=0, end_index=5)
+
+        """
+        try:
+            start_index = location.start_index
+        except AttributeError:
+            start_index = location
+        if not isinstance(start_index, int):
+            raise ValueError('location must be Label, Location, or an int value')
+        return Location(self.start_index - start_index, self.end_index - start_index)
+
+    def offset_by(self, location: Union['Location', 'Label', int]) -> 'Location':
+        """Creates a location by offsetting this location by an integer or the ``start_index`` of a
+        location / label. Derelativizes this location.
+
+        Args:
+            location (int or Location or Label): A location to offset this location by.
+
+        Returns:
+            Location
+
+        Examples:
+            >>> sentence = Location(10, 20)
+            >>> token_in_sentence = Location(0, 5)
+            >>> token_in_sentence.offset_by(sentence)
+            Location(start_index=10, end_index=15)
+
+        """
+        try:
+            start_index = location.start_index
+        except AttributeError:
+            start_index = location
+        if not isinstance(start_index, int):
+            raise ValueError('location must be Label, Location, or an int value')
+        return Location(self.start_index + start_index, self.end_index + start_index)
+
 
 class Label(ABC, metaclass=ABCMeta):
     """An abstract base class for a label of attributes on text.
