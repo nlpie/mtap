@@ -28,3 +28,17 @@ def test_text_from_document():
 def test_label_location():
     l = GenericLabel(0, 10)
     assert l.location == Location(0, 10)
+
+
+def test_location_relative_to():
+    first = Location(10, 20)
+    assert first.relative_to(5) == Location(5, 15)
+    assert first.relative_to(GenericLabel(5, 25)) == Location(5, 15)
+    assert first.relative_to(Location(5, 25)) == Location(5, 15)
+
+
+def test_location_offset_by():
+    first = Location(0, 5)
+    assert first.offset_by(10) == Location(10, 15)
+    assert first.offset_by(Location(10, 25)) == Location(10, 15)
+    assert first.offset_by(GenericLabel(10, 25)) == Location(10, 15)
