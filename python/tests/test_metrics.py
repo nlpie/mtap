@@ -11,10 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from io import StringIO
 
 from mtap import Event
-from mtap.metrics import Accuracy, Metrics, FirstTokenConfusion, \
-    ConfusionMatrix
+from mtap.metrics import Accuracy, Metrics, FirstTokenConfusion, ConfusionMatrix
 
 
 def test_accuracy():
@@ -129,3 +129,45 @@ def test_bin_classification_iadd():
     assert first.true_positives == 5
     assert first.false_positives == 3
     assert first.false_negatives == 6
+
+
+def test_print_debug_fn():
+    event = Event()
+    doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+    with doc.get_labeler('target') as label_target:
+        label_target(16, 19)
+    with doc.get_labeler('tested') as label_tested:
+        label_tested(10, 15)
+
+    string_io = StringIO()
+    metric = FirstTokenConfusion(print_debug='fn', debug_handle=string_io)
+    metric.update(doc, doc.labels['tested'], doc.labels['target'])
+    assert string_io.getvalue() == 'False Negatives\nThe quick brown {fox} jumps over the lazy dog.\n\n'
+
+
+def test_print_debug_fp():
+    event = Event()
+    doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+    with doc.get_labeler('target') as label_target:
+        label_target(16, 19)
+    with doc.get_labeler('tested') as label_tested:
+        label_tested(10, 15)
+
+    string_io = StringIO()
+    metric = FirstTokenConfusion(print_debug='fp', debug_handle=string_io)
+    metric.update(doc, doc.labels['tested'], doc.labels['target'])
+    assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox jumps over the lazy dog.\n\n'
+
+
+def test_print_debug_all():
+    event = Event()
+    doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+    with doc.get_labeler('target') as label_target:
+        label_target(16, 19)
+    with doc.get_labeler('tested') as label_tested:
+        label_tested(10, 15)
+
+    string_io = StringIO()
+    metric = FirstTokenConfusion(print_debug='all', debug_handle=string_io)
+    metric.update(doc, doc.labels['tested'], doc.labels['target'])
+    assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox jumps over the lazy dog.\n\nFalse Negatives\nThe quick brown {fox} jumps over the lazy dog.\n\n'

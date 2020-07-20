@@ -13,7 +13,9 @@
 # limitations under the License.
 """Provides functionality for measuring processor performance against gold standards."""
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable
+from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable, Tuple, TextIO
+
+import sys
 
 from mtap.events import Document
 from mtap.label_indices import LabelIndex
@@ -258,6 +260,12 @@ class FirstTokenConfusion(Metric):
     name (str): An identifying name for the metric.
     tested_filter (~typing.Callable[[Label], bool]): A filter to apply to the tested index.
     target_filter (~typing.Callable[[Label], bool]): A filter to apply to the target index.
+    print_debug (str)
+        An argument to print failing examples. 'fp' prints only false positive
+        errors, 'fn' prints only false negative errors, 'all' prints both false positive and false
+        negative errors
+    debug_range (int): The range before and after the example to print.
+    debug_handle (TextIO): A text io file handle to print the debug information to.
 
     Attributes
     ----------
@@ -268,11 +276,17 @@ class FirstTokenConfusion(Metric):
 
     def __init__(self, name: str = 'first_token_confusion',
                  tested_filter: Callable[[Label], bool] = None,
-                 target_filter: Callable[[Label], bool] = None):
+                 target_filter: Callable[[Label], bool] = None,
+                 print_debug: str = None,
+                 debug_range: int = 30,
+                 debug_handle: TextIO = sys.stdout):
         self.name = name
         self._matrix = ConfusionMatrix()
         self.tested_filter = tested_filter
         self.target_filter = target_filter
+        self.print_debug = print_debug
+        self.debug_range = debug_range
+        self.debug_handle = debug_handle
 
     @property
     def precision(self) -> float:
@@ -293,10 +307,22 @@ class FirstTokenConfusion(Metric):
             target_index = target_index.filter(self.target_filter)
         tested_tokens, _ = _collect_tokens(tested_index, return_insides=False)
         target_tokens, _ = _collect_tokens(target_index, return_insides=False)
+        false_positives = tested_tokens.difference(target_tokens)
+        false_negatives = target_tokens.difference(tested_tokens)
+        if self.print_debug in ('fp', 'all'):
+            self.debug_handle.write('False Positives\n')
+            for false_positive in false_positives:
+                _print_example(document.text, false_positive, self.debug_range, self.debug_handle)
+            self.debug_handle.write('\n')
+        if self.print_debug in ('fn', 'all'):
+            self.debug_handle.write('False Negatives\n')
+            for false_negative in false_negatives:
+                _print_example(document.text, false_negative, self.debug_range, self.debug_handle)
+            self.debug_handle.write('\n')
         local = ConfusionMatrix(
             true_positives=len(tested_tokens.intersection(target_tokens)),
-            false_negatives=len(target_tokens.difference(tested_tokens)),
-            false_positives=len(tested_tokens.difference(target_tokens))
+            false_negatives=len(false_negatives),
+            false_positives=len(false_positives)
         )
         self._matrix += local
         return {
@@ -304,3 +330,15 @@ class FirstTokenConfusion(Metric):
             'recall': local.recall,
             'f1': local.f1
         }
+
+
+def _print_example(text: str,
+                   token: Tuple[int, int],
+                   debug_range: int,
+                   debug_handle: TextIO):
+    start, end = token
+    print_start = max(0, start - debug_range)
+    print_end = min(end + debug_range, len(text))
+    text = text[print_start:start] + '{' + text[start:end] + '}' + text[end:print_end]
+    text = text.replace('\n', ' ') + '\n'
+    debug_handle.write(text)
