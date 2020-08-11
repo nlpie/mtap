@@ -1,0 +1,373 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mtap.processing.descriptions &#8212; MTAP 0.6.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <script src="../../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for mtap.processing.descriptions</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright 2019 Regents of the University of Minnesota.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="sd">&quot;&quot;&quot;Descriptors for processor functionality.&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">typing</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="k">if</span> <span class="n">typing</span><span class="o">.</span><span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">mtap.processing.base</span> <span class="kn">import</span> <span class="n">EventProcessor</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;PropertyDescription&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;label_property&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;LabelDescription&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;label_index&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ParameterDescription&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;parameter&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;processor&#39;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">PropertyDescription</span> <span class="o">=</span> <span class="n">NamedTuple</span><span class="p">(</span><span class="s1">&#39;PropertyDescription&#39;</span><span class="p">,</span>
+                                 <span class="p">[(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span>
+                                  <span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                                  <span class="p">(</span><span class="s1">&#39;data_type&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                                  <span class="p">(</span><span class="s1">&#39;nullable&#39;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)])</span>
+<span class="n">PropertyDescription</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;A description of a property of the labels on a label index.&quot;&quot;&quot;</span>
+<span class="n">PropertyDescription</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;str: The property&#39;s variable name.&quot;&quot;&quot;</span>
+<span class="n">PropertyDescription</span><span class="o">.</span><span class="n">description</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;~typing.Optional[str]: A short description of the </span>
+<span class="s2">property.&quot;&quot;&quot;</span>
+<span class="n">PropertyDescription</span><span class="o">.</span><span class="n">data_type</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;~typing.Optional[str] The data type of the property: str, </span>
+<span class="s2">float, or bool; List[T] or Mapping[T1, T2] of those.&quot;&quot;&quot;</span>
+<span class="n">PropertyDescription</span><span class="o">.</span><span class="n">nullable</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;bool: Whether the property can have a valid value of </span>
+<span class="s2">null.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="label_property"><a class="viewcode-back" href="../../../mtap.html#mtap.label_property">[docs]</a><span class="k">def</span> <span class="nf">label_property</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                   <span class="o">*</span><span class="p">,</span>
+                   <span class="n">nullable</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                   <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">data_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PropertyDescription</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Creates a description for a property on a label.</span>
+
+<span class="sd">    Args: </span>
+<span class="sd">        name (str): The property&#39;s name.</span>
+<span class="sd">        </span>
+<span class="sd">    Keyword Args:</span>
+<span class="sd">        nullable (bool): Whether the property can have a valid value of null.</span>
+<span class="sd">        description (~typing.Optional[str]): A short description of the property.</span>
+<span class="sd">        data_type (~typing.Optional[str]):</span>
+<span class="sd">            The data type of the property: str, float, or bool; List[T] or Mapping[T1, T2] of those.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        PropertyDescription: An object describing a label&#39;s property.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">PropertyDescription</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">data_type</span><span class="p">,</span> <span class="n">nullable</span><span class="p">)</span></div>
+
+
+<span class="n">LabelDescription</span> <span class="o">=</span> <span class="n">NamedTuple</span><span class="p">(</span><span class="s1">&#39;LabelDescription&#39;</span><span class="p">,</span>
+                              <span class="p">[(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span>
+                               <span class="p">(</span><span class="s1">&#39;reference&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                               <span class="p">(</span><span class="s1">&#39;name_from_parameter&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                               <span class="p">(</span><span class="s1">&#39;optional&#39;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">),</span>
+                               <span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                               <span class="p">(</span><span class="s1">&#39;properties&#39;</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">PropertyDescription</span><span class="p">])])</span>
+<span class="n">LabelDescription</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;A description of input or output label index.&quot;&quot;&quot;</span>
+<span class="n">LabelDescription</span><span class="o">.</span><span class="n">name_from_parameter</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;~typing.Optional[str]: If the label index gets </span>
+<span class="s2">its name from a processor parameter, the name of the parameter.&quot;&quot;&quot;</span>
+<span class="n">LabelDescription</span><span class="o">.</span><span class="n">optional</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;bool: Whether this label index is an optional input or </span>
+<span class="s2">output.&quot;&quot;&quot;</span>
+<span class="n">LabelDescription</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;~typing.Optional[str]: The label index name.&quot;&quot;&quot;</span>
+<span class="n">LabelDescription</span><span class="o">.</span><span class="n">description</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;~typing.Optional[str]:  A short description of the label </span>
+<span class="s2">index.&quot;&quot;&quot;</span>
+<span class="n">LabelDescription</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;~typing.Optional[~typing.List[PropertyDescription]]: The </span>
+<span class="s2">properties of the labels in the label index.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="label_index"><a class="viewcode-back" href="../../../mtap.html#mtap.label_index">[docs]</a><span class="k">def</span> <span class="nf">label_index</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                <span class="o">*</span><span class="p">,</span>
+                <span class="n">reference</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">optional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="n">name_from_parameter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="n">properties</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">PropertyDescription</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LabelDescription</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Creates a description for a label type.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): The label index name.</span>
+
+<span class="sd">    Keyword Args:</span>
+<span class="sd">        reference (~typing.Optional[str]):</span>
+<span class="sd">            If this is an output of another processor, that processor&#39;s name followed by a slash</span>
+<span class="sd">            and the default output name of the index go here.</span>
+<span class="sd">            Example: &quot;sentence-detector/sentences&quot;.</span>
+<span class="sd">        optional (bool): Whether this label index is an optional input or output.</span>
+<span class="sd">        name_from_parameter (~typing.Optional[str]):</span>
+<span class="sd">            If the label index gets its name from a processor parameter, the name of the parameter.</span>
+<span class="sd">        description (~typing.Optional[str]): A short description of the label index.</span>
+<span class="sd">        properties (~typing.Optional[~typing.List[PropertyDescription]]):</span>
+<span class="sd">            The properties of the labels in the label index.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        LabelDescription: An object describing a label index.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">LabelDescription</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">reference</span><span class="p">,</span> <span class="n">name_from_parameter</span><span class="p">,</span> <span class="n">optional</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">properties</span><span class="p">)</span></div>
+
+
+<span class="n">ParameterDescription</span> <span class="o">=</span> <span class="n">NamedTuple</span><span class="p">(</span><span class="s1">&#39;ParameterDescription&#39;</span><span class="p">,</span>
+                                  <span class="p">[(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="nb">str</span><span class="p">),</span>
+                                   <span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                                   <span class="p">(</span><span class="s1">&#39;data_type&#39;</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]),</span>
+                                   <span class="p">(</span><span class="s1">&#39;required&#39;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)])</span>
+<span class="n">ParameterDescription</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;A description of a processor parameter.&quot;&quot;&quot;</span>
+<span class="n">ParameterDescription</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;str: The parameter name / key.&quot;&quot;&quot;</span>
+<span class="n">ParameterDescription</span><span class="o">.</span><span class="n">description</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;optional, str: A short description of the property and </span>
+<span class="s2">what it does.&quot;&quot;&quot;</span>
+<span class="n">ParameterDescription</span><span class="o">.</span><span class="n">data_type</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;optional, str:  The data type of the parameter. str, </span>
+<span class="s2">float, or bool; List[T] or Mapping[T1, T2] of those.&quot;&quot;&quot;</span>
+<span class="n">ParameterDescription</span><span class="o">.</span><span class="n">required</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;bool: Whether the parameter is required.&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="parameter"><a class="viewcode-back" href="../../../mtap.html#mtap.parameter">[docs]</a><span class="k">def</span> <span class="nf">parameter</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">required</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+              <span class="n">data_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ParameterDescription</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A description of one of the processor&#39;s parameters.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): The parameter name / key.</span>
+
+<span class="sd">    Keyword Args:</span>
+<span class="sd">        required (bool): Whether the processor parameter is required.</span>
+<span class="sd">        data_type (~typing.Optional[str]):</span>
+<span class="sd">            The data type of the parameter. str, float, or bool; List[T] or Mapping[T1, T2] of</span>
+<span class="sd">            those.</span>
+<span class="sd">        description (~typing.Optional[str]): A short description of the property and what it does.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        ParameterDescription: The parameter description object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">ParameterDescription</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span> <span class="n">data_type</span><span class="o">=</span><span class="n">data_type</span><span class="p">,</span>
+                                <span class="n">required</span><span class="o">=</span><span class="n">required</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="processor"><a class="viewcode-back" href="../../../mtap.html#mtap.processor">[docs]</a><span class="k">def</span> <span class="nf">processor</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+              <span class="o">*</span><span class="p">,</span>
+              <span class="n">human_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">description</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">ParameterDescription</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">inputs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">LabelDescription</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="n">outputs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">LabelDescription</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+              <span class="o">**</span><span class="n">additional_metadata</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decorator which attaches a service name and metadata to a processor. Which then can be used</span>
+<span class="sd">    for runtime reflection of how the processor works.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str):</span>
+<span class="sd">            Identifying service name both for launching via command line and for service</span>
+<span class="sd">            registration.</span>
+
+<span class="sd">            Should be a mix of alphanumeric characters and dashes so that it plays nice with the</span>
+<span class="sd">            DNS name requirements of service discovery tools like Consul. Can be overridden at</span>
+<span class="sd">            runtime via the `identifier` option on :func:`processor_parser`.</span>
+
+<span class="sd">    Keyword Args:</span>
+<span class="sd">        human_name (~typing.Optional[str]): An option human name for the processor.</span>
+<span class="sd">        description (~typing.Optional[str]): A short description of the processor and what it does.</span>
+<span class="sd">        parameters (~typing.Optional[~typing.List[ParameterDescription]]):</span>
+<span class="sd">            The processor&#39;s parameters.</span>
+<span class="sd">        inputs (~typing.Optional[~typing.List[str]]):</span>
+<span class="sd">            String identifiers for the output from a processor that this processor uses as an input.</span>
+
+<span class="sd">            Takes the format &quot;[processor-name]/[output]&quot;. Examples would be &quot;tagger:pos_tags&quot; or</span>
+<span class="sd">            &quot;sentence-detector:sentences&quot;.</span>
+<span class="sd">        outputs (~typing.Optional[~typing.List[LabelDescription]]):</span>
+<span class="sd">            The label indices this processor outputs.</span>
+<span class="sd">        **additional_metadata (~typing.Any):</span>
+<span class="sd">            Any other data that should be added to the processor&#39;s metadata, should be serializable</span>
+<span class="sd">            to yaml and json.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A decorator to be applied to instances of EventProcessor or DocumentProcessor. This</span>
+<span class="sd">        decorator attaches the metadata so it can be reflected at runtime.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; from mtap.processing import EventProcessor</span>
+<span class="sd">        &gt;&gt;&gt; @processor(&#39;example-text-converter&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; class TextConverter(EventProcessor):</span>
+<span class="sd">        &gt;&gt;&gt;     ...</span>
+
+<span class="sd">        or</span>
+
+<span class="sd">        &gt;&gt;&gt; from mtap.processing import DocumentProcessor</span>
+<span class="sd">        &gt;&gt;&gt; @processor(&#39;example-sentence-detector&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; class SentenceDetector(DocumentProcessor):</span>
+<span class="sd">        &gt;&gt;&gt;     ...</span>
+
+<span class="sd">        From our own example processor:</span>
+
+<span class="sd">        &gt;&gt;&gt; from mtap.processing import DocumentProcessor</span>
+<span class="sd">        &gt;&gt;&gt; @processor(&#39;mtap-example-processor-python&#39;,</span>
+<span class="sd">        &gt;&gt;&gt;            human_name=&quot;Python Example Processor&quot;,</span>
+<span class="sd">        &gt;&gt;&gt;            description=&quot;counts the number of times the letters a and b occur in a document&quot;,</span>
+<span class="sd">        &gt;&gt;&gt;            parameters=[</span>
+<span class="sd">        &gt;&gt;&gt;                parameter(&#39;do_work&#39;, required=True, data_type=&#39;bool&#39;,</span>
+<span class="sd">        &gt;&gt;&gt;                          description=&quot;Whether the processor should do anything.&quot;)</span>
+<span class="sd">        &gt;&gt;&gt;            ],</span>
+<span class="sd">        &gt;&gt;&gt;            outputs=[</span>
+<span class="sd">        &gt;&gt;&gt;                label_index(&#39;mtap.examples.letter_counts&#39;,</span>
+<span class="sd">        &gt;&gt;&gt;                            properties=[label_property(&#39;letter&#39;, data_type=&#39;str&#39;),</span>
+<span class="sd">        &gt;&gt;&gt;                                        label_property(&#39;count&#39;, data_type=&#39;int&#39;)])</span>
+<span class="sd">        &gt;&gt;&gt;            ])</span>
+<span class="sd">        &gt;&gt;&gt; class ExampleProcessor(DocumentProcessor):</span>
+<span class="sd">        &gt;&gt;&gt;     ...</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">f</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;EventProcessor&#39;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Type</span><span class="p">[</span><span class="s1">&#39;EventProcessor&#39;</span><span class="p">]:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;human_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">human_name</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span>
+        <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_parameter_to_map</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;inputs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_desc_to_dict</span><span class="p">(</span><span class="n">desc</span><span class="p">)</span> <span class="k">for</span> <span class="n">desc</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">outputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;outputs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_desc_to_dict</span><span class="p">(</span><span class="n">desc</span><span class="p">)</span> <span class="k">for</span> <span class="n">desc</span> <span class="ow">in</span> <span class="n">outputs</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">additional_metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">additional_metadata</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;implementation_lang&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;implementation_lang&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;Python&#39;</span>
+        <span class="k">return</span> <span class="n">f</span>
+
+    <span class="k">return</span> <span class="n">decorator</span></div>
+
+
+<span class="k">def</span> <span class="nf">_desc_to_dict</span><span class="p">(</span><span class="n">description</span><span class="p">:</span> <span class="n">LabelDescription</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">description</span><span class="o">.</span><span class="n">name</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">description</span><span class="o">.</span><span class="n">name_from_parameter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;name_from_parameter&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span><span class="o">.</span><span class="n">name_from_parameter</span>
+    <span class="k">if</span> <span class="n">description</span><span class="o">.</span><span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;reference&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span><span class="o">.</span><span class="n">reference</span>
+    <span class="k">if</span> <span class="n">description</span><span class="o">.</span><span class="n">optional</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;optional&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span><span class="o">.</span><span class="n">optional</span>
+    <span class="k">if</span> <span class="n">description</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">description</span><span class="o">.</span><span class="n">description</span>
+    <span class="k">if</span> <span class="n">description</span><span class="o">.</span><span class="n">properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;properties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_prop_to_dict</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">description</span><span class="o">.</span><span class="n">properties</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">m</span>
+
+
+<span class="k">def</span> <span class="nf">_prop_to_dict</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">PropertyDescription</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">description</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">data_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;data_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">data_type</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">nullable</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;nullable&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">nullable</span>
+    <span class="k">return</span> <span class="n">m</span>
+
+
+<span class="k">def</span> <span class="nf">_parameter_to_map</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">ParameterDescription</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;description&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">description</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">data_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;data_type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">data_type</span>
+    <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">required</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span><span class="p">[</span><span class="s1">&#39;required&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">required</span>
+    <span class="k">return</span> <span class="n">m</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="../../../index.html">Table of Contents</a></h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../mtap.html">mtap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">mtap.io</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Regents of the University of Minnesota..
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
