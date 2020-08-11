@@ -14,7 +14,7 @@
     "/v1/processors/{processor_id}/info": {
       "get": {
         "summary": "Gets information about the processor.",
-        "operationId": "Processor_GetInfo",
+        "operationId": "GetInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -46,7 +46,7 @@
     "/v1/processors/{processor_id}/process/{event_id}": {
       "post": {
         "summary": "Processes an event.",
-        "operationId": "Processor_Process",
+        "operationId": "Process",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -93,7 +93,7 @@
     "/v1/processors/{processor_id}/stats": {
       "get": {
         "summary": "Gets globally-aggregated statistics about the processor.",
-        "operationId": "Processor_GetStats",
+        "operationId": "GetStats",
         "responses": {
           "200": {
             "description": "A successful response.",
