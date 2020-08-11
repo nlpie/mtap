@@ -1,137 +1,54 @@
+---
+layout: default
+title: MTAP
+nav: Home
+---
 
-<!DOCTYPE html>
+<div class="jumbotron">
+    <div class="container">
+      <h1 class="display-3">Microservice Text Analysis Platform</h1>
+      <p>MTAP is a framework for developing text analysis pipelines. It utilizes the gRPC Framework for communication between independently deployed, scalable, cross-language components.</p>
+      <p><a class="btn btn-primary btn-lg" href="{{ '/docs' | relative_url }}" role="button">Learn more &raquo;</a></p>
+    </div>
+  </div>
 
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Welcome to MTAP’s documentation! &#8212; MTAP 0.6.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script src="_static/jquery.js"></script>
-    <script src="_static/underscore.js"></script>
-    <script src="_static/doctools.js"></script>
-    <script src="_static/language_data.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="mtap" href="mtap.html" />
-   
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
-  
-  
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
-
-  </head><body>
-  
-
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          
-
-          <div class="body" role="main">
-            
-  <div class="section" id="welcome-to-mtap-s-documentation">
-<h1>Welcome to MTAP’s documentation!<a class="headerlink" href="#welcome-to-mtap-s-documentation" title="Permalink to this headline">¶</a></h1>
-<div class="toctree-wrapper compound">
-<p class="caption"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="mtap.html">mtap</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="mtap.html#command-line-utility">Command-Line Utility</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#running-events-service">Running Events Service</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mtap.html#api-documentation">API Documentation</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#events-service-client-documents">Events service client, documents</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#labels">Labels</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#label-indices">Label Indices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#custom-label-types">Custom Label Types</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#creating-processors">Creating Processors</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#processor-description-decorators">Processor Description Decorators</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#running-services">Running Services</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#running-a-pipeline">Running a pipeline</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mtap.html#configuration">Configuration</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="io.html">mtap.io</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="io.html#module-mtap.io.serialization">Serialization</a></li>
-</ul>
-</li>
-</ul>
-</div>
-</div>
-<div class="section" id="overview">
-<h1>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h1>
-<p>MTAP is a distributed computing framework for text analysis built on top of the gRPC framework.</p>
-</div>
-<div class="section" id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
-<ul class="simple">
-<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
-<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
-<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
-</ul>
-</div>
-
-
-          </div>
-          
-        </div>
+  <div class="container">
+    <!-- Example row of columns -->
+    <div class="row">
+      <div class="col-md-4">
+        <h2>Ease of Use</h2>
+        <p>
+          MTAP takes care of all the communication between different
+          components, and provides a distributed object model for text analysis
+          artifacts. All you have to worry about is writing the text analysis
+          code.
+        </p>
+        <p><a class="btn btn-secondary" href="{{ '/docs/tutorials/python.html' | relative_url }}" role="button">View details &raquo;</a></p>
       </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-<h3><a href="#">Table of Contents</a></h3>
-<p class="caption"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="mtap.html">mtap</a></li>
-<li class="toctree-l1"><a class="reference internal" href="io.html">mtap.io</a></li>
-</ul>
-<div class="relations">
-<h3>Related Topics</h3>
-<ul>
-  <li><a href="#">Documentation overview</a><ul>
-      <li>Next: <a href="mtap.html" title="next chapter">mtap</a></li>
-  </ul></li>
-</ul>
-</div>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="_sources/index.rst.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<div id="searchbox" style="display: none" role="search">
-  <h3 id="searchlabel">Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</div>
-<script>$('#searchbox').show(0);</script>
-        </div>
+      <div class="col-md-4">
+        <h2>Flexibility</h2>
+        <p>
+          By using the microservice pattern, text analysis components can be
+          deployed once and then mixed and matched in different pipelines.
+          Components written in different languages can interoperate without
+          hassle. We also provide a RESTful API gateway that lets you call
+          components using HTTP.
+        </p>
+        <p><a class="btn btn-secondary" href="{{ '/docs/tutorials/api-gateway.html' | relative_url }}" role="button">View details &raquo;</a></p>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="footer">
-      &copy;2019, Regents of the University of Minnesota..
-      
-      |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.2.0</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
-      
-      |
-      <a href="_sources/index.rst.txt"
-          rel="nofollow">Page source</a>
+      <div class="col-md-4">
+        <h2>Scalability</h2>
+        <p>
+          MTAP is designed to bridge the gap between prototyping new ideas and
+          deploying them into a production environment. It supports calling
+          components locally without using any network infastructure all the
+          way up to deploying services and using service discovery via
+          Consul to build pipelines.
+        </p>
+        <p><a class="btn btn-secondary" href="{{ '/docs/tutorials/service-discovery.html' | relative_url }}" role="button">View details &raquo;</a></p>
+      </div>
     </div>
 
-    
+    <hr>
 
-    
-  </body>
-</html>
+</div> <!-- /container -->

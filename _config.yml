@@ -1,0 +1,15 @@
+title: MTAP
+email: nlp-ie@umn.edu
+description: >- # this means to ignore newlines until "baseurl:"
+  Microservice Text Analysis Platform
+baseurl: "/mtap" # the subpath of your site, e.g. /blog
+url: "https://nlpie.github.io" # the base hostname & protocol for your site, e.g. http://example.com
+version: 0.3.0
+python_version: 0.3.0
+
+# Build settings
+markdown: kramdown
+sass:
+   sass_dir: _sass
+   style: compressed
+highlighter: rouge
