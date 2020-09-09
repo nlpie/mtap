@@ -62,6 +62,9 @@ def run_processor(proc: 'EventProcessor',
         processors_parser.add_help = True
         namespace = processors_parser.parse_args(args)
 
+    if namespace.log_level:
+        logging.basicConfig(level=getattr(logging, namespace.log_level))
+
     with Config() as c:
         if namespace.mtap_config is not None:
             c.update_from_yaml(namespace.mtap_config)
@@ -116,6 +119,7 @@ def processor_parser() -> ArgumentParser:
     processors_parser.add_argument('--identifier', '-i',
                                    help="Optional argument if you want the processor to register "
                                         "under a different identifier than its name.")
+    processors_parser.add_argument('--log-level', type=str, default='INFO', help="Sets the python log level.")
     return processors_parser
 
 

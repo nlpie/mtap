@@ -15,9 +15,10 @@ import logging
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import Lock, Condition
-from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable
+from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
+    NamedTuple, ContextManager
 
 from tqdm import tqdm
 
@@ -263,21 +264,21 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             return self.__times_collector
 
     def run_multithread(self,
-                        source: Iterable[Union[Document, Event]], *,
+                        source: Union[Iterable[Union[Document, Event]], 'ProcessingSource'], *,
                         params: Optional[Dict[str, Any]] = None,
                         progress: bool = True,
                         total: Optional[int] = None,
                         close_events: bool = True,
                         max_failures: int = 0,
                         n_threads: int = 4,
-                        read_ahead: int = 1) -> List[List[ProcessingResult]]:
+                        read_ahead: int = 1):
         """Runs this pipeline on a source which provides multiple documents / events.
 
         Concurrency is per-event, with each event being provided a thread which runs it through the
         pipeline.
 
         Args:
-            source (~typing.Iterable[~typing.Union[Event, Document]])
+            source (~typing.Union[~typing.Iterable[~typing.Union[Event, Document]], ProcessingSource])
                 A generator of events or documents to process.
             params (dict[str, ~typing.Any])
                 Json object containing params specific to processing this event, the existing params
@@ -292,7 +293,9 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 Whether the pipeline should close events after they have been fully processed
                 through all components.
             max_failures (int)
-                The maximum number of failures
+                The number of acceptable failures. Once this amount is exceeded processing will
+                halt. Note that because of the nature of conccurrency processing may continue for a
+                short amount of time before termination.
             n_threads (int)
                 The number of threads to process documents on.
             read_ahead
@@ -322,7 +325,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         return result
 
     def run(self, target: Union[Event, Document], *,
-            params: Optional[Dict[str, Any]] = None) -> List[ProcessingResult]:
+            params: Optional[Dict[str, Any]] = None) -> 'PipelineResult':
         """Processes the event/document using all of the processors in the pipeline.
 
         Args:
@@ -350,14 +353,14 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         event, params = _event_and_params(target, params)
         event_id = event.event_id
 
-        results = _run_by_event_id(self, event_id, params)
+        result = _run_by_event_id(self, event_id, params)
 
-        for result in results:
+        for component_result in result.component_results:
             try:
-                event.add_created_indices(result.created_indices)
+                event.add_created_indices(component_result.created_indices)
             except AttributeError:
                 pass
-        return results
+        return result
 
     def processor_timer_stats(self) -> List[AggregateTimingInfo]:
         """Returns the timing information for all processors.
@@ -458,7 +461,99 @@ def _run_by_event_id(pipeline, event_id, params):
                                 timing_info=result[1], created_indices=result[2]) for
                component, result in zip(pipeline._components, results)]
     logger.debug('Finished processing event_id: %s', event_id)
-    return results
+    return PipelineResult(results, total)
+
+
+PipelineResult = NamedTuple('PipelineResult',
+                            [('component_results', List[ProcessingResult]),
+                             ('elapsed_time', timedelta)])
+PipelineResult.__doc__ = """The result of processing an event or document in a pipeline.
+"""
+PipelineResult.component_results.__doc__ = """list[ProcessingResult]: The processing results for 
+each individual component"""
+PipelineResult.elapsed_time.__doc__ = """datetime.timedelta: The elapsed time for the entire 
+pipeline."""
+
+
+class ProcessingSource(ContextManager, ABC):
+    """Provides events or documents for the multi-threaded pipeline runner. Also has functionality
+    for receiving results.
+
+    """
+    @abstractmethod
+    def provide(self, consume: Callable[[Union[Document, Event]], None]):
+        """The method which provides documents for the multi-threaded runner. This method provides
+        documents or events to the pipeline.
+
+        Args:
+            consume (~typing.Callable[~typing.Union[Document, Event]])
+                The consumer method to pass documents or events to process.
+
+        Examples:
+            Example implementation for processing text documents in a directory.
+
+            >>> ...
+            >>> def provide(self, consume: Callable[[Union[Document, Event]], None]):
+            >>>     for file in Path(".").glob("*.txt"):
+            >>>         with file.open('r') as fio:
+            >>>             txt = fio.read()
+            >>>         event = Event()
+            >>>         doc = event.create_document('plaintext', txt)
+            >>>         consume(doc)
+
+        """
+        ...
+
+    def receive_result(self, result: PipelineResult, event: Event):
+        """Optional method: Asynchronous callback which returns the results of processing. This
+        method is called on a processing worker thread. Default behavior is to do nothing.
+
+        Args:
+            result (PipelineResult): The result of processing using the pipeline.
+            event (Event): The event processed.
+
+        """
+        pass
+
+    def receive_failure(self, exc: ProcessingError) -> bool:
+        """Optional method: Asynchronous callback which receives exceptions for any failed
+        documents.
+
+        Args:
+            exc (ProcessingError): The processing exception.
+
+        Returns:
+            bool: Whether the error should be suppressed and not count against maximum failures.
+
+        """
+        pass
+
+    def close(self):
+        """Optional method: called to clean up after processing is complete.
+
+        Returns:
+
+        """
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return None
+
+
+class _IterableProcessingSource(ProcessingSource):
+    """Wraps an iterable in a ProcessingSource for the multi-thread processor.
+
+    """
+    def __init__(self, source):
+        self.source = source
+
+    def provide(self, consume: Callable[[Union[Document, Event]], None]):
+        for target in self.source:
+            consume(target)
 
 
 class _PipelineProcessor(EventProcessor):
@@ -491,10 +586,14 @@ class _PipelineMultiRunner:
         self.executor = ThreadPoolExecutor(max_workers=n_threads)
         self.progress_bar = tqdm(total=total, unit='event', smoothing=0.01) if progress else None
 
+        if not isinstance(source, ProcessingSource):
+            if not hasattr(source, '__iter__'):
+                raise ValueError('The source needs to either be a ProcessingSource or an Iterable.')
+            source = _IterableProcessingSource(source)
         self.source = source
         self.params = params
 
-    def max_failures_exceeded(self):
+    def max_failures_reached(self):
         return self.failures > self.max_failures
 
     def increment_active_tasks(self):
@@ -508,6 +607,13 @@ class _PipelineMultiRunner:
             self.active_targets -= 1
             self.targets_cond.notify()
 
+    def tasks_done(self):
+        return self.active_targets == 0
+
+    def wait_tasks_completed(self):
+        with self.targets_cond:
+            self.targets_cond.wait_for(self.tasks_done)
+
     def read_ready(self):
         return self.active_targets < self.max_targets
 
@@ -516,55 +622,42 @@ class _PipelineMultiRunner:
             self.targets_cond.wait_for(self.read_ready)
 
     def process_task(self, event, params):
+        if self.max_failures_reached():
+            return
         try:
-            return _run_by_event_id(self.pipeline, event.event_id, params)
-        except ProcessingError:
-            self.failures += 1
-            raise
+            result = _run_by_event_id(self.pipeline, event.event_id, params)
+            self.source.receive_result(result, event)
+        except ProcessingError as e:
+            if not self.source.receive_failure(e):
+                self.failures += 1
+                raise e
         finally:
             self.task_completed()
             if self.close_events:
                 event.release_lease()
 
     def run(self):
-        futures = []
-        it = iter(self.source)
-        try:
-            while True:
-                if self.max_failures_exceeded():
-                    break
-                try:
-                    target = next(it)
-                except StopIteration:
-                    break
-                event, params = _event_and_params(target, self.params)
-                try:
-                    event.lease()
-                    self.increment_active_tasks()
-                    future = self.executor.submit(self.process_task, event, params)
-                except BaseException as e:
-                    # here we failed sometime between taking a new lease and adding the done
-                    # callback to the future, meaning the lease will never get freed.
-                    event.release_lease()
-                    raise e
-                futures.append(future)
-                self.wait_to_read()
-        finally:
-            # If it is using a generator as in the code examples close it to force any release
-            # of event objects.
-            if hasattr(it, 'close'):
-                it.close()
-
-        results = []
-        for future in futures:
+        def consume(target):
+            if self.max_failures_reached():
+                raise ValueError('Max processing failures exceeded.')
+            event, params = _event_and_params(target, self.params)
             try:
-                result = future.result()
-                results.append(result)
-            except ProcessingError:
-                logger.error('Failure while processing', exc_info=1)
-                # we log instead of re-raising here because failure on exception is handled by
-                # max_failures and the cd.increment method.
-        return results
+                event.lease()
+                self.increment_active_tasks()
+                self.executor.submit(self.process_task, event, params)
+            except BaseException as e:
+                # here we failed sometime between taking a new lease and adding the done
+                # callback to the future, meaning the lease will never get freed.
+                event.release_lease()
+                raise e
+            self.wait_to_read()
+
+        with self.source:
+            self.source.provide(consume)
+        self.wait_tasks_completed()
+        if self.max_failures_reached():
+            raise ValueError('Max processing failures exceeded.')
+
 
     def __enter__(self):
         return self

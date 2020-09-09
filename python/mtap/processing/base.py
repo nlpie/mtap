@@ -16,7 +16,7 @@ import contextlib
 import threading
 from abc import ABCMeta, abstractmethod
 from datetime import timedelta, datetime
-from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping
+from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, TextIO, Generator
 
 from mtap.events import Event, Document, ProtoLabelAdapter
 
@@ -353,3 +353,22 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
                   "    sum: {}".format(key, stats.mean, stats.std, stats.min,
                                        stats.max, stats.sum))
         print("")
+
+    @staticmethod
+    def csv_header() -> str:
+        """Returns the header for CSV formatted timing data.
+
+        Returns:
+             str
+        """
+        return 'key,mean,std,min,max,sum\n'
+
+    def timing_csv(self) -> Generator[str, None, None]:
+        """Returns the timing data formatted as a string, generating each
+
+        Returns:
+            Generator[str]
+        """
+        for key, stats in self.timing_info.items():
+            yield '{}:{},{},{},{},{},{}\n'.format(self.identifier, key, stats.mean, stats.std,
+                                                  stats.min, stats.max, stats.sum)
