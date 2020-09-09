@@ -21,7 +21,9 @@ from mtap.processing.base import TimerStats
 from mtap.processing.descriptions import processor
 from mtap.processing.pipeline import LocalProcessor
 from mtap.processing.pipeline import Pipeline
+from mtap.processing.pipeline import PipelineResult
 from mtap.processing.pipeline import ProcessingComponent
+from mtap.processing.pipeline import ProcessingSource
 from mtap.processing.pipeline import RemoteProcessor
 from mtap.processing.service import ProcessorServer
 from mtap.processing.service import processor_parser
@@ -40,6 +42,7 @@ __all__ = [
     'RemoteProcessor',
     'LocalProcessor',
     'Pipeline',
+    'PipelineResult',
     'run_processor',
     'processor_parser',
     'ProcessorServer'

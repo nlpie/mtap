@@ -40,6 +40,7 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.concurrent.Executors;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
@@ -149,6 +150,10 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     @Option(name = "-u", aliases = {"--unique-service-id"}, metaVar = "UNIQUE_SERVICE_ID",
         usage = "A unique per-instance server id that will be used to register and deregister the processor")
     private String uniqueServiceId = null;
+
+    @Option(name = "-w", aliases = {"--workers"}, metaVar = "N_WORKERS",
+        usage = "The number of threads for GRPC workers.")
+    private int workers = 10;
 
     /**
      * Prints a help message.
@@ -420,6 +425,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           uniqueServiceId
       );
       Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
+          .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(processorService).build();
       return new ProcessorServer(processorService, grpcServer);

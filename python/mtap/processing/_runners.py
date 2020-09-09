@@ -107,7 +107,7 @@ class RemoteRunner(ProcessingComponent):
         if address is None:
             discovery = _discovery.Discovery(config)
             address = discovery.discover_processor_service(processor_id, 'v1')
-        self._channel = grpc.insecure_channel(address)
+        self._channel = grpc.insecure_channel(address, [("grpc.lb_policy_name", "round_robin",)])
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
     def call_process(self, event_id, params):

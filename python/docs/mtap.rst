@@ -87,7 +87,8 @@ Running a pipeline
 .. autoclass:: mtap.processing.pipeline.ComponentDescriptor
 .. autoclass:: RemoteProcessor
 .. autoclass:: LocalProcessor
-.. autoclass:: mtap.processing.ProcessingResult
+.. autoclass:: mtap.processing.ProcessingSource
+.. autoclass:: mtap.processing.PipelineResult
    :exclude-members: __getnewargs__, __new__, __repr__
 .. autoclass:: mtap.processing.TimerStats
    :exclude-members: __getnewargs__, __new__, __repr__
