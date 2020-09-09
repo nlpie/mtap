@@ -622,9 +622,9 @@ class _PipelineMultiRunner:
             self.targets_cond.wait_for(self.read_ready)
 
     def process_task(self, event, params):
-        if self.max_failures_reached():
-            return
         try:
+            if self.max_failures_reached():
+                return
             result = _run_by_event_id(self.pipeline, event.event_id, params)
             self.source.receive_result(result, event)
         except ProcessingError as e:
@@ -657,7 +657,6 @@ class _PipelineMultiRunner:
         self.wait_tasks_completed()
         if self.max_failures_reached():
             raise ValueError('Max processing failures exceeded.')
-
 
     def __enter__(self):
         return self

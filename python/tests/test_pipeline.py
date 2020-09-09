@@ -80,7 +80,8 @@ def test_run_concurrently_with_failure(mocker):
             LocalProcessor(processor3, component_id='processor3', client=client)
     ) as pipeline:
         events = [Event(event_id=str(i), client=client) for i in range(7)] + [Event(event_id='fail_' + str(i), client=client) for i in range(4)]
-        pipeline.run_multithread(events, progress=False, max_failures=2)
+        with pytest.raises(ValueError) as e_info:
+            pipeline.run_multithread(events, progress=False, max_failures=2)
 
         for processor in (processor1, processor2, processor3):
             assert processor.processed == 7
