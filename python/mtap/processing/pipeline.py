@@ -301,11 +301,6 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             read_ahead
                 The number of source documents to read ahead into memory before processing.
 
-        Returns:
-            Future:
-                A future which returns a tuple, the a list of ProcessingResult objects for
-                all the processors and the event that was processed.
-
         Examples:
             >>> docs = list(Path('abc/').glob('*.txt'))
             >>> def document_source():
@@ -321,8 +316,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         """
         with _PipelineMultiRunner(self, source, params, progress, total, close_events, max_failures,
                                   n_threads, read_ahead) as runner:
-            result = runner.run()
-        return result
+            runner.run()
 
     def run(self, target: Union[Event, Document], *,
             params: Optional[Dict[str, Any]] = None) -> 'PipelineResult':
@@ -549,11 +543,25 @@ class _IterableProcessingSource(ProcessingSource):
 
     """
     def __init__(self, source):
-        self.source = source
+        # We use an iterator here so we can ensure that it gets closed on unexpected / early
+        # termination and any caller context managers are exited before their client gets shut down.
+        # Using a for-in loop we're not guaranteed, which can cause zombie unclosed events on the
+        # event service.
+        self.it = iter(source)
 
     def provide(self, consume: Callable[[Union[Document, Event]], None]):
-        for target in self.source:
+        while True:
+            try:
+                target = next(self.it)
+            except StopIteration:
+                break
             consume(target)
+
+    def close(self):
+        try:
+            self.it.close()
+        except AttributeError:
+            pass
 
 
 class _PipelineProcessor(EventProcessor):
@@ -651,10 +659,12 @@ class _PipelineMultiRunner:
                 event.release_lease()
                 raise e
             self.wait_to_read()
-
-        with self.source:
-            self.source.provide(consume)
-        self.wait_tasks_completed()
+        try:
+            with self.source:
+                self.source.provide(consume)
+            self.wait_tasks_completed()
+        except KeyboardInterrupt:
+            print('Pipeline terminated by user (KeyboardInterrupt).')
         if self.max_failures_reached():
             raise ValueError('Max processing failures exceeded.')
 
