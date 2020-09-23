@@ -11,32 +11,37 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import argparse
+import concurrent.futures.thread as thread
 import logging
 import threading
+import time
 import traceback
-from argparse import Namespace, ArgumentParser
-from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Dict, Any, Optional, Sequence, Mapping
+import typing
 
+import google.protobuf.empty_pb2 as empty_pb2
 import grpc
-from google.protobuf import empty_pb2
-from grpc_health.v1 import health, health_pb2_grpc
-from time import sleep
+import grpc_health.v1.health as health
+import grpc_health.v1.health_pb2_grpc as health_pb2_grpc
 
+from mtap import _config
 from mtap import _structs
-from mtap._config import Config
-from mtap.api.v1 import processing_pb2_grpc, processing_pb2
-from mtap.events import EventsClient
-from mtap.processing._runners import ProcessorRunner, ProcessingTimesCollector
-from mtap.processing.base import EventProcessor
+from mtap import data
+from mtap import utilities
+from mtap.api.v1 import processing_pb2, processing_pb2_grpc
+from mtap.processing import _runners
+
+if typing.TYPE_CHECKING:
+    import mtap
+
 
 logger = logging.getLogger(__name__)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
-def run_processor(proc: 'EventProcessor',
-                  *, namespace: Optional[Namespace] = None,
-                  args: Optional[Sequence[str]] = None):
+def run_processor(proc: 'mtap.EventProcessor',
+                  *, namespace: typing.Optional[argparse.Namespace] = None,
+                  args: typing.Optional[typing.Sequence[str]] = None):
     """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
 
     Args:
@@ -58,14 +63,14 @@ def run_processor(proc: 'EventProcessor',
 
     """
     if namespace is None:
-        processors_parser = ArgumentParser(parents=[processor_parser()])
+        processors_parser = argparse.ArgumentParser(parents=[processor_parser()])
         processors_parser.add_help = True
         namespace = processors_parser.parse_args(args)
 
     if namespace.log_level:
         logging.basicConfig(level=getattr(logging, namespace.log_level))
 
-    with Config() as c:
+    with _config.Config() as c:
         if namespace.mtap_config is not None:
             c.update_from_yaml(namespace.mtap_config)
         server = ProcessorServer(proc=proc,
@@ -74,16 +79,17 @@ def run_processor(proc: 'EventProcessor',
                                  register=namespace.register,
                                  workers=namespace.workers,
                                  processor_id=namespace.identifier,
-                                 events_address=namespace.events_address)
+                                 events_address=namespace.events_address,
+                                 write_address=namespace.write_address)
         server.start()
         try:
             while True:
-                sleep(_ONE_DAY_IN_SECONDS)
+                time.sleep(_ONE_DAY_IN_SECONDS)
         except KeyboardInterrupt:
             server.stop()
 
 
-def processor_parser() -> ArgumentParser:
+def processor_parser() -> argparse.ArgumentParser:
     """An :class:`~argparse.ArgumentParser` that can be used to parse the settings for
     :func:`run_processor`.
 
@@ -101,7 +107,7 @@ def processor_parser() -> ArgumentParser:
         >>> run_processor(processor, args)
 
     """
-    processors_parser = ArgumentParser(add_help=False)
+    processors_parser = argparse.ArgumentParser(add_help=False)
     processors_parser.add_argument('--host', '--address', '-a', default="127.0.0.1", metavar="HOST",
                                    help='the address to serve the service on')
     processors_parser.add_argument('--port', '-p', type=int, default=0, metavar="PORT",
@@ -119,7 +125,10 @@ def processor_parser() -> ArgumentParser:
     processors_parser.add_argument('--identifier', '-i',
                                    help="Optional argument if you want the processor to register "
                                         "under a different identifier than its name.")
-    processors_parser.add_argument('--log-level', type=str, default='INFO', help="Sets the python log level.")
+    processors_parser.add_argument('--write-address', action='store_true',
+                                   help='If set, will write the server address ')
+    processors_parser.add_argument('--log-level', type=str, default='INFO',
+                                   help="Sets the python log level.")
     return processors_parser
 
 
@@ -138,14 +147,14 @@ def _label_index_meta_to_proto(d, message):
 
 class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
-                 config: Config,
-                 pr: EventProcessor,
+                 config: 'mtap.Config',
+                 pr: 'mtap.EventProcessor',
                  address: str,
                  health_servicer: health.HealthServicer,
                  events_address=None,
                  register: bool = False,
                  processor_id=None,
-                 params: Dict[str, Any] = None):
+                 params: typing.Dict[str, typing.Any] = None):
         self.config = config
         self.pr = pr
         self.address = address
@@ -157,7 +166,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         self.health_servicer = health_servicer
         self._runner = None
 
-        self._times_collector = ProcessingTimesCollector()
+        self._times_collector = _runners.ProcessingTimesCollector()
         self._deregister = None
 
     def update_serving_status(self, status):
@@ -165,9 +174,10 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
     def start(self, port: int):
         # instantiate runner
-        client = EventsClient(address=self.events_address)
-        self._runner = ProcessorRunner(self.pr, client=client, identifier=self.processor_id,
-                                       params=self.params)
+        client = data.EventsClient(address=self.events_address)
+        self._runner = _runners.ProcessorRunner(self.pr, client=client,
+                                                identifier=self.processor_id,
+                                                params=self.params)
 
         self.health_servicer.set(self.processor_id, 'SERVING')
 
@@ -254,26 +264,28 @@ class ProcessorServer:
     """
 
     def __init__(self,
-                 proc: EventProcessor,
+                 proc: 'mtap.EventProcessor',
                  host: str,
                  port: int = 0,
                  *,
                  register: bool = False,
-                 events_address: Optional[str] = None,
-                 processor_id: Optional[str] = None,
-                 workers: Optional[int] = None,
-                 params: Optional[Mapping[str, Any]] = None):
+                 events_address: typing.Optional[str] = None,
+                 processor_id: typing.Optional[str] = None,
+                 workers: typing.Optional[int] = None,
+                 params: typing.Optional[typing.Mapping[str, typing.Any]] = None,
+                 write_address: bool = False):
         self.pr = proc
         self.host = host
         self._port = port
         self.processor_id = processor_id or proc.metadata['name']
         self.params = params or {}
         self.events_address = events_address
+        self.write_address = write_address
 
         self._health_servicer = health.HealthServicer()
         self._health_servicer.set('', 'SERVING')
         self._servicer = _ProcessorServicer(
-            config=Config(),
+            config=_config.Config(),
             pr=proc,
             address=host,
             health_servicer=self._health_servicer,
@@ -283,12 +295,13 @@ class ProcessorServer:
             events_address=events_address
         )
         workers = workers or 10
-        thread_pool = ThreadPoolExecutor(max_workers=workers)
+        thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
         self._server = grpc.server(thread_pool)
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
         self._port = self._server.add_insecure_port("{}:{}".format(self.host, self.port))
         self._stopped_event = threading.Event()
+        self._address_file = None
 
     @property
     def port(self) -> int:
@@ -301,10 +314,12 @@ class ProcessorServer:
         """
         self._server.start()
         self._servicer.start(self.port)
+        if self.write_address:
+            self._address_file = utilities.write_address_file('{}:{}'.format(self.host, self.port))
         logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.host, self.port)
 
-    def stop(self, *, grace: Optional[float] = None) -> threading.Event:
+    def stop(self, *, grace: typing.Optional[float] = None) -> threading.Event:
         """De-registers (if registered with service discovery) the service and immediately stops
         accepting requests, completely stopping the service after a specified `grace` time.
 
@@ -322,5 +337,7 @@ class ProcessorServer:
         """
         print('Shutting down processor server with id: "{}"  on address: "{}:{}"'.format(
             self.processor_id, self.host, self.port))
+        if self._address_file is not None:
+            self._address_file.unlink()
         self._servicer.shutdown()
         return self._server.stop(grace=grace)

@@ -16,6 +16,10 @@ from typing import Tuple, Iterable
 
 _word_pattern = re.compile(r'\w+')
 
+__all__ = [
+    'word_tokenize'
+]
+
 
 def word_tokenize(text: str, offset: int) -> Iterable[Tuple[int, int]]:
     """Performs tokenization using a word pattern, i.e. matching 0-9 a-z A-Z plus any unicode "word"

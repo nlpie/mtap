@@ -16,82 +16,50 @@ import typing
 from typing import NamedTuple, Optional, List, Type, Dict, Any
 
 if typing.TYPE_CHECKING:
-    from mtap.processing.base import EventProcessor
+    from mtap import EventProcessor
 
 __all__ = [
-    'PropertyDescription',
     'label_property',
-    'LabelDescription',
-    'label_index',
-    'ParameterDescription',
+    'labels',
     'parameter',
     'processor',
 ]
 
-PropertyDescription = NamedTuple('PropertyDescription',
-                                 [('name', str),
-                                  ('description', Optional[str]),
-                                  ('data_type', Optional[str]),
-                                  ('nullable', bool)])
-PropertyDescription.__doc__ = """A description of a property of the labels on a label index."""
-PropertyDescription.name.__doc__ = """str: The property's variable name."""
-PropertyDescription.description.__doc__ = """~typing.Optional[str]: A short description of the 
-property."""
-PropertyDescription.data_type.__doc__ = """~typing.Optional[str] The data type of the property: str, 
-float, or bool; List[T] or Mapping[T1, T2] of those."""
-PropertyDescription.nullable.__doc__ = """bool: Whether the property can have a valid value of 
-null."""
 
-
-def label_property(name: str,
-                   *,
-                   nullable: bool = False,
-                   description: Optional[str] = None,
-                   data_type: Optional[str] = None) -> PropertyDescription:
+class label_property(NamedTuple('label_property',
+                                [('name', str),
+                                 ('description', Optional[str]),
+                                 ('data_type', Optional[str]),
+                                 ('nullable', bool)])):
     """Creates a description for a property on a label.
 
-    Args: 
+    Args:
         name (str): The property's name.
-        
+
     Keyword Args:
-        nullable (bool): Whether the property can have a valid value of null.
         description (~typing.Optional[str]): A short description of the property.
         data_type (~typing.Optional[str]):
             The data type of the property: str, float, or bool; List[T] or Mapping[T1, T2] of those.
-
-    Returns:
-        PropertyDescription: An object describing a label's property.
+        nullable (bool): Whether the property can have a valid value of null.
     """
-    return PropertyDescription(name, description, data_type, nullable)
 
-
-LabelDescription = NamedTuple('LabelDescription',
-                              [('name', str),
-                               ('reference', Optional[str]),
-                               ('name_from_parameter', Optional[str]),
-                               ('optional', bool),
-                               ('description', Optional[str]),
-                               ('properties', List[PropertyDescription])])
-LabelDescription.__doc__ = """A description of input or output label index."""
-LabelDescription.name_from_parameter.__doc__ = """~typing.Optional[str]: If the label index gets 
-its name from a processor parameter, the name of the parameter."""
-LabelDescription.optional.__doc__ = """bool: Whether this label index is an optional input or 
-output."""
-LabelDescription.name.__doc__ = """~typing.Optional[str]: The label index name."""
-LabelDescription.description.__doc__ = """~typing.Optional[str]:  A short description of the label 
-index."""
-LabelDescription.properties.__doc__ = """~typing.Optional[~typing.List[PropertyDescription]]: The 
-properties of the labels in the label index."""
-
-
-def label_index(name: str,
+    def __new__(cls,
+                name: str,
                 *,
-                reference: Optional[str] = None,
-                optional: bool = False,
-                name_from_parameter: Optional[str] = None,
+                nullable: bool = False,
                 description: Optional[str] = None,
-                properties: Optional[List[PropertyDescription]] = None) -> LabelDescription:
-    """Creates a description for a label type.
+                data_type: Optional[str] = None):
+        return super().__new__(cls, name, description, data_type, nullable)
+
+
+class labels(NamedTuple('LabelDescription',
+                        [('name', str),
+                         ('reference', Optional[str]),
+                         ('name_from_parameter', Optional[str]),
+                         ('optional', bool),
+                         ('description', Optional[str]),
+                         ('properties', List[label_property])])):
+    """A description for a label type.
 
     Args:
         name (str): The label index name.
@@ -105,60 +73,82 @@ def label_index(name: str,
         name_from_parameter (~typing.Optional[str]):
             If the label index gets its name from a processor parameter, the name of the parameter.
         description (~typing.Optional[str]): A short description of the label index.
-        properties (~typing.Optional[~typing.List[PropertyDescription]]):
+        properties (~typing.Optional[~typing.List[label_property]]):
             The properties of the labels in the label index.
 
-    Returns:
-        LabelDescription: An object describing a label index.
+    Attributes:
+        name (str): The label index name.
+        reference (~typing.Optional[str]):
+            If this is an output of another processor, that processor's name followed by a slash
+            and the default output name of the index go here.
+            Example: "sentence-detector/sentences".
+        optional (bool): Whether this label index is an optional input or output.
+        name_from_parameter (~typing.Optional[str]):
+            If the label index gets its name from a processor parameter, the name of the parameter.
+        description (~typing.Optional[str]): A short description of the label index.
+        properties (~typing.Optional[~typing.List[label_property]]):
+            The properties of the labels in the label index.
     """
-    return LabelDescription(name, reference, name_from_parameter, optional, description, properties)
+    def __new__(cls,
+                name: str,
+                *,
+                reference: Optional[str] = None,
+                optional: bool = False,
+                name_from_parameter: Optional[str] = None,
+                description: Optional[str] = None,
+                properties: Optional[List[label_property]] = None):
+        return super().__new__(cls, name, reference, name_from_parameter, optional, description,
+                               properties)
 
 
-ParameterDescription = NamedTuple('ParameterDescription',
-                                  [('name', str),
-                                   ('description', Optional[str]),
-                                   ('data_type', Optional[str]),
-                                   ('required', bool)])
-ParameterDescription.__doc__ = """A description of a processor parameter."""
-ParameterDescription.name.__doc__ = """str: The parameter name / key."""
-ParameterDescription.description.__doc__ = """optional, str: A short description of the property and 
-what it does."""
-ParameterDescription.data_type.__doc__ = """optional, str:  The data type of the parameter. str, 
-float, or bool; List[T] or Mapping[T1, T2] of those."""
-ParameterDescription.required.__doc__ = """bool: Whether the parameter is required."""
+class parameter(NamedTuple('parameter',
+                           [('name', str),
+                            ('description', Optional[str]),
+                            ('data_type', Optional[str]),
+                            ('required', bool)])):
+    def __new__(cls,
+                name: str,
+                *,
+                required: bool = False,
+                data_type: Optional[str] = None,
+                description: Optional[str] = None):
+        """A description of one of the processor's parameters.
+
+        Args:
+            name (str): The parameter name / key.
+
+        Keyword Args:
+            required (bool): Whether the processor parameter is required.
+            data_type (~typing.Optional[str]):
+                The data type of the parameter. str, float, or bool; List[T] or Mapping[T1, T2] of
+                those.
+            description (~typing.Optional[str]): A short description of the property and what it
+                does.
+
+        Attributes:
+            name (str): The parameter name / key.
+            required (bool): Whether the processor parameter is required.
+            data_type (~typing.Optional[str]):
+                The data type of the parameter. str, float, or bool; List[T] or Mapping[T1, T2] of
+                those.
+            description (~typing.Optional[str]): A short description of the property and what it
+                does.
 
 
-def parameter(name: str,
-              *,
-              required: bool = False,
-              data_type: Optional[str] = None,
-              description: Optional[str] = None) -> ParameterDescription:
-    """A description of one of the processor's parameters.
-
-    Args:
-        name (str): The parameter name / key.
-
-    Keyword Args:
-        required (bool): Whether the processor parameter is required.
-        data_type (~typing.Optional[str]):
-            The data type of the parameter. str, float, or bool; List[T] or Mapping[T1, T2] of
-            those.
-        description (~typing.Optional[str]): A short description of the property and what it does.
-
-    Returns:
-        ParameterDescription: The parameter description object
-    """
-    return ParameterDescription(name=name, description=description, data_type=data_type,
-                                required=required)
+        Returns:
+            ParameterDescription: The parameter description object
+        """
+        return super().__new__(cls, name=name, description=description, data_type=data_type,
+                               required=required)
 
 
 def processor(name: str,
               *,
               human_name: Optional[str] = None,
               description: Optional[str] = None,
-              parameters: Optional[List[ParameterDescription]] = None,
-              inputs: Optional[List[LabelDescription]] = None,
-              outputs: Optional[List[LabelDescription]] = None,
+              parameters: Optional[List[parameter]] = None,
+              inputs: Optional[List[labels]] = None,
+              outputs: Optional[List[labels]] = None,
               **additional_metadata: str):
     """Decorator which attaches a service name and metadata to a processor. Which then can be used
     for runtime reflection of how the processor works.
@@ -216,7 +206,7 @@ def processor(name: str,
         >>>                          description="Whether the processor should do anything.")
         >>>            ],
         >>>            outputs=[
-        >>>                label_index('mtap.examples.letter_counts',
+        >>>                labels('mtap.examples.letter_counts',
         >>>                            properties=[label_property('letter', data_type='str'),
         >>>                                        label_property('count', data_type='int')])
         >>>            ])
@@ -245,7 +235,7 @@ def processor(name: str,
     return decorator
 
 
-def _desc_to_dict(description: LabelDescription) -> dict:
+def _desc_to_dict(description: labels) -> dict:
     m = {
         'name': description.name
     }
@@ -262,7 +252,7 @@ def _desc_to_dict(description: LabelDescription) -> dict:
     return m
 
 
-def _prop_to_dict(p: PropertyDescription) -> Dict[str, Any]:
+def _prop_to_dict(p: label_property) -> Dict[str, Any]:
     m = {
         'name': p.name
     }
@@ -275,7 +265,7 @@ def _prop_to_dict(p: PropertyDescription) -> Dict[str, Any]:
     return m
 
 
-def _parameter_to_map(p: ParameterDescription) -> Dict[str, Any]:
+def _parameter_to_map(p: parameter) -> Dict[str, Any]:
     m = {
         'name': p.name
     }

@@ -6,6 +6,7 @@ Welcome to MTAP's documentation!
    :caption: Contents:
 
    mtap
+   deployment
    io
 
 Overview

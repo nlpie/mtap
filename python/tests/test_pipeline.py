@@ -18,9 +18,8 @@ from typing import Dict, Any, Callable, Union
 import pytest
 
 from mtap import Pipeline, LocalProcessor, Event, EventsClient, Document
-from mtap.processing import EventProcessor
-from mtap.processing._runners import ProcessingError
-from mtap.processing.pipeline import ProcessingSource, PipelineResult
+from mtap.processing import EventProcessor, ProcessingError, PipelineResult
+from mtap.processing._pipeline import ProcessingSource
 
 
 class Processor(EventProcessor):

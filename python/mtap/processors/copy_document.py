@@ -11,18 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from argparse import ArgumentParser
-from typing import Sequence, Dict, Any
+import argparse
+import typing
 
-from mtap import Event, Document, processor_parser, processor
-from mtap.processing import EventProcessor
-from mtap.processing.service import run_processor
+import mtap
 
 
-def copy_document(event: Event,
+__all__ = [
+    'copy_document', 'CopyDocument', 'main'
+]
+
+
+def copy_document(event: mtap.Event,
                   source_document_name: str,
                   target_document_name: str,
-                  index_names: Sequence[str] = ...):
+                  index_names: typing.Sequence[str] = ...):
     """Copies one document to another on the same event.
 
     Parameters
@@ -38,7 +41,7 @@ def copy_document(event: Event,
         copied.
     """
     source_document = event.documents[source_document_name]
-    target_document = Document(target_document_name, text=source_document.text)
+    target_document = mtap.Document(target_document_name, text=source_document.text)
     event.add_document(target_document)
     if index_names is ...:
         index_names = list(source_document.labels)
@@ -47,8 +50,8 @@ def copy_document(event: Event,
         target_document.add_labels(index_name, index, distinct=index.distinct)
 
 
-@processor('mtap-copy-processor')
-class CopyDocument(EventProcessor):
+@mtap.processor('mtap-copy-processor')
+class CopyDocument(mtap.EventProcessor):
     """Copies one document to another.
 
     Parameters
@@ -61,22 +64,23 @@ class CopyDocument(EventProcessor):
         If specified will only copy the specified label indices, by default all indices will be
         copied.
     """
+
     def __init__(self,
                  source_document_name: str,
                  target_document_name: str,
-                 index_names: Sequence[str] = ...):
+                 index_names: typing.Sequence[str] = ...):
         self.source_document_name = source_document_name
         self.target_document_name = target_document_name
         self.index_names = index_names
 
-    def process(self, event: Event, params: Dict[str, Any]):
+    def process(self, event: mtap.Event, params: typing.Dict[str, typing.Any]):
         copy_document(event, self.source_document_name, self.target_document_name, self.index_names)
 
 
 def main(args=None):
-    parser = ArgumentParser(
+    parser = argparse.ArgumentParser(
         description='Deploys a processor that copies one document to another.',
-        parents=[processor_parser()]
+        parents=[mtap.processor_parser()]
     )
     parser.add_argument('--index-names', nargs='*', metavar='INDEX_NAME', default=...,
                         help='')
@@ -86,7 +90,7 @@ def main(args=None):
                         help='Name of target document.')
     ns = parser.parse_args(args)
     p = CopyDocument(ns.source_document_name, ns.target_document_name, ns.index_names)
-    run_processor(p, namespace=ns)
+    mtap.run_processor(p, namespace=ns)
 
 
 if __name__ == '__main__':

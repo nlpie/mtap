@@ -20,8 +20,8 @@ import pytest
 from mtap import processor, Document
 from mtap.api.v1 import processing_pb2
 from mtap.processing import DocumentProcessor
-from mtap.processing.descriptions import parameter, label_index, label_property
-from mtap.processing.service import _ProcessorServicer
+from mtap.processing.descriptions import parameter, labels, label_property
+from mtap.processing._service import _ProcessorServicer
 
 
 @processor('mtap-test-processor',
@@ -31,12 +31,12 @@ from mtap.processing.service import _ProcessorServicer
                          description="desc.")
            ],
            inputs=[
-               label_index('input_index', properties=[label_property('bar', data_type='bool')])
+               labels('input_index', properties=[label_property('bar', data_type='bool')])
            ],
            outputs=[
-               label_index('output_index',
-                           description='desc.',
-                           properties=[label_property('foo', data_type='str', nullable=True,
+               labels('output_index',
+                      description='desc.',
+                      properties=[label_property('foo', data_type='str', nullable=True,
                                                       description='A label property.')])
            ])
 class ExampleTestProcessor(DocumentProcessor):

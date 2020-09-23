@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from mtap.events import Event, Document
+from mtap import Event, GenericLabel, Document
 
-from mtap.labels import GenericLabel
-
-from mtap.utilities.copy_document import CopyDocument
+from mtap.processors.copy_document import CopyDocument
 
 
 def test_copy_document():

@@ -13,15 +13,26 @@
 # limitations under the License.
 """Provides functionality for measuring processor performance against gold standards."""
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable, Tuple, TextIO
+from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable, Tuple, TextIO, TYPE_CHECKING
 
 import sys
 
-from mtap.events import Document
-from mtap.label_indices import LabelIndex
-from mtap.labels import Label
+__all__ = [
+    'Metric',
+    'Metrics',
+    'print_overlapping',
+    'fields_match_test',
+    'Accuracy',
+    'ConfusionMatrix',
+    'FirstTokenConfusion'
+]
+
 from mtap.processing import DocumentProcessor, processor
-from mtap.utilities.tokenization import word_tokenize
+from mtap.utilities import tokenization
+
+if TYPE_CHECKING:
+    import mtap
+    from mtap import data
 
 
 class Metric(ABC):
@@ -31,7 +42,9 @@ class Metric(ABC):
     name = None
 
     @abstractmethod
-    def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
+    def update(self,
+               document: 'mtap.Document',
+               tested_index: 'data.LabelIndex', target_index: 'data.LabelIndex') -> Any:
         ...
 
 
@@ -51,15 +64,15 @@ class Metrics(DocumentProcessor):
     def __init__(self, *metrics: Metric,
                  tested: str,
                  target: str,
-                 tested_filter: Callable[[Label], bool] = None,
-                 target_filter: Callable[[Label], bool] = None):
+                 tested_filter: Callable[['data.Label'], bool] = None,
+                 target_filter: Callable[['data.Label'], bool] = None):
         self.tested = tested
         self.target = target
         self.metrics = metrics
         self.tested_filter = tested_filter
         self.target_filter = target_filter
 
-    def process_document(self, document: Document,
+    def process_document(self, document: 'mtap.Document',
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         tested = document.labels[self.tested]
         if self.tested_filter is not None:
@@ -91,11 +104,14 @@ def fields_match_test(fields: Optional[Sequence[str]] = ...):
         The fields to test or ... if all fields should be tested.
 
     """
-    def fields_match(tested_label: Label, target_label: Label) -> bool:
+
+    def fields_match(tested_label: 'data.Label', target_label: 'data.Label') -> bool:
         if fields is not ...:
-            return all(getattr(tested_label, field) == getattr(target_label, field) for field in fields)
+            return all(
+                getattr(tested_label, field) == getattr(target_label, field) for field in fields)
         else:
             return tested_label.shallow_fields_equal(target_label)
+
     return fields_match
 
 
@@ -144,7 +160,9 @@ class Accuracy(Metric):
     def value(self) -> float:
         return self.correct / self.total if self.total > 0 else 1.
 
-    def find_candidates(self, tested_index: LabelIndex, target_label: Label) -> LabelIndex:
+    def find_candidates(self,
+                        tested_index: 'data.LabelIndex',
+                        target_label: 'data.Label') -> 'data.LabelIndex':
         if self.boundary_fuzz == 0:
             index = tested_index.at(target_label)
         else:
@@ -157,7 +175,7 @@ class Accuracy(Metric):
             )
         return index
 
-    def has_match(self, candidates: LabelIndex, target_label: Label) -> bool:
+    def has_match(self, candidates: 'data.LabelIndex', target_label: 'data.Label') -> bool:
         if self.mode == 'equals':
             return len(candidates) == 1 and self.equivalence_test(candidates[0], target_label)
         elif self.mode == 'location':
@@ -165,7 +183,9 @@ class Accuracy(Metric):
         elif self.mode == 'any':
             return any(self.equivalence_test(candidate, target_label) for candidate in candidates)
 
-    def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
+    def update(self, document: 'mtap.Document',
+               tested_index: 'data.LabelIndex',
+               target_index: 'data.LabelIndex') -> Any:
         correct = 0
         total = 0
         for target_label in target_index:
@@ -185,7 +205,7 @@ def _collect_tokens(index, return_insides=True):
     begins = set()
     insides = set()
     for label in index:
-        for i, token in enumerate(word_tokenize(label.text, label.start_index)):
+        for i, token in enumerate(tokenization.word_tokenize(label.text, label.start_index)):
             if i == 0:
                 begins.add(token)
                 if not return_insides:
@@ -275,8 +295,8 @@ class FirstTokenConfusion(Metric):
     """
 
     def __init__(self, name: str = 'first_token_confusion',
-                 tested_filter: Callable[[Label], bool] = None,
-                 target_filter: Callable[[Label], bool] = None,
+                 tested_filter: Callable[['data.Label'], bool] = None,
+                 target_filter: Callable[['data.Label'], bool] = None,
                  print_debug: str = None,
                  debug_range: int = 30,
                  debug_handle: TextIO = sys.stdout):
@@ -300,7 +320,10 @@ class FirstTokenConfusion(Metric):
     def f1(self) -> float:
         return self._matrix.f1
 
-    def update(self, document: Document, tested_index: LabelIndex, target_index: LabelIndex) -> Any:
+    def update(self,
+               document: 'mtap.Document',
+               tested_index: 'data.LabelIndex',
+               target_index: 'data.LabelIndex') -> Any:
         if self.tested_filter is not None:
             tested_index = tested_index.filter(self.tested_filter)
         if self.target_filter is not None:

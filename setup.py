@@ -138,7 +138,7 @@ setup(
     package_dir={'': 'python'},
     packages=find_packages(where='python', exclude=['tests']),
     package_data={
-        'mtap': ['defaultConfig.yml']
+        'mtap': ['defaultConfig.yml', 'exampleDeploymentConfiguration.yml']
     },
     install_requires=[
         'grpcio~=' + GRPC_VERSION,

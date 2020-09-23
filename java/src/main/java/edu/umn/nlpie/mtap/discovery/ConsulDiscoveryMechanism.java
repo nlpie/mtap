@@ -70,7 +70,7 @@ public class ConsulDiscoveryMechanism implements DiscoveryMechanism {
   public void register(ServiceInfo serviceInfo) {
     ImmutableRegCheck grpcCheck = ImmutableRegCheck.builder()
         .interval("10s")
-        .grpc(serviceInfo.getAddress() + ":" + serviceInfo.getPort() + "/" + serviceInfo.getName())
+        .grpc(serviceInfo.getHost() + ":" + serviceInfo.getPort() + "/" + serviceInfo.getName())
         .status("passing")
         .build();
     List<String> tags = serviceInfo.getTags();

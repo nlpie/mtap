@@ -12,58 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
-from abc import ABC, abstractmethod
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, TYPE_CHECKING
 
 import grpc
 import math
 
 from mtap import _discovery, _structs
-from mtap.events import EventsClient, Event
-from mtap.api.v1 import processing_pb2_grpc, processing_pb2
-from mtap.processing.base import EventProcessor, TimerStats, Processor
+from mtap.api.v1 import processing_pb2, processing_pb2_grpc
+from mtap import data
+from mtap.processing import _base
+
+if TYPE_CHECKING:
+    import mtap
+    from mtap import processing
 
 logger = logging.getLogger(__name__)
 
 
-class ProcessingComponent(ABC):
-    component_id = None  # str: The component_id of the component in a pipeline
-    descriptor = None  # ComponentDescriptor: The ComponentDescriptor used to create the component.
-
-    @abstractmethod
-    def call_process(self, event_id: str,
-                     params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
-        """Calls a processor.
-
-        Parameters
-        ----------
-        event_id: str
-            The event to process.
-        params: Dict
-            The processor parameters.
-
-        Returns
-        -------
-        tuple of dict, dict, dict
-            A tuple of the processing result dictionary, the processor times dictionary, and the
-            created indices dictionary.
-
-        """
-        ...
-
-    def close(self):
-        ...
-
-
-class ProcessingError(Exception):
-    """Exception for when processing results in a failure."""
-    pass
-
-
-class ProcessorRunner(ProcessingComponent):
-    def __init__(self, proc: EventProcessor, client: EventsClient, identifier: Optional[str] = None,
+class ProcessorRunner(_base.ProcessingComponent):
+    def __init__(self,
+                 proc: 'mtap.EventProcessor',
+                 client: 'mtap.EventsClient',
+                 identifier: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = proc
         self.client = client
@@ -77,10 +49,10 @@ class ProcessorRunner(ProcessingComponent):
         p = dict(self.params)
         if params is not None:
             p.update(params)
-        with Processor.enter_context() as c, \
-                Event(event_id=event_id, client=self.client) as event:
+        with _base.Processor.enter_context() as c, \
+                data.Event(event_id=event_id, client=self.client) as event:
             try:
-                with Processor.started_stopwatch('process_method') as stopwatch:
+                with _base.Processor.started_stopwatch('process_method') as stopwatch:
                     stopwatch.start()
                     result = self.processor.process(event, p)
                 return result, c.times, event.created_indices
@@ -88,13 +60,13 @@ class ProcessorRunner(ProcessingComponent):
                 self.failure_count += 1
                 logger.error('Processor "%s" failed while processing event with id: %s',
                              self.component_id, event_id, exc_info=1)
-                raise ProcessingError() from e
+                raise _base.ProcessingError() from e
 
     def close(self):
         self.processor.close()
 
 
-class RemoteRunner(ProcessingComponent):
+class RemoteRunner(_base.ProcessingComponent):
     def __init__(self, config, processor_id, component_id, address=None, params=None):
         self._processor_id = processor_id
         self.component_id = component_id
@@ -116,11 +88,11 @@ class RemoteRunner(ProcessingComponent):
         if params is not None:
             p.update(params)
 
-        with EventProcessor.enter_context() as context:
+        with _base.Processor.enter_context() as context:
             request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
                                                     event_id=event_id)
             _structs.copy_dict_to_struct(p, request.params, [p])
-            with Processor.started_stopwatch('remote_call'):
+            with _base.Processor.started_stopwatch('remote_call'):
                 try:
                     response = self._stub.Process(request)
                 except grpc.RpcError as e:
@@ -130,7 +102,7 @@ class RemoteRunner(ProcessingComponent):
                         self.failure_count += 1
                         logger.error('Processor "%s" failed while processing event with id: %s',
                                      self.component_id, event_id, exc_info=1)
-                    raise ProcessingError() from e
+                    raise _base.ProcessingError() from e
             r = {}
             _structs.copy_struct_to_dict(response.result, r)
 
@@ -181,7 +153,7 @@ class TimerStatsAggregator:
         variance = self._sse / self._count
         std = math.sqrt(variance)
         std = timedelta(seconds=std)
-        return TimerStats(mean=mean, std=std, max=self._max, min=self._min, sum=self._sum)
+        return _base.TimerStats(mean=mean, std=std, max=self._max, min=self._min, sum=self._sum)
 
 
 class ProcessingTimesCollector:
@@ -206,7 +178,7 @@ class ProcessingTimesCollector:
                 for identifier, stats in self._times_map.items() if identifier.startswith(prefix)}
 
     def get_aggregates(self,
-                       identifier=None) -> Dict[str, TimerStats]:
+                       identifier=None) -> Dict[str, 'processing.TimerStats']:
         future = self._executor.submit(self._get_aggregates, identifier or '')
         return future.result()
 

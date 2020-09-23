@@ -11,20 +11,26 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+#
 from datetime import timedelta
 
-from mtap.processing import Processor
+import pytest
+
+from mtap.processing import PipelineResult, ProcessingResult
 
 
-def test_stopwatch_no_fail_outside_context():
-    blah = False
-    with Processor.started_stopwatch('foo'):
-        blah = True
-    assert blah
-
-
-def test_preserves_times():
-    with Processor.enter_context() as context:
-        context.add_time("foo", timedelta(seconds=2))
-        context.add_time("foo", timedelta(seconds=2))
-        assert context.times["foo"] == timedelta(seconds=4)
+def test_component_result():
+    result = PipelineResult(
+        component_results=[
+            ProcessingResult(
+                identifier='a',
+                result_dict={'b': 'c'},
+                timing_info={},
+                created_indices={}
+            )
+        ],
+        elapsed_time=timedelta(seconds=4)
+    )
+    assert result.component_result('a').result_dict['b'] == 'c'
+    with pytest.raises(KeyError):
+        result.component_result('b')

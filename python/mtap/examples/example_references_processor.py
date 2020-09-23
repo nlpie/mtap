@@ -11,32 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
-from mtap.processing.descriptions import label_index
-
-from mtap import Document, GenericLabel, run_processor, processor
-from mtap.processing import DocumentProcessor
+import mtap
+from mtap.processing.descriptions import labels
 
 
-@processor(
+@mtap.processor(
     'mtap-python-references-example',
     human_name='Python References Examples',
     description='Shows use of referential fields on labels.',
     outputs=[
-        label_index('referenced'),
-        label_index('map_references'),
-        label_index('list_references'),
-        label_index('references')
+        labels('referenced'),
+        labels('map_references'),
+        labels('list_references'),
+        labels('references')
     ]
 )
-class ReferencesExampleProcessor(DocumentProcessor):
-    def process_document(self, document: Document, params: Dict[str, Any]):
+class ReferencesExampleProcessor(mtap.DocumentProcessor):
+    def process_document(self, document: mtap.Document, params: Dict[str, Any]):
         referenced = [
-            GenericLabel(0, 1),
-            GenericLabel(1, 2),
-            GenericLabel(2, 3),
-            GenericLabel(3, 4)
+            mtap.GenericLabel(0, 1),
+            mtap.GenericLabel(1, 2),
+            mtap.GenericLabel(2, 3),
+            mtap.GenericLabel(3, 4)
         ]
 
         # references can be a map of strings to labels
@@ -65,4 +63,4 @@ class ReferencesExampleProcessor(DocumentProcessor):
 
 
 if __name__ == '__main__':
-    run_processor(ReferencesExampleProcessor())
+    mtap.run_processor(ReferencesExampleProcessor())

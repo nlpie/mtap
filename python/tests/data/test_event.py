@@ -13,7 +13,7 @@
 # limitations under the License.
 import pytest
 
-from mtap.events import EventsClient, Event, Document
+from mtap.data._events import EventsClient, Event, Document
 
 
 def test_add_document(mocker):

@@ -198,7 +198,8 @@ class DefaultProcessorServiceTest {
         register ? mockDiscoveryMechanism : null,
         mockHealthService,
         processorId,
-        uniqueServiceId
+        uniqueServiceId,
+        "127.0.0.1"
     );
   }
 

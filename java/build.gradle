@@ -56,9 +56,9 @@ group = 'edu.umn.nlpie'
 version gitVersion()
 ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 
-compileJava {
-    targetCompatibility '1.8'
-    sourceCompatibility '1.8'
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_9
+    targetCompatibility = JavaVersion.VERSION_1_9
 }
 
 repositories {

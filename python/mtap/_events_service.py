@@ -23,8 +23,7 @@ from google.protobuf import empty_pb2
 from grpc_health.v1 import health
 from grpc_health.v1 import health_pb2_grpc
 
-from mtap import constants
-from mtap._config import Config
+from mtap import _config, constants, utilities
 from mtap.api.v1 import events_pb2, events_pb2_grpc
 
 LOGGER = logging.getLogger(__name__)
@@ -42,7 +41,9 @@ class EventsServer:
         workers: The number of workers that should handle requests.
     """
 
-    def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10):
+    def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10,
+                 write_address: bool = False):
+        self.write_address = write_address
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         server = grpc.server(thread_pool)
         servicer = EventsServicer()
@@ -54,8 +55,9 @@ class EventsServer:
         self._port = server.add_insecure_port(host + ':' + str(port))
         self._server = server
         self._address = host
-        self._config = Config()
+        self._config = _config.Config()
         self._register = register
+        self._address_file = None
 
     @property
     def port(self) -> int:
@@ -65,8 +67,12 @@ class EventsServer:
     def start(self):
         """Starts the service.
         """
-        LOGGER.info("Starting events server on address: %s:%d", self._address, self._port)
+        LOGGER.info('Starting events server on address: "%s:%d"', self._address, self._port)
         self._server.start()
+        if self.write_address:
+            self._address_file = utilities.write_address_file(
+                '{}:{}'.format(self._address, self.port)
+            )
         if self._register:
             from mtap._discovery import Discovery
             service_registration = Discovery(config=self._config)
@@ -91,7 +97,9 @@ class EventsServer:
         Returns:
             threading.Event: A shutdown event for the server.
         """
-        print("Stopping events server on address: {}:{}".format(self._address, self._port))
+        print("Shutting down events server on address: {}:{}".format(self._address, self._port))
+        if self._address_file is not None:
+            self._address_file.unlink()
         try:
             self._deregister()
         except AttributeError:

@@ -1,16 +1,16 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright 2020 Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 """Internal implementation of a standard non-distinct label index."""
 from abc import ABCMeta, abstractmethod
 from bisect import bisect_left, bisect_right
@@ -18,18 +18,12 @@ from operator import attrgetter
 from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic, Callable, \
     TYPE_CHECKING
 
-from mtap.labels import Label, Location
+from mtap.data import _labels
 
 if TYPE_CHECKING:
-    from mtap.events import ProtoLabelAdapter
+    from mtap import data
 
-L = TypeVar('L', bound=Label)
-
-__all__ = [
-    'LabelIndex',
-    'label_index',
-    'presorted_label_index'
-]
+L = TypeVar('L', bound='data.Label')
 
 
 class LabelIndex(Sequence[L], Generic[L]):
@@ -47,12 +41,16 @@ class LabelIndex(Sequence[L], Generic[L]):
 
     @property
     @abstractmethod
-    def adapter(self) -> Optional['ProtoLabelAdapter']:
+    def adapter(self) -> Optional['data.ProtoLabelAdapter']:
         ...
 
     @abstractmethod
-    def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
+    def filter(self, fn: Callable[['data.Label'], bool]) -> 'data.LabelIndex[L]':
         """Filters the label index according to a filter function.
+
+        This function is less efficient for filtering based on indices than
+        :func:`~LabelIndex.inside`, :func:`~LabelIndex.covering`, etc., which use a binary search
+        method on the sorted index.
 
         Args:
             fn (~typing.Callable[[Label], bool]): A filter function, returns ``true`` if the label
@@ -64,7 +62,9 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def at(self, x: Union[Label, Location, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def at(self,
+           x: Union['data.Label', 'data.Location', float],
+           end: Optional[float] = None) -> 'data.LabelIndex[L]':
         """Returns the labels at the specified location in text.
 
         Args:
@@ -88,13 +88,13 @@ class LabelIndex(Sequence[L], Generic[L]):
 
     @abstractmethod
     def covering(self,
-                 x: Union[Label, Location, float],
-                 end: Optional[float] = None) -> 'LabelIndex[L]':
+                 x: Union['data.Label', 'data.Location', float],
+                 end: Optional[float] = None) -> 'data.LabelIndex[L]':
         """A label index containing all labels that cover / contain the specified location in text.
 
         Args:
-            x (~typing.Union[Label, Location, float]): A label or location, or start index if `end`
-                is specified.
+            x (~typing.Union[~'data.Label', ~'data.Location', float]): A label or location, or start
+                index if `end` is specified.
             end (~typing.Optional[float]): The exclusive end index of the location in text if it has
                 not been specified by a label.
 
@@ -117,13 +117,13 @@ class LabelIndex(Sequence[L], Generic[L]):
 
     @abstractmethod
     def inside(self,
-               x: Union[Label, Location, float],
-               end: Optional[float] = None) -> 'LabelIndex[L]':
+               x: Union['data.Label', 'data.Location', float],
+               end: Optional[float] = None) -> 'data.LabelIndex[L]':
         """A label index containing all labels that are inside the specified location in text.
 
         Args:
-            x (~typing.Union[Label, Location, float]): A label or location, or start index if
-                `end` is specified.
+            x (~typing.Union[~'data.Label', ~'data.Location', float]): A label or location, or start
+                index if `end` is specified.
             end (~typing.Optional[float]): The exclusive end index of the location in text if it has
                 not been specified by a label.
 
@@ -145,14 +145,14 @@ class LabelIndex(Sequence[L], Generic[L]):
 
     @abstractmethod
     def beginning_inside(self,
-                         x: Union[Label, Location, float],
-                         end: Optional[float] = None) -> 'LabelIndex[L]':
+                         x: Union['data.Label', 'data.Location', float],
+                         end: Optional[float] = None) -> 'data.LabelIndex[L]':
         """A label index containing all labels whose begin index is inside the specified location
         in text.
 
         Args:
-            x (~typing.Union[Label, Location, float]): A label or location, or start index if `end`
-                is specified.
+            x (~typing.Union[~'data.Label', ~'data.Location', float]): A label or location, or start
+                index if `end` is specified.
             end (~typing.Optional[float]): The exclusive end index of the location in text if it has
                 not been specified by a label.
 
@@ -173,14 +173,14 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def overlapping(self, 
-                    x: Union[Label, Location, float], 
-                    end: Optional[float] = None) -> 'LabelIndex[L]':
+    def overlapping(self,
+                    x: Union['data.Label', 'data.Location', float],
+                    end: Optional[float] = None) -> 'data.LabelIndex[L]':
         """Returns all labels that overlap the specified location in text.
-        
+
         Args:
-            x (~typing.Union[Label, Location, float]): A label or location, or start index if `end`
-                is specified.
+            x (~typing.Union[~'data.Label', ~'data.Location', float]): A label or location, or start
+                index if `end` is specified.
             end (~typing.Optional[float]): The exclusive end index of the location in text if it has
                 not been specified by a label.
 
@@ -202,13 +202,13 @@ class LabelIndex(Sequence[L], Generic[L]):
         """
         ...
 
-    def before(self, x: Union[Label, Location, float]) -> 'LabelIndex[L]':
+    def before(self, x: Union['data.Label', 'data.Location', float]) -> 'data.LabelIndex[L]':
         """A label index containing all labels that are before a label's location in text or
         an index in text.
 
         Args:
-            x (~typing.Union[Label, Location, float]): A label or location whose `start_index` will
-                be used, or a float index in text.
+            x (~typing.Union[~'data.Label', ~'data.Location', float]): A label or location whose
+                `start_index` will be used, or a float index in text.
 
         Returns:
             LabelIndex: A view of this label index.
@@ -230,7 +230,7 @@ class LabelIndex(Sequence[L], Generic[L]):
             index = x
         return self.inside(0, index)
 
-    def after(self, x: Union[Label, Location, float]) -> 'LabelIndex[L]':
+    def after(self, x: Union['data.Label', 'data.Location', float]) -> 'data.LabelIndex[L]':
         """A label index containing all labels that are after a label's location in text
         or an index in text.
 
@@ -260,7 +260,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         return self.inside(index, float('inf'))
 
     @abstractmethod
-    def ascending(self) -> 'LabelIndex[L]':
+    def ascending(self) -> 'data.LabelIndex[L]':
         """This label index sorted according to ascending start and end index.
 
         Returns:
@@ -280,7 +280,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         ...
 
     @abstractmethod
-    def descending(self) -> 'LabelIndex[L]':
+    def descending(self) -> 'data.LabelIndex[L]':
         """This label index sorted according to descending start index and ascending end index.
 
         Returns:
@@ -302,16 +302,16 @@ class LabelIndex(Sequence[L], Generic[L]):
 
 def label_index(labels: List[L],
                 distinct: bool = False,
-                adapter: Optional['ProtoLabelAdapter'] = None) -> LabelIndex[L]:
+                adapter: Optional['data.ProtoLabelAdapter'] = None) -> LabelIndex[L]:
     """Creates a label index from labels.
 
     Args:
         labels (~typing.List[L]): Zero or more labels to create a label index from.
         distinct (bool): Whether the label index is distinct or not.
-        adapter (ProtoLabelAdapter): The label adapter for these labels.
+        adapter (~data.ProtoLabelAdapter): The label adapter for these labels.
 
     Returns:
-        LabelIndex: The newly created label index.
+        ~data.LabelIndex: The newly created label index.
 
     Examples:
         >>> from mtap import label_index, label
@@ -331,7 +331,7 @@ def label_index(labels: List[L],
 
 def presorted_label_index(labels: List[L],
                           distinct: bool = False,
-                          adapter: Optional['ProtoLabelAdapter'] = None) -> LabelIndex[L]:
+                          adapter: Optional['data.ProtoLabelAdapter'] = None) -> LabelIndex[L]:
     if len(labels) == 0:
         return _Empty(distinct, adapter)
     return _LabelIndex(distinct, _Ascending(labels), adapter=adapter)
@@ -364,7 +364,7 @@ class _View(metaclass=ABCMeta):
             raise ValueError
         return self.__class__(self._labels, filtered_indices)
 
-    def filter(self, fn: Callable[[Label], bool]) -> '_View':
+    def filter(self, fn: Callable[['data.Label'], bool]) -> '_View':
         filtered_indices = list(self._filter_fn(fn))
         if len(filtered_indices) == 0:
             raise ValueError
@@ -376,7 +376,7 @@ class _View(metaclass=ABCMeta):
                 min_end: float = 0,
                 max_end: float = float('inf')) -> Iterator[int]:
         try:
-            left = self._index_lt(Location(min_start, min_end)) + 1
+            left = self._index_lt(_labels.Location(min_start, min_end)) + 1
         except ValueError:
             left = 0
 
@@ -387,14 +387,14 @@ class _View(metaclass=ABCMeta):
             if min_end <= location.end_index <= max_end:
                 yield self._indices[i]
 
-    def _filter_fn(self, fn: Callable[[Label], bool]) -> Iterator[int]:
+    def _filter_fn(self, fn: Callable[['data.Label'], bool]) -> Iterator[int]:
         for index in self._indices:
             label = self._labels[index]
             if fn(label):
                 yield index
 
     def _first_index_location(self,
-                              location: Location,
+                              location: 'data.Location',
                               from_index: int = 0,
                               to_index: int = ...) -> int:
         if to_index is ...:
@@ -406,7 +406,7 @@ class _View(metaclass=ABCMeta):
         raise ValueError
 
     def _last_index_location(self,
-                             location: Location,
+                             location: 'data.Location',
                              from_index: int = 0,
                              to_index: int = ...):
         if to_index is ...:
@@ -418,7 +418,7 @@ class _View(metaclass=ABCMeta):
         raise ValueError
 
     def _index_lt(self,
-                  location: Location,
+                  location: 'data.Location',
                   from_index: int = 0,
                   to_index: int = ...) -> int:
         if to_index is ...:
@@ -430,11 +430,11 @@ class _View(metaclass=ABCMeta):
         raise ValueError
 
     @abstractmethod
-    def __getitem__(self, idx) -> Union[Label, '_View']:
+    def __getitem__(self, idx) -> Union['data.Label', '_View']:
         ...
 
     @abstractmethod
-    def __iter__(self) -> Iterator[Label]:
+    def __iter__(self) -> Iterator['data.Label']:
         ...
 
     @abstractmethod
@@ -443,20 +443,20 @@ class _View(metaclass=ABCMeta):
 
     @abstractmethod
     def index_location(self,
-                       location: Location,
+                       location: 'data.Location',
                        from_index: int = 0,
                        to_index: int = ...) -> int:
         ...
 
 
 class _Ascending(_View):
-    def __getitem__(self, idx) -> Union[Label, '_View']:
+    def __getitem__(self, idx) -> Union['data.Label', '_View']:
         if isinstance(idx, int):
             return self._labels[self._indices[idx]]
         elif isinstance(idx, slice):
             return _Ascending(self._labels, self._indices[idx])
 
-    def __iter__(self) -> Iterator[Label]:
+    def __iter__(self) -> Iterator['data.Label']:
         for idx in self._indices:
             yield self._labels[idx]
 
@@ -464,7 +464,7 @@ class _Ascending(_View):
         return _Descending(self._labels, self._indices)
 
     def index_location(self,
-                       location: Location,
+                       location: 'data.Location',
                        from_index: int = 0,
                        to_index: int = ...) -> int:
         return self._first_index_location(location, from_index, to_index)
@@ -474,7 +474,7 @@ class _Descending(_View):
     def _reverse_index(self, i: int = None):
         return -(i + 1)
 
-    def __getitem__(self, idx) -> Union[Label, '_View']:
+    def __getitem__(self, idx) -> Union['data.Label', '_View']:
         if isinstance(idx, int):
             return self._labels[self._indices[self._reverse_index(idx)]]
         elif isinstance(idx, slice):
@@ -487,7 +487,7 @@ class _Descending(_View):
             idx = slice(start, stop, idx.step)
             return _Descending(self._labels, self._indices[idx])
 
-    def __iter__(self) -> Iterator[Label]:
+    def __iter__(self) -> Iterator['data.Label']:
         for i in range(len(self._indices)):
             yield self._labels[self._indices[self._reverse_index(i)]]
 
@@ -495,14 +495,14 @@ class _Descending(_View):
         return _Ascending(self._labels, self._indices)
 
     def index_location(self,
-                       location: Location,
+                       location: 'data.Location',
                        from_index: int = 0,
                        to_index: int = ...) -> int:
         index_location = self._last_index_location(location, from_index, to_index)
         return self._reverse_index(index_location)
 
 
-def _start_and_end(x: Union[Label, float], end: Optional[float] = None) -> Location:
+def _start_and_end(x: Union['data.Label', float], end: Optional[float] = None) -> 'data.Location':
     if end is None:
         x = _location(x)
         start = x.start_index
@@ -515,13 +515,13 @@ def _start_and_end(x: Union[Label, float], end: Optional[float] = None) -> Locat
         start = x
         if end is None:
             end = float('inf')
-    return Location(start, end)
+    return _labels.Location(start, end)
 
 
 def _location(x):
-    if isinstance(x, Label):
+    if isinstance(x, _labels.Label):
         x = x.location
-    if not isinstance(x, Location):
+    if not isinstance(x, _labels.Location):
         raise TypeError
     return x
 
@@ -531,7 +531,7 @@ class _LabelIndex(LabelIndex[L]):
                  view: _View,
                  ascending: bool = True,
                  reversed_index: '_LabelIndex[L]' = None,
-                 adapter: Optional['ProtoLabelAdapter'] = None):
+                 adapter: Optional['data.ProtoLabelAdapter'] = None):
         self._distinct = distinct
         self._view = view
         self._ascending = ascending
@@ -544,14 +544,14 @@ class _LabelIndex(LabelIndex[L]):
         return self._distinct
 
     @property
-    def adapter(self) -> 'ProtoLabelAdapter[L]':
+    def adapter(self) -> 'data.ProtoLabelAdapter[L]':
         return self._adapter
 
     @adapter.setter
-    def adapter(self, value: 'ProtoLabelAdapter[L]'):
+    def adapter(self, value: 'data.ProtoLabelAdapter[L]'):
         self._adapter = value
 
-    def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
+    def filter(self, fn: Callable[['data.Label'], bool]) -> 'data.LabelIndex[L]':
         return self._filtered_or_empty(fn)
 
     @property
@@ -566,7 +566,7 @@ class _LabelIndex(LabelIndex[L]):
             self.__reversed = reversed_label_index
         return reversed_label_index
 
-    def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'LabelIndex[L]']:
+    def __getitem__(self, idx: Union[int, slice]) -> Union[L, 'data.LabelIndex[L]']:
         if isinstance(idx, int):
             return self._view[idx]
         elif isinstance(idx, slice):
@@ -591,11 +591,11 @@ class _LabelIndex(LabelIndex[L]):
     def __iter__(self) -> Iterator[L]:
         return iter(self._view)
 
-    def __reversed__(self) -> 'Iterator[L]':
+    def __reversed__(self) -> Iterator[L]:
         return iter(self._reversed)
 
     def index(self, x: Any, start: int = ..., end: int = ...) -> int:
-        if not isinstance(x, Label):
+        if not isinstance(x, _labels.Label):
             raise ValueError
         for i in range(self._view.index_location(x.location), len(self._view)):
             if self._view[i] == x:
@@ -603,7 +603,7 @@ class _LabelIndex(LabelIndex[L]):
         raise ValueError
 
     def count(self, x: Any) -> int:
-        if not isinstance(x, Label):
+        if not isinstance(x, _labels.Label):
             return False
         try:
             i = self._view.index_location(x.location)
@@ -617,30 +617,37 @@ class _LabelIndex(LabelIndex[L]):
                 count += 1
         return count
 
-    def covering(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def covering(self,
+                 x: Union['data.Label', float],
+                 end: Optional[float] = None) -> 'data.LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(max_start=start, min_end=end)
 
-    def overlapping(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def overlapping(self,
+                    x: Union['data.Label', float],
+                    end: Optional[float] = None) -> 'data.LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(max_start=end - 1, min_end=start + 1)
 
-    def inside(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def inside(self,
+               x: Union['data.Label', float],
+               end: Optional[float] = None) -> 'data.LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(start, end - 1, start, end)
 
-    def beginning_inside(self, x: Union[Label, float],
-                         end: Optional[float] = None) -> 'LabelIndex[L]':
+    def beginning_inside(self,
+                         x: Union['data.Label', float],
+                         end: Optional[float] = None) -> 'data.LabelIndex[L]':
         start, end = _start_and_end(x, end)
         return self._bounded_or_empty(min_start=start, max_start=end - 1)
 
-    def ascending(self) -> 'LabelIndex[L]':
+    def ascending(self) -> 'data.LabelIndex[L]':
         if self._ascending:
             return self
         else:
             return self._reversed
 
-    def descending(self) -> 'LabelIndex[L]':
+    def descending(self) -> 'data.LabelIndex[L]':
         if not self._ascending:
             return self
         else:
@@ -671,7 +678,7 @@ class _LabelIndex(LabelIndex[L]):
             return _Empty(self.distinct, self.adapter)
         return _LabelIndex(self.distinct, bounded_view, adapter=self.adapter)
 
-    def _filtered_or_empty(self, fn: Callable[[Label], bool]):
+    def _filtered_or_empty(self, fn: Callable[['data.Label'], bool]):
         try:
             filtered_view = self._view.filter(fn)
         except ValueError:
@@ -681,7 +688,7 @@ class _LabelIndex(LabelIndex[L]):
 
 class _Empty(LabelIndex):
     @property
-    def adapter(self) -> Optional['ProtoLabelAdapter']:
+    def adapter(self) -> Optional['data.ProtoLabelAdapter']:
         return self._adapter
 
     def __init__(self, distinct, adapter=None):
@@ -695,10 +702,12 @@ class _Empty(LabelIndex):
     def __getitem__(self, idx):
         raise IndexError
 
-    def filter(self, fn: Callable[[Label], bool]) -> 'LabelIndex[L]':
+    def filter(self, fn: Callable[['data.Label'], bool]) -> 'data.LabelIndex[L]':
         return self
 
-    def at(self, x: Union[Label, Location, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def at(self,
+           x: Union['data.Label', 'data.Location', float],
+           end: Optional[float] = None) -> 'data.LabelIndex[L]':
         return self
 
     def __len__(self) -> int:
@@ -710,7 +719,7 @@ class _Empty(LabelIndex):
     def __iter__(self) -> Iterator[L]:
         return iter([])
 
-    def __reversed__(self) -> 'LabelIndex[L]':
+    def __reversed__(self) -> 'data.LabelIndex[L]':
         return self
 
     def index(self, x: Any, start: int = ..., end: int = ...) -> int:
@@ -719,26 +728,30 @@ class _Empty(LabelIndex):
     def count(self, x: Any) -> int:
         return 0
 
-    def covering(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def covering(self,
+                 x: Union['data.Label', float],
+                 end: Optional[float] = None) -> 'data.LabelIndex[L]':
         return self
 
     def inside(self,
-               x: Union[Label, float],
-               end: Optional[float] = None) -> 'LabelIndex[L]':
+               x: Union['data.Label', float],
+               end: Optional[float] = None) -> 'data.LabelIndex[L]':
         return self
 
-    def overlapping(self, x: Union[Label, float], end: Optional[float] = None) -> 'LabelIndex[L]':
+    def overlapping(self,
+                    x: Union['data.Label', float],
+                    end: Optional[float] = None) -> 'data.LabelIndex[L]':
         return self
 
     def beginning_inside(self,
-                         x: Union[Label, float],
-                         end: Optional[float] = None) -> 'LabelIndex[L]':
+                         x: Union['data.Label', float],
+                         end: Optional[float] = None) -> 'data.LabelIndex[L]':
         return self
 
-    def ascending(self) -> 'LabelIndex[L]':
+    def ascending(self) -> 'data.LabelIndex[L]':
         return self
 
-    def descending(self) -> 'LabelIndex[L]':
+    def descending(self) -> 'data.LabelIndex[L]':
         return self
 
     def __eq__(self, other):

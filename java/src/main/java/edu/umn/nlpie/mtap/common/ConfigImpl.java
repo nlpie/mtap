@@ -15,6 +15,8 @@
  */
 package edu.umn.nlpie.mtap.common;
 
+import com.google.rpc.Help;
+import edu.umn.nlpie.mtap.utilities.Helpers;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -97,7 +99,7 @@ public final class ConfigImpl implements Config {
     String envVarPath = System.getenv("MTAP_CONFIG");
     List<Path> searchPaths = new ArrayList<>(Arrays.asList(
         Paths.get("./mtapConfig.yaml"),
-        Paths.get(System.getProperty("user.home")).resolve(".mtap/mtapConfig.yaml"),
+        Helpers.getHomeDirectory().resolve("mtapConfig.yaml"),
         Paths.get("/etc/mtap/mtapConfig.yaml")));
     if (envVarPath != null) {
       searchPaths.add(0, Paths.get(envVarPath));

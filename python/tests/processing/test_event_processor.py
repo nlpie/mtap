@@ -16,8 +16,7 @@ from time import sleep
 from datetime import timedelta
 from typing import Dict, Any
 
-from mtap import Event
-from mtap.processing import EventProcessor
+from mtap import Event, EventProcessor
 
 
 def test_started_stopwatch():

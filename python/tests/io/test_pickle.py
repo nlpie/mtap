@@ -25,9 +25,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import pickle
-from pathlib import Path
-from tempfile import TemporaryFile, NamedTemporaryFile
+from tempfile import TemporaryFile
 
 from mtap import Event, Document, label
 from mtap.io.serialization import PickleSerializer

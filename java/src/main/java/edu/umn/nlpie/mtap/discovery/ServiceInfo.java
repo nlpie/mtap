@@ -21,7 +21,7 @@ import java.util.List;
 public class ServiceInfo {
   private final String name;
   private final String identifier;
-  private final String address;
+  private final String host;
   private final int port;
   private final List<String> tags;
 
@@ -34,7 +34,7 @@ public class ServiceInfo {
   ) {
     this.name = name;
     this.identifier = identifier;
-    this.address = address;
+    this.host = address;
     this.port = port;
     this.tags = tags;
   }
@@ -47,8 +47,8 @@ public class ServiceInfo {
     return identifier;
   }
 
-  public String getAddress() {
-    return address;
+  public String getHost() {
+    return host;
   }
 
   public int getPort() {

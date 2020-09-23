@@ -16,6 +16,7 @@ import grpc
 import grpc_testing
 import pytest
 
+import mtap.data._base
 from mtap._events_service import EventsServicer
 from mtap.api.v1 import events_pb2
 

@@ -14,7 +14,7 @@
 from tempfile import TemporaryFile
 
 import mtap
-from mtap.events import Event, Document
+from mtap import Event, Document
 from mtap.io.serialization import JsonSerializer
 
 

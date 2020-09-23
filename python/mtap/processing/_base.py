@@ -14,23 +14,17 @@
 """Internal processors and pipelines functionality."""
 import contextlib
 import threading
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, ABC
 from datetime import timedelta, datetime
-from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, TextIO, Generator
+from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, Generator, \
+    Tuple, TYPE_CHECKING
 
-from mtap.events import Event, Document, ProtoLabelAdapter
+from mtap import data
 
-__all__ = [
-    'ProcessorContext',
-    'Stopwatch',
-    'ProcessorMeta',
-    'Processor',
-    'EventProcessor',
-    'DocumentProcessor',
-    'ProcessingResult',
-    'TimerStats',
-    'AggregateTimingInfo'
-]
+
+if TYPE_CHECKING:
+    import mtap
+    import mtap.processing as processing
 
 
 class ProcessorContext:
@@ -131,7 +125,7 @@ class Processor:
             self._health_callback(status)
 
     @property
-    def custom_label_adapters(self) -> Mapping[str, ProtoLabelAdapter]:
+    def custom_label_adapters(self) -> Mapping[str, data.ProtoLabelAdapter]:
         """Used to provide non-standard proto label adapters for specific index names.
 
         Returns:
@@ -140,7 +134,7 @@ class Processor:
         return {}
 
     @staticmethod
-    def current_context() -> Optional[ProcessorContext]:
+    def current_context() -> Optional['processing.ProcessorContext']:
         return getattr(processor_local, 'context', None)
 
     @staticmethod
@@ -166,7 +160,7 @@ class Processor:
         return stopwatch
 
     @staticmethod
-    def unstarted_stopwatch(key: str) -> Stopwatch:
+    def unstarted_stopwatch(key: str) -> 'processing.Stopwatch':
         """An object that can be used to time aspects of processing. The stopwatch will be stopped
         at creation.
 
@@ -218,7 +212,7 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
     """
 
     @abstractmethod
-    def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def process(self, event: 'mtap.Event', params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Performs processing on an event, implemented by the subclass.
 
         Parameters:
@@ -233,7 +227,7 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
         """
         ...
 
-    def default_adapters(self) -> Optional[Mapping[str, ProtoLabelAdapter]]:
+    def default_adapters(self) -> Optional[Mapping[str, data.ProtoLabelAdapter]]:
         """Can be overridden to return a mapping from label index names to adapters that will then
         be used in any documents or events provided to this processor's process methods.
 
@@ -254,13 +248,13 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
     """Abstract base class for a document processor.
 
     Examples:
-        >>> class ExampleProcessor(DocumentProcessor):
+        >>> class ExampleProcessor(mtap.DocumentProcessor):
         ...     def process(self, document, params):
         ...         # do processing on document
         ...         ...
     
     
-        >>> class ExampleProcessor(DocumentProcessor):
+        >>> class ExampleProcessor(mtap.DocumentProcessor):
         ...     def process(self, document, params):
         ...          with self.started_stopwatch('key'):
         ...               # use stopwatch on something
@@ -270,12 +264,12 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
 
     @abstractmethod
     def process_document(self,
-                         document: Document,
+                         document: 'mtap.Document',
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Performs processing of a document on an event, implemented by the subclass.
 
         Args:
-            document (Document): The document object to be processed.
+            document (~mtap.Document): The document object to be processed.
             params (~typing.Dict[str, ~typing.Any]):
                 Processing parameters. A dictionary of strings mapped to json-serializable values.
 
@@ -291,26 +285,65 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
         by the framework after it's done with the processor."""
         pass
 
-    def process(self, event: Event, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def process(self, event: 'mtap.Event', params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         document = event.documents[params['document_name']]
         return self.process_document(document, params)
 
 
+class ProcessingError(Exception):
+    """Exception for when processing results in a failure."""
+    pass
+
+
 ProcessingResult = NamedTuple('ProcessingResult',
                               [('identifier', str),
-                               ('results', Dict),
+                               ('result_dict', Dict),
                                ('timing_info', Dict),
                                ('created_indices', Dict[str, List[str]])])
 
 ProcessingResult.__doc__ = """The result of processing one document or event."""
-ProcessingResult.identifier.__doc__ = """str: The id of the processor with respect to the 
-pipeline."""
-ProcessingResult.results.__doc__ = """dict[str, ~typing.Any]: The json object returned by the 
-processor as its results."""
-ProcessingResult.timing_info.__doc__ = """dict[str, ~datetime.timedelta]: A dictionary of the times 
-taken processing this document"""
-ProcessingResult.created_indices.__doc__ = """dict[str, list[str]]: Any indices that have been 
-added to documents by this processor."""
+ProcessingResult.identifier.__doc__ = """The id of the processor with respect to the pipeline."""
+ProcessingResult.result_dict.__doc__ = """The json object returned by the processor as its results."""
+ProcessingResult.timing_info.__doc__ = """A dictionary of the times taken processing this 
+document"""
+ProcessingResult.created_indices.__doc__ = """Any indices that have been added to documents by this 
+processor."""
+
+
+class PipelineResult(NamedTuple('PipelineResult',
+                                [('component_results', List[ProcessingResult]),
+                                 ('elapsed_time', timedelta)])):
+    """The result of processing an event or document in a pipeline.
+
+    Attributes:
+        component_results (List[ProcessingResult]): The processing results for each individual
+            component
+        elapsed_time (timedelta): The elapsed time for the entire pipeline.
+
+    Args:
+        component_results (List[ProcessingResult]): The processing results for each individual
+            component
+        elapsed_time (timedelta): The elapsed time for the entire pipeline.
+
+    """
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(cls, *args, **kwargs)
+
+    def component_result(self, identifier: str) -> ProcessingResult:
+        """Returns the component result for a specific identifier.
+
+        Args:
+            identifier: The processor's identifier in the pipeline.
+
+        Returns:
+            ProcessingResult: The result for the specified processor.
+
+        """
+        try:
+            return next(filter(lambda x: x.identifier == identifier, self.component_results))
+        except StopIteration:
+            raise KeyError('No result for identifier: ' + identifier)
+
 
 TimerStats = NamedTuple('TimerStats',
                         [('mean', timedelta),
@@ -320,17 +353,17 @@ TimerStats = NamedTuple('TimerStats',
                          ('sum', timedelta)])
 TimerStats.__doc__ = """Statistics about a specific keyed measured duration recorded by a 
 :obj:`~mtap.processing.base.Stopwatch`."""
-TimerStats.mean.__doc__ = """~datetime.timedelta: The sample mean of all measured durations."""
-TimerStats.std.__doc__ = """~datetime.timedelta: The sample standard deviation of all measured 
+TimerStats.mean.__doc__ = """The sample mean of all measured durations."""
+TimerStats.std.__doc__ = """The sample standard deviation of all measured 
 durations."""
-TimerStats.max.__doc__ = """~datetime.timedelta: The minimum of all measured durations."""
-TimerStats.min.__doc__ = """~datetime.timedelta: The maximum of all measured durations."""
-TimerStats.sum.__doc__ = """~datetime.timedelta: The sum of all measured durations."""
+TimerStats.max.__doc__ = """The minimum of all measured durations."""
+TimerStats.min.__doc__ = """The maximum of all measured durations."""
+TimerStats.sum.__doc__ = """The sum of all measured durations."""
 
 
 class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
                                      [('identifier', str),
-                                      ('timing_info', Dict[str, TimerStats])])):
+                                      ('timing_info', Dict[str, 'processing.TimerStats'])])):
     """Collection of all of the timing info for a specific processor.
 
     Attributes:
@@ -372,3 +405,43 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
         for key, stats in self.timing_info.items():
             yield '{}:{},{},{},{},{},{}\n'.format(self.identifier, key, stats.mean, stats.std,
                                                   stats.min, stats.max, stats.sum)
+
+
+class ProcessingComponent(ABC):
+    component_id = None  # str: The component_id of the component in a pipeline
+    descriptor = None  # ComponentDescriptor: The ComponentDescriptor used to create the component.
+
+    @abstractmethod
+    def call_process(self, event_id: str,
+                     params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
+        """Calls a processor.
+
+        Parameters
+        ----------
+        event_id: str
+            The event to process.
+        params: Dict
+            The processor parameters.
+
+        Returns
+        -------
+        tuple of dict, dict, dict
+            A tuple of the processing result dictionary, the processor times dictionary, and the
+            created indices dictionary.
+
+        """
+        ...
+
+    def close(self):
+        ...
+
+
+class ComponentDescriptor(ABC):
+    """A configuration which describes either a local or remote pipeline component and what the
+    pipeline needs to do to call the component.
+    """
+
+    @abstractmethod
+    def create_pipeline_component(self, config: 'mtap.Config',
+                                  component_ids: Dict[str, int]) -> 'processing.ProcessingComponent':
+        pass

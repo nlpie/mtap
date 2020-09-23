@@ -44,7 +44,7 @@ class ProcessorServerBuilderTest {
         "10",
         "--identifier",
         "blah",
-        "--config",
+        "--mtap-config",
         "/etc/config",
         "--unique-service-id",
         "2");
@@ -111,7 +111,7 @@ class ProcessorServerBuilderTest {
         "10",
         "--identifier",
         "blah",
-        "--config",
+        "--mtap-config",
         "/etc/config",
         "--unique-service-id",
         "2",

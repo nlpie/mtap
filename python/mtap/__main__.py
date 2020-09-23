@@ -34,7 +34,9 @@ def run_events_server(args):
     with Config() as c:
         if args.mtap_config is not None:
             c.update_from_yaml(args.mtap_config)
-        server = EventsServer(args.host, port=args.port, register=args.register, workers=args.workers)
+        server = EventsServer(args.host, port=args.port, register=args.register,
+                              workers=args.workers,
+                              write_address=args.write_address)
         server.start()
         try:
             while True:
@@ -53,7 +55,6 @@ def main(args=None):
     import argparse as argparse
     parser = argparse.ArgumentParser(description='Starts a MTAP gRPC server.',
                                      allow_abbrev=False)
-    parser.add_argument('--log-level', default='INFO')
     subparsers = parser.add_subparsers(title='sub-commands', description='valid sub-commands')
 
     # Documents service sub-command
@@ -69,6 +70,11 @@ def main(args=None):
                                     'service discovery')
     events_parser.add_argument("--mtap-config", default=None,
                                help="path to MTAP config file")
+    events_parser.add_argument("--write-address", action='store_true',
+                               help="If set, will write the server's resolved address to a file "
+                                    "in the MTAP home directory (~/.mtap/addresses)")
+    events_parser.add_argument('--log-level', default='INFO', help='The global python log level.')
+
     events_parser.set_defaults(func=run_events_server)
 
     # Serializer processor sub-command
