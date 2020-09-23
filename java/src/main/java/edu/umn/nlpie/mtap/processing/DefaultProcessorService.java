@@ -19,7 +19,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Collections;
@@ -40,8 +39,11 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
   private final @NotNull String processorId;
   private final @NotNull String uniqueServiceId;
 
+  private final @NotNull String host;
+
   private int processed = 0;
   private int failures = 0;
+  private int port;
 
   public DefaultProcessorService(
       @NotNull ProcessorRunner runner,
@@ -49,7 +51,8 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
       @Nullable DiscoveryMechanism discoveryMechanism,
       @NotNull HealthService healthService,
       @Nullable String processorId,
-      @Nullable String uniqueServiceId
+      @Nullable String uniqueServiceId,
+      @NotNull String host
   ) {
     this.runner = runner;
     this.timingService = timingService;
@@ -57,24 +60,24 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
     this.healthService = healthService;
     this.processorId = processorId != null ? processorId : runner.getProcessor().getProcessorName();
     this.uniqueServiceId = uniqueServiceId != null ? uniqueServiceId : UUID.randomUUID().toString();
+    this.host = host;
   }
 
   @Override
   public void started(int port) throws UnknownHostException {
+    this.port = port;
     healthService.startedServing(processorId);
     if (discoveryMechanism != null) {
-      InetAddress localHost = InetAddress.getLocalHost();
       ServiceInfo serviceInfo = new ServiceInfo(
           processorId,
           uniqueServiceId,
-          localHost.getHostAddress(),
+          host,
           port,
           Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
       );
       discoveryMechanism.register(serviceInfo);
     }
     logger.info("Server for processor_id: {} started on port: {}", processorId, port);
-
   }
 
   @Override
@@ -165,7 +168,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
   @Override
   public void close() throws InterruptedException {
-    System.out.println("Shutting down processor server for processor_id: \"" + processorId + "\"");
+    System.out.println("Shutting down processor server with id: \"" + processorId + "\" on address: \"" + host + ":" + port + "\"");
     ServiceInfo serviceInfo = new ServiceInfo(
         processorId,
         uniqueServiceId,

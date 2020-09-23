@@ -1,0 +1,62 @@
+# Settings shared by event service and all processors.
+global:
+  # Leave null to use 127.0.0.1
+  host: null
+  # Leave null to use default configuration, otherwise provide a path to an mtap configuration file.
+  mtapConfig: null
+  # Optional override to set the python log-level for all services
+  logLevel: INFO
+  # Boolean yes to register with the configured service discovery.
+  register: no
+# Configuration for an optional event service co-deployed with processors.
+eventsService:
+  # Whether to deploy the events service.
+  enabled: yes
+  # Leave null to use global host
+  host: null
+  # Leave null to use an arbitrary open port
+  port: 10100
+  # The number of worker threads to handle requests
+  workers: 8
+# Configuration that will be shared by all processors.
+sharedProcessorConfig:
+  # An optional GRPC-compatible target for the events service to be used by all processors.
+  eventsAddress: null
+  # The default number of worker threads which will perform processing.
+  workers: 8
+  # a list of additional arguments for the processor
+  args: [ ]
+  jvmArgs: [ "-Xms32m", "-Xmx8g" ]
+  javaClasspath: null
+# Below this is a list of the processors to be deployed and their individual settings.
+processors:
+  # The implementation language e.g. "python" or "java"
+  - implementation: python
+    # The processor entry point, either the python module or java class required to launch the
+    # processor
+    entryPoint: mtap.examples.example_processor
+    # By default is "yes" when omitted, but can be specified to
+    enabled: yes
+    # The number of server instances of the processor to launch
+    instances: 1
+    # Leave null to use global host
+    host: null
+    # Either a port or null if ports should be randomly picked from open ports.
+    # In the case of multiple instances, instances will use ports in a sequence starting with this
+    # port.
+    # For example: instances: 3 and port: 10101 will assign the ports 10101, 10102, and 10103
+    # Alternatively, you can omit instances and use a list of ports here: e.g. [10101, 10102, 10103]
+    port: 10101
+    # an optional identifier override.
+    identifier: null
+    # An optional override for the number of worker threads per server.
+    workers: 10
+    # any arguments to be placed before the chain of processor arguments, for example a positional
+    # argument for a sub-command.
+    preArgs: [ ]
+    args: [ ]  # a list of additional arguments for the processor
+  - implementation: java
+    entryPoint: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor
+    instances: 1
+    host: null
+    port: 10102

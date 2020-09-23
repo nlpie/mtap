@@ -57,11 +57,13 @@ public abstract class EventProcessor extends ProcessorBase {
   }
 
   /**
-   * Adds a default adapter for a specfied label index name.
+   * Adds a default adapter for a specified label index name.
+   *
    * @param indexName The index name.
-   * @param adapter The adapter.
+   * @param adapter   The adapter.
    */
-  protected void addDefaultAdapter(@NotNull String indexName, @NotNull ProtoLabelAdapter<?> adapter) {
+  protected void addDefaultAdapter(@NotNull String indexName,
+                                   @NotNull ProtoLabelAdapter<?> adapter) {
     defaultAdapters.put(indexName, adapter);
   }
 
@@ -70,7 +72,8 @@ public abstract class EventProcessor extends ProcessorBase {
    *
    * @param adapterMap A mapping from index names to label adapters.
    */
-  protected void addAllDefaultAdapters(@NotNull Map<@NotNull String, @NotNull ProtoLabelAdapter<?>> adapterMap) {
+  protected void addAllDefaultAdapters(@NotNull Map<@NotNull String,
+      @NotNull ProtoLabelAdapter<?>> adapterMap) {
     this.defaultAdapters.putAll(adapterMap);
   }
 

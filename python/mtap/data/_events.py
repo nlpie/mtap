@@ -1,57 +1,43 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright 2020 Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 """Events service client API and wrapper classes.
 
-Attributes:
-    GenericLabelAdapter (ProtoLabelAdapter): label adapter used for standard (non-distinct)
-        :obj:`~mtap.GenericLabel`.
-    GenericLabelAdapter (ProtoLabelAdapter): label adapter used for distinct (non-overlapping)
-        :obj:`~mtap.GenericLabel`.
 """
 
 import collections
 import threading
 import uuid
-from abc import abstractmethod, ABC
-from enum import Enum
 from typing import Iterator, List, Dict, MutableMapping, Generic, TypeVar, NamedTuple, \
-    ContextManager, Iterable, Optional, Sequence, Union, Any, Mapping
+    ContextManager, Iterable, Optional, Sequence, Union, Mapping, TYPE_CHECKING
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2
 
-from mtap import _discovery
-from mtap import _structs
-from mtap._config import Config
-from mtap.api.v1 import events_pb2_grpc, events_pb2
-from mtap.constants import EVENTS_SERVICE_NAME
-from mtap.label_indices import label_index, LabelIndex, presorted_label_index
-from mtap.labels import GenericLabel, Label, _staticize
+import mtap._config as _config
+import mtap._discovery as _discovery
+import mtap.api.v1.events_pb2 as events_pb2
+import mtap.api.v1.events_pb2_grpc as events_pb2_grpc
+import mtap.constants as constants
+import mtap.data._base as _base
+import mtap.data._labels as _labels
+import mtap.data._label_adapters as _label_adapters
 
-__all__ = [
-    'Event',
-    'LabelIndexType',
-    'LabelIndexInfo',
-    'Document',
-    'Labeler',
-    'ProtoLabelAdapter',
-    'EventsClient',
-    'GenericLabelAdapter',
-    'DistinctGenericLabelAdapter'
-]
+if TYPE_CHECKING:
+    import mtap
+    import mtap.data as data
 
-L = TypeVar('L', bound=Label)
+L = TypeVar('L', bound='data.Label')
 
 
 class Event:
@@ -63,19 +49,20 @@ class Event:
     Keyword Args:
         event_id (~typing.Optional[str]):
             A globally-unique identifier for the event, or omit / none for a random UUID.
-        client (~typing.Optional[EventsClient):
+        client (~typing.Optional[EventsClient]):
             A client for an events service to push any changes to the event to.
         only_create_new (bool): Fails if the event already exists on the events service.
 
     Examples:
-        >>> with EventsClient() as client, Event(event_id='id', client=client) as event:
+        >>> with EventsClient() as c, Event(event_id='id', client=c) as event:
         >>>     # use event
         >>>     ...
     """
 
-    def __init__(self, *, event_id: Optional[str] = None, client: Optional['EventsClient'] = None,
+    def __init__(self, *, event_id: Optional[str] = None,
+                 client: Optional['mtap.EventsClient'] = None,
                  only_create_new: bool = False,
-                 default_adapters: Optional[Mapping[str, 'ProtoLabelAdapter']] = None):
+                 default_adapters: Optional[Mapping[str, 'data.ProtoLabelAdapter']] = None):
         self._event_id = event_id or str(uuid.uuid4())
         self._client = client
         self._lock = threading.RLock()
@@ -84,7 +71,7 @@ class Event:
             client.open_event(self._event_id, only_create_new=only_create_new)
 
     @property
-    def client(self) -> Optional['EventsClient']:
+    def client(self) -> Optional['mtap.EventsClient']:
         return self._client
 
     @property
@@ -93,7 +80,7 @@ class Event:
         return self._event_id
 
     @property
-    def documents(self) -> MutableMapping[str, 'Document']:
+    def documents(self) -> MutableMapping[str, 'mtap.Document']:
         """~typing.MutableMapping[str, Document]: A mutable mapping of strings to :obj:`Document`
         objects that can be used to query and add documents to the event."""
         try:
@@ -135,7 +122,7 @@ class Event:
         if self.client is not None:
             self.release_lease()
 
-    def create_document(self, document_name: str, text: str) -> 'Document':
+    def create_document(self, document_name: str, text: str) -> 'mtap.Document':
         """Adds a document to the event keyed by `document_name` and
         containing the specified `text`.
 
@@ -148,6 +135,12 @@ class Event:
 
         Returns:
             Document: The added document.
+
+        Examples:
+
+            >>> event = Event()
+            >>> document = event.create_document('plaintext', text="The text of the document.")
+
         """
         if not isinstance(text, str):
             raise ValueError('text is not string.')
@@ -155,13 +148,22 @@ class Event:
         self.documents[document_name] = document
         return document
 
-    def add_document(self, document: 'Document'):
+    def add_document(self, document: 'mtap.Document'):
         """Adds the document to this event, first uploading to events service if this event has a
         client connection to the events service.
 
         Args:
-            document (Document): The document to add to this event.
+            document (~mtap.Document): The document to add to this event.
+
+        Examples:
+
+            >>> event = Event()
+            >>> document = Document('plaintext', text="The text of the document.")
+            >>> event.add_document(document)
+
         """
+        if document._event is not None:
+            raise ValueError('The document already exists on an event')
         document._event = self
         document._client = self.client
         document._event_id = self.event_id
@@ -190,33 +192,9 @@ class Event:
             self.client.close_event(self.event_id)
 
 
-class LabelIndexType(Enum):
-    """The type of serialized labels contained in the label index."""
-    UNKNOWN = 0
-    """Label index not set or type not known."""
-
-    GENERIC = 1
-    """JSON / Generic Label index"""
-
-    CUSTOM = 2
-    """Other / custom protobuf label index"""
-
-
-LabelIndexType.UNKNOWN.__doc__ = """Label index not set or type not known."""
-LabelIndexType.GENERIC.__doc__ = """JSON / Generic Label index"""
-LabelIndexType.CUSTOM.__doc__ = """Other / custom protobuf label index"""
-
-LabelIndexInfo = NamedTuple('LabelIndexInfo',
-                            [('index_name', str),
-                             ('type', LabelIndexType)])
-LabelIndexInfo.__doc__ = """Information about a label index contained on a document."""
-LabelIndexInfo.index_name.__doc__ = """str: The name of the label index."""
-LabelIndexInfo.type.__doc__ = """LabelIndexType: The type of the label index."""
-
-
 class _WaitingIndex(NamedTuple('_WaitingIndex',
                                [('index_name', str),
-                                ('labels', List[GenericLabel]),
+                                ('labels', List['mtap.GenericLabel']),
                                 ('waiting_on', List[int])])):
     """A label index that is waiting on some labels to be staticized before uploading.
     """
@@ -280,7 +258,7 @@ class Document:
                  *,
                  text: Optional[str] = None,
                  event: Optional[Event] = None,
-                 default_adapters: Optional[Mapping[str, 'ProtoLabelAdapter']] = None):
+                 default_adapters: Optional[Mapping[str, 'data.ProtoLabelAdapter']] = None):
         if not isinstance(document_name, str):
             raise TypeError('Document name is not string.')
         self._document_name = document_name
@@ -324,18 +302,15 @@ class Document:
         return list(self._created_indices)
 
     @property
-    def labels(self) -> Mapping[str, LabelIndex]:
+    def labels(self) -> Mapping[str, 'data.LabelIndex']:
         try:
             return self._labels
         except AttributeError:
             self._labels = _LabelIndices(self)
             return self._labels
 
-    def get_label_index(
-            self,
-            label_index_name: str,
-            *, label_adapter: Optional['ProtoLabelAdapter[L]'] = None
-    ) -> LabelIndex[Union[GenericLabel, L]]:
+    def get_label_index(self,
+                        label_index_name: str) -> 'data.LabelIndex[Union[mtap.GenericLabel, L]]':
         """Gets the document's label index with the specified key.
 
         Will fetch from the events service if it is not cached locally if the document has an event
@@ -344,25 +319,15 @@ class Document:
 
         Args:
             label_index_name (str): The name of the label index to get.
-            label_adapter (ProtoLabelAdapter): Deprecated, does not do anything.
-
-        Keyword Args:
-            label_adapter (~typing.Optional[ProtoLabelAdapter]):
-                The label adapter for the target type. If omitted :obj:`GenericLabel` will be used.
 
         Returns:
             LabelIndex: The requested label index.
-
-
-        ..deprecated:: 0.5
-            Use :func:`Document.labels` instead.
         """
         return self.labels[label_index_name]
 
     def get_labeler(self,
                     label_index_name: str,
-                    *, distinct: Optional[bool] = None,
-                    label_adapter: Optional['ProtoLabelAdapter[L]'] = None) -> 'Labeler':
+                    *, distinct: Optional[bool] = None):
         """Creates a function that can be used to add labels to a label index.
 
         Args:
@@ -370,7 +335,6 @@ class Document:
             distinct (~typing.Optional[bool]):
                 Optional, if using generic labels, whether to use distinct generic labels or
                 non-distinct generic labels, will default to False.
-            label_adapter (ProtoLabelAdapter): Deprecated, no longer does anything.
 
         Returns:
             Labeler: A callable when used in conjunction with the 'with' keyword will automatically
@@ -381,10 +345,6 @@ class Document:
             >>>     labeler(0, 25, sentence_type='STANDARD')
             >>>     sentence = labeler(26, 34)
             >>>     sentence.sentence_type = 'FRAGMENT'
-
-        ..deprecated:: 0.5
-            `label_adapter` will be removed before 1.0, since that is handled by the default label
-            adapters set on the document / event.
         """
         if label_index_name in self._labelers:
             raise KeyError("Labeler already in use: " + label_index_name)
@@ -396,9 +356,9 @@ class Document:
 
     def add_labels(self,
                    label_index_name: str,
-                   labels: Sequence[Union['Label', L]],
+                   labels: Sequence[Union['data.Label', L]],
                    *, distinct: Optional[bool] = None,
-                   label_adapter: Optional['ProtoLabelAdapter'] = None):
+                   label_adapter: Optional['data.ProtoLabelAdapter'] = None):
         """Skips using a labeler and adds the sequence of labels as a new label index.
 
         Args:
@@ -406,7 +366,7 @@ class Document:
             labels (~typing.Sequence[Label]): The labels to add.
             distinct (~typing.Optional[bool]):
                 Whether the index is distinct or non-distinct.
-            label_adapter (ProtoLabelAdapter): A label adapter to use.
+            label_adapter (mtap.label_adapters.ProtoLabelAdapter): A label adapter to use.
 
         Returns:
             LabelIndex: The new label index created from the labels.
@@ -417,7 +377,7 @@ class Document:
             if distinct is None:
                 distinct = False
             label_adapter = self.get_default_adapter(label_index_name, distinct)
-        labels, waiting_on = _staticize(labels, self, label_index_name)
+        labels, waiting_on = _labels._staticize(labels, self, label_index_name)
         if len(self._waiting_indices) > 0:
             label_ids = {id(label) for label in labels}
             self._check_waiting_indices(label_ids)
@@ -451,7 +411,7 @@ class Document:
         return index
 
     def get_default_adapter(self, label_index_name: str,
-                            distinct: Optional[bool] = None) -> Optional['ProtoLabelAdapter']:
+                            distinct: Optional[bool] = None) -> Optional['data.ProtoLabelAdapter']:
         try:
             return self.default_adapters[label_index_name]
         except KeyError:
@@ -459,7 +419,8 @@ class Document:
         try:
             return self.event.default_adapters[label_index_name]
         except (AttributeError, KeyError):
-            return DistinctGenericLabelAdapter if distinct else GenericLabelAdapter
+            return _label_adapters.DISTINCT_GENERIC_ADAPTER if distinct \
+                else _label_adapters.GENERIC_ADAPTER
 
     def add_created_indices(self, created_indices: Iterable[str]):
         # Internal, used by the pipeline to add any indices created remotely to the
@@ -468,22 +429,15 @@ class Document:
 
 
 class Labeler(Generic[L], ContextManager['Labeler']):
-    """Object provided by :func:`~mtap.Document.get_labeler` which is responsible for adding labels
+    """Object provided by :func:`~'mtap.Document'.get_labeler` which is responsible for adding labels
     to a label index on a document.
-
-    Args:
-        client (EventsClient): Client to upload labels to events service when done.
-        document (Document): The parent document labels are being added to.
-        label_index_name (str): The label index name key.
-        label_adapter (ProtoLabelAdapter):
-            The label adapter to perform marshalling from objects to proto messages.
     """
 
     def __init__(self,
-                 client: 'EventsClient',
+                 client: 'mtap.EventsClient',
                  document: Document,
                  label_index_name: str,
-                 label_adapter: 'ProtoLabelAdapter[L]'):
+                 label_adapter: 'data.ProtoLabelAdapter[L]'):
         self._client = client
         self._document = document
         self._label_index_name = label_index_name
@@ -510,7 +464,7 @@ class Labeler(Generic[L], ContextManager['Labeler']):
         self._current_labels.append(label)
         return label
 
-    def __enter__(self) -> 'Labeler':
+    def __enter__(self) -> 'data.Labeler':
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -531,115 +485,16 @@ class Labeler(Generic[L], ContextManager['Labeler']):
                                       label_adapter=self._label_adapter)
 
 
-class ProtoLabelAdapter(ABC, Generic[L]):
-    """Responsible for marshalling and unmarshalling of label objects to and from proto messages.
-    """
-
-    @abstractmethod
-    def create_label(self, *args, **kwargs) -> L:
-        """Called by labelers to create labels.
-
-        Should include the positional arguments `start_index` and `end_index`, because those are
-        required properties of labels.
-
-        Args:
-            args: Arbitrary args used to create the label.
-            kwargs: Arbitrary keyword args used to create the label.
-
-        Returns:
-            Label: An object of the label type.
-        """
-        ...
-
-    @abstractmethod
-    def create_index_from_response(self, response: events_pb2.GetLabelsResponse) -> LabelIndex[L]:
-        """Creates a LabelIndex from the response from an events service.
-
-        Args:
-            response (mtap.api.v1.events_pb2.GetLabelsResponse): The response protobuf message from
-                the events service.
-
-        Returns:
-            LabelIndex[L]: A label index containing all the labels from the events service.
-        """
-        ...
-
-    @abstractmethod
-    def create_index(self, labels: Iterable[L]):
-        """Creates a LabelIndex from an iterable of label objects.
-
-        Args:
-            labels (~typing.Iterable[L]): Labels to put in index.
-
-        Returns:
-            LabelIndex[L]: A label index containing all of the labels in the list.
-        """
-        ...
-
-    @abstractmethod
-    def add_to_message(self, labels: List[L], request: events_pb2.AddLabelsRequest):
-        """Adds a list of labels to a request to the event service to add labels.
-
-        Args:
-            labels (Iterable[L]): The list of labels that need to be sent to the server.
-            request (mtap.api.v1.events_pb2.AddLabelsRequest): The request proto message to add the
-                labels to.
-        """
-        ...
-
-    @abstractmethod
-    def pack(self, index: LabelIndex[L], *, include_label_text: bool = False) -> Any:
-        """Prepares to serialize a label index by transforming the label index into a representation
-        that can be dumped to json, yml, pickle, etc.
-
-        Args:
-            index: The index itself.
-            include_label_text:
-                Whether to include the label's text in the serialized representation
-                (for informative reasons).
-
-        Returns:
-            A dictionary representation of the label index.
-
-        """
-        ...
-
-    @abstractmethod
-    def unpack(self, packed: Any,
-               label_index_name: str,
-               *, document: Optional[Document] = None) -> LabelIndex[L]:
-        """Takes a packed, serializable object and turns it into a full label index.
-
-        Args:
-            packed (Any): The packed representation.
-            label_index_name (str): The index name of the label index.
-            document (Document): The document this label index occurs on.
-
-        Returns:
-            LabelIndex[L]: The label index.
-
-        """
-        ...
-
-    def store_references(self, labels: Sequence[L]):
-        """Take all the references for the labels and turn them into static references.
-
-        Args:
-             labels (Sequence[L]): The labels to store the references on.
-        """
-        ...
-
-
 class EventsClient:
     """A client object for interacting with the events service.
 
     Normally, users shouldn't have to use any of the methods on this object, as they are invoked by
-    the globally distributed object classes of :obj:`Event`, :obj:`Document`, and :obj:`Labeler`.
+    the globally distributed object classes of :obj:`Event`, :obj:`Document`, and :obj:`~data.Labeler`.
 
     Keyword Args:
         address (~typing.Optional[str]): The events service target e.g. 'localhost:9090' or
             omit/None to use service discovery.
-        stub (~typing.Optional[mtap.api.v1.events_pb2_grpc.EventsStub]): An existing events service
+        stub (~typing.Optional[~mtap.api.v1.events_pb2_grpc.EventsStub]): An existing events service
             client gRPC stub to use.
 
     Examples:
@@ -654,13 +509,13 @@ class EventsClient:
                  stub: Optional[events_pb2_grpc.EventsStub] = None):
         if stub is None:
             if address is None:
-                discovery = _discovery.Discovery(Config())
+                discovery = _discovery.Discovery(_config.Config())
                 address = discovery.discover_events_service('v1')
 
             channel = grpc.insecure_channel(address)
 
             health = health_pb2_grpc.HealthStub(channel)
-            hcr = health.Check(health_pb2.HealthCheckRequest(service=EVENTS_SERVICE_NAME))
+            hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))
             if hcr.status != health_pb2.HealthCheckResponse.SERVING:
                 raise ValueError('Failed to connect to events service. Status:')
 
@@ -740,19 +595,19 @@ class EventsClient:
         response = self.stub.GetDocumentText(request)
         return response.text
 
-    def get_label_index_info(self, event_id: str, document_name: str) -> List[LabelIndexInfo]:
+    def get_label_index_info(self, event_id: str, document_name: str) -> List['data.LabelIndexInfo']:
         request = events_pb2.GetLabelIndicesInfoRequest(event_id=event_id,
                                                         document_name=document_name)
         response = self.stub.GetLabelIndicesInfo(request)
         result = []
         for index in response.label_index_infos:
             if index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC:
-                index_type = LabelIndexType.GENERIC
+                index_type = _base.LabelIndexType.GENERIC
             elif index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.CUSTOM:
-                index_type = LabelIndexType.CUSTOM
+                index_type = _base.LabelIndexType.CUSTOM
             else:
-                index_type = LabelIndexType.UNKNOWN
-            result.append(LabelIndexInfo(index.index_name, index_type))
+                index_type = _base.LabelIndexType.UNKNOWN
+            result.append(_base.LabelIndexInfo(index.index_name, index_type))
         return result
 
     def add_labels(self, event_id, document_name, index_name, labels, adapter):
@@ -928,7 +783,7 @@ class _Binaries(collections.abc.MutableMapping):
             self._names.update(response)
 
 
-class _LabelIndices(Mapping[str, LabelIndex]):
+class _LabelIndices(Mapping[str, 'data.LabelIndex']):
     def __init__(self, document: Document):
         self._document = document
         self._document_name = document.document_name
@@ -941,7 +796,7 @@ class _LabelIndices(Mapping[str, LabelIndex]):
         self._cache = {}
         self._names_cache = set()
 
-    def __getitem__(self, k: str) -> LabelIndex:
+    def __getitem__(self, k: str) -> 'data.LabelIndex':
         try:
             return self._cache[k]
         except KeyError:
@@ -953,7 +808,7 @@ class _LabelIndices(Mapping[str, LabelIndex]):
         if self._client is not None:
             label_adapter = self._document.get_default_adapter(k)
             if label_adapter is None:
-                label_adapter = GenericLabelAdapter
+                label_adapter = data.GENERIC_ADAPTER
             index = self._client.get_labels(self._event_id, self._document_name, k,
                                             adapter=label_adapter)
             for label in index:
@@ -986,99 +841,3 @@ class _LabelIndices(Mapping[str, LabelIndex]):
     def add_to_cache(self, label_index_name, index):
         self._cache[label_index_name] = index
         self._names_cache.add(label_index_name)
-
-
-class _GenericLabelAdapter(ProtoLabelAdapter[GenericLabel]):
-    def __init__(self, distinct):
-        self.distinct = distinct
-
-    def create_label(self, *args, **kwargs):
-        return GenericLabel(*args, **kwargs)
-
-    def create_index(self, labels: List[L]):
-        return label_index(labels, self.distinct, adapter=self)
-
-    def create_index_from_response(self, response):
-        generic_labels = response.generic_labels
-        labels = []
-        for label_message in generic_labels.labels:
-            fields = {}
-            _structs.copy_struct_to_dict(label_message.fields, fields)
-            reference_field_ids = {}
-            _structs.copy_struct_to_dict(label_message.reference_ids, reference_field_ids)
-            generic_label = GenericLabel(label_message.start_index, label_message.end_index,
-                                         identifier=label_message.identifier, fields=fields,
-                                         reference_field_ids=reference_field_ids)
-            labels.append(generic_label)
-
-        return presorted_label_index(labels, generic_labels.is_distinct, adapter=self)
-
-    def add_to_message(self, labels: List[GenericLabel], request):
-        generic_labels = request.generic_labels
-        for label in labels:
-            label_message = generic_labels.labels.add()
-            label_message.identifier = label.identifier
-            label_message.start_index = label.start_index
-            label_message.end_index = label.end_index
-            _structs.copy_dict_to_struct(label.fields, label_message.fields, [label])
-            _structs.copy_dict_to_struct(label.reference_field_ids, label_message.reference_ids,
-                                         [label])
-
-    def pack(self, index: LabelIndex[GenericLabel], *, include_label_text: bool = False) -> Any:
-        d = {
-            'labels': [_label_to_dict(label, include_label_text) for label in index],
-            'distinct': index.distinct
-        }
-        return d
-
-    def unpack(self, packed: Any,
-               label_index_name: str,
-               *, document: Optional[Document] = None) -> LabelIndex[L]:
-        return label_index(
-            [_dict_to_label(d, label_index_name, document) for d in packed['labels']],
-            distinct=packed['distinct'], adapter=self
-        )
-
-    def store_references(self, labels: Sequence['GenericLabel']):
-        for label in labels:
-            for k, v in label.reference_cache.items():
-                if k not in label.reference_field_ids:
-                    label.reference_field_ids[k] = _convert_to_references(v)
-
-
-def _convert_to_references(o):
-    if o is None:
-        return o
-    if isinstance(o, Label):
-        ref = '{}:{}'.format(o.label_index_name, o.identifier)
-        return ref
-    if isinstance(o, Mapping):
-        rep = {}
-        for k, v in o.items():
-            rep[k] = _convert_to_references(v)
-        return rep
-    if isinstance(o, Sequence):
-        rep = [_convert_to_references(v) for v in o]
-        return rep
-
-
-def _label_to_dict(label, include_label_text):
-    d = {'start_index': label.start_index,
-         'end_index': label.end_index,
-         'identifier': label.identifier,
-         'fields': label.fields,
-         'reference_ids': label.reference_field_ids}
-    if include_label_text:
-        d['_text'] = label.text
-    return d
-
-
-def _dict_to_label(d, label_index_name, document):
-    return GenericLabel(d['start_index'], d['end_index'], identifier=d['identifier'],
-                        fields=d['fields'], reference_field_ids=d['reference_ids'],
-                        label_index_name=label_index_name, document=document)
-
-
-GenericLabelAdapter = _GenericLabelAdapter(False)
-
-DistinctGenericLabelAdapter = _GenericLabelAdapter(True)

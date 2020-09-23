@@ -17,8 +17,9 @@ import grpc_testing
 import pytest
 from grpc import StatusCode
 
+from mtap import EventsClient
 from mtap.api.v1 import events_pb2, events_pb2_grpc
-from mtap.events import EventsClient, LabelIndexType
+from mtap.data import LabelIndexType, LabelIndexInfo
 
 
 @pytest.fixture(name='events_channel')

@@ -13,36 +13,27 @@
 # limitations under the License.
 """Public API and access points for the MTAP Framework."""
 
-from mtap import constants
-from mtap import events
-from mtap import io
-from mtap import label_indices
-from mtap import labels
-from mtap import metrics
-from mtap import processing
-from mtap import utilities
-from mtap import version
+
 from mtap._config import Config
 from mtap._events_service import EventsServer
-from mtap.events import Document
-from mtap.events import Event
-from mtap.events import EventsClient
-from mtap.label_indices import label_index
-from mtap.labels import GenericLabel
-from mtap.labels import Location
-from mtap.labels import label
+from mtap.data import Document
+from mtap.data import Event
+from mtap.data import EventsClient
+from mtap.data import GenericLabel
+from mtap.data import label
+from mtap.data import label_index
+from mtap.data import Location
+from mtap.processing import descriptions
+from mtap.processing import DocumentProcessor
+from mtap.processing import EventProcessor
+from mtap.processing import processor_parser
 from mtap.processing import LocalProcessor
 from mtap.processing import Pipeline
 from mtap.processing import ProcessorServer
 from mtap.processing import RemoteProcessor
 from mtap.processing import processor
-from mtap.processing import processor_parser
 from mtap.processing import run_processor
 
-__version__ = version.version
+import mtap.version
 
-__all__ = ['__version__', 'Config', 'constants', 'Document', 'events', 'EventsServer',
-           'EventsClient', 'Event', 'GenericLabel', 'io', 'label', 'labels', 'Location',
-           'label_index', 'label_indices', 'LocalProcessor', 'metrics', 'Pipeline', 'processing',
-           'processor', 'processor_parser', 'ProcessorServer', 'RemoteProcessor', 'run_processor',
-           'utilities']
+__version__ = version.version

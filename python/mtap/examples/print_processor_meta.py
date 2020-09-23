@@ -17,7 +17,7 @@ from os import environ
 from subprocess import call
 from tempfile import NamedTemporaryFile
 
-from mtap.examples.example_processor import ExampleProcessor
+import mtap.examples.example_processor as example_processor
 
 
 def main(filename: str):
@@ -41,7 +41,7 @@ def main(filename: str):
         java_meta = load(f, Loader=Loader)
 
     with open(filename, 'w') as f:
-        dump([ExampleProcessor.metadata] + java_meta, f, Dumper=Dumper)
+        dump([example_processor.ExampleProcessor.metadata] + java_meta, f, Dumper=Dumper)
 
 
 if __name__ == '__main__':

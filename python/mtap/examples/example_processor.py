@@ -16,29 +16,27 @@
 from typing import Dict, Any, Optional
 
 import mtap
-from mtap.events import Document
-from mtap.processing import DocumentProcessor, run_processor
-from mtap.processing.descriptions import label_index, label_property, parameter
+from mtap.processing.descriptions import parameter, labels, label_property
 
 
 @mtap.processor('mtap-example-processor-python',
                 human_name="Python Example Processor",
                 description="counts the number of times the letters a and b occur in a document",
                 parameters=[
-                       parameter('do_work', required=True, data_type='bool',
-                                 description="Whether the processor should do anything.")
-                   ],
+                    parameter('do_work', required=True, data_type='bool',
+                              description="Whether the processor should do anything.")
+                ],
                 outputs=[
-                       label_index('mtap.examples.letter_counts',
-                                   properties=[label_property('letter', data_type='str'),
-                                               label_property('count', data_type='int')])
-                   ])
-class ExampleProcessor(DocumentProcessor):
+                    labels('mtap.examples.letter_counts',
+                           properties=[label_property('letter', data_type='str'),
+                                       label_property('count', data_type='int')])
+                ])
+class ExampleProcessor(mtap.DocumentProcessor):
     """Does some labeling of the counts of the letter 'a' and 'b' in a document.
     """
 
     def process_document(self,
-                         document: Document,
+                         document: mtap.Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if params['do_work']:
             with self.started_stopwatch('fetch_time'):
@@ -57,4 +55,4 @@ class ExampleProcessor(DocumentProcessor):
 
 
 if __name__ == '__main__':
-    run_processor(ExampleProcessor())
+    mtap.run_processor(ExampleProcessor())

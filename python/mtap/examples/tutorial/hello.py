@@ -13,11 +13,10 @@
 # limitations under the License.
 """Tutorial hello world processor."""
 import mtap
-from mtap.processing import DocumentProcessor
 
 
 @mtap.processor('hello')
-class HelloProcessor(DocumentProcessor):
+class HelloProcessor(mtap.DocumentProcessor):
     def process_document(self, document, params):
         with document.get_labeler('hello') as add_hello:
             text = document.text

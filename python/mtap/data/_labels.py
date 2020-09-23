@@ -1,25 +1,26 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright 2020 Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 """Labels functionality."""
 import threading
 from abc import ABC, abstractmethod, ABCMeta
 from queue import Queue
-from typing import TYPE_CHECKING, List, Tuple, Set
-from typing import TypeVar, NamedTuple, Any, Mapping, Sequence, Union, Optional
+from typing import List, Tuple, Set, TYPE_CHECKING, TypeVar, NamedTuple, Any, Mapping, Sequence, \
+    Union, Optional
 
 if TYPE_CHECKING:
-    from mtap.events import Document
+    import mtap
+    import mtap.data as data
 
 
 class Location(NamedTuple('Location', [('start_index', float), ('end_index', float)])):
@@ -40,7 +41,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
             The end index exclusive of the location in text.
     """
 
-    def covers(self, other: Union['Location', 'Label']):
+    def covers(self, other: Union['data.Location', 'data.Label']):
         """Whether the span of text covered by this label completely overlaps the span of text
         covered by the ``other`` label or location.
 
@@ -52,7 +53,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
         """
         return self.start_index <= other.start_index and self.end_index >= other.end_index
 
-    def relative_to(self, location: Union['Location', 'Label', int]) -> 'Location':
+    def relative_to(self, location: Union['data.Location', 'data.Label', int]) -> 'data.Location':
         """Creates a location relative to the the same origin as ``location`` and makes it relative
         to ``location``.
 
@@ -60,7 +61,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
             location (int or Location or Label): A location to relativize this location to.
 
         Returns:
-            Location
+            ~data.Location: A copy with updated indices.
 
         Examples:
             >>> sentence = Location(10, 20)
@@ -77,7 +78,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
             raise ValueError('location must be Label, Location, or an int value')
         return Location(self.start_index - start_index, self.end_index - start_index)
 
-    def offset_by(self, location: Union['Location', 'Label', int]) -> 'Location':
+    def offset_by(self, location: Union['data.Location', 'data.Label', int]) -> 'data.Location':
         """Creates a location by offsetting this location by an integer or the ``start_index`` of a
         location / label. Derelativizes this location.
 
@@ -85,7 +86,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
             location (int or Location or Label): A location to offset this location by.
 
         Returns:
-            Location
+            ~data.Location: A copy with updated indices.
 
         Examples:
             >>> sentence = Location(10, 20)
@@ -109,13 +110,13 @@ class Label(ABC, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def document(self) -> 'Document':
+    def document(self) -> 'mtap.Document':
         """Document: The parent document this label appears on."""
         ...
 
     @document.setter
     @abstractmethod
-    def document(self, value: 'Document'):
+    def document(self, value: 'mtap.Document'):
         """Sets the label's document, this will automatically be done when the label is created
         via a Document (i.e. get_label_index) or added to a document (i.e. via labeler or add_labels).
         """
@@ -124,7 +125,7 @@ class Label(ABC, metaclass=ABCMeta):
     @property
     @abstractmethod
     def label_index_name(self) -> str:
-        """The label index this label appears on."""
+        """str: The label index this label appears on."""
         ...
 
     @label_index_name.setter
@@ -137,7 +138,7 @@ class Label(ABC, metaclass=ABCMeta):
     @property
     @abstractmethod
     def identifier(self) -> int:
-        """The index of the label within its label index."""
+        """int: The index of the label within its label index."""
         ...
 
     @identifier.setter
@@ -194,7 +195,7 @@ class Label(ABC, metaclass=ABCMeta):
             other: The other label to test.
 
         Returns:
-            True if all of the fields are equal and the references ar
+            True if all of the fields are equal and the references are at the same locations.
 
         """
         pass
@@ -237,7 +238,7 @@ class GenericLabel(Label):
 
     def __init__(self, start_index: int, end_index: int, *,
                  identifier: Optional[int] = None,
-                 document: Optional['Document'] = None,
+                 document: Optional['mtap.Document'] = None,
                  label_index_name: Optional['str'] = None,
                  fields: Optional[dict] = None,
                  reference_field_ids: Optional[dict] = None,
@@ -260,11 +261,11 @@ class GenericLabel(Label):
             setattr(self, key, value)
 
     @property
-    def document(self) -> 'Document':
+    def document(self) -> 'mtap.Document':
         return self._document
 
     @document.setter
-    def document(self, document: 'Document'):
+    def document(self, document: 'mtap.Document'):
         self._document = document
 
     @property
@@ -405,7 +406,7 @@ class GenericLabel(Label):
 
 def label(start_index: int,
           end_index: int,
-          *, document: Optional['Document'] = None,
+          *, document: Optional['mtap.Document'] = None,
           **kwargs) -> GenericLabel:
     """An alias for :class:`GenericLabel`.
 
@@ -421,9 +422,9 @@ def label(start_index: int,
     return GenericLabel(start_index, end_index, document=document, **kwargs)
 
 
-def _staticize(labels: Sequence['Label'],
-               document: 'Document',
-               label_index_name: str) -> Tuple[List['Label'], Set[int]]:
+def _staticize(labels: Sequence['data.Label'],
+               document: 'mtap.Document',
+               label_index_name: str) -> Tuple[List['data.Label'], Set[int]]:
     """Prepares a label index for serialization by finalizing sort order and setting label
     identifiers.
 
@@ -481,7 +482,7 @@ def _is_referential(o: Any, parents=None) -> bool:
         raise TypeError('Unrecognized type')
 
 
-def _dereference(o: Any, document: 'Document') -> Any:
+def _dereference(o: Any, document: 'mtap.Document') -> Any:
     if o is None:
         return o
     if isinstance(o, str):

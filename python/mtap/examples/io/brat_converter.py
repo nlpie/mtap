@@ -15,8 +15,8 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
-from mtap.io.brat import read_brat_documents
-from mtap.io.serialization import get_serializer
+import mtap.io.brat as brat
+import mtap.io.serialization as serialization
 
 
 class BratConverter(Namespace):
@@ -37,12 +37,13 @@ class BratConverter(Namespace):
 
 
     """
+
     def convert_files(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        for event in read_brat_documents(self.input_dir, document_name=self.document_name,
-                                         label_index_name_prefix=self.label_index_name_prefix,
-                                         encoding=self.input_encoding,
-                                         create_indices=self.create_indices):
+        for event in brat.read_brat_documents(self.input_dir, document_name=self.document_name,
+                                              label_index_name_prefix=self.label_index_name_prefix,
+                                              encoding=self.input_encoding,
+                                              create_indices=self.create_indices):
             output_path = self.output_dir.joinpath(event.event_id + self.serializer.extension)
             self.serializer.event_to_file(event, output_path)
 
@@ -55,7 +56,7 @@ def main(args=None):
                         help="The output directory of serialized files.")
     parser.add_argument('create_indices', nargs='*', default=[],
                         help='Indices to create, even if empty.')
-    parser.add_argument('--serializer', type=get_serializer, default='json')
+    parser.add_argument('--serializer', type=serialization.get_serializer, default='json')
     parser.add_argument('--events-address', default=None,
                         help='Address of the events service to use.')
     parser.add_argument('--document-name', default='plaintext',

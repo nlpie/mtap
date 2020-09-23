@@ -15,35 +15,26 @@ import logging
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Lock, Condition
 from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
-    NamedTuple, ContextManager
+    ContextManager, TYPE_CHECKING, overload
 
 from tqdm import tqdm
 
-from mtap._config import Config
-from mtap.events import Event, Document, EventsClient
-from mtap.processing._runners import ProcessorRunner, RemoteRunner, ProcessingTimesCollector, \
-    ProcessingComponent, ProcessingError
-from mtap.processing.base import EventProcessor, ProcessingResult, AggregateTimingInfo
+import mtap._config as _config
+import mtap.processing._base as _base
+import mtap.processing._runners as _runners
+
+if TYPE_CHECKING:
+    import mtap
+    import mtap.processing as processing
 
 logger = logging.getLogger(__name__)
 
 
-class ComponentDescriptor(ABC):
-    """A component descriptor describes either a local or remote pipeline component and what the
-    pipeline needs to do to call the component.
-    """
-
-    @abstractmethod
-    def create_pipeline_component(self, config: Config,
-                                  component_ids: Dict[str, int]) -> ProcessingComponent:
-        pass
-
-
-class RemoteProcessor(ComponentDescriptor):
-    """A ``ComponentDescriptor`` for a remote processor that the pipeline will connect to in order
+class RemoteProcessor(_base.ComponentDescriptor):
+    """A configuration for a remote processor that the pipeline will connect to in order
     to perform processing.
 
     Args:
@@ -80,12 +71,14 @@ class RemoteProcessor(ComponentDescriptor):
         self.component_id = component_id
         self.params = params
 
-    def create_pipeline_component(self, config: Config,
-                                  component_ids: Dict[str, int]) -> ProcessingComponent:
+    def create_pipeline_component(self, config: 'mtap.Config',
+                                  component_ids: Dict[
+                                      str, int]) -> 'processing.ProcessingComponent':
         component_id = self.component_id or self.processor_id
         component_id = _unique_component_id(component_ids, component_id)
-        runner = RemoteRunner(config=config, processor_id=self.processor_id, address=self.address,
-                              component_id=component_id, params=self.params)
+        runner = _runners.RemoteRunner(config=config, processor_id=self.processor_id,
+                                       address=self.address, component_id=component_id,
+                                       params=self.params)
         runner.descriptor = self
         return runner
 
@@ -95,8 +88,8 @@ class RemoteProcessor(ComponentDescriptor):
         )
 
 
-class LocalProcessor(ComponentDescriptor):
-    """A ``ComponentDescriptor`` for a locally-invoked processor.
+class LocalProcessor(_base.ComponentDescriptor):
+    """A configuration of a locally-invoked processor.
 
     Args:
         proc (EventProcessor): The processor instance to run with the pipeline.
@@ -127,19 +120,23 @@ class LocalProcessor(ComponentDescriptor):
             with every event or document processed. Values should be json-serializable.
     """
 
-    def __init__(self, proc: EventProcessor, *,
-                 component_id: str, client: EventsClient,
+    def __init__(self, proc: 'mtap.EventProcessor',
+                 *, component_id: str,
+                 client: 'mtap.EventsClient',
                  params: Optional[Dict[str, Any]] = None):
         self.proc = proc
         self.component_id = component_id
         self.client = client
         self.params = params
 
-    def create_pipeline_component(self, config: Config,
-                                  component_ids: Dict[str, int]) -> ProcessingComponent:
+    def create_pipeline_component(
+            self,
+            config: 'mtap.Config',
+            component_ids: Dict[str, int]
+    ) -> 'processing.ProcessingComponent':
         identifier = _unique_component_id(component_ids, self.component_id)
-        runner = ProcessorRunner(proc=self.proc, client=self.client, identifier=identifier,
-                                 params=self.params)
+        runner = _runners.ProcessorRunner(proc=self.proc, client=self.client, identifier=identifier,
+                                          params=self.params)
         runner.descriptor = self
         return runner
 
@@ -174,7 +171,7 @@ def _cancel_callback(event, read_ahead, cd, close_events):
     return fn
 
 
-class Pipeline(MutableSequence[ComponentDescriptor]):
+class Pipeline(MutableSequence['processing.ComponentDescriptor']):
     """An object which can be used to build and run a pipeline of remote and local processors.
 
     Pipelines are a :obj:`~typing.MutableSequence` containing
@@ -246,10 +243,10 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         name (str): The pipeline's name.
     """
 
-    def __init__(self, *components: ComponentDescriptor,
+    def __init__(self, *components: 'processing.ComponentDescriptor',
                  name: Optional[str] = None,
-                 config: Optional[Config] = None):
-        self._config = config or Config()
+                 config: Optional['mtap.Config'] = None):
+        self._config = config or _config.Config()
         self._component_ids = {}
         self.name = name or 'pipeline'
         self._components = [desc.create_pipeline_component(self._config, self._component_ids)
@@ -260,18 +257,21 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         try:
             return self.__times_collector
         except AttributeError:
-            self.__times_collector = ProcessingTimesCollector()
+            self.__times_collector = _runners.ProcessingTimesCollector()
             return self.__times_collector
 
-    def run_multithread(self,
-                        source: Union[Iterable[Union[Document, Event]], 'ProcessingSource'], *,
-                        params: Optional[Dict[str, Any]] = None,
-                        progress: bool = True,
-                        total: Optional[int] = None,
-                        close_events: bool = True,
-                        max_failures: int = 0,
-                        n_threads: int = 4,
-                        read_ahead: int = 1):
+    def run_multithread(
+            self,
+            source: Union[
+                Iterable[Union['mtap.Document', 'mtap.Event']], 'processing.ProcessingSource'],
+            *, params: Optional[Dict[str, Any]] = None,
+            progress: bool = True,
+            total: Optional[int] = None,
+            close_events: bool = True,
+            max_failures: int = 0,
+            n_threads: int = 4,
+            read_ahead: int = 1
+    ):
         """Runs this pipeline on a source which provides multiple documents / events.
 
         Concurrency is per-event, with each event being provided a thread which runs it through the
@@ -279,7 +279,9 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
 
         Args:
             source (~typing.Union[~typing.Iterable[~typing.Union[Event, Document]], ProcessingSource])
-                A generator of events or documents to process.
+                A generator of events or documents to process. This should be an
+                :obj:`~typing.Iterable` of either :obj:`Event` or :obj:`Document` objects or a
+                :obj:`~mtap.processing.ProcessingSource`.
             params (dict[str, ~typing.Any])
                 Json object containing params specific to processing this event, the existing params
                 dictionary defined in :func:`~PipelineBuilder.add_processor` will be updated with
@@ -318,8 +320,8 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                                   n_threads, read_ahead) as runner:
             runner.run()
 
-    def run(self, target: Union[Event, Document], *,
-            params: Optional[Dict[str, Any]] = None) -> 'PipelineResult':
+    def run(self, target: Union['mtap.Event', 'mtap.Document'], *,
+            params: Optional[Dict[str, Any]] = None) -> 'processing.PipelineResult':
         """Processes the event/document using all of the processors in the pipeline.
 
         Args:
@@ -333,15 +335,13 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             list[ProcessingResult]: The results of all the processors in the pipeline.
 
         Examples:
-            The statement
+            >>> e = mtap.Event()
+            >>> document = mtap.Document('plaintext', text="...", event=e)
+            >>> with Pipeline(...) as pipeline:
+            >>>     pipeline.run(document)
+            >>>     # is equivalent to pipeline.run(document.event, params={'document_name': document.document_name})
 
-            >>> pipeline.run(document)
-
-            with a document parameter is an alias for
-
-            >>> pipeline.run(document.event, params={'document_name': document.document_name})
-
-            The 'document_name' param is used to indicate to :obj:`~mtap.processing.DocumentProcessor`
+            The 'document_name' param is used to indicate to :obj:`~mtap.DocumentProcessor`
             which document on the event to process.
         """
         event, params = _event_and_params(target, params)
@@ -356,25 +356,47 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
                 pass
         return result
 
-    def processor_timer_stats(self) -> List[AggregateTimingInfo]:
+    @overload
+    def processor_timer_stats(self) -> 'List[processing.AggregateTimingInfo]':
         """Returns the timing information for all processors.
 
         Returns:
-            list[AggregateTimingInfo]:
+            List[AggregateTimingInfo]:
                 A list of timing info objects, one for each processor, in the same order
                 that the processors were added to the pipeline.
         """
+        ...
+
+    @overload
+    def processor_timer_stats(self, identifier: str) -> 'processing.AggregateTimingInfo':
+        """Returns the timing info for one processor.
+
+        Args:
+            identifier (Optional[str]): The pipeline component_id for the processor to return
+                timing info.
+
+        Returns:
+            AggregateTimingInfo: The timing info for the specified processor.
+
+        """
+        ...
+
+    def processor_timer_stats(self, identifier=None):
+        if identifier is not None:
+            aggregates = self._times_collector.get_aggregates(identifier + ':')
+            aggregates = {k[(len(identifier) + 1):]: v for k, v in aggregates.items()}
+            return _base.AggregateTimingInfo(identifier=identifier, timing_info=aggregates)
         timing_infos = []
         for component in self._components:
             component_id = component.component_id
             aggregates = self._times_collector.get_aggregates(component_id + ':')
             aggregates = {k[(len(component_id) + 1):]: v for k, v in aggregates.items()}
             timing_infos.append(
-                AggregateTimingInfo(identifier=component_id, timing_info=aggregates))
+                _base.AggregateTimingInfo(identifier=component_id, timing_info=aggregates))
 
         return timing_infos
 
-    def pipeline_timer_stats(self) -> AggregateTimingInfo:
+    def pipeline_timer_stats(self) -> 'processing.AggregateTimingInfo':
         """The aggregated statistics for the global runtime of the pipeline.
 
         Returns:
@@ -384,7 +406,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
         pipeline_id = self.name
         aggregates = self._times_collector.get_aggregates(pipeline_id)
         aggregates = {k[len(pipeline_id):]: v for k, v in aggregates.items()}
-        return AggregateTimingInfo(identifier=self.name, timing_info=aggregates)
+        return _base.AggregateTimingInfo(identifier=self.name, timing_info=aggregates)
 
     def __enter__(self):
         return self
@@ -401,7 +423,7 @@ class Pipeline(MutableSequence[ComponentDescriptor]):
             except AttributeError:
                 pass
 
-    def as_processor(self) -> EventProcessor:
+    def as_processor(self) -> 'processing.EventProcessor':
         """Returns the pipeline as a processor.
 
         Returns:
@@ -451,22 +473,11 @@ def _run_by_event_id(pipeline, event_id, params):
         times.update({component.component_id + ':' + k: v for k, v in component_times.items()})
     times[pipeline.name + 'total'] = total
     pipeline._times_collector.add_times(times)
-    results = [ProcessingResult(identifier=component.component_id, results=result[0],
-                                timing_info=result[1], created_indices=result[2]) for
+    results = [_base.ProcessingResult(identifier=component.component_id, result_dict=result[0],
+                                      timing_info=result[1], created_indices=result[2]) for
                component, result in zip(pipeline._components, results)]
     logger.debug('Finished processing event_id: %s', event_id)
-    return PipelineResult(results, total)
-
-
-PipelineResult = NamedTuple('PipelineResult',
-                            [('component_results', List[ProcessingResult]),
-                             ('elapsed_time', timedelta)])
-PipelineResult.__doc__ = """The result of processing an event or document in a pipeline.
-"""
-PipelineResult.component_results.__doc__ = """list[ProcessingResult]: The processing results for 
-each individual component"""
-PipelineResult.elapsed_time.__doc__ = """datetime.timedelta: The elapsed time for the entire 
-pipeline."""
+    return _base.PipelineResult(results, total)
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -474,8 +485,9 @@ class ProcessingSource(ContextManager, ABC):
     for receiving results.
 
     """
+
     @abstractmethod
-    def provide(self, consume: Callable[[Union[Document, Event]], None]):
+    def provide(self, consume: Callable[[Union['mtap.Document', 'mtap.Event']], None]):
         """The method which provides documents for the multi-threaded runner. This method provides
         documents or events to the pipeline.
 
@@ -498,7 +510,7 @@ class ProcessingSource(ContextManager, ABC):
         """
         ...
 
-    def receive_result(self, result: PipelineResult, event: Event):
+    def receive_result(self, result: 'processing.PipelineResult', event: 'mtap.Event'):
         """Optional method: Asynchronous callback which returns the results of processing. This
         method is called on a processing worker thread. Default behavior is to do nothing.
 
@@ -509,7 +521,7 @@ class ProcessingSource(ContextManager, ABC):
         """
         pass
 
-    def receive_failure(self, exc: ProcessingError) -> bool:
+    def receive_failure(self, exc: 'processing.ProcessingError') -> bool:
         """Optional method: Asynchronous callback which receives exceptions for any failed
         documents.
 
@@ -542,6 +554,7 @@ class _IterableProcessingSource(ProcessingSource):
     """Wraps an iterable in a ProcessingSource for the multi-thread processor.
 
     """
+
     def __init__(self, source):
         # We use an iterator here so we can ensure that it gets closed on unexpected / early
         # termination and any caller context managers are exited before their client gets shut down.
@@ -549,7 +562,7 @@ class _IterableProcessingSource(ProcessingSource):
         # event service.
         self.it = iter(source)
 
-    def provide(self, consume: Callable[[Union[Document, Event]], None]):
+    def provide(self, consume: Callable[[Union['mtap.Document', 'mtap.Event']], None]):
         while True:
             try:
                 target = next(self.it)
@@ -564,13 +577,11 @@ class _IterableProcessingSource(ProcessingSource):
             pass
 
 
-class _PipelineProcessor(EventProcessor):
-    def __init__(self, components: List[ProcessingComponent]):
+class _PipelineProcessor(_base.EventProcessor):
+    def __init__(self, components: List['processing.ProcessingComponent']):
         self._components = components
 
-    def process(self,
-                event: Event,
-                params: Dict[str, Any] = None):
+    def process(self, event: 'mtap.Event', params: Dict[str, Any] = None):
         results = [component.call_process(event.event_id, params) for component in self._components]
         times = {}
         for _, component_times, _ in results:
@@ -635,7 +646,7 @@ class _PipelineMultiRunner:
                 return
             result = _run_by_event_id(self.pipeline, event.event_id, params)
             self.source.receive_result(result, event)
-        except ProcessingError as e:
+        except _base.ProcessingError as e:
             if not self.source.receive_failure(e):
                 self.failures += 1
                 raise e
@@ -659,6 +670,7 @@ class _PipelineMultiRunner:
                 event.release_lease()
                 raise e
             self.wait_to_read()
+
         try:
             with self.source:
                 self.source.provide(consume)
@@ -682,5 +694,6 @@ def _unique_component_id(component_ids, component_id):
     count = component_ids.get(component_id, 0)
     count += 1
     component_ids[component_id] = count
-    component_id = component_id + '-' + str(count)
+    if count > 1:
+        component_id = component_id + '-' + str(count)
     return component_id

@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pytest
 
 from mtap import Event, EventsClient, Document, GenericLabel
-from mtap.events import DistinctGenericLabelAdapter, GenericLabelAdapter
+from mtap.data import DISTINCT_GENERIC_ADAPTER, GENERIC_ADAPTER
 
 
 def test_add_labels_not_distinct(mocker):
@@ -80,7 +79,7 @@ def test_labeler_not_distinct_default(mocker):
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    label_adapter = GenericLabelAdapter
+    label_adapter = GENERIC_ADAPTER
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',
@@ -106,7 +105,7 @@ def test_labeler_distinct(mocker):
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
-    label_adapter = DistinctGenericLabelAdapter
+    label_adapter = DISTINCT_GENERIC_ADAPTER
     client.add_labels.assert_called_with(
         event_id='1',
         document_name='plaintext',

@@ -12,47 +12,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tools for reading in files annotated using BRAT (https://brat.nlplab.org/)."""
+
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Union, Iterable, Optional
+from typing import Union, Iterable, Optional, TYPE_CHECKING
 
-from mtap.events import Event, EventsClient, Document
+import mtap.data as data
+
+if TYPE_CHECKING:
+    import mtap
+
+__all__ = [
+    'ann_to_labels',
+    'read_brat_document',
+    'read_brat_documents',
+]
 
 
 def read_brat_documents(directory: Union[Path, str],
-                        client: Optional[EventsClient] = None,
+                        client: Optional['mtap.EventsClient'] = None,
                         document_name: str = 'plaintext',
                         label_index_name_prefix: str = '',
                         encoding: Optional[str] = None,
-                        create_indices: Optional[Iterable[str]] = None) -> Iterable[Event]:
+                        create_indices: Optional[Iterable[str]] = None) -> Iterable['mtap.Event']:
     """Reads a directory full of BRAT-annotated ".txt" and ".ann" files, creating events for each
     .txt containing labels created from the annotations in its ".ann" counterpart.
 
-    Parameters
-    ----------
-    directory: Path or str
-        The directory containing the files or sub-directories containing the files.
-    client: EventsClient
-        The client to the events server to add the documents to.
-    document_name: str
-        The document name to create on each event containing the brat data.
-    label_index_name_prefix: str
-        A prefix to append to the brat annotation names.
-    encoding: optional str
-        The encoding to use when reading the files.
-    create_indices: optional iterable of str
-        These indices will be created no matter what, even if empty.
+    Args:
+        directory (str, Path): The directory containing the files or sub-directories containing the
+            files.
+        client (EventsClient): The client to the events server to add the documents to.
+        document_name (str): The document name to create on each event containing the brat data.
+        label_index_name_prefix  (str): A prefix to append to the brat annotation names.
+        encoding (optional str): The encoding to use when reading the files.
+        create_indices (optional iterable of str): These indices will be created no matter what,
+            even if empty.
 
-    Returns
-    -------
-    Iterable of Event
-        Iterable of all the events in the
+    Returns:
+        Iterable of Event: Iterable of all the events from the directory of brat documents.
 
-    Examples
-    --------
-    >>> for event in read_brat_documents('docs', events):
-    >>>   with event:
-    >>>      # use event
+    Examples:
+        >>> client = mtap.EventsClient()
+        >>> for event in read_brat_documents('docs', client=client):
+        >>>   with event:
+        >>>      # use event
 
     """
     directory = Path(directory)
@@ -65,35 +68,28 @@ def read_brat_documents(directory: Union[Path, str],
 
 @contextmanager
 def read_brat_document(txt_file: Union[Path, str],
-                       client: Optional[EventsClient] = None,
+                       client: Optional['mtap.EventsClient'] = None,
                        document_name: str = 'plaintext',
                        label_index_name_prefix: str = '',
                        encoding: Optional[str] = None,
                        relative_to: Optional[Union[Path, str]] = None,
-                       create_indices: Optional[Iterable[str]] = None) -> Event:
+                       create_indices: Optional[Iterable[str]] = None) -> 'mtap.Event':
     """Reads a BRAT .txt and .ann file pair into an Event.
 
-    Parameters
-    ----------
-    txt_file
-    client: optional EventsClient
-        The client to the events server to add the documents to.
-    document_name: str
-        The document name to create on the event to hold the brat data.
-    label_index_name_prefix: str
-        A prefix to append to the brat annotation names.
-    encoding: optional str
-        The encoding to use when reading the files.
-    relative_to: optional str or Path
-        A str of a path or a Path object for which the event_id will be relative to, if this is
-        omitted then the file's name without extension will be used.
-    create_indices: optional iterable of str
-        These indices will be created no matter what, even if empty.
+    Args:
+        txt_file (Path or str): The path to the .txt file.
+        client (optional EventsClient): The client to the events server to add the documents to.
+        document_name (str): The document name to create on the event to hold the brat data.
+        label_index_name_prefix (str): A prefix to append to the brat annotation names.
+        encoding (optional str): The encoding to use when reading the files.
+        relative_to (optional str or Path): A str of a path or a Path object for which the event_id
+            will be relative to, if this is omitted then the file's name without extension will be
+            used.
+        create_indices (optional iterable of str): These indices will be created no matter what,
+            even if empty.
 
-    Returns
-    -------
-    Event
-        An event containing the text and annotations as labels.
+    Returns:
+        Event: An event containing the text and annotations as labels.
 
     """
     txt_file = Path(txt_file)
@@ -103,7 +99,7 @@ def read_brat_document(txt_file: Union[Path, str],
         event_id = str(txt_file.with_suffix('').relative_to(relative_to))
     else:
         event_id = txt_file.stem
-    with Event(event_id=event_id, client=client) as event:
+    with data.Event(event_id=event_id, client=client) as event:
         with txt_file.open('r', encoding=encoding) as f:
             txt = f.read()
         document = event.create_document(document_name=document_name, text=txt)
@@ -113,24 +109,19 @@ def read_brat_document(txt_file: Union[Path, str],
 
 
 def ann_to_labels(ann_file: Union[str, Path],
-                  document: Document,
+                  document: 'mtap.Document',
                   label_index_name_prefix: str,
                   encoding: Optional[str],
                   create_indices: Optional[Iterable[str]] = None):
     """Reads all of the annotations in a brat annotations file into a document.
 
-    Parameters
-    ----------
-    ann_file: str or Path
-        A BRAT .ann file to load annotations from.
-    document: Document
-        The document to add labels to.
-    label_index_name_prefix: str
-        A prefix to append to the brat annotation names.
-    encoding: optional str
-        The encoding to use when reading the ann file.
-    create_indices: optional iterable of str
-        These indices will be created no matter what, even if empty.
+    Args:
+        ann_file (str or Path): A BRAT .ann file to load annotations from.
+        document (Document): The document to add labels to.
+        label_index_name_prefix (str): A prefix to append to the brat annotation names.
+        encoding (optional str): The encoding to use when reading the ann file.
+        create_indices (optional iterable of str): These indices will be created no matter what,
+            even if empty.
     """
     labelers = {}
     if create_indices is not None:

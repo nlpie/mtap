@@ -11,14 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import contextlib
 import os
+import pathlib
 import signal
 import subprocess
-from contextlib import closing, contextmanager
-from pathlib import Path
-from typing import Optional
+import typing
 
 import grpc
+
+
+__all__ = [
+    'find_free_port',
+    'subprocess_events_server',
+    'read_address',
+    'write_address_file',
+    'tokenization'
+]
 
 
 def find_free_port() -> int:
@@ -31,16 +40,16 @@ def find_free_port() -> int:
 
     """
     import socket
-    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+    with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind(('', 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
 
 
-@contextmanager
-def subprocess_events_server(port: Optional[int] = None,
-                             cwd: Optional[Path] = None,
-                             config_path: Optional[Path] = None,
+@contextlib.contextmanager
+def subprocess_events_server(port: typing.Optional[int] = None,
+                             cwd: typing.Optional[pathlib.Path] = None,
+                             config_path: typing.Optional[pathlib.Path] = None,
                              register: bool = False) -> str:
     """Context manager which launches a events server on a subprocess and yields the address.
 
@@ -62,7 +71,7 @@ def subprocess_events_server(port: Optional[int] = None,
 
     """
     if cwd is None:
-        cwd = Path.cwd()
+        cwd = pathlib.Path.cwd()
     env = dict(os.environ)
     if config_path is not None:
         env['MTAP_CONFIG'] = str(config_path)
@@ -89,3 +98,58 @@ def subprocess_events_server(port: Optional[int] = None,
             print(stdout.decode('utf-8'))
         except subprocess.TimeoutExpired:
             print("timed out waiting for python events to terminate")
+
+
+def write_address_file(address: str, pid: typing.Optional[str] = None) -> pathlib.Path:
+    """Writes the address file (a file containing just the address for a processor). This is a file
+    used to communicate a service's port (potentially chosen randomly) back to the script that
+    launched the service.
+
+    Args:
+        address (str): The host.
+        pid (str, optional): The process ID. If omitted will use `os.getpid()` to retrieve the pid.
+
+    Returns:
+        str: The path to the file.
+
+    """
+    directory = mtap_home() / 'addresses'
+    directory.mkdir(parents=True, exist_ok=True)
+    if pid is None:
+        pid = os.getpid()
+    address_path = directory / '{}.address'.format(pid)
+    with address_path.open('w') as fio:
+        fio.write(address)
+    return address_path
+
+
+def read_address(pid: str) -> str:
+    """Reads the address for a service with a specified PID.
+
+    Args:
+        pid (str): The service's PID.
+
+    Returns:
+        str: The address.
+
+    """
+    directory = mtap_home() / 'addresses'
+    address_path = directory / '{}.address'.format(pid)
+    with address_path.open('r') as fin:
+        txt = fin.read()
+    return txt
+
+
+def mtap_home() -> pathlib.Path:
+    """Provides a path to the MTAP home directory.
+
+    Returns:
+        pathlib.Path: The home directory.
+
+    """
+    import os
+    try:
+        home_env = os.environ['MTAP_HOME']
+        return pathlib.Path(home_env)
+    except KeyError:
+        return pathlib.Path.home() / '.mtap'

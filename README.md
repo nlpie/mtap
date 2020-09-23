@@ -11,7 +11,7 @@ components in either Python or Java.
 ## Requirements
 - Operating System: Ubuntu 18.04 or MacOS Catalina (other operating systems may work, but are not tested).
 - [Python 3.5+](https://www.python.org/downloads/)
-- Optional: [Java JDK 8, 11, or 13](https://adoptopenjdk.net) if you want to create Java Processors.
+- Optional: [Java JDK 9, 11, or 13](https://adoptopenjdk.net) if you want to create Java Processors.
 - Optional: [Go 13+](https://golang.org) if you want to run the RESTful API Gateway.
 
 ## Features

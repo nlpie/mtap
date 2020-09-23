@@ -22,6 +22,7 @@ import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.model.EventsClient;
+import edu.umn.nlpie.mtap.utilities.Helpers;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
@@ -35,11 +36,12 @@ import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.InetSocketAddress;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.concurrent.Executors;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
@@ -53,16 +55,23 @@ import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
   private static final Logger logger = LoggerFactory.getLogger(ProcessorServer.class);
 
-  private final Server server;
+  private final Server grpcServer;
   private final ProcessorService processorService;
+  private final String host;
+  private final boolean writeAddress;
   private boolean running = false;
+  private Path addressFile = null;
 
   ProcessorServer(
       ProcessorService processorService,
-      Server grpcServer
+      Server grpcServer,
+      String host,
+      boolean writeAddress
   ) {
     this.processorService = processorService;
-    server = grpcServer;
+    this.host = host;
+    this.grpcServer = grpcServer;
+    this.writeAddress = writeAddress;
   }
 
   @Override
@@ -71,8 +80,17 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       return;
     }
     running = true;
-    server.start();
-    int port = server.getPort();
+    grpcServer.start();
+    int port = grpcServer.getPort();
+
+    if (writeAddress) {
+      Path homeDir = Helpers.getHomeDirectory();
+      addressFile = homeDir.resolve("addresses").resolve("" + ProcessHandle.current().pid() + ".address");
+      try (BufferedWriter writer = Files.newBufferedWriter(addressFile, StandardOpenOption.CREATE_NEW)) {
+        writer.write("" + host + ":" + port);
+      }
+    }
+
     processorService.started(port);
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
   }
@@ -87,18 +105,25 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     } catch (InterruptedException e) {
       logger.error("Exception closing processor service", e);
     }
-    server.shutdown();
+    grpcServer.shutdown();
     running = false;
+    if (addressFile != null) {
+      try {
+        Files.delete(addressFile);
+      } catch (IOException e) {
+        logger.error("Failed to delete address file", e);
+      }
+    }
   }
 
   @Override
   public void blockUntilShutdown() throws InterruptedException {
-    server.awaitTermination();
+    grpcServer.awaitTermination();
   }
 
   @Override
   public int getPort() {
-    return server.getPort();
+    return grpcServer.getPort();
   }
 
   @Override
@@ -106,8 +131,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     return running;
   }
 
-  public Server getServer() {
-    return server;
+  public Server getGrpcServer() {
+    return grpcServer;
   }
 
   /**
@@ -154,6 +179,12 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     @Option(name = "-w", aliases = {"--workers"}, metaVar = "N_WORKERS",
         usage = "The number of threads for GRPC workers.")
     private int workers = 10;
+
+    @Option(name = "--write-address", usage = "Writes the address to the mtap addresses directory.")
+    private boolean writeAddress = false;
+
+    @Option(name = "--log-level", metaVar = "LOG_LEVEL", usage = "The log level to use.")
+    private String logLevel;
 
     /**
      * Prints a help message.
@@ -385,6 +416,19 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       return this;
     }
 
+    public @NotNull String getLogLevel() {
+      return logLevel;
+    }
+
+    public void setLogLevel(@Nullable String logLevel) {
+      this.logLevel = logLevel;
+    }
+
+    public @NotNull Builder logLevel(@Nullable String logLevel) {
+      this.logLevel = logLevel;
+      return this;
+    }
+
     /**
      * Creates a processor server using the options specified in this object.
      *
@@ -422,13 +466,14 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           discoveryMechanism,
           healthService,
           identifier,
-          uniqueServiceId
+          uniqueServiceId,
+          host
       );
       Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
           .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(processorService).build();
-      return new ProcessorServer(processorService, grpcServer);
+      return new ProcessorServer(processorService, grpcServer, host, writeAddress);
     }
 
     /**

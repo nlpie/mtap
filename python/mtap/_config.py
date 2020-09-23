@@ -18,6 +18,8 @@ import threading
 from pathlib import Path
 from typing import Any, MutableMapping, Iterator, Union
 
+from mtap.utilities import mtap_home
+
 
 def _collapse(d, path, v):
     try:
@@ -55,7 +57,7 @@ def _load_default_config():
         potential_paths.append(Path(cnf))
     except TypeError:
         pass
-    locations = [Path.cwd(), Path.home().joinpath('.mtap'), Path('/etc/mtap/')]
+    locations = [Path.cwd(), mtap_home(), Path('/etc/mtap/')]
     potential_paths += [location / 'mtapConfig.yml' for location in locations]
     potential_paths.append(Path(__file__).parent / 'defaultConfig.yml')
     for config_path in potential_paths:
@@ -84,10 +86,11 @@ class Config(MutableMapping[str, Any]):
     that config object.
 
     Examples:
-    >>> with mtap.Config() as config:
-    >>>     config['key'] = 'value'
-    >>>     # other MTAP methods in this
-    >>>     # block will use the updated config object.
+
+        >>> with mtap.Config() as config:
+        >>>     config['key'] = 'value'
+        >>>     # other MTAP methods in this
+        >>>     # block will use the updated config object.
 
     """
 

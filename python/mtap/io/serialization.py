@@ -24,15 +24,29 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Union, Dict, Any, Optional
 
-from mtap.events import Event, Document, EventsClient, GenericLabelAdapter
-from mtap.processing import EventProcessor, processor
-from mtap.processing.base import Processor
-from mtap.processing.descriptions import parameter
+import mtap
+import mtap.data as data
+import mtap.processing as processing
+from mtap import descriptions as d
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    'event_to_dict',
+    'document_to_dict',
+    'dict_to_event',
+    'dict_to_document',
+    'Serializer',
+    'SerializationProcessor',
+    'JsonSerializer',
+    'YamlSerializer',
+    'PickleSerializer',
+    'standard_serializers',
+    'get_serializer'
+]
 
-def event_to_dict(event: Event, *, include_label_text: bool = False) -> Dict:
+
+def event_to_dict(event: mtap.Event, *, include_label_text: bool = False) -> Dict:
     """A helper method that turns an event into a python dictionary.
 
     Args:
@@ -58,7 +72,7 @@ def event_to_dict(event: Event, *, include_label_text: bool = False) -> Dict:
     return d
 
 
-def document_to_dict(document: Document, *, include_label_text: bool = False) -> Dict:
+def document_to_dict(document: mtap.Document, *, include_label_text: bool = False) -> Dict:
     """A helper method that turns a document into a python dictionary.
 
     Args:
@@ -78,7 +92,7 @@ def document_to_dict(document: Document, *, include_label_text: bool = False) ->
     for index_name, index in document.labels.items():
         adapter = index.adapter
         if adapter is None:
-            adapter = GenericLabelAdapter
+            adapter = data.GENERIC_ADAPTER
         d['label_indices'][index_name] = adapter.pack(
             index,
             include_label_text=include_label_text
@@ -86,7 +100,7 @@ def document_to_dict(document: Document, *, include_label_text: bool = False) ->
     return d
 
 
-def dict_to_event(d: Dict, *, client: Optional[EventsClient] = None) -> Event:
+def dict_to_event(d: Dict, *, client: Optional[mtap.EventsClient] = None) -> mtap.Event:
     """Turns a serialized dictionary into an Event.
 
     Args:
@@ -96,7 +110,7 @@ def dict_to_event(d: Dict, *, client: Optional[EventsClient] = None) -> Event:
     Returns:
         Event: The deserialized event object.
     """
-    event = Event(event_id=d['event_id'], client=client)
+    event = mtap.Event(event_id=d['event_id'], client=client)
     for k, v in d['metadata'].items():
         event.metadata[k] = v
     for k, v in d['documents'].items():
@@ -104,7 +118,9 @@ def dict_to_event(d: Dict, *, client: Optional[EventsClient] = None) -> Event:
     return event
 
 
-def dict_to_document(document_name: str, d: Dict, *, event: Optional[Event] = None) -> Document:
+def dict_to_document(document_name: str,
+                     d: Dict,
+                     *, event: Optional[mtap.Event] = None) -> mtap.Document:
     """Turns a serialized dictionary into a Document.
 
     Args:
@@ -116,7 +132,7 @@ def dict_to_document(document_name: str, d: Dict, *, event: Optional[Event] = No
         Document: The deserialized Document object.
 
     """
-    document = Document(document_name=document_name, text=d['text'])
+    document = mtap.Document(document_name=document_name, text=d['text'])
     if event is not None:
         event.add_document(document)
     for k, v in d['label_indices'].items():
@@ -138,7 +154,7 @@ class Serializer(ABC):
         ...
 
     @abstractmethod
-    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase],
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, io.IOBase],
                       *, include_label_text: bool = False):
         """Writes the event to a file.
 
@@ -154,7 +170,7 @@ class Serializer(ABC):
 
     @abstractmethod
     def file_to_event(self, f: Union[Path, str, io.IOBase], *,
-                      client: Optional[EventsClient] = None) -> Event:
+                      client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         """Loads an event from a serialized file.
 
         Args:
@@ -167,12 +183,12 @@ class Serializer(ABC):
         ...
 
 
-@processor('mtap-serializer',
-           description='Serializes events to a specific directory',
-           parameters=[parameter('filename', data_type='str',
-                                 description='Optional override for the filename to write the '
-                                             'document to.')])
-class SerializationProcessor(EventProcessor):
+@mtap.processor('mtap-serializer',
+                description='Serializes events to a specific directory',
+                parameters=[d.parameter('filename', data_type='str',
+                                        description='Optional override for the filename to write the '
+                                                    'document to.')])
+class SerializationProcessor(mtap.EventProcessor):
     """An MTAP :obj:`EventProcessor` that serializes events to a specific directory.
 
     Args:
@@ -186,7 +202,7 @@ class SerializationProcessor(EventProcessor):
         self.include_label_text = include_label_text
         Path(self.output_dir).mkdir(parents=True, exist_ok=True)
 
-    def process(self, event: Event, params: Dict[str, Any]):
+    def process(self, event: mtap.Event, params: Dict[str, Any]):
         name = params.get('filename', event.event_id + self.serializer.extension)
         path = Path(self.output_dir, name)
         self.serializer.event_to_file(event, path, include_label_text=self.include_label_text)
@@ -195,17 +211,18 @@ class SerializationProcessor(EventProcessor):
 class _JsonSerializer(Serializer):
     """Serializer implementation that performs serialization to JSON.
     """
+
     @property
     def extension(self) -> str:
         return '.json'
 
-    def event_to_file(self, event: Event, f: Path, *, include_label_text: bool = False):
+    def event_to_file(self, event: mtap.Event, f: Path, *, include_label_text: bool = False):
         import json
-        with Processor.started_stopwatch('transform'):
+        with processing.Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
-        with Processor.started_stopwatch('io'):
+        with processing.Processor.started_stopwatch('io'):
             try:
-                    json.dump(d, f)
+                json.dump(d, f)
             except AttributeError:
                 f = Path(f)
                 f.parent.mkdir(parents=True, exist_ok=True)
@@ -213,9 +230,9 @@ class _JsonSerializer(Serializer):
                     json.dump(d, f)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase],
-                      client: Optional[EventsClient] = None) -> Event:
+                      client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         import json
-        with Processor.started_stopwatch('io'):
+        with processing.Processor.started_stopwatch('io'):
             try:
                 d = json.load(f)
             except AttributeError:
@@ -223,7 +240,7 @@ class _JsonSerializer(Serializer):
                     f = Path(f)
                 with f.open('r') as f:
                     d = json.load(f)
-        with Processor.started_stopwatch('transform'):
+        with processing.Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
 
 
@@ -233,16 +250,16 @@ class _YamlSerializer(Serializer):
     def extension(self) -> str:
         return '.yml'
 
-    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase], *,
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, io.IOBase], *,
                       include_label_text: bool = False):
         import yaml
         try:
             from yaml import CDumper as Dumper
         except ImportError:
             from yaml import Dumper
-        with Processor.started_stopwatch('transform'):
+        with processing.Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
-        with Processor.started_stopwatch('io'):
+        with processing.Processor.started_stopwatch('io'):
             if isinstance(f, io.IOBase):
                 yaml.dump(d, f, Dumper=Dumper)
             else:
@@ -251,19 +268,19 @@ class _YamlSerializer(Serializer):
                     yaml.dump(d, f, Dumper=Dumper)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase], *,
-                      client: Optional[EventsClient] = None) -> Event:
+                      client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         import yaml
         try:
             from yaml import CLoader as Loader
         except ImportError:
             from yaml import Loader
-        with Processor.started_stopwatch('io'):
+        with processing.Processor.started_stopwatch('io'):
             if isinstance(f, io.IOBase):
                 d = yaml.load(f, Loader=Loader)
             else:
                 with Path(f).open() as f:
                     d = yaml.load(f, Loader=Loader)
-        with Processor.started_stopwatch('transform'):
+        with processing.Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
 
 
@@ -273,12 +290,12 @@ class _PickleSerializer(Serializer):
     def extension(self) -> str:
         return '.pickle'
 
-    def event_to_file(self, event: Event, f: Union[Path, str, io.IOBase], *,
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, io.IOBase], *,
                       include_label_text: bool = False):
         import pickle
-        with Processor.started_stopwatch('transform'):
+        with processing.Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
-        with Processor.started_stopwatch('io'):
+        with processing.Processor.started_stopwatch('io'):
             try:
                 pickle.dump(d, f)
             except TypeError:
@@ -286,15 +303,15 @@ class _PickleSerializer(Serializer):
                     pickle.dump(d, f)
 
     def file_to_event(self, f: Union[Path, str, io.IOBase], *,
-                      client: Optional[EventsClient] = None) -> Event:
+                      client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         import pickle
-        with Processor.started_stopwatch('io'):
+        with processing.Processor.started_stopwatch('io'):
             try:
                 d = pickle.load(f)
             except TypeError:
                 with Path(f).open('rb') as f:
                     d = pickle.load(f)
-        with Processor.started_stopwatch('transform'):
+        with processing.Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
 
 

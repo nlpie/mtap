@@ -64,6 +64,6 @@ class ProcessorServerTest {
   }
 
   private ProcessorServer createProcessorServer(Server server) {
-    return new ProcessorServer(mockProcessorService, server);
+    return new ProcessorServer(mockProcessorService, server, "127.0.0.1", false);
   }
 }
