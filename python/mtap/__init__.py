@@ -14,6 +14,7 @@
 """Public API and access points for the MTAP Framework."""
 
 
+from mtap import version
 from mtap._config import Config
 from mtap._events_service import EventsServer
 from mtap.data import Document
@@ -33,7 +34,5 @@ from mtap.processing import ProcessorServer
 from mtap.processing import RemoteProcessor
 from mtap.processing import processor
 from mtap.processing import run_processor
-
-import mtap.version
 
 __version__ = version.version
