@@ -161,8 +161,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     private EventsClient eventsClient = null;
 
     @Nullable
-    @Option(name = "-c", aliases = {"--config"}, handler = PathOptionHandler.class,
-        metaVar = "CONFIG_PATH", usage = "A path to a config file to load.")
+    @Option(name = "--mtap-config", handler = PathOptionHandler.class, metaVar = "CONFIG_PATH",
+        usage = "A path to a config file to load.")
     private Path configFile = null;
 
     @Nullable
