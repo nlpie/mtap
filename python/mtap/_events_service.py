@@ -23,12 +23,8 @@ from google.protobuf import empty_pb2
 from grpc_health.v1 import health
 from grpc_health.v1 import health_pb2_grpc
 
-import mtap._config as _config
-import mtap.api.v1.events_pb2 as events_pb2
-import mtap.api.v1.events_pb2_grpc as events_pb2_grpc
-import mtap.constants as constants
-import mtap.data as data
-import mtap.utilities as utilities
+from mtap import _config, constants, utilities
+from mtap.api.v1 import events_pb2, events_pb2_grpc
 
 LOGGER = logging.getLogger(__name__)
 

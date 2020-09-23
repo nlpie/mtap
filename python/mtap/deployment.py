@@ -56,14 +56,13 @@ import pathlib
 import shutil
 import subprocess
 import sys
-import time
 import threading
-
+import time
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import grpc
 
-import mtap.utilities as utilities
+from mtap import utilities
 
 __all__ = [
     'Deployment', 'GlobalSettings', 'SharedProcessorConfig', 'EventsDeployment',

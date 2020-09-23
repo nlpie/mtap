@@ -24,14 +24,9 @@ from typing import Iterator, List, Dict, MutableMapping, Generic, TypeVar, Named
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2
 
-import mtap._config as _config
-import mtap._discovery as _discovery
-import mtap.api.v1.events_pb2 as events_pb2
-import mtap.api.v1.events_pb2_grpc as events_pb2_grpc
-import mtap.constants as constants
-import mtap.data._base as _base
-import mtap.data._labels as _labels
-import mtap.data._label_adapters as _label_adapters
+from mtap import _config, _discovery, constants
+from mtap.api.v1 import events_pb2, events_pb2_grpc
+from mtap.data import _base, _labels, _label_adapters
 
 if TYPE_CHECKING:
     import mtap

@@ -19,16 +19,14 @@ from typing import Optional, Dict, Any, TYPE_CHECKING
 import grpc
 import math
 
-import mtap._discovery as _discovery
-import mtap._structs as _structs
-import mtap.api.v1.processing_pb2 as processing_pb2
-import mtap.api.v1.processing_pb2_grpc as processing_pb2_grpc
-import mtap.data as data
-import mtap.processing._base as _base
+from mtap import _discovery, _structs
+from mtap.api.v1 import processing_pb2, processing_pb2_grpc
+from mtap import data
+from mtap.processing import _base
 
 if TYPE_CHECKING:
     import mtap
-    import mtap.processing as processing
+    from mtap import processing
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,7 @@
 import abc
 from uuid import uuid1
 
-import mtap.constants as constants
+from mtap import constants
 
 
 class Discovery(abc.ABC):

@@ -19,7 +19,7 @@ from datetime import timedelta, datetime
 from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, Generator, \
     Tuple, TYPE_CHECKING
 
-import mtap.data as data
+from mtap import data
 
 
 if TYPE_CHECKING:

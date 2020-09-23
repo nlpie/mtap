@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Union, Iterable, Optional, TYPE_CHECKING
 
-import mtap.data as data
+from mtap import data
 
 if TYPE_CHECKING:
     import mtap

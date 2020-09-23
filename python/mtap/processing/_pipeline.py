@@ -22,13 +22,12 @@ from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, 
 
 from tqdm import tqdm
 
-import mtap._config as _config
-import mtap.processing._base as _base
-import mtap.processing._runners as _runners
+from mtap import _config
+from mtap.processing import _base, _runners
 
 if TYPE_CHECKING:
     import mtap
-    import mtap.processing as processing
+    from mtap import processing
 
 logger = logging.getLogger(__name__)
 

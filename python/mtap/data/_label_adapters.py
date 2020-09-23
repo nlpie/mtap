@@ -16,14 +16,13 @@ from typing import Generic, Iterable, List, Any, Optional, Sequence, TypeVar
 
 import typing
 
-import mtap._structs as _structs
-import mtap.data._label_indices as _label_indices
-import mtap.data._labels as _labels
+from mtap import _structs
+from mtap.data import _label_indices, _labels
 
 if typing.TYPE_CHECKING:
     import mtap
-    import mtap.api.v1.events_pb2 as events_pb2
-    import mtap.data as data
+    from mtap.api.v1 import events_pb2
+    from mtap import data
 
 L = TypeVar('L', bound='data.Label')
 

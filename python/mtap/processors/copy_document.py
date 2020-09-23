@@ -14,12 +14,12 @@
 import argparse
 import typing
 
+import mtap
+
 
 __all__ = [
     'copy_document', 'CopyDocument', 'main'
 ]
-
-import mtap
 
 
 def copy_document(event: mtap.Event,

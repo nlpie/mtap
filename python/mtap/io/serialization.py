@@ -25,8 +25,7 @@ from pathlib import Path
 from typing import Union, Dict, Any, Optional
 
 import mtap
-import mtap.data as data
-import mtap.processing as processing
+from mtap import data, processing
 from mtap import descriptions as d
 
 logger = logging.getLogger(__name__)

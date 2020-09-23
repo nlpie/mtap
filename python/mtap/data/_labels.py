@@ -20,7 +20,7 @@ from typing import List, Tuple, Set, TYPE_CHECKING, TypeVar, NamedTuple, Any, Ma
 
 if TYPE_CHECKING:
     import mtap
-    import mtap.data as data
+    from mtap import data
 
 
 class Location(NamedTuple('Location', [('start_index', float), ('end_index', float)])):

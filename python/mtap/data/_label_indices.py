@@ -18,10 +18,10 @@ from operator import attrgetter
 from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic, Callable, \
     TYPE_CHECKING
 
-import mtap.data._labels as _labels
+from mtap.data import _labels
 
 if TYPE_CHECKING:
-    import mtap.data as data
+    from mtap import data
 
 L = TypeVar('L', bound='data.Label')
 

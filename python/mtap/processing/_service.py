@@ -19,18 +19,17 @@ import time
 import traceback
 import typing
 
-import grpc
 import google.protobuf.empty_pb2 as empty_pb2
+import grpc
 import grpc_health.v1.health as health
 import grpc_health.v1.health_pb2_grpc as health_pb2_grpc
 
-import mtap._config as _config
-import mtap.api.v1.processing_pb2 as processing_pb2
-import mtap.api.v1.processing_pb2_grpc as processing_pb2_grpc
-import mtap.data as data
-import mtap.processing._runners as _runners
-import mtap._structs as _structs
-import mtap.utilities as utilities
+from mtap import _config
+from mtap import _structs
+from mtap import data
+from mtap import utilities
+from mtap.api.v1 import processing_pb2, processing_pb2_grpc
+from mtap.processing import _runners
 
 if typing.TYPE_CHECKING:
     import mtap

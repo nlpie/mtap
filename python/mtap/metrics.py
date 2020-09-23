@@ -32,7 +32,7 @@ from mtap.utilities import tokenization
 
 if TYPE_CHECKING:
     import mtap
-    import mtap.data as data
+    from mtap import data
 
 
 class Metric(ABC):
