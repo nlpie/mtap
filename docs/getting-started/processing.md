@@ -69,11 +69,10 @@ on a different machine:
 #### Python
 
 ```python
-from mtap import processor
-from mtap.processing import DocumentProcessor
+from mtap import DocumentProcessor, processor
 
 @processor('example-document-processor')
-class ExampleProcessor(EventProcessor):
+class ExampleProcessor(DocumentProcessor):
   def process_document(self, document, params):
     for sentence in document.get_label_index('sentences'):
       # do processing on sentence
@@ -148,11 +147,11 @@ import java.io.IOException;
 class ExampleProcessor ... {
   ...
   public static void main(String[] args) {
-    ProcessorServerOptions options = new ProcessorServerOptions();
-    CmdLineParser parser = new CmdLineParser(options);
+    ProcessorServer.Builder builder = new ProcessorServer.Builder();
+    CmdLineParser parser = new CmdLineParser(builder);
     try {
       parser.parseArgument(args);
-      Server server = ProcessorServerBuilder.forProcessor(new ExampleProcessor(), options).build();
+      Server server = builder.build(new ExampleProcessor());
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
