@@ -35,8 +35,10 @@ processor:
 import edu.umn.nlpie.mtap.common.*;
 import edu.umn.nlpie.mtap.model.*;
 import edu.umn.nlpie.mtap.processing.*;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
 
-import org.kohsuke.args4j.*;
+import java.io.IOException;
 
 @Processor("hello")
 public class Hello extends DocumentProcessor {
@@ -51,11 +53,11 @@ public class Hello extends DocumentProcessor {
   }
 
   public static void main(String[] args) {
-    ProcessorServerOptions options = new ProcessorServerOptions();
+    ProcessorServer.Builder options = new ProcessorServer.Builder();
     CmdLineParser parser = new CmdLineParser(options);
     try {
       parser.parseArgument(args);
-      Server server = ProcessorServerBuilder.forProcessor(new HelloWorldExample(), options).build();
+      Server server = options.build(new HelloWorldExample());
       server.start();
       server.blockUntilShutdown();
     } catch (IOException e) {
@@ -63,7 +65,7 @@ public class Hello extends DocumentProcessor {
     } catch (InterruptedException e) {
       System.err.println("Server interrupted.");
     } catch (CmdLineException e) {
-      ProcessorServerOptions.printHelp(parser, HelloWorldExample.class, e, null);
+      ProcessorServer.Builder.printHelp(parser, HelloWorldExample.class, e, null);
     }
   }
 }
