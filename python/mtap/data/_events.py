@@ -501,13 +501,19 @@ class EventsClient:
 
     def __init__(self,
                  *, address: Optional[str] = None,
-                 stub: Optional[events_pb2_grpc.EventsStub] = None):
+                 stub: Optional[events_pb2_grpc.EventsStub] = None,
+                 config: Optional['mtap.Config'] = None,
+                 enable_proxy: bool = False):
         if stub is None:
+            if config is None:
+                config = _config.Config()
+
             if address is None:
                 discovery = _discovery.Discovery(_config.Config())
                 address = discovery.discover_events_service('v1')
 
-            channel = grpc.insecure_channel(address)
+            enable_proxy = enable_proxy or config.get('grpc.enable_proxy', False)
+            channel = grpc.insecure_channel(address, [('grpc.enable_http_proxy', enable_proxy)])
 
             health = health_pb2_grpc.HealthStub(channel)
             hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))

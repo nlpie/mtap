@@ -56,7 +56,7 @@ def fixture_processor_watcher():
         try:
             if process.returncode is not None:
                 raise ValueError('subprocess terminated')
-            with grpc.insecure_channel(address) as channel:
+            with grpc.insecure_channel(address, [('grpc.enable_http_proxy', False)]) as channel:
                 future = grpc.channel_ready_future(channel)
                 future.result(timeout=20)
             yield address

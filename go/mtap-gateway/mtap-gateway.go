@@ -92,6 +92,7 @@ func run() error {
 		ConsulAddress:   consulHost,
 		ConsulPort:      consulPort,
 		RefreshInterval: viper.GetDuration("gateway.refresh_interval"),
+		GrpcEnableHttpProxy: viper.GetBool("grpc.enable_proxy"),
 	}
 
 	var manualProcessors []processors.ManualProcessor
@@ -165,6 +166,7 @@ func main() {
 	viper.SetDefault("gateway.refresh_interval", 10)
 	viper.SetDefault("gateway.events", nil)
 	viper.SetDefault("gateway.processors", []processors.ManualProcessor{})
+	viper.SetDefault("grpc.enable_proxy", false)
 
 	mtapConfig, exists := os.LookupEnv("MTAP_CONFIG")
 	if exists {

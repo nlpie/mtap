@@ -64,20 +64,24 @@ class RemoteProcessor(_base.ComponentDescriptor):
     """
 
     def __init__(self, processor_id: str, *, address: Optional[str] = None,
-                 component_id: Optional[str] = None, params: Optional[Dict[str, Any]] = None):
+                 component_id: Optional[str] = None, params: Optional[Dict[str, Any]] = None,
+                 enable_proxy: bool = False):
         self.processor_id = processor_id
         self.address = address
         self.component_id = component_id
         self.params = params
+        self.enable_proxy = enable_proxy
 
-    def create_pipeline_component(self, config: 'mtap.Config',
-                                  component_ids: Dict[
-                                      str, int]) -> 'processing.ProcessingComponent':
+    def create_pipeline_component(
+            self,
+            config: 'mtap.Config',
+            component_ids: Dict[str, int]
+    ) -> 'processing.ProcessingComponent':
         component_id = self.component_id or self.processor_id
         component_id = _unique_component_id(component_ids, component_id)
         runner = _runners.RemoteRunner(config=config, processor_id=self.processor_id,
                                        address=self.address, component_id=component_id,
-                                       params=self.params)
+                                       params=self.params, enable_proxy=self.enable_proxy)
         runner.descriptor = self
         return runner
 

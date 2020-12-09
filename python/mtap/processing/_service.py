@@ -129,6 +129,8 @@ def processor_parser() -> argparse.ArgumentParser:
                                    help='If set, will write the server address ')
     processors_parser.add_argument('--log-level', type=str, default='INFO',
                                    help="Sets the python log level.")
+    processors_parser.add_argument('--grpc-enable-http-proxy', action='store_true',
+                                   help="If set, will enable usage of http_proxy by grpc.")
     return processors_parser
 
 
@@ -154,7 +156,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
                  events_address=None,
                  register: bool = False,
                  processor_id=None,
-                 params: typing.Dict[str, typing.Any] = None):
+                 params: typing.Dict[str, typing.Any] = None,
+                 grpc_enable_http_proxy: bool = False):
         self.config = config
         self.pr = pr
         self.address = address
@@ -165,6 +168,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         self.params = params
         self.health_servicer = health_servicer
         self._runner = None
+        self._enable_proxy = grpc_enable_http_proxy
 
         self._times_collector = _runners.ProcessingTimesCollector()
         self._deregister = None
@@ -174,7 +178,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
     def start(self, port: int):
         # instantiate runner
-        client = data.EventsClient(address=self.events_address)
+        client = data.EventsClient(address=self.events_address, enable_proxy=self._enable_proxy)
         self._runner = _runners.ProcessorRunner(self.pr, client=client,
                                                 identifier=self.processor_id,
                                                 params=self.params)
@@ -261,6 +265,9 @@ class ProcessorServer:
             The number of workers that should handle requests. Defaults to 10.
         params (~typing.Optional[~typing.Mapping[str, ~typing.Any]):
             A set of default parameters that will be passed to the processor every time it runs.
+        grpc_enable_http_proxy (bool):
+            Enables or disables the grpc channel to the event service using http_proxy or
+            https_proxy environment variables.
     """
 
     def __init__(self,
@@ -273,7 +280,8 @@ class ProcessorServer:
                  processor_id: typing.Optional[str] = None,
                  workers: typing.Optional[int] = None,
                  params: typing.Optional[typing.Mapping[str, typing.Any]] = None,
-                 write_address: bool = False):
+                 write_address: bool = False,
+                 grpc_enable_http_proxy: bool = False):
         self.pr = proc
         self.host = host
         self._port = port
@@ -292,7 +300,8 @@ class ProcessorServer:
             register=register,
             processor_id=processor_id,
             params=params,
-            events_address=events_address
+            events_address=events_address,
+            grpc_enable_http_proxy=grpc_enable_http_proxy
         )
         workers = workers or 10
         thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
