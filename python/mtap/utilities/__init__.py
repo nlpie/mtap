@@ -86,7 +86,7 @@ def subprocess_events_server(port: typing.Optional[int] = None,
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          cwd=str(cwd), env=env)
     try:
-        with grpc.insecure_channel(address) as channel:
+        with grpc.insecure_channel(address, [('grpc.enable_http_proxy', False)]) as channel:
             future = grpc.channel_ready_future(channel)
             future.result(timeout=10)
         yield address

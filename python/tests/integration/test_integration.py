@@ -26,6 +26,8 @@ from mtap import RemoteProcessor, EventsClient, Event
 from mtap.utilities import subprocess_events_server
 
 
+os.environ['no_proxy'] = '127.0.0.1,localhost'
+
 @pytest.fixture(name='python_events')
 def fixture_python_events():
     config_path = Path(__file__).parent / 'integrationConfig.yaml'
@@ -60,6 +62,8 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
     env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT,
               env=env)
+    session = requests.Session()
+    session.trust_env = False
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch go gateway")
@@ -68,13 +72,14 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
                 raise ValueError("Failed to connect to go gateway")
             try:
                 time.sleep(3)
-                resp = requests.get("http://localhost:50503/v1/processors")
+                resp = session.get("http://localhost:50503/v1/processors", timeout=1)
                 if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
                     break
             except RequestException:
                 pass
         yield
     finally:
+        session.close()
         p.send_signal(signal.SIGINT)
         try:
             stdout, _ = p.communicate(timeout=1)
@@ -117,7 +122,9 @@ def test_pipeline(python_events, python_processor, java_processor):
 
 @pytest.mark.integration
 def test_api_gateway(python_events, python_processor, java_processor, api_gateway):
-    resp = requests.get("http://localhost:50503/v1/processors")
+    session = requests.Session()
+    session.trust_env = False
+    resp = session.get("http://localhost:50503/v1/processors")
     assert resp.status_code == 200
     processors = resp.json()
     all_ids = []
@@ -126,7 +133,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert 'mtap-example-processor-python' in all_ids
     assert 'mtap-example-processor-java' in all_ids
 
-    resp = requests.post("http://localhost:50503/v1/events/1")
+    resp = session.post("http://localhost:50503/v1/events/1")
     assert resp.status_code == 200
     create_event = resp.json()
     assert create_event['created'] is True
@@ -134,10 +141,10 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'value': 'bar'
     }
-    resp = requests.post("http://localhost:50503/v1/events/1/metadata/foo", json=body)
+    resp = session.post("http://localhost:50503/v1/events/1/metadata/foo", json=body)
     assert resp.status_code == 200
 
-    resp = requests.get("http://localhost:50503/v1/events/1/metadata")
+    resp = session.get("http://localhost:50503/v1/events/1/metadata")
     assert resp.status_code == 200
     metadata = resp.json()['metadata']
     assert metadata['foo'] == 'bar'
@@ -145,15 +152,15 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'text': PHASERS
     }
-    resp = requests.post("http://localhost:50503/v1/events/1/documents/plaintext", json=body)
+    resp = session.post("http://localhost:50503/v1/events/1/documents/plaintext", json=body)
     assert resp.status_code == 200
 
-    resp = requests.get("http://localhost:50503/v1/events/1/documents")
+    resp = session.get("http://localhost:50503/v1/events/1/documents")
     assert resp.status_code == 200
     documents = resp.json()["document_names"]
     assert documents == ['plaintext']
 
-    resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext")
+    resp = session.get("http://localhost:50503/v1/events/1/documents/plaintext")
     assert resp.status_code == 200
     text = resp.json()['text']
     assert text == PHASERS
@@ -183,11 +190,11 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
             ]
         }
     }
-    resp = requests.post(
+    resp = session.post(
         "http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels", json=body)
     assert resp.status_code == 200
 
-    resp = requests.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
+    resp = session.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
     assert resp.status_code == 200
     labels = resp.json()
     generic_labels = labels['generic_labels']
@@ -201,7 +208,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
             'do_work': True,
         }
     }
-    resp = requests.post(
+    resp = session.post(
         "http://localhost:50503/v1/processors/mtap-example-processor-python/process/1",
         json=body
     )
@@ -209,7 +216,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     python_process = resp.json()
     assert python_process['result']['answer'] == 42
 
-    resp = requests.get(
+    resp = session.get(
         "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts"
     )
     assert resp.status_code == 200
@@ -245,7 +252,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
             'do_work': True,
         }
     }
-    resp = requests.post(
+    resp = session.post(
         "http://localhost:50503/v1/processors/mtap-example-processor-java/process/1",
         json=body
     )
@@ -253,7 +260,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     java_process = resp.json()
     assert java_process['result']['answer'] == 42
 
-    resp = requests.get(
+    resp = session.get(
         "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
     )
     assert resp.status_code == 200
@@ -268,7 +275,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
         }
     ]
 
-    resp = requests.get(
+    resp = session.get(
         "http://localhost:50503/v1/events/1/documents/plaintext/labels"
     )
     assert resp.status_code == 200

@@ -62,6 +62,8 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
     env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT,
               env=env)
+    session = requests.Session()
+    session.trust_env = False
     try:
         if p.returncode is not None:
             raise ValueError("Failed to launch go gateway")
@@ -70,13 +72,14 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
                 raise ValueError("Failed to connect to go gateway")
             try:
                 time.sleep(3)
-                resp = requests.get("http://localhost:50503/v1/processors")
+                resp = session.get("http://localhost:50503/v1/processors")
                 if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
                     break
             except RequestException:
                 pass
         yield
     finally:
+        session.close()
         p.send_signal(signal.SIGINT)
         try:
             stdout, _ = p.communicate(timeout=1)
@@ -119,7 +122,9 @@ def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_proc
 
 @pytest.mark.consul
 def test_disc_api_gateway(disc_api_gateway):
-    resp = requests.get("http://localhost:50503/v1/processors")
+    session = requests.Session()
+    session.trust_env = False
+    resp = session.get("http://localhost:50503/v1/processors")
     assert resp.status_code == 200
     processors = resp.json()
     all_ids = []

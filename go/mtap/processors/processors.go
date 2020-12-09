@@ -40,14 +40,15 @@ type processorGateway struct {
 
 // listens for new processors from the consul server.
 type ProcessorsServer struct {
-	Dispatcher *mux.Router
-	processors map[string]*processorGateway
-	t          *time.Ticker
-	ctx        context.Context
-	client     *api.Client
-	authority  string
-	updating   bool
-	semaphore  *semaphore.Weighted
+	Dispatcher          *mux.Router
+	processors          map[string]*processorGateway
+	t                   *time.Ticker
+	ctx                 context.Context
+	client              *api.Client
+	authority           string
+	updating            bool
+	semaphore           *semaphore.Weighted
+	grpcEnableHttpProxy bool
 }
 
 type processorInfo struct {
@@ -59,10 +60,11 @@ type processorsResponse struct {
 }
 
 type Config struct {
-	ConsulAddress    string
-	ConsulPort       int
-	RefreshInterval  time.Duration
-	ManualProcessors []ManualProcessor
+	ConsulAddress       string
+	ConsulPort          int
+	RefreshInterval     time.Duration
+	ManualProcessors    []ManualProcessor
+	GrpcEnableHttpProxy bool
 }
 
 type ManualProcessor struct {
@@ -252,11 +254,12 @@ func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProc
 	glog.V(2).Infof("Starting new processor gateway for service: %v with address: %v", manualProcessor.Identifier, manualProcessor.Endpoint)
 	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	ctx, cancel := context.WithCancel(ps.ctx)
+
 	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
 		ctx,
 		gwmux,
 		manualProcessor.Endpoint,
-		[]grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancerName("round_robin")})
+		ps.createDialOptions())
 
 	if err != nil {
 		return nil, err
@@ -265,15 +268,24 @@ func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProc
 	return &gateway, nil
 }
 
+func (ps *ProcessorsServer) createDialOptions() []grpc.DialOption {
+	dialOptions := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancerName("round_robin")}
+	if !ps.grpcEnableHttpProxy {
+		dialOptions = append(dialOptions, grpc.WithNoProxy())
+	}
+	return dialOptions
+}
+
 func (ps *ProcessorsServer) newProcessorGateway(pn string) (*processorGateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v", pn)
 	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	ctx, cancel := context.WithCancel(ps.ctx)
+
 	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
 		ctx,
 		gwmux,
 		"consul://"+ps.authority+"/"+pn+"/v1-mtap-processor",
-		[]grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancerName("round_robin")})
+		ps.createDialOptions())
 
 	if err != nil {
 		return nil, err
