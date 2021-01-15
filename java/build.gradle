@@ -154,7 +154,8 @@ publishing {
             artifactId = project.name
             version = project.version
 
-            from components.java
+            from project.components.java
+            artifacts = [jar, javadocJar, sourcesJar]
             versionMapping {
                 usage('java-api') {
                     fromResolutionOf('runtimeClasspath')
