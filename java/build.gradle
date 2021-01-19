@@ -147,6 +147,12 @@ shadowJar {
     mergeServiceFiles()
 }
 
+artifacts {
+    archives jar
+    archives sourcesJar
+    archives javadocJar
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -154,8 +160,7 @@ publishing {
             artifactId = project.name
             version = project.version
 
-            from project.components.java
-            artifacts = [jar, javadocJar, sourcesJar]
+            from components.java
             versionMapping {
                 usage('java-api') {
                     fromResolutionOf('runtimeClasspath')
