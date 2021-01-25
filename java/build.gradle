@@ -147,12 +147,6 @@ shadowJar {
     mergeServiceFiles()
 }
 
-artifacts {
-    archives jar
-    archives sourcesJar
-    archives javadocJar
-}
-
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -161,7 +155,7 @@ publishing {
             version = project.version
 
             from components.java
-            artifacts = [jar, javadocJar, sourcesJar]
+            artifacts = [jar, sourcesJar, javadocJar]
             versionMapping {
                 usage('java-api') {
                     fromResolutionOf('runtimeClasspath')
@@ -205,11 +199,10 @@ publishing {
     }
     repositories {
         maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/nlpie/mtap")
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
             credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+                username project.hasProperty('sonatypeUsername') ? sonatypeUsername : null
+                password project.hasProperty('sonatypePassword') ? sonatypePassword : null
             }
         }
     }
