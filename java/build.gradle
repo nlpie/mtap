@@ -219,7 +219,7 @@ bintray {
         licenses = ['Apache-2.0']
         vcsUrl = 'https://github.com/nlpie/mtap.git'
         version {
-            version = "0.8.0"
+            name = "0.8.0"
             gpg {
                 sign = true
             }
