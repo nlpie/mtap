@@ -40,32 +40,12 @@ pip install mtap
 #### Java
 
 Gradle:
-```groovy
-repositories {
-    maven { 
-        url "https://maven.pkg.github.com/nlpie/mtap" 
-    }
-}
-```
 
 ```groovy
 implementation 'edu.umn.nlpie:mtap:0.8.0'
 ```
 
 Maven:
-
-```xml
-<repositories>
-    <repository>
-        <id>mtap-github</id>
-        <name>MTAP GitHub Maven Packages</name>
-        <url>https://maven.pkg.github.com/nlpie/mtap</url>
-        <releases>
-            <enabled>true</enabled>
-        </releases>
-    </repository>
-</repositories>
-```
 
 ```xml
 <dependency>
