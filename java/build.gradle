@@ -220,6 +220,7 @@ bintray {
         licenses = ['Apache-2.0']
         vcsUrl = 'https://github.com/nlpie/mtap.git'
     }
+    publications = ['mavenJava']
 }
 
 signing {
