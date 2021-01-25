@@ -212,6 +212,7 @@ publishing {
 bintray {
     user = project.property('bintray.user')
     key = project.property('bintray.key')
+    publish = true
     pkg {
         repo = 'mtap'
         name = 'mtap'
