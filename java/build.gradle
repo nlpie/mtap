@@ -3,7 +3,6 @@ plugins {
     id 'maven-publish'
     id 'com.google.protobuf' version '0.8.13'
     id 'com.github.ben-manes.versions' version '0.27.0'
-    id 'signing'
     id 'com.github.johnrengelman.shadow' version '6.1.0'
     id 'com.jfrog.bintray' version '1.8.5'
 }
@@ -219,13 +218,18 @@ bintray {
         userOrg = 'benknoll-umn'
         licenses = ['Apache-2.0']
         vcsUrl = 'https://github.com/nlpie/mtap.git'
+        version {
+            version = "0.8.0"
+            gpg {
+                sign = true
+            }
+            mavenCentralSync {
+                user = project.property('sonatypeUsername')
+                password = project.property('sonatypePassword')
+            }
+        }
     }
     publications = ['mavenJava']
-}
-
-signing {
-    useGpgCmd()
-    sign publishing.publications.mavenJava
 }
 
 javadoc {
@@ -234,10 +238,6 @@ javadoc {
     if(JavaVersion.current().isJava9Compatible()) {
         options.addBooleanOption('html5', true)
     }
-}
-
-tasks.withType(Sign) {
-    onlyIf { isReleaseVersion }
 }
 
 tasks.withType(GenerateModuleMetadata) {
