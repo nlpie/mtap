@@ -204,10 +204,11 @@ publishing {
     }
     repositories {
         maven {
-            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/nlpie/mtap")
             credentials {
-                username project.hasProperty('sonatypeUsername') ? sonatypeUsername : null
-                password project.hasProperty('sonatypePassword') ? sonatypePassword : null
+                username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
             }
         }
     }
