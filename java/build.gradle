@@ -5,6 +5,7 @@ plugins {
     id 'com.github.ben-manes.versions' version '0.27.0'
     id 'signing'
     id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'com.jfrog.bintray' version '1.8.5'
 }
 
 def gitVersion = { ->
@@ -65,6 +66,7 @@ repositories {
     maven { // The google mirror is less flaky than mavenCentral()
         url "https://maven-central.storage-download.googleapis.com/repos/central/data/" }
     mavenCentral()
+    jcenter()
     mavenLocal()
 }
 
@@ -205,6 +207,18 @@ publishing {
                 password project.hasProperty('sonatypePassword') ? sonatypePassword : null
             }
         }
+    }
+}
+
+bintray {
+    user = project.property('bintray.user')
+    key = project.property('bintray.key')
+    pkg {
+        repo = 'mtap'
+        name = 'mtap'
+        userOrg = 'benknoll-umn'
+        licenses = ['Apache-2.0']
+        vcsUrl = 'https://github.com/nlpie/mtap.git'
     }
 }
 
