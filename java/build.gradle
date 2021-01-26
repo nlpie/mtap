@@ -155,6 +155,7 @@ publishing {
             version = project.version
 
             from components.java
+            artifacts = [jar, sourcesJar, javadocJar]
             versionMapping {
                 usage('java-api') {
                     fromResolutionOf('runtimeClasspath')
