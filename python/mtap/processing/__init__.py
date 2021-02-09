@@ -26,6 +26,7 @@ from mtap.processing._base import ProcessingResult
 from mtap.processing._base import Stopwatch
 from mtap.processing._base import TimerStats
 from mtap.processing.descriptions import processor
+from mtap.processing._pipeline import FilesInDirectoryProcessingSource
 from mtap.processing._pipeline import LocalProcessor
 from mtap.processing._pipeline import Pipeline
 from mtap.processing._pipeline import ProcessingSource

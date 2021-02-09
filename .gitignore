@@ -380,3 +380,5 @@ python/docs/_build
 
 .project
 .classpath
+
+Pipfile

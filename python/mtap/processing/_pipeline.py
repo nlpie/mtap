@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import pathlib
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -24,6 +25,7 @@ from tqdm import tqdm
 
 from mtap import _config
 from mtap.processing import _base, _runners
+from mtap.data import Event
 
 if TYPE_CHECKING:
     import mtap
@@ -254,6 +256,53 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         self.name = name or 'pipeline'
         self._components = [desc.create_pipeline_component(self._config, self._component_ids)
                             for desc in components]
+
+    @staticmethod
+    def from_yaml_file(conf_path: Union[pathlib.Path, str]) -> 'Pipeline':
+        """Creates a pipeline from a yaml pipeline configuration file.
+
+        Args:
+            conf_path (str or pathlib.Path): The path to the configuration file.
+
+        Returns:
+            Pipeline object from the configuration.
+
+        """
+        conf_path = pathlib.Path(conf_path)
+        from yaml import load
+        try:
+            from yaml import CLoader as Loader
+        except ImportError:
+            from yaml import Loader
+        with conf_path.open('rb') as f:
+            conf = load(f, Loader=Loader)
+        return Pipeline.load_configuration(conf)
+
+    @staticmethod
+    def load_configuration(conf: Dict) -> 'Pipeline':
+        """Creates a pipeline from a pipeline configuration dictionary.
+
+        Args:
+            conf (Dict): The pipeline configuration dictionary.
+
+        Returns:
+            Pipeline created from the configuration.
+
+        """
+        name = conf.get('name', None)
+        components = []
+        conf_components = conf.get('components', [])
+        for conf_component in conf_components:
+            components.append(
+                RemoteProcessor(
+                    processor_id=conf_component['processorId'],
+                    address=conf_component['address'],
+                    component_id=conf_component.get('componentId', None),
+                    params=dict(conf_component.get('params', {}))
+                )
+            )
+
+        return Pipeline(*components, name=name)
 
     @property
     def _times_collector(self):
@@ -488,6 +537,21 @@ class ProcessingSource(ContextManager, ABC):
     for receiving results.
 
     """
+    _total = None
+
+    @property
+    def total(self) -> Optional[int]:
+        """The total number of documents this source will provide.
+
+        Returns:
+            str or None count of the total events or None if not known.
+
+        """
+        return self._total
+
+    @total.setter
+    def total(self, count: Optional[int]):
+        self._total = count
 
     @abstractmethod
     def provide(self, consume: Callable[[Union['mtap.Document', 'mtap.Event']], None]):
@@ -606,6 +670,7 @@ class _PipelineMultiRunner:
         self.close_events = close_events
         self.max_targets = n_threads + read_ahead
         self.executor = ThreadPoolExecutor(max_workers=n_threads)
+        total = (source.total if hasattr(source, 'total') else None) or total
         self.progress_bar = tqdm(total=total, unit='event', smoothing=0.01) if progress else None
 
         if not isinstance(source, ProcessingSource):
@@ -700,3 +765,45 @@ def _unique_component_id(component_ids, component_id):
     if count > 1:
         component_id = component_id + '-' + str(count)
     return component_id
+
+
+class FilesInDirectoryProcessingSource(ProcessingSource):
+    """Processing source for pipelines which iterates over files in a directory.
+
+    Args:
+        client (mtap.EventsClient): The events client to send documents to.
+        directory (pathlib.Path or str): The path to the directory of files to process.
+
+    Keyword Args:
+         document_name (str): The name of the document to create and add text to.
+         extension_glob (str): The glob for which files to create events and documents for.
+         count_total (bool): Whether to count the total number of documents before processing.
+         errors (~typing.Optional[str]): The errors argument for :func:`open`.
+
+    """
+
+    def __init__(self, client: 'mtap.EventsClient',
+                 directory: Union[pathlib.Path, str],
+                 *, document_name: str = 'plaintext',
+                 extension_glob: str = '*.txt',
+                 count_total: bool = True,
+                 errors: Optional[str] = None):
+        self.client = client
+        self.input_directory = pathlib.Path(directory)
+        if not self.input_directory.is_dir():
+            raise ValueError('Invalid / non-existing input directory: ' + str(self.input_directory))
+        self.document_name = document_name
+        self.extension_glob = extension_glob
+        self.errors = errors
+        if count_total:
+            self.total = sum(1 for _ in self.input_directory.rglob('*.txt'))
+
+    def provide(self, consume: Callable[[Union['mtap.Document', 'mtap.Event']], None]):
+        for path in self.input_directory.rglob(self.extension_glob):
+            with path.open('r', errors=self.errors) as f:
+                txt = f.read()
+            relative = str(path.relative_to(self.input_directory))
+            with Event(event_id=relative, client=self.client,
+                       only_create_new=True) as e:
+                doc = e.create_document(self.document_name, txt)
+                consume(doc)

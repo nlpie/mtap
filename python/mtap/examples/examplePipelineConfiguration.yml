@@ -1,0 +1,12 @@
+name: example-pipeline
+components:
+  - processorId: mtap-example-processor-python # The processor's identifier
+    address: localhost:10101 # The address of the processor, null to use service discovery
+    componentId: null
+    params:
+      do_work: yes
+  - processorId: mtap-example-processor-java
+    address: localhost:10102
+    componentId: null
+    params:
+      do_work: yes
