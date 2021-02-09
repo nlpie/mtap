@@ -188,9 +188,10 @@ class SharedProcessorConfig:
         """Builds a configuration from a dictionary representation.
 
         Args:
-            conf (Optional[Dict]):
+            conf (Optional[Dict]): The configuration dictionary.
 
         Returns:
+            SharedProcessorConfig object.
 
         """
         conf = conf or {}
@@ -250,9 +251,19 @@ class _ServiceDeployment:
 
 
 class EventsDeployment:
-    """
+    """Deployment configuration for the events service.
+
+    Keyword Args:
+        enabled (bool): Whether an events service should be created.
+        host (~typing.Optional[str]): The host address of the events service.
+        port (~typing.Optional[int]): Which port to host on.
+        workers (~typing.Optional[int]): The number of worker threads the events service should use.
+        register (~typing.Optional[bool]): Whether to register the events service with discovery.
+        mtap_config (~typing.Optional[str]): Path to an mtap configuration file.
+        log_level (~typing.Optional[str]): The log level for the events service.
 
     """
+
     def __init__(self, *,
                  enabled: bool = True,
                  host: Optional[str] = None,
@@ -263,7 +274,7 @@ class EventsDeployment:
                  log_level: Optional[str] = None):
         self.enabled = enabled
         self.port = port
-        self.service_deployment = _ServiceDeployment(host, workers, register, mtap_config, 
+        self.service_deployment = _ServiceDeployment(host, workers, register, mtap_config,
                                                      log_level)
 
     def create_call(self, global_settings: GlobalSettings) -> List[str]:
@@ -280,6 +291,15 @@ class EventsDeployment:
 
     @staticmethod
     def from_conf(conf: Optional[Dict]) -> 'EventsDeployment':
+        """Creates the EventsDeployment configuration option from a configuration dictionary.
+
+        Args:
+            conf (Optional[Dict]): The configuration dictionary
+
+        Returns:
+            EventsDeployment or None from the configuration dictionary.
+
+        """
         conf = conf or {}
 
         enabled = conf.get('enabled')
@@ -292,9 +312,34 @@ class EventsDeployment:
 
 
 class ProcessorDeployment:
-    """
+    """Deployment configuration for an MTAP processor.
+
+    Used to construct the command for launching the processor. The processor should be a Java Class
+    with a main method or a Python module with a main block. It should accept the standard MTAP
+    processor deployment arguments and launch an MTAP processor using :func:`mtap.run_processor` or
+    the equivalent Java method.
+
+    Args:
+        implementation (str): Either "java" or "python".
+        entry_point (str): Either the java main class, or the python main module.
+        enabled (bool): Whether the processor should be launched as part of deployment.
+        instances (int): The number of instances of the processor to launch.
+        host (~typing.Optional[str]): The listening host for the processor service.
+        port (~typing.Optional[int]): The listening port for the processor service.
+        workers (~typing.Optional[int]): The number of worker threads per instance.
+        register (~typing.Optional[bool]):
+            Whether the processor should register with the discovery service specified in the MTAP
+            configuration
+        mtap_config (~typing.Optional[str]): Path to the MTAP configuration file.
+        log_level (~typing.Optional[str]): The log level for the processor.
+        identifier (~typing.Optional[str]): An optional identifier override to use for registration.
+        pre_args (~typing.Optional[~typing.List[str]]):
+            Arguments that occur prior to the MTAP service arguments (like host, port, etc).
+        additional_args (~typing.Optional[~typing.List[str]]):
+            Arguments that occur after the MTAP service arguments.
 
     """
+
     def __init__(self,
                  implementation: str,
                  entry_point: str,
@@ -322,6 +367,15 @@ class ProcessorDeployment:
 
     @staticmethod
     def from_conf(conf: Dict) -> 'ProcessorDeployment':
+        """Creates an MTAP processor deployment configuration from a configuration dictionary.
+
+        Args:
+            conf (Dict): The configuration dictionary.
+
+        Returns:
+            ProcessorDeployment object that can be used to constuct the call for the processor.
+
+        """
         return ProcessorDeployment(implementation=conf['implementation'],
                                    entry_point=conf['entryPoint'],
                                    enabled=conf.get('enabled', True),
@@ -349,7 +403,7 @@ class ProcessorDeployment:
             if self.implementation == 'python':
                 call = [PYTHON_EXE, '-m', self.entry_point]
             elif self.implementation == 'java':
-                call = [JAVA_EXE]
+                call = [str(JAVA_EXE)]
                 if shared_config.jvm_args is not None:
                     call.extend(shared_config.jvm_args)
                 if shared_config.classpath is not None:
@@ -387,9 +441,18 @@ class ProcessorDeployment:
 
 
 class Deployment:
-    """
+    """A automatic deployment configuration which launches a configurable set of MTAP services.
+
+    Args:
+         global_settings (~typing.Optional[GlobalSettings]): Settings shared among all services.
+         events_deployment (~typing.Optional[EventsDeployment]):
+            Deployment settings for the events service.
+         shared_processor_config (~typing.Optional[SharedProcessorConfig]):
+            Shared configuration settings for all processors.
+         processors (vararg ProcessorDeployment): Configurations for individual processors.
 
     """
+
     def __init__(self,
                  global_settings: Optional[GlobalSettings] = None,
                  events_deployment: Optional[EventsDeployment] = None,
@@ -402,6 +465,15 @@ class Deployment:
 
     @staticmethod
     def load_configuration(conf: Dict) -> 'Deployment':
+        """Creates a deployment object from a configuration dictionary.
+
+        Args:
+            conf (Dict): The configuration dictionary.
+
+        Returns:
+            Deployment object created.
+
+        """
         global_settings = GlobalSettings.from_conf(conf.get('global'))
         events = EventsDeployment.from_conf(conf.get('eventsService'))
         shared_processor_config = SharedProcessorConfig.from_conf(conf.get('sharedProcessorConfig'))
@@ -411,6 +483,15 @@ class Deployment:
 
     @staticmethod
     def from_yaml_file(conf_path: Union[pathlib.Path, str]) -> 'Deployment':
+        """Loads a deployment configuration from a yaml file.
+
+        Args:
+            conf_path (str or pathlib.Path): The path to the yaml configuration file.
+
+        Returns:
+            Deployment object created from the configuration.
+
+        """
         conf_path = pathlib.Path(conf_path)
         from yaml import load
         try:
@@ -492,8 +573,9 @@ def main(args: Optional[Sequence[str]] = None,
         deployment = Deployment.from_yaml_file(conf.deploy_config)
         deployment.run_servers()
     if conf.mode == 'write_example':
-        example = pathlib.Path(__file__).parent / "exampleDeploymentConfiguration.yml"
-        shutil.copyfile(example, "./exampleDeploymentConfiguration.yml")
+        example = pathlib.Path(__file__).parent / "examples" / "exampleDeploymentConfiguration.yml"
+        shutil.copyfile(str(example), "exampleDeploymentConfiguration.yml")
+        print('Writing "exampleDeploymentConfiguration.yml" to ' + str(pathlib.Path.cwd()))
 
 
 def deployment_parser() -> argparse.ArgumentParser:
@@ -505,13 +587,13 @@ def deployment_parser() -> argparse.ArgumentParser:
 
     """
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--log-level', metavar='LEVEL',
+                        help="The log level to use for the deployment script.")
     subparsers = parser.add_subparsers(title='mode')
 
     run_servers = subparsers.add_parser('run_servers')
     run_servers.add_argument('deploy_config', metavar='CONFIG_FILE', type=pathlib.Path,
                              help="A path to the deployment configuration to deploy.")
-    run_servers.add_argument('--log-level', metavar='LEVEL',
-                             help="The log level to use for the deployment script.")
     run_servers.set_defaults(mode='run_servers')
 
     write_example = subparsers.add_parser('write_example')
