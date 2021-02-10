@@ -156,6 +156,7 @@ class SharedProcessorConfig:
             processors.
         classpath (Optional[str]): A classpath string that will be passed to all java
             processors.
+        startup_timeout (Optional[int]): The default startup timeout for processors.
 
     Attributes:
         events_address (Optional[str]): An optional GRPC-compatible target for the events
@@ -168,6 +169,7 @@ class SharedProcessorConfig:
             processors.
         classpath (Optional[str]): A classpath string that will be passed to all java
             processors.
+        startup_timeout (Optional[int]): The default startup timeout for processors.
 
     """
 
@@ -176,12 +178,14 @@ class SharedProcessorConfig:
                  workers: Optional[int] = None,
                  additional_args: Optional[List[str]] = None,
                  jvm_args: Optional[List[str]] = None,
-                 classpath: Optional[str] = None):
+                 classpath: Optional[str] = None,
+                 startup_timeout: Optional[int] = None):
         self.events_address = events_address
         self.workers = workers
         self.additional_args = additional_args
         self.jvm_args = jvm_args
         self.classpath = classpath
+        self.startup_timeout = startup_timeout or 30
 
     @staticmethod
     def from_conf(conf: Optional[Dict]) -> 'SharedProcessorConfig':
@@ -199,7 +203,8 @@ class SharedProcessorConfig:
                                      workers=conf.get('workers'),
                                      additional_args=conf.get('args'),
                                      jvm_args=conf.get('jvmArgs'),
-                                     classpath=conf.get('javaClasspath'))
+                                     classpath=conf.get('javaClasspath'),
+                                     startup_timeout=conf.get('startupTimeout'))
 
 
 class _ServiceDeployment:
@@ -337,6 +342,7 @@ class ProcessorDeployment:
             Arguments that occur prior to the MTAP service arguments (like host, port, etc).
         additional_args (~typing.Optional[~typing.List[str]]):
             Arguments that occur after the MTAP service arguments.
+        startup_timeout (Optional[int]): Optional override startup timeout.
 
     """
 
@@ -353,7 +359,8 @@ class ProcessorDeployment:
                  log_level: Optional[str] = None,
                  identifier: Optional[str] = None,
                  pre_args: Optional[List[str]] = None,
-                 additional_args: Optional[List[str]] = None):
+                 additional_args: Optional[List[str]] = None,
+                 startup_timeout: Optional[int] = None):
         self.enabled = enabled
         self.implementation = implementation
         self.entry_point = entry_point
@@ -364,6 +371,7 @@ class ProcessorDeployment:
         self.port = port
         self.service_deployment = _ServiceDeployment(host, workers, register, mtap_config,
                                                      log_level)
+        self.startup_timeout = startup_timeout
 
     @staticmethod
     def from_conf(conf: Dict) -> 'ProcessorDeployment':
@@ -388,7 +396,8 @@ class ProcessorDeployment:
                                    log_level=conf.get('logLevel'),
                                    identifier=conf.get('identifier'),
                                    pre_args=conf.get('preArgs'),
-                                   additional_args=conf.get('args'))
+                                   additional_args=conf.get('args'),
+                                   startup_timeout=conf.get('startupTimeout'))
 
     def create_calls(self,
                      global_settings: GlobalSettings,
@@ -514,7 +523,7 @@ class Deployment:
         if self.events_deployment.enabled:
             call = self.events_deployment.create_call(self.global_settings)
             p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            listener, events_address = _listen_test_connectivity(p, "events")
+            listener, events_address = _listen_test_connectivity(p, "events", 30)
             processes_listeners.append((p, listener))
 
         if (not self.global_settings.register
@@ -528,7 +537,9 @@ class Deployment:
                                                               self.shared_processor_config):
                     logger.debug('Launching processor with call: %s', call)
                     p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                    listener, _ = _listen_test_connectivity(p, call)
+                    startup_timeout = (processor_deployment.startup_timeout
+                                       or self.shared_processor_config.startup_timeout)
+                    listener, _ = _listen_test_connectivity(p, call, startup_timeout)
                     processes_listeners.append((p, listener))
 
         print('Done deploying all servers.', flush=True)
@@ -542,7 +553,8 @@ class Deployment:
 
 
 def _listen_test_connectivity(p: subprocess.Popen,
-                              name: Any) -> Tuple[threading.Thread, str]:
+                              name: Any,
+                              startup_timeout: int) -> Tuple[threading.Thread, str]:
     listener = threading.Thread(target=_listen, args=(p,))
     listener.start()
     address = None
