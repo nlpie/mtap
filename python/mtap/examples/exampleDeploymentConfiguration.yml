@@ -28,6 +28,7 @@ sharedProcessorConfig:
   args: [ ]
   jvmArgs: [ "-Xms32m", "-Xmx8g" ]
   javaClasspath: null
+  startupTimeout: 30 # How long to wait for the processor to start up and respond.
 # Below this is a list of the processors to be deployed and their individual settings.
 processors:
   # The implementation language e.g. "python" or "java"
@@ -55,6 +56,7 @@ processors:
     # argument for a sub-command.
     preArgs: [ ]
     args: [ ]  # a list of additional arguments for the processor
+    startupTimeout: 60 # Optional override for startup timeout
   - implementation: java
     entryPoint: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor
     instances: 1
