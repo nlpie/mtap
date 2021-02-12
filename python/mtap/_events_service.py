@@ -15,6 +15,7 @@
 
 import logging
 import threading
+import typing
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
 
@@ -25,6 +26,9 @@ from grpc_health.v1 import health_pb2_grpc
 
 from mtap import _config, constants, utilities
 from mtap.api.v1 import events_pb2, events_pb2_grpc
+
+if typing.TYPE_CHECKING:
+    import mtap
 
 LOGGER = logging.getLogger(__name__)
 

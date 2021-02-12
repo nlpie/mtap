@@ -281,7 +281,7 @@ class ProcessorServer:
                  params: typing.Optional[typing.Mapping[str, typing.Any]] = None,
                  write_address: bool = False,
                  grpc_enable_http_proxy: bool = False,
-                 config: 'Optional[mtap.Config]' = None):
+                 config: 'typing.Optional[mtap.Config]' = None):
         self.pr = proc
         self.host = host
         self._port = port
