@@ -49,7 +49,7 @@ def find_free_port() -> int:
 @contextlib.contextmanager
 def subprocess_events_server(port: typing.Optional[int] = None,
                              cwd: typing.Optional[pathlib.Path] = None,
-                             config_path: typing.Optional[pathlib.Path] = None,
+                             config_path: typing.Optional[typing.Union[pathlib.Path, str]] = None,
                              register: bool = False) -> str:
     """Context manager which launches a events server on a subprocess and yields the address.
 

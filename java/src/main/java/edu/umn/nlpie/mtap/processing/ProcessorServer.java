@@ -450,7 +450,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
         } else {
           channelBuilder = ManagedChannelBuilder.forTarget(eventsTarget);
         }
-        eventsChannel = channelBuilder.usePlaintext().build();
+        eventsChannel = channelBuilder.maxInboundMessageSize(config.getIntegerValue("grpc.max_receive_message_length"))
+            .usePlaintext().build();
         eventsClient = new EventsClient(eventsChannel);
       }
       ProcessorRunner runner = new LocalProcessorRunner(eventsChannel, eventsClient, processor);
@@ -470,6 +471,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           host
       );
       Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
+          .maxInboundMessageSize(config.getIntegerValue("grpc.max_receive_message_length"))
           .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(processorService).build();

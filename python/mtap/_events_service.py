@@ -42,10 +42,16 @@ class EventsServer:
     """
 
     def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10,
-                 write_address: bool = False):
+                 write_address: bool = False, config: 'Optional[mtap.Config]' = None):
         self.write_address = write_address
         thread_pool = ThreadPoolExecutor(max_workers=workers)
-        server = grpc.server(thread_pool)
+        if config is None:
+            config = _config.Config()
+        server = grpc.server(thread_pool,
+                             options=[
+                                 ('grpc.max_send_message_length', config['grpc.max_send_message_length']),
+                                 ('grpc.max_receive_message_length', config['grpc.max_receive_message_length'])
+                             ])
         servicer = EventsServicer()
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)
         health_servicer = health.HealthServicer()

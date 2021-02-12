@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """MTAP SDK configuration."""
-
+import logging
 import os
 import threading
 from pathlib import Path
 from typing import Any, MutableMapping, Iterator, Union
 
 from mtap.utilities import mtap_home
+
+logger = logging.getLogger(__name__)
 
 
 def _collapse(d, path, v):
@@ -63,6 +65,7 @@ def _load_default_config():
     for config_path in potential_paths:
         try:
             with config_path.open('rb') as f:
+                logger.info('Loading MTAP config from "{}"'.format(config_path))
                 return _load_config(f)
         except FileNotFoundError:
             pass

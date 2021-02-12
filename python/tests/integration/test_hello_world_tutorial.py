@@ -25,7 +25,7 @@ config = str(Path(__file__).parent / 'integrationConfig.yaml')
 @pytest.fixture(name='python_events')
 def fixture_python_events():
     port = find_free_port()
-    with subprocess_events_server(port=port) as address:
+    with subprocess_events_server(port=port, config_path=config) as address:
         yield address
 
 

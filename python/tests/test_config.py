@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import contextlib
 import os
 from pathlib import Path
 
@@ -19,20 +19,37 @@ import pytest
 
 from mtap import Config
 
+NO_KEY = object()
+
+
+@contextlib.contextmanager
+def set_env(key, val):
+    old = NO_KEY
+    try:
+        old = os.environ[key]
+    except KeyError:
+        pass
+    os.environ[key] = val
+    yield
+    if old is NO_KEY:
+        del os.environ[key]
+    else:
+        os.environ[key] = old
+
 
 def test_load_broken_config():
     Config._global_instance = None
-    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent / 'brokenConfig.yaml')
-    with pytest.raises(TypeError):
-        Config()
+    with set_env('MTAP_CONFIG', str(Path(__file__).parent / 'brokenConfig.yaml')):
+        with pytest.raises(TypeError):
+            Config()
 
 
 def test_load_config():
-    os.environ['MTAP_CONFIG'] = str(Path(__file__).parent / 'mtapConfig.yaml')
-    Config._global_instance = None
-    c = Config()
-    assert c['foo'] == 'bar'
-    assert c['baz.bot'] == [1, 2, 3]
+    with set_env('MTAP_CONFIG', str(Path(__file__).parent / 'workingConfig.yaml')):
+        Config._global_instance = None
+        c = Config()
+        assert c['foo'] == 'bar'
+        assert c['baz.bot'] == [1, 2, 3]
 
 
 def test_config_context():
@@ -54,6 +71,6 @@ def test_enter_twice():
 def test_update_from_yaml():
     Config._global_instance = None
     c = Config()
-    c.update_from_yaml(str(Path(__file__).parent) + '/mtapConfig.yaml')
+    c.update_from_yaml(str(Path(__file__).parent) + '/workingConfig.yaml')
     assert c['foo'] == 'bar'
     assert c['baz.bot'] == [1, 2, 3]

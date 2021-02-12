@@ -513,7 +513,14 @@ class EventsClient:
                 address = discovery.discover_events_service('v1')
 
             enable_proxy = enable_proxy or config.get('grpc.enable_proxy', False)
-            channel = grpc.insecure_channel(address, [('grpc.enable_http_proxy', enable_proxy)])
+            channel = grpc.insecure_channel(address,
+                                            options=[
+                                                ('grpc.enable_http_proxy', enable_proxy),
+                                                ('grpc.max_send_message_length',
+                                                 config.get('grpc.max_send_message_length')),
+                                                ('grpc.max_receive_message_length',
+                                                 config.get('grpc.max_receive_message_length'))
+                                            ])
 
             health = health_pb2_grpc.HealthStub(channel)
             hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))
@@ -596,7 +603,8 @@ class EventsClient:
         response = self.stub.GetDocumentText(request)
         return response.text
 
-    def get_label_index_info(self, event_id: str, document_name: str) -> List['data.LabelIndexInfo']:
+    def get_label_index_info(self, event_id: str, document_name: str) -> List[
+        'data.LabelIndexInfo']:
         request = events_pb2.GetLabelIndicesInfoRequest(event_id=event_id,
                                                         document_name=document_name)
         response = self.stub.GetLabelIndicesInfo(request)

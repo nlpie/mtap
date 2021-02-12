@@ -1,4 +1,8 @@
 discovery: consul
+grpc:
+  enable_proxy: False
+  max_send_message_length: 104857600
+  max_receive_message_length: 104857600
 consul:
   host: localhost
   port: 8500
