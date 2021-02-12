@@ -34,7 +34,6 @@ from mtap.processing import _runners
 if typing.TYPE_CHECKING:
     import mtap
 
-
 logger = logging.getLogger(__name__)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
@@ -281,7 +280,8 @@ class ProcessorServer:
                  workers: typing.Optional[int] = None,
                  params: typing.Optional[typing.Mapping[str, typing.Any]] = None,
                  write_address: bool = False,
-                 grpc_enable_http_proxy: bool = False):
+                 grpc_enable_http_proxy: bool = False,
+                 config: 'typing.Optional[mtap.Config]' = None):
         self.pr = proc
         self.host = host
         self._port = port
@@ -290,10 +290,13 @@ class ProcessorServer:
         self.events_address = events_address
         self.write_address = write_address
 
+        if config is None:
+            config = _config.Config()
+
         self._health_servicer = health.HealthServicer()
         self._health_servicer.set('', 'SERVING')
         self._servicer = _ProcessorServicer(
-            config=_config.Config(),
+            config=config,
             pr=proc,
             address=host,
             health_servicer=self._health_servicer,
@@ -305,7 +308,13 @@ class ProcessorServer:
         )
         workers = workers or 10
         thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
-        self._server = grpc.server(thread_pool)
+        self._server = grpc.server(thread_pool,
+                                   options=[
+                                       ('grpc.max_send_message_length',
+                                        config.get('grpc.max_send_message_length')),
+                                       ('grpc.max_receive_message_length',
+                                        config.get('grpc.max_receive_message_length'))
+                                   ])
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
         self._port = self._server.add_insecure_port("{}:{}".format(self.host, self.port))
