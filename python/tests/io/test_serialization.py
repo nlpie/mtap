@@ -27,6 +27,7 @@ def test_event_to_dict_include_label_text():
     doc = event.create_document('plaintext', text)
     doc.add_labels('sentences', [label(0, 117)])
     doc.add_labels('tokens', [label(start, end) for start, end in tokens])
+    doc.add_labels('empty_index', [])
 
     d_event = event_to_dict(event, include_label_text=True)
     d_doc = d_event['documents']['plaintext']
@@ -34,4 +35,5 @@ def test_event_to_dict_include_label_text():
     assert d_sentences['labels'][0]['_text'] == text
     d_tokens = d_doc['label_indices']['tokens']['labels']
     for i, token in enumerate(d_tokens):
-        assert token['_text'] == text[tokens[i][0]:tokens[i][1]]
+        assert token['_text'] == text[slice(*tokens[i])]
+    assert d_doc['label_indices']['empty_index']['labels'] == []
