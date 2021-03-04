@@ -27,12 +27,13 @@ __all__ = [
     'FirstTokenConfusion'
 ]
 
+from mtap.data import presorted_label_index
 from mtap.processing import DocumentProcessor, processor
 from mtap.utilities import tokenization
 
 if TYPE_CHECKING:
     import mtap
-    from mtap import data
+    from mtap import data, label_index
 
 
 class Metric(ABC):
@@ -77,7 +78,7 @@ class Metrics(DocumentProcessor):
         tested = document.labels[self.tested]
         if self.tested_filter is not None:
             tested = tested.filter(self.tested_filter)
-        target = document.labels[self.target]
+        target = document.labels.get(self.target, presorted_label_index([]))
         if self.target_filter is not None:
             target = target.filter(self.target_filter)
         local = {}
