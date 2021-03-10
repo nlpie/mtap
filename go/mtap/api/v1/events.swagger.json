@@ -14,7 +14,7 @@
     "/v1/events/{event_id}": {
       "delete": {
         "summary": "Cedes a lease for an event, allowing this service to delete the\nevent if no active leases remain.",
-        "operationId": "CloseEvent",
+        "operationId": "Events_CloseEvent",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -52,7 +52,7 @@
       },
       "post": {
         "summary": "Acquires a lease for an event, which will prevent this service\nfrom deleting the event while the lease is still valid. Can be used to\neither create new events or return existing events.",
-        "operationId": "OpenEvent",
+        "operationId": "Events_OpenEvent",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -91,7 +91,7 @@
     },
     "/v1/events/{event_id}/binaries": {
       "get": {
-        "operationId": "GetAllBinaryDataNames",
+        "operationId": "Events_GetAllBinaryDataNames",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -122,7 +122,7 @@
     },
     "/v1/events/{event_id}/binaries/{binary_data_name}": {
       "get": {
-        "operationId": "GetBinaryData",
+        "operationId": "Events_GetBinaryData",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -158,7 +158,7 @@
         ]
       },
       "post": {
-        "operationId": "AddBinaryData",
+        "operationId": "Events_AddBinaryData",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -205,7 +205,7 @@
     "/v1/events/{event_id}/documents": {
       "get": {
         "summary": "Returns the names keys of all documents that are stored on an event.",
-        "operationId": "GetAllDocumentNames",
+        "operationId": "Events_GetAllDocumentNames",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -237,7 +237,7 @@
     "/v1/events/{event_id}/documents/{document_name}": {
       "get": {
         "summary": "Returns the text of a document.",
-        "operationId": "GetDocumentText",
+        "operationId": "Events_GetDocumentText",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -274,7 +274,7 @@
       },
       "post": {
         "summary": "Adds a new document to an event.",
-        "operationId": "AddDocument",
+        "operationId": "Events_AddDocument",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -321,7 +321,7 @@
     "/v1/events/{event_id}/documents/{document_name}/labels": {
       "get": {
         "summary": "Returns the names keys of all label indices that are stored on a document.",
-        "operationId": "GetLabelIndicesInfo",
+        "operationId": "Events_GetLabelIndicesInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -360,7 +360,7 @@
     "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}": {
       "get": {
         "summary": "Gets all of the labels for a single label index.",
-        "operationId": "GetLabels",
+        "operationId": "Events_GetLabels",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -404,7 +404,7 @@
       },
       "post": {
         "summary": "Adds a single label index to the document.",
-        "operationId": "AddLabels",
+        "operationId": "Events_AddLabels",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -458,7 +458,7 @@
     "/v1/events/{event_id}/metadata": {
       "get": {
         "summary": "Endpoint to get all metadata associated with an event.",
-        "operationId": "GetAllMetadata",
+        "operationId": "Events_GetAllMetadata",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -490,7 +490,7 @@
     "/v1/events/{event_id}/metadata/{key}": {
       "post": {
         "summary": "Adds a new metadata entry to an event.",
-        "operationId": "AddMetadata",
+        "operationId": "Events_AddMetadata",
         "responses": {
           "200": {
             "description": "A successful response.",
