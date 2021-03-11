@@ -558,7 +558,7 @@ def _listen_test_connectivity(p: subprocess.Popen,
     listener = threading.Thread(target=_listen, args=(p,))
     listener.start()
     address = None
-    for i in range(60):
+    for i in range(startup_timeout):
         try:
             address = utilities.read_address(str(p.pid))
             break
@@ -569,7 +569,7 @@ def _listen_test_connectivity(p: subprocess.Popen,
     with grpc.insecure_channel(address) as channel:
         future = grpc.channel_ready_future(channel)
         try:
-            future.result(timeout=30)
+            future.result(timeout=startup_timeout)
         except grpc.FutureTimeoutError:
             raise ServiceDeploymentException('Failed to launch: {}'.format(name))
     return listener, address
