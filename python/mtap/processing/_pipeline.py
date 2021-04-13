@@ -127,11 +127,11 @@ class LocalProcessor(_base.ComponentDescriptor):
 
     def __init__(self, proc: 'mtap.EventProcessor',
                  *, component_id: str,
-                 client: 'mtap.EventsClient',
+                 events_address: 'str' = None,
                  params: Optional[Dict[str, Any]] = None):
         self.proc = proc
         self.component_id = component_id
-        self.client = client
+        self.events_address = events_address
         self.params = params
 
     def create_pipeline_component(
@@ -140,8 +140,8 @@ class LocalProcessor(_base.ComponentDescriptor):
             component_ids: Dict[str, int]
     ) -> 'processing.ProcessingComponent':
         identifier = _unique_component_id(component_ids, self.component_id)
-        runner = _runners.ProcessorRunner(proc=self.proc, client=self.client, identifier=identifier,
-                                          params=self.params)
+        runner = _runners.ProcessorRunner(proc=self.proc, events_address=self.events_address,
+                                          identifier=identifier, params=self.params)
         runner.descriptor = self
         return runner
 

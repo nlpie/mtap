@@ -109,7 +109,11 @@ class Config(MutableMapping[str, Any]):
                     cls._global_instance = object.__new__(cls)
                     cls._global_instance._config = {}
                     cls._global_instance._load_default_config()
-        inst = cls._context.config
+        try:
+            inst = cls._context.config
+        except AttributeError:
+            cls._context.config = None
+            inst = None
         if inst is not None:
             return inst
         inst = object.__new__(cls)

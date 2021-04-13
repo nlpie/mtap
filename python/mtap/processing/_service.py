@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 import typing
+from typing import Callable, Iterable, Optional, Union
 
 import google.protobuf.empty_pb2 as empty_pb2
 import grpc
@@ -38,17 +39,28 @@ logger = logging.getLogger(__name__)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
-def run_processor(proc: 'mtap.EventProcessor',
-                  *, namespace: typing.Optional[argparse.Namespace] = None,
-                  args: typing.Optional[typing.Sequence[str]] = None):
+def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventProcessor]]',
+                  proc_args: 'Iterable[...]' = (),
+                  *,
+                  mp: bool = False,
+                  namespace: Optional[argparse.Namespace] = None,
+                  args: Optional[typing.Sequence[str]] = None,
+                  mp_context=None):
     """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
 
     Args:
-        proc (EventProcessor): The processor to host.
+        proc (EventProcessor or Callable[[...], EventProcessor]): The processor to host.
+        proc_args (Optional[Iterable[...]]): If callable was provided for processor, the arguments
+            used to create the processor instance.
+        mp (bool): If true, will create instances of ``proc`` on multiple forked processes to
+            process events. This is useful if the processor is computationally intensive and would
+            run into Python GIL issues on a single process.
         namespace (~typing.Optional[~argparse.Namespace]): The parsed arguments from the parser
             returned by :func:`processor_parser`.
         args (~typing.Optional[~typing.Sequence[str]]): Arguments to parse server settings from if
             ``namespace`` was not supplied.
+        mp_context: A multiprocessing context that gets passed to the process pool executor in the
+            case of mp = True.
 
     Examples:
         Will automatically parse arguments:
@@ -72,13 +84,31 @@ def run_processor(proc: 'mtap.EventProcessor',
     with _config.Config() as c:
         if namespace.mtap_config is not None:
             c.update_from_yaml(namespace.mtap_config)
-        server = ProcessorServer(proc=proc,
+        # instantiate runner
+        processor_id = namespace.identifier or proc.metadata['name']
+
+        enable_http_proxy = namespace.grpc_enable_http_proxy
+        if namespace is None:
+            enable_http_proxy = c['grpc.enable_proxy']
+        if mp:
+            runner = _runners.MpProcessorRunner(proc_fn=proc,
+                                                proc_args=proc_args,
+                                                workers=namespace.workers,
+                                                events_address=namespace.events_address,
+                                                enable_proxy=enable_http_proxy,
+                                                identifier=processor_id,
+                                                mp_context=mp_context)
+        else:
+            client = data.EventsClient(address=namespace.events_address,
+                                       enable_proxy=enable_http_proxy)
+            runner = _runners.ProcessorRunner(proc, client=client,
+                                              identifier=processor_id,
+                                              params=None)
+        server = ProcessorServer(runner=runner,
                                  host=namespace.host,
                                  port=namespace.port,
                                  register=namespace.register,
                                  workers=namespace.workers,
-                                 processor_id=namespace.identifier,
-                                 events_address=namespace.events_address,
                                  write_address=namespace.write_address)
         server.start()
         try:
@@ -149,40 +179,22 @@ def _label_index_meta_to_proto(d, message):
 class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
                  config: 'mtap.Config',
-                 pr: 'mtap.EventProcessor',
                  address: str,
+                 runner: '',
                  health_servicer: health.HealthServicer,
-                 events_address=None,
-                 register: bool = False,
-                 processor_id=None,
-                 params: typing.Dict[str, typing.Any] = None,
-                 grpc_enable_http_proxy: bool = False):
+                 register: bool = False):
         self.config = config
-        self.pr = pr
         self.address = address
-        self.pr._health_callback = self.update_serving_status
-        self.processor_id = processor_id or pr.metadata['name']
-        self.events_address = events_address
+        self._runner = runner
         self.register = register
-        self.params = params
         self.health_servicer = health_servicer
-        self._runner = None
-        self._enable_proxy = grpc_enable_http_proxy
 
         self._times_collector = _runners.ProcessingTimesCollector()
         self._deregister = None
 
-    def update_serving_status(self, status):
-        self.health_servicer.set(self.processor_id, status)
-
     def start(self, port: int):
-        # instantiate runner
-        client = data.EventsClient(address=self.events_address, enable_proxy=self._enable_proxy)
-        self._runner = _runners.ProcessorRunner(self.pr, client=client,
-                                                identifier=self.processor_id,
-                                                params=self.params)
 
-        self.health_servicer.set(self.processor_id, 'SERVING')
+        self.health_servicer.set(self._runner.processor_id, 'SERVING')
 
         if self.register:
             from mtap._discovery import Discovery
@@ -195,7 +207,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
             )
 
     def shutdown(self):
-        self.health_servicer.set(self.processor_id, 'NOT_SERVING')
+        self.health_servicer.set(self._runner.processor_id, 'NOT_SERVING')
         if self._deregister is not None:
             self._deregister()
         self._runner.close()
@@ -240,7 +252,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
     def GetInfo(self, request, context):
         response = processing_pb2.GetInfoResponse()
-        _structs.copy_dict_to_struct(self.pr.metadata, response.metadata)
+        _structs.copy_dict_to_struct(self._runner.metadata, response.metadata)
         return response
 
 
@@ -270,24 +282,17 @@ class ProcessorServer:
     """
 
     def __init__(self,
-                 proc: 'mtap.EventProcessor',
+                 runner: 'mtap.processing.ProcessingComponent',
                  host: str,
                  port: int = 0,
                  *,
                  register: bool = False,
-                 events_address: typing.Optional[str] = None,
-                 processor_id: typing.Optional[str] = None,
                  workers: typing.Optional[int] = None,
-                 params: typing.Optional[typing.Mapping[str, typing.Any]] = None,
                  write_address: bool = False,
-                 grpc_enable_http_proxy: bool = False,
                  config: 'typing.Optional[mtap.Config]' = None):
-        self.pr = proc
         self.host = host
         self._port = port
-        self.processor_id = processor_id or proc.metadata['name']
-        self.params = params or {}
-        self.events_address = events_address
+        self.processor_id = runner.processor_id
         self.write_address = write_address
 
         if config is None:
@@ -297,14 +302,10 @@ class ProcessorServer:
         self._health_servicer.set('', 'SERVING')
         self._servicer = _ProcessorServicer(
             config=config,
-            pr=proc,
             address=host,
+            runner=runner,
             health_servicer=self._health_servicer,
-            register=register,
-            processor_id=processor_id,
-            params=params,
-            events_address=events_address,
-            grpc_enable_http_proxy=grpc_enable_http_proxy
+            register=register
         )
         workers = workers or 10
         thread_pool = thread.ThreadPoolExecutor(max_workers=workers)

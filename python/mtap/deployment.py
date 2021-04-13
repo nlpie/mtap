@@ -62,7 +62,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import grpc
 
-from mtap import utilities
+from mtap import utilities, _config
 
 __all__ = [
     'Deployment', 'GlobalSettings', 'SharedProcessorConfig', 'EventsDeployment',
@@ -430,6 +430,7 @@ class ProcessorDeployment:
                 host_default=global_settings.host,
                 mtap_config_default=global_settings.mtap_config,
                 log_level_default=global_settings.log_level,
+                workers_default=shared_config.workers
             )
             call.extend(service_args)
 
@@ -518,43 +519,47 @@ class Deployment:
             ServiceDeploymentException: If one of the services fails to launch.
 
         """
-        events_address = None
-        processes_listeners = []
-        if self.events_deployment.enabled:
-            call = self.events_deployment.create_call(self.global_settings)
-            p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            listener, events_address = _listen_test_connectivity(p, "events", 30)
-            processes_listeners.append((p, listener))
+        with _config.Config() as c:
+            enable_proxy = c.get('grpc.enable_proxy', False)
+            events_address = None
+            processes_listeners = []
+            if self.events_deployment.enabled:
+                call = self.events_deployment.create_call(self.global_settings)
+                p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                listener, events_address = _listen_test_connectivity(p, "events", 30, enable_proxy)
+                processes_listeners.append((p, listener))
 
-        if (not self.global_settings.register
-                and not self.events_deployment.service_deployment.register
-                and self.shared_processor_config.events_address is None):
-            self.shared_processor_config.events_address = events_address
+            if (not self.global_settings.register
+                    and not self.events_deployment.service_deployment.register
+                    and self.shared_processor_config.events_address is None):
+                self.shared_processor_config.events_address = events_address
 
-        for processor_deployment in self.processors:
-            if processor_deployment.enabled:
-                for call in processor_deployment.create_calls(self.global_settings,
-                                                              self.shared_processor_config):
-                    logger.debug('Launching processor with call: %s', call)
-                    p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                    startup_timeout = (processor_deployment.startup_timeout
-                                       or self.shared_processor_config.startup_timeout)
-                    listener, _ = _listen_test_connectivity(p, call, startup_timeout)
-                    processes_listeners.append((p, listener))
+            for processor_deployment in self.processors:
+                if processor_deployment.enabled:
+                    for call in processor_deployment.create_calls(self.global_settings,
+                                                                  self.shared_processor_config):
+                        logger.debug('Launching processor with call: %s', call)
+                        p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                        startup_timeout = (processor_deployment.startup_timeout
+                                           or self.shared_processor_config.startup_timeout)
+                        listener, _ = _listen_test_connectivity(p, call, startup_timeout,
+                                                                enable_proxy)
+                        processes_listeners.append((p, listener))
 
-        print('Done deploying all servers.', flush=True)
-        try:
-            while True:
-                time.sleep(60 * 60 * 24)
-        except KeyboardInterrupt:
-            print("Shutting down all processors")
-            for p, listener in processes_listeners:
-                listener.join(timeout=1)
+            print('Done deploying all servers.', flush=True)
+            try:
+                while True:
+                    time.sleep(60 * 60 * 24)
+            except KeyboardInterrupt:
+                print("Shutting down all processors")
+                for p, listener in processes_listeners:
+                    listener.join(timeout=1)
 
 
 def _listen_test_connectivity(p: subprocess.Popen,
                               name: Any,
-                              startup_timeout: int) -> Tuple[threading.Thread, str]:
+                              startup_timeout: int,
+                              enable_proxy: bool = False) -> Tuple[threading.Thread, str]:
     listener = threading.Thread(target=_listen, args=(p,))
     listener.start()
     address = None
@@ -566,7 +571,8 @@ def _listen_test_connectivity(p: subprocess.Popen,
             time.sleep(1)
     if address is None:
         raise ServiceDeploymentException('Timed out waiting for {} to launch'.format(name))
-    with grpc.insecure_channel(address) as channel:
+    with grpc.insecure_channel(address,
+                               options=[('grpc.enable_http_proxy', enable_proxy)]) as channel:
         future = grpc.channel_ready_future(channel)
         try:
             future.result(timeout=startup_timeout)

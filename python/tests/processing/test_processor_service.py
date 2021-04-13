@@ -19,7 +19,7 @@ import pytest
 
 from mtap import processor, Document
 from mtap.api.v1 import processing_pb2
-from mtap.processing import DocumentProcessor
+from mtap.processing import DocumentProcessor, _runners
 from mtap.processing.descriptions import parameter, labels, label_property
 from mtap.processing._service import _ProcessorServicer
 
@@ -46,7 +46,8 @@ class ExampleTestProcessor(DocumentProcessor):
 
 @pytest.fixture(name='processor_servicer')
 def fixture_processor_servicer():
-    processor_service = _ProcessorServicer(config={}, pr=ExampleTestProcessor(), address='',
+    runner = _runners.ProcessorRunner(ExampleTestProcessor(), client=None)
+    processor_service = _ProcessorServicer(config={}, runner=runner, address='',
                                            health_servicer=None)
     yield grpc_testing.server_from_dictionary(
         {

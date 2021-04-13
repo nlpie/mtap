@@ -410,6 +410,7 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
 class ProcessingComponent(ABC):
     component_id = None  # str: The component_id of the component in a pipeline
     descriptor = None  # ComponentDescriptor: The ComponentDescriptor used to create the component.
+    processor_id = None
 
     @abstractmethod
     def call_process(self, event_id: str,

@@ -12,21 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import threading
+from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import timedelta
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, Any, TYPE_CHECKING, Tuple
+import multiprocessing as mp
 
 import grpc
 import math
 
 from mtap import _discovery, _structs
-from mtap.api.v1 import processing_pb2, processing_pb2_grpc
 from mtap import data
+from mtap.api.v1 import processing_pb2, processing_pb2_grpc
 from mtap.processing import _base
 
 if TYPE_CHECKING:
     import mtap
     from mtap import processing
+    import typing
 
 logger = logging.getLogger(__name__)
 
@@ -34,26 +38,32 @@ logger = logging.getLogger(__name__)
 class ProcessorRunner(_base.ProcessingComponent):
     def __init__(self,
                  proc: 'mtap.EventProcessor',
-                 client: 'mtap.EventsClient',
+                 events_address: 'str' = None,
                  identifier: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = proc
-        self.client = client
+        self.events_address = events_address
         self.component_id = identifier
         self.processed = 0
         self.failure_count = 0
         self.params = params or {}
+        self.metadata = proc.metadata
+        self.processor_id = identifier
 
     def call_process(self, event_id, params):
+        try:
+            client = self.client
+        except AttributeError:
+            client = data.EventsClient(address=self.events_address)
+            self.client = client
         self.processed += 1
         p = dict(self.params)
         if params is not None:
             p.update(params)
         with _base.Processor.enter_context() as c, \
-                data.Event(event_id=event_id, client=self.client) as event:
+                data.Event(event_id=event_id, client=client) as event:
             try:
-                with _base.Processor.started_stopwatch('process_method') as stopwatch:
-                    stopwatch.start()
+                with _base.Processor.started_stopwatch('process_method'):
                     result = self.processor.process(event, p)
                 return result, c.times, event.created_indices
             except Exception as e:
@@ -64,6 +74,59 @@ class ProcessorRunner(_base.ProcessingComponent):
 
     def close(self):
         self.processor.close()
+        try:
+            self.client.close()
+        except AttributeError:
+            pass
+
+
+def _mp_initialize(proc_fn, proc_args, events_address, enable_proxy):
+    _mp_call_process.processor = proc_fn(*proc_args)
+    _mp_call_process.client = data.EventsClient(address=events_address,
+                                                enable_proxy=enable_proxy)
+
+
+def _mp_call_process(event_id, params):
+    with _base.Processor.enter_context() as c, \
+            data.Event(event_id=event_id, client=_mp_call_process.client) as event:
+        with _base.Processor.started_stopwatch('process_method'):
+            result = _mp_call_process.processor.process(event, params)
+        return result, c.times, event.created_indices
+
+
+class MpProcessorRunner(_base.ProcessingComponent):
+    def __init__(self,
+                 proc_fn: 'typing.Callable[[...], mtap.EventProcessor]',
+                 identifier: str,
+                 proc_args: 'typing.Iterable[...]' = (),
+                 workers: 'Optional[int]' = 8,
+                 events_address: 'Optional[str]' = None,
+                 enable_proxy: bool = False,
+                 mp_context=None):
+        if mp_context is None:
+            mp_context = mp
+        self.pool = mp_context.Pool(workers,
+                                    initializer=_mp_initialize,
+                                    initargs=(proc_fn, proc_args, events_address, enable_proxy))
+        self.metadata = proc_fn.metadata
+        self.processor_id = identifier
+
+    def call_process(self,
+                     event_id: str,
+                     params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
+        p = dict()
+        if params is not None:
+            p.update(params)
+        try:
+            return self.pool.apply(_mp_call_process, args=(event_id, params))
+        except Exception as e:
+            logger.error('Processor "%s" failed while processing event with id: %s',
+                         self.component_id, event_id, exc_info=1)
+            raise _base.ProcessingError() from e
+
+    def close(self):
+        self.pool.terminate()
+        self.pool.join()
 
 
 class RemoteRunner(_base.ProcessingComponent):
