@@ -71,9 +71,9 @@ class ProcessorRunner(_base.ProcessingComponent):
                 raise _base.ProcessingError() from e
 
     def close(self):
-        self.processor.close()
         if self.client is not None:
             self.client.close()
+            self.client = None
 
 
 def _mp_initialize(proc_fn, proc_args, events_address, enable_proxy):

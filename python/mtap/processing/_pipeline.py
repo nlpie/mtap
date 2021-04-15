@@ -539,7 +539,6 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             del self._components
         except AttributeError:
             pass
-        self._component_descriptors[key].close()
         del self._component_descriptors[key]
 
     def __len__(self):
@@ -683,15 +682,20 @@ class _PipelineProcessor(_base.EventProcessor):
         return {'component_results': [result[0] for result in results]}
 
 
+_mp_pipeline = None
+
+
 def _mp_process_init(components):
-    _mp_process_event.pipeline = Pipeline(*components)
+    global _mp_pipeline
+    _mp_pipeline = Pipeline(*components)
 
 
 def _mp_process_event(event_id, params):
     result = None
     error = None
     try:
-        result = _mp_process_event.pipeline._run_by_event_id(event_id, params)
+        assert isinstance(_mp_pipeline, Pipeline)
+        result = _mp_pipeline._run_by_event_id(event_id, params)
     except _base.ProcessingError as e:
         error = e
     return event_id, result, error
