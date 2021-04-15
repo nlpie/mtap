@@ -49,35 +49,31 @@ class ProcessorRunner(_base.ProcessingComponent):
         self.params = params or {}
         self.metadata = proc.metadata
         self.processor_id = identifier
+        self.client = None
 
     def call_process(self, event_id, params):
-        try:
-            client = self.client
-        except AttributeError:
-            client = data.EventsClient(address=self.events_address)
-            self.client = client
+        if self.client is None:
+            self.client = data.EventsClient(address=self.events_address)
         self.processed += 1
         p = dict(self.params)
         if params is not None:
             p.update(params)
         with _base.Processor.enter_context() as c, \
-                data.Event(event_id=event_id, client=client) as event:
+                data.Event(event_id=event_id, client=self.client) as event:
             try:
                 with _base.Processor.started_stopwatch('process_method'):
                     result = self.processor.process(event, p)
                 return result, c.times, event.created_indices
             except Exception as e:
                 self.failure_count += 1
-                logger.error('Processor "%s" failed while processing event with id: %s',
-                             self.component_id, event_id, exc_info=1)
+                logger.exception('Processor "%s" failed while processing event with id: %s',
+                                 self.component_id, event_id)
                 raise _base.ProcessingError() from e
 
     def close(self):
         self.processor.close()
-        try:
+        if self.client is not None:
             self.client.close()
-        except AttributeError:
-            pass
 
 
 def _mp_initialize(proc_fn, proc_args, events_address, enable_proxy):
@@ -120,8 +116,8 @@ class MpProcessorRunner(_base.ProcessingComponent):
         try:
             return self.pool.apply(_mp_call_process, args=(event_id, params))
         except Exception as e:
-            logger.error('Processor "%s" failed while processing event with id: %s',
-                         self.component_id, event_id, exc_info=1)
+            logger.exception('Processor "%s" failed while processing event with id: %s',
+                             self.component_id, event_id)
             raise _base.ProcessingError() from e
 
     def close(self):
@@ -173,8 +169,8 @@ class RemoteRunner(_base.ProcessingComponent):
                         logger.error('event_id: %s CANCELLED', event_id)
                     else:
                         self.failure_count += 1
-                        logger.error('Processor "%s" failed while processing event with id: %s',
-                                     self.component_id, event_id, exc_info=1)
+                        logger.exception('Processor "%s" failed while processing event with id: %s',
+                                         self.component_id, event_id)
                     raise _base.ProcessingError() from e
             r = {}
             _structs.copy_struct_to_dict(response.result, r)

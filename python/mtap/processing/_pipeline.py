@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import logging
+import multiprocessing
 import pathlib
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
-from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime
 from threading import Lock, Condition
 from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
@@ -23,9 +23,9 @@ from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, 
 
 from tqdm import tqdm
 
-from mtap import _config
-from mtap.processing import _base, _runners
+from mtap import _config, EventsClient
 from mtap.data import Event
+from mtap.processing import _base, _runners
 
 if TYPE_CHECKING:
     import mtap
@@ -127,7 +127,7 @@ class LocalProcessor(_base.ComponentDescriptor):
 
     def __init__(self, proc: 'mtap.EventProcessor',
                  *, component_id: str,
-                 events_address: 'str' = None,
+                 events_address: str,
                  params: Optional[Dict[str, Any]] = None):
         self.proc = proc
         self.component_id = component_id
@@ -140,17 +140,19 @@ class LocalProcessor(_base.ComponentDescriptor):
             component_ids: Dict[str, int]
     ) -> 'processing.ProcessingComponent':
         identifier = _unique_component_id(component_ids, self.component_id)
-        runner = _runners.ProcessorRunner(proc=self.proc, events_address=self.events_address,
-                                          identifier=identifier, params=self.params)
+        runner = _runners.ProcessorRunner(proc=self.proc,
+                                          events_address=self.events_address,
+                                          identifier=identifier,
+                                          params=self.params)
         runner.descriptor = self
         return runner
 
     def __repr__(self):
-        return 'LocalProcessor(proc={}, component_id={}, client={}, params={}'.format(
+        return 'LocalProcessor(proc={}, component_id={}, event_address={}, params={}'.format(
             *map(repr, [
                 self.proc,
                 self.component_id,
-                self.client,
+                self.event_address,
                 self.params
             ]))
 
@@ -254,8 +256,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         self._config = config or _config.Config()
         self._component_ids = {}
         self.name = name or 'pipeline'
-        self._components = [desc.create_pipeline_component(self._config, self._component_ids)
-                            for desc in components]
+        self._component_descriptors = list(components)
 
     @staticmethod
     def from_yaml_file(conf_path: Union[pathlib.Path, str]) -> 'Pipeline':
@@ -311,6 +312,21 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         except AttributeError:
             self.__times_collector = _runners.ProcessingTimesCollector()
             return self.__times_collector
+
+    @property
+    def _components(self) -> 'List[processing.ProcessingComponent]':
+        try:
+            return self.__components
+        except AttributeError:
+            self.__components = [desc.create_pipeline_component(self._config, self._component_ids)
+                                 for desc in self._component_descriptors]
+            return self.__components
+
+    @_components.deleter
+    def _components(self):
+        for component in self.__components:
+            component.close()
+        del self.__components
 
     def run_multithread(
             self,
@@ -399,7 +415,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         event, params = _event_and_params(target, params)
         event_id = event.event_id
 
-        result = _run_by_event_id(self, event_id, params)
+        result = self._run_by_event_id(event_id, params)
+        self._add_result_times(result)
 
         for component_result in result.component_results:
             try:
@@ -407,6 +424,23 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             except AttributeError:
                 pass
         return result
+
+    def _run_by_event_id(self, event_id, params):
+        start = datetime.now()
+        results = [component.call_process(event_id, params) for component in self._components]
+        total = datetime.now() - start
+        results = [_base.ProcessingResult(identifier=component.component_id, result_dict=result[0],
+                                          timing_info=result[1], created_indices=result[2]) for
+                   component, result in zip(self._components, results)]
+        logger.debug('Finished processing event_id: %s', event_id)
+        return _base.PipelineResult(results, total)
+
+    def _add_result_times(self, result):
+        times = {}
+        for component_id, _, component_times, _ in result.component_results:
+            times.update({component_id + ':' + k: v for k, v in component_times.items()})
+        times[self.name + 'total'] = result.elapsed_time
+        self._times_collector.add_times(times)
 
     @overload
     def processor_timer_stats(self) -> 'List[processing.AggregateTimingInfo]':
@@ -491,45 +525,35 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             pipeline_timer.print_times()
 
     def __getitem__(self, item):
-        if isinstance(item, slice):
-            return [x.descriptor for x in self._components[item]]
-
-        return self._components[item].descriptor
+        return self._component_descriptors[item]
 
     def __setitem__(self, key, value):
-        self._components[key].close()
-        self._components[key] = value.create_pipeline_component(self._config, self._component_ids)
+        try:
+            del self._components
+        except AttributeError:
+            pass
+        self._component_descriptors[key] = value
 
     def __delitem__(self, key):
-        self._components[key].close()
-        del self._components[key]
+        try:
+            del self._components
+        except AttributeError:
+            pass
+        self._component_descriptors[key].close()
+        del self._component_descriptors[key]
 
     def __len__(self):
-        return len(self._components)
+        return len(self._component_descriptors)
 
     def insert(self, index, o) -> None:
-        self._components.insert(index,
-                                o.create_pipeline_component(self._config, self._component_ids))
+        try:
+            del self._components
+        except AttributeError:
+            pass
+        self._component_descriptors.insert(index, o)
 
     def __repr__(self):
-        return "Pipeline(" + ', '.join(
-            [repr(component.descriptor) for component in self._components]) + ')'
-
-
-def _run_by_event_id(pipeline, event_id, params):
-    start = datetime.now()
-    results = [component.call_process(event_id, params) for component in pipeline._components]
-    total = datetime.now() - start
-    times = {}
-    for (_, component_times, _), component in zip(results, pipeline._components):
-        times.update({component.component_id + ':' + k: v for k, v in component_times.items()})
-    times[pipeline.name + 'total'] = total
-    pipeline._times_collector.add_times(times)
-    results = [_base.ProcessingResult(identifier=component.component_id, result_dict=result[0],
-                                      timing_info=result[1], created_indices=result[2]) for
-               component, result in zip(pipeline._components, results)]
-    logger.debug('Finished processing event_id: %s', event_id)
-    return _base.PipelineResult(results, total)
+        return "Pipeline(" + ', '.join([repr(component) for component in self._component_descriptors]) + ')'
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -659,6 +683,20 @@ class _PipelineProcessor(_base.EventProcessor):
         return {'component_results': [result[0] for result in results]}
 
 
+def _mp_process_init(components):
+    _mp_process_event.pipeline = Pipeline(*components)
+
+
+def _mp_process_event(event_id, params):
+    result = None
+    error = None
+    try:
+        result = _mp_process_event.pipeline._run_by_event_id(event_id, params)
+    except _base.ProcessingError as e:
+        error = e
+    return event_id, result, error
+
+
 class _PipelineMultiRunner:
     def __init__(self, pipeline, source, params, progress, total, close_events, max_failures,
                  n_threads, read_ahead):
@@ -669,7 +707,7 @@ class _PipelineMultiRunner:
         self.active_targets = 0
         self.close_events = close_events
         self.max_targets = n_threads + read_ahead
-        self.executor = ThreadPoolExecutor(max_workers=n_threads)
+        self.n_threads = n_threads
         total = (source.total if hasattr(source, 'total') else None) or total
         self.progress_bar = tqdm(total=total, unit='event', smoothing=0.01) if progress else None
 
@@ -679,6 +717,13 @@ class _PipelineMultiRunner:
             source = _IterableProcessingSource(source)
         self.source = source
         self.params = params
+
+        self.pool = multiprocessing.get_context('spawn').Pool(
+            self.n_threads,
+            initializer=_mp_process_init,
+            initargs=(self.pipeline._component_descriptors,)
+        )
+        self.active_events = {}
 
     def max_failures_reached(self):
         return self.failures > self.max_failures
@@ -708,30 +753,40 @@ class _PipelineMultiRunner:
         with self.targets_cond:
             self.targets_cond.wait_for(self.read_ready)
 
-    def process_task(self, event, params):
-        try:
-            if self.max_failures_reached():
-                return
-            result = _run_by_event_id(self.pipeline, event.event_id, params)
-            self.source.receive_result(result, event)
-        except _base.ProcessingError as e:
-            if not self.source.receive_failure(e):
-                self.failures += 1
-                raise e
-        finally:
+    def run(self):
+        def result_handler(result):
+            event_id, result, error = result
+            event = self.active_events.pop(event_id)
+            if result is not None:
+                self.pipeline._add_result_times(result)
+                self.source.receive_result(result, event)
+            else:
+                if not self.source.receive_failure(error):
+                    self.failures += 1
+                    logger.warning('Error occurred during processing on event_id=%s: %s', event_id,
+                                   error.msg)
             self.task_completed()
             if self.close_events:
                 event.release_lease()
 
-    def run(self):
+        def error_handler(error):
+            try:
+                raise error
+            except Exception:
+                logger.exception('Unexpected error not handled by runner except')
+                raise
+
         def consume(target):
             if self.max_failures_reached():
                 raise ValueError('Max processing failures exceeded.')
             event, params = _event_and_params(target, self.params)
             try:
                 event.lease()
+                event_id = event.event_id
+                self.active_events[event_id] = event
+                self.pool.apply_async(_mp_process_event, args=(event_id, params),
+                                      callback=result_handler, error_callback=error_handler)
                 self.increment_active_tasks()
-                self.executor.submit(self.process_task, event, params)
             except BaseException as e:
                 # here we failed sometime between taking a new lease and adding the done
                 # callback to the future, meaning the lease will never get freed.
@@ -755,7 +810,11 @@ class _PipelineMultiRunner:
         self.close()
 
     def close(self):
-        self.executor.shutdown(wait=True)
+        self.pool.terminate()
+        self.pool.join()
+        if self.close_events:
+            for event in self.active_events.values():
+                event.close()
 
 
 def _unique_component_id(component_ids, component_id):

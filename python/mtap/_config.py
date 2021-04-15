@@ -65,7 +65,7 @@ def _load_default_config():
     for config_path in potential_paths:
         try:
             with config_path.open('rb') as f:
-                logger.info('Loading MTAP config from "{}"'.format(config_path))
+                logger.debug('Loading MTAP config from "{}"'.format(config_path))
                 return _load_config(f)
         except FileNotFoundError:
             pass
