@@ -15,6 +15,8 @@
  */
 package edu.umn.nlpie.mtap;
 
+import java.util.Arrays;
+
 /**
  * The main class and entry points for the MTAP framework.
  * <p>
@@ -31,4 +33,12 @@ public final class MTAP {
    * The name used by the processor services for discovery.
    */
   public static final String PROCESSOR_SERVICE_TAG = "v1-mtap-processor";
+
+  public static void main(String[] args) {
+    if (args.length > 0 && args[0].equals("events")) {
+      EventsServer.main(Arrays.copyOfRange(args, 1, args.length));
+    } else {
+      System.out.println("Available options: \"events\"");
+    }
+  }
 }

@@ -19,7 +19,7 @@ from concurrent.futures import Future
 from datetime import datetime
 from threading import Lock, Condition
 from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
-    ContextManager, TYPE_CHECKING, overload
+    ContextManager, TYPE_CHECKING, overload, NamedTuple
 
 from tqdm import tqdm
 
@@ -337,8 +337,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             total: Optional[int] = None,
             close_events: bool = True,
             max_failures: int = 0,
-            n_threads: int = 4,
-            read_ahead: int = 1
+            workers: int = 4,
+            read_ahead: Optional[int] = None
     ):
         """Runs this pipeline on a source which provides multiple documents / events.
 
@@ -366,7 +366,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                 The number of acceptable failures. Once this amount is exceeded processing will
                 halt. Note that because of the nature of conccurrency processing may continue for a
                 short amount of time before termination.
-            n_threads (int)
+            workers (int)
                 The number of threads to process documents on.
             read_ahead
                 The number of source documents to read ahead into memory before processing.
@@ -385,7 +385,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
 
         """
         with _PipelineMultiRunner(self, source, params, progress, total, close_events, max_failures,
-                                  n_threads, read_ahead) as runner:
+                                  workers, read_ahead) as runner:
             runner.run()
 
     def run(self, target: Union['mtap.Event', 'mtap.Document'], *,
@@ -552,7 +552,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         self._component_descriptors.insert(index, o)
 
     def __repr__(self):
-        return "Pipeline(" + ', '.join([repr(component) for component in self._component_descriptors]) + ')'
+        return "Pipeline(" + ', '.join(
+            [repr(component) for component in self._component_descriptors]) + ')'
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -710,6 +711,8 @@ class _PipelineMultiRunner:
         self.targets_cond = Condition(Lock())
         self.active_targets = 0
         self.close_events = close_events
+        if read_ahead is None:
+            read_ahead = n_threads
         self.max_targets = n_threads + read_ahead
         self.n_threads = n_threads
         total = (source.total if hasattr(source, 'total') else None) or total
@@ -768,7 +771,7 @@ class _PipelineMultiRunner:
                 if not self.source.receive_failure(error):
                     self.failures += 1
                     logger.warning('Error occurred during processing on event_id=%s: %s', event_id,
-                                   error.msg)
+                                   getattr(error, 'msg', ''))
             self.task_completed()
             if self.close_events:
                 event.release_lease()

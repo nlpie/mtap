@@ -41,7 +41,7 @@ def run_pipeline(conf):
             )
         )
         source = FilesInDirectoryProcessingSource(directory=conf.input_directory, client=client)
-        pipeline.run_multithread(source=source, n_threads=conf.threads,
+        pipeline.run_multithread(source=source, workers=conf.threads,
                                  max_failures=conf.max_failures, read_ahead=conf.read_ahead)
 
 

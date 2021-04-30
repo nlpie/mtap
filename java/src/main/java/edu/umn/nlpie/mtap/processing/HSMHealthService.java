@@ -9,13 +9,13 @@ public class HSMHealthService implements HealthService {
   private final HealthStatusManager healthStatusManager = new HealthStatusManager();
 
   @Override
-  public void startedServing(@NotNull String processorId) {
-    healthStatusManager.setStatus(processorId, HealthCheckResponse.ServingStatus.SERVING);
+  public void startedServing(@NotNull String identifier) {
+    healthStatusManager.setStatus(identifier, HealthCheckResponse.ServingStatus.SERVING);
   }
 
   @Override
-  public void stoppedServing(@NotNull String processorId) {
-    healthStatusManager.setStatus(processorId, HealthCheckResponse.ServingStatus.NOT_SERVING);
+  public void stoppedServing(@NotNull String identifier) {
+    healthStatusManager.setStatus(identifier, HealthCheckResponse.ServingStatus.NOT_SERVING);
   }
 
   @Override
