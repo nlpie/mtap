@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 import typing
+from typing import Any, Dict, Tuple
 from typing import Callable, Iterable, Optional, Union
 
 import google.protobuf.empty_pb2 as empty_pb2
@@ -30,7 +31,7 @@ from mtap import _structs
 from mtap import data
 from mtap import utilities
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
-from mtap.processing import _runners
+from mtap.processing import _base, _runners
 
 if typing.TYPE_CHECKING:
     import mtap
@@ -91,13 +92,13 @@ def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventPr
         if namespace is None:
             enable_http_proxy = c['grpc.enable_proxy']
         if mp:
-            runner = _runners.MpProcessorRunner(proc_fn=proc,
-                                                proc_args=proc_args,
-                                                workers=namespace.workers,
-                                                events_address=namespace.events_address,
-                                                enable_proxy=enable_http_proxy,
-                                                identifier=processor_id,
-                                                mp_context=mp_context)
+            runner = MpProcessorRunner(proc_fn=proc,
+                                       proc_args=proc_args,
+                                       workers=namespace.workers,
+                                       events_address=namespace.events_address,
+                                       enable_proxy=enable_http_proxy,
+                                       identifier=processor_id,
+                                       mp_context=mp_context)
         else:
             client = data.EventsClient(address=namespace.events_address,
                                        enable_proxy=enable_http_proxy)
@@ -116,6 +117,52 @@ def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventPr
                 time.sleep(_ONE_DAY_IN_SECONDS)
         except KeyboardInterrupt:
             server.stop()
+
+
+def _mp_initialize(proc_fn, proc_args, events_address, enable_proxy):
+    _mp_call_process.processor = proc_fn(*proc_args)
+    _mp_call_process.client = data.EventsClient(address=events_address,
+                                                enable_proxy=enable_proxy)
+
+
+def _mp_call_process(event_id, params):
+    with _base.Processor.enter_context() as c, \
+            data.Event(event_id=event_id, client=_mp_call_process.client) as event:
+        with _base.Processor.started_stopwatch('process_method'):
+            result = _mp_call_process.processor.process(event, params)
+        return result, c.times, event.created_indices
+
+
+class MpProcessorRunner:
+    def __init__(self,
+                 proc_fn: 'typing.Callable[[...], mtap.EventProcessor]',
+                 identifier: str,
+                 proc_args: 'typing.Iterable[...]' = (),
+                 workers: 'Optional[int]' = 8,
+                 events_address: 'Optional[str]' = None,
+                 enable_proxy: bool = False,
+                 mp_context=None):
+        if mp_context is None:
+            import multiprocessing as mp
+            mp_context = mp
+        self.pool = mp_context.Pool(workers,
+                                    initializer=_mp_initialize,
+                                    initargs=(proc_fn, proc_args, events_address, enable_proxy))
+        self.metadata = proc_fn.metadata
+        self.processor_id = identifier
+
+    def call_process(self,
+                     event_id: str,
+                     params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
+        p = dict()
+        if params is not None:
+            p.update(params)
+
+        return self.pool.apply(_mp_call_process, args=(event_id, params))
+
+    def close(self):
+        self.pool.terminate()
+        self.pool.join()
 
 
 def processor_parser() -> argparse.ArgumentParser:
@@ -211,7 +258,6 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         if self._deregister is not None:
             self._deregister()
         self._runner.close()
-        self._times_collector.close()
 
     def Process(self, request, context=None):
         params = {}

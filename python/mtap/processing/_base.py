@@ -21,7 +21,6 @@ from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mappin
 
 from mtap import data
 
-
 if TYPE_CHECKING:
     import mtap
     import mtap.processing as processing
@@ -326,6 +325,7 @@ class PipelineResult(NamedTuple('PipelineResult',
         elapsed_time (timedelta): The elapsed time for the entire pipeline.
 
     """
+
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, *args, **kwargs)
 
@@ -443,6 +443,9 @@ class ComponentDescriptor(ABC):
     """
 
     @abstractmethod
-    def create_pipeline_component(self, config: 'mtap.Config',
-                                  component_ids: Dict[str, int]) -> 'processing.ProcessingComponent':
+    def create_pipeline_component(
+            self,
+            component_ids: Dict[str, int],
+            client: 'mtap.EventsClient'
+    ) -> 'processing.ProcessingComponent':
         pass

@@ -14,16 +14,19 @@
 import logging
 import multiprocessing
 import pathlib
+import signal
+import time
+import traceback
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from datetime import datetime
-from threading import Lock, Condition
+from threading import Lock, Condition, Thread
 from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
-    ContextManager, TYPE_CHECKING, overload, NamedTuple
+    ContextManager, TYPE_CHECKING, overload, NamedTuple, Tuple
 
 from tqdm import tqdm
 
-from mtap import _config, EventsClient
+from mtap import _config, EventsClient, Config
 from mtap.data import Event
 from mtap.processing import _base, _runners
 
@@ -76,12 +79,12 @@ class RemoteProcessor(_base.ComponentDescriptor):
 
     def create_pipeline_component(
             self,
-            config: 'mtap.Config',
-            component_ids: Dict[str, int]
+            component_ids: Dict[str, int],
+            client: 'mtap.EventsClient'
     ) -> 'processing.ProcessingComponent':
         component_id = self.component_id or self.processor_id
         component_id = _unique_component_id(component_ids, component_id)
-        runner = _runners.RemoteRunner(config=config, processor_id=self.processor_id,
+        runner = _runners.RemoteRunner(processor_id=self.processor_id,
                                        address=self.address, component_id=component_id,
                                        params=self.params, enable_proxy=self.enable_proxy)
         runner.descriptor = self
@@ -126,33 +129,30 @@ class LocalProcessor(_base.ComponentDescriptor):
     """
 
     def __init__(self, proc: 'mtap.EventProcessor',
-                 *, component_id: str,
-                 events_address: str,
+                 *, component_id: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.proc = proc
-        self.component_id = component_id
-        self.events_address = events_address
+        self.component_id = component_id or proc.metadata['name']
         self.params = params
 
     def create_pipeline_component(
             self,
-            config: 'mtap.Config',
-            component_ids: Dict[str, int]
+            component_ids: Dict[str, int],
+            client: 'mtap.EventsClient'
     ) -> 'processing.ProcessingComponent':
         identifier = _unique_component_id(component_ids, self.component_id)
         runner = _runners.ProcessorRunner(proc=self.proc,
-                                          events_address=self.events_address,
                                           identifier=identifier,
-                                          params=self.params)
+                                          params=self.params,
+                                          client=client)
         runner.descriptor = self
         return runner
 
     def __repr__(self):
-        return 'LocalProcessor(proc={}, component_id={}, event_address={}, params={}'.format(
+        return 'LocalProcessor(proc={}, component_id={}, params={}'.format(
             *map(repr, [
                 self.proc,
                 self.component_id,
-                self.event_address,
                 self.params
             ]))
 
@@ -176,6 +176,14 @@ def _cancel_callback(event, read_ahead, cd, close_events):
         cd.count_down(future.exception() is not None)
 
     return fn
+
+
+def _create_pipeline(name: Optional[str] = None,
+                     events_address: Optional[str] = None,
+                     events_client: Optional[EventsClient] = None,
+                     *components: 'processing.ComponentDescriptor'):
+    return Pipeline(*components, name=name, events_address=events_address,
+                    events_client=events_client)
 
 
 class Pipeline(MutableSequence['processing.ComponentDescriptor']):
@@ -249,14 +257,24 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
     Attributes:
         name (str): The pipeline's name.
     """
+    __slots__ = ['_component_ids', 'name', '_component_descriptors', 'events_address',
+                 '_created_events_client', '_events_client', '__times_collector', '__components']
 
     def __init__(self, *components: 'processing.ComponentDescriptor',
                  name: Optional[str] = None,
-                 config: Optional['mtap.Config'] = None):
-        self._config = config or _config.Config()
+                 events_address: Optional[str] = None,
+                 events_client: Optional[EventsClient] = None):
         self._component_ids = {}
         self.name = name or 'pipeline'
         self._component_descriptors = list(components)
+        self.events_address = events_address
+        self._created_events_client = False
+        if events_client is not None:
+            self.events_client = events_client
+
+    def __reduce__(self):
+        return _create_pipeline, (self.name, self.events_address,
+                                  self.events_client) + tuple(self._component_descriptors)
 
     @staticmethod
     def from_yaml_file(conf_path: Union[pathlib.Path, str]) -> 'Pipeline':
@@ -306,6 +324,20 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         return Pipeline(*components, name=name)
 
     @property
+    def events_client(self) -> EventsClient:
+        try:
+            return self._events_client
+        except AttributeError:
+            pass
+        self._created_events_client = True
+        self._events_client = EventsClient(address=self.events_address)
+        return self._events_client
+
+    @events_client.setter
+    def events_client(self, value: EventsClient):
+        self._events_client = value
+
+    @property
     def _times_collector(self):
         try:
             return self.__times_collector
@@ -318,7 +350,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         try:
             return self.__components
         except AttributeError:
-            self.__components = [desc.create_pipeline_component(self._config, self._component_ids)
+            self.__components = [desc.create_pipeline_component(self._component_ids,
+                                                                self.events_client)
                                  for desc in self._component_descriptors]
             return self.__components
 
@@ -508,6 +541,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                 component.close()
             except AttributeError:
                 pass
+        if self._created_events_client:
+            self._events_client.close()
 
     def as_processor(self) -> 'processing.EventProcessor':
         """Returns the pipeline as a processor.
@@ -528,27 +563,24 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         return self._component_descriptors[item]
 
     def __setitem__(self, key, value):
-        try:
-            del self._components
-        except AttributeError:
-            pass
+        self._clear_components()
         self._component_descriptors[key] = value
 
     def __delitem__(self, key):
-        try:
-            del self._components
-        except AttributeError:
-            pass
+        self._clear_components()
         del self._component_descriptors[key]
 
     def __len__(self):
         return len(self._component_descriptors)
 
-    def insert(self, index, o) -> None:
+    def _clear_components(self):
         try:
             del self._components
         except AttributeError:
             pass
+
+    def insert(self, index, o) -> None:
+        self._clear_components()
         self._component_descriptors.insert(index, o)
 
     def __repr__(self):
@@ -686,20 +718,24 @@ class _PipelineProcessor(_base.EventProcessor):
 _mp_pipeline = None
 
 
-def _mp_process_init(components):
+def _mp_process_init(config, pipeline):
     global _mp_pipeline
-    _mp_pipeline = Pipeline(*components)
+    config.enter_context()
+    _mp_pipeline = pipeline
+
+    def cleanup_pipeline(*_):
+        _mp_pipeline.close()
+
+    signal.signal(signal.SIGINT, cleanup_pipeline)
 
 
 def _mp_process_event(event_id, params):
-    result = None
-    error = None
+    assert isinstance(_mp_pipeline, Pipeline)
     try:
-        assert isinstance(_mp_pipeline, Pipeline)
         result = _mp_pipeline._run_by_event_id(event_id, params)
-    except _base.ProcessingError as e:
-        error = e
-    return event_id, result, error
+    except Exception:
+        return event_id, None, traceback.format_exc()
+    return event_id, result, None
 
 
 class _PipelineMultiRunner:
@@ -728,7 +764,7 @@ class _PipelineMultiRunner:
         self.pool = multiprocessing.get_context('spawn').Pool(
             self.n_threads,
             initializer=_mp_process_init,
-            initargs=(self.pipeline._component_descriptors,)
+            initargs=(Config(), pipeline)
         )
         self.active_events = {}
 
@@ -769,19 +805,18 @@ class _PipelineMultiRunner:
                 self.source.receive_result(result, event)
             else:
                 if not self.source.receive_failure(error):
+                    logger.error('Error while processing event_id: %s: %s', event_id, error)
                     self.failures += 1
-                    logger.warning('Error occurred during processing on event_id=%s: %s', event_id,
-                                   getattr(error, 'msg', ''))
+                    if self.close_events:
+                        event.release_lease()
+                    raise _base.ProcessingError()
             self.task_completed()
             if self.close_events:
                 event.release_lease()
 
         def error_handler(error):
-            try:
-                raise error
-            except Exception:
-                logger.exception('Unexpected error not handled by runner except')
-                raise
+            logger.error('Unexpected error')
+            raise error
 
         def consume(target):
             if self.max_failures_reached():

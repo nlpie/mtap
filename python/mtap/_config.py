@@ -102,13 +102,16 @@ class Config(MutableMapping[str, Any]):
     _context = threading.local()
     _context.config = None
 
-    def __new__(cls):
+    def __new__(cls, *args):
         if cls._global_instance is None:
             with cls._lock:
                 if cls._global_instance is None:
                     cls._global_instance = object.__new__(cls)
                     cls._global_instance._config = {}
-                    cls._global_instance._load_default_config()
+                    if len(args) == 0:
+                        cls._global_instance._load_default_config()
+                    else:
+                        cls._global_instance._config.update(*args)
         try:
             inst = cls._context.config
         except AttributeError:
@@ -122,16 +125,23 @@ class Config(MutableMapping[str, Any]):
         return inst
 
     def __enter__(self) -> 'Config':
+        self.enter_context()
+        return self
+
+    def enter_context(self):
         with self._lock:
             if self._context.config is not None:
                 raise ValueError("Already in a configuration context.")
             self._context.config = self
-        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
         self._context.config = None
-        if exc_val is not None:
-            return False
+
+    def __reduce__(self):
+        return Config, (dict(self), )
 
     def _load_default_config(self):
         self.update(_load_default_config())

@@ -499,14 +499,13 @@ class EventsClient:
         >>>                                      text='The quick brown fox jumps over the lazy dog.')
     """
 
-    def __init__(self,
-                 *, address: Optional[str] = None,
-                 stub: Optional[events_pb2_grpc.EventsStub] = None,
-                 config: Optional['mtap.Config'] = None,
+    def __init__(self, address: Optional[str] = None,
+                 *, stub: Optional[events_pb2_grpc.EventsStub] = None,
                  enable_proxy: bool = False):
+        self.address = address
         if stub is None:
-            if config is None:
-                config = _config.Config()
+            self.stub_provided = False
+            config = _config.Config()
 
             if address is None:
                 discovery = _discovery.Discovery(_config.Config())
@@ -530,6 +529,7 @@ class EventsClient:
             self._channel = channel
             self.stub = events_pb2_grpc.EventsStub(channel)
         else:
+            self.stub_provided = True
             self.stub = stub
         self._is_open = True
 
@@ -538,6 +538,9 @@ class EventsClient:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def __reduce__(self):
+        return EventsClient, (self.address,)
 
     def ensure_open(self):
         if not self._is_open:

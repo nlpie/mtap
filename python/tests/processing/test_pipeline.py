@@ -1,4 +1,17 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright 2021 Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +31,7 @@ from typing import Dict, Any, Callable, Union
 import pytest
 
 from mtap import Pipeline, LocalProcessor, Event, EventsClient, Document
-from mtap.processing import EventProcessor, ProcessingError, PipelineResult
-from mtap.processing._pipeline import ProcessingSource
+from mtap.processing import EventProcessor, ProcessingError, PipelineResult, ProcessingSource
 
 
 class Processor(EventProcessor):
@@ -34,13 +46,17 @@ class Processor(EventProcessor):
             raise ValueError("fail")
         time.sleep(0.001)
         event.metadata[self.identifier] = 'True'
+        event.metadata['processor'] = self.identifier
         self.processed += 1
 
 
-def test_time_result():
-    processor = Processor()
+def test_time_result(mocker):
+    client = mocker.Mock(EventsClient)
+    client.get_all_document_names.return_value = ['plaintext']
+    client.get_all_metadata.return_value = {}
     with Pipeline(
-            LocalProcessor(processor, component_id='test_processor', client=None)
+            LocalProcessor(Processor(), component_id='test_processor'),
+            events_client=client
     ) as pipeline:
         event = Event()
         result = pipeline.run(event)
@@ -51,18 +67,17 @@ def test_run_concurrently(mocker):
     client = mocker.Mock(EventsClient)
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
-    processor1 = Processor('1')
-    processor2 = Processor('2')
-    processor3 = Processor('3')
     with Pipeline(
-            LocalProcessor(processor1, component_id='processor1', client=client),
-            LocalProcessor(processor2, component_id='processor2', client=client),
-            LocalProcessor(processor3, component_id='processor3', client=client)
+            LocalProcessor(Processor('1', ), component_id='processor1'),
+            LocalProcessor(Processor('2', ), component_id='processor2'),
+            LocalProcessor(Processor('3', ), component_id='processor3'),
+            events_client=client
     ) as pipeline:
+        pipeline.events_client = client
         events = [Event() for _ in range(10)]
         pipeline.run_multithread(events, progress=False)
 
-        for processor in (processor1, processor2, processor3):
+        for processor in (pipeline._components[x].processor for x in (1, 2, 3)):
             assert processor.processed == 10
 
 
@@ -70,19 +85,18 @@ def test_run_concurrently_with_failure(mocker):
     client = mocker.Mock(EventsClient)
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
-    processor1 = Processor('1')
-    processor2 = Processor('2')
-    processor3 = Processor('3')
     with Pipeline(
-            LocalProcessor(processor1, component_id='processor1', client=client),
-            LocalProcessor(processor2, component_id='processor2', client=client),
-            LocalProcessor(processor3, component_id='processor3', client=client)
+            LocalProcessor(Processor('1', ), component_id='processor1'),
+            LocalProcessor(Processor('2', ), component_id='processor2'),
+            LocalProcessor(Processor('3', ), component_id='processor3'),
+            events_client=client
     ) as pipeline:
-        events = [Event(event_id=str(i), client=client) for i in range(7)] + [Event(event_id='fail_' + str(i), client=client) for i in range(4)]
+        events = [Event(event_id=str(i), client=client) for i in range(7)] + [
+            Event(event_id='fail_' + str(i), client=client) for i in range(4)]
         with pytest.raises(ValueError) as e_info:
             pipeline.run_multithread(events, progress=False, max_failures=2)
 
-        for processor in (processor1, processor2, processor3):
+        for processor in (pipeline._components[x].processor for x in (1, 2, 3)):
             assert processor.processed == 7
 
 
@@ -107,40 +121,43 @@ def test_run_concurrently_source(mocker):
     client = mocker.Mock(EventsClient)
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
-    processor1 = Processor('1')
-    processor2 = Processor('2')
-    processor3 = Processor('3')
     with Pipeline(
-            LocalProcessor(processor1, component_id='processor1', client=client),
-            LocalProcessor(processor2, component_id='processor2', client=client),
-            LocalProcessor(processor3, component_id='processor3', client=client)
+            LocalProcessor(Processor('1', ), component_id='processor1'),
+            LocalProcessor(Processor('2', ), component_id='processor2'),
+            LocalProcessor(Processor('3', ), component_id='processor3'),
+            events_client=client
     ) as pipeline:
-        source = Source([Event() for _ in range(10)])
+        events = [Event() for _ in range(10)]
+        source = Source(events)
         pipeline.run_multithread(source, progress=False)
 
-        for processor in (processor1, processor2, processor3):
-            assert processor.processed == 10
         assert source.processed == 10
+        processed = [0, 0, 0]
+        for event in events:
+            processed[int(event.metadata['processor']) - 1] += 1
+        assert all(x == 10 for x in processed)
 
 
 def test_run_concurrently_with_failure_source(mocker):
     client = mocker.Mock(EventsClient)
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
-    processor1 = Processor('1')
-    processor2 = Processor('2')
-    processor3 = Processor('3')
     with Pipeline(
-            LocalProcessor(processor1, component_id='processor1', client=client),
-            LocalProcessor(processor2, component_id='processor2', client=client),
-            LocalProcessor(processor3, component_id='processor3', client=client)
+            LocalProcessor(Processor('1', ), component_id='processor1'),
+            LocalProcessor(Processor('2', ), component_id='processor2'),
+            LocalProcessor(Processor('3', ), component_id='processor3'),
+            events_client=client
     ) as pipeline:
-        source = Source([Event(event_id=str(i), client=client) for i in range(7)] + [Event(event_id='fail_' + str(i), client=client) for i in range(4)])
+        pass_events = [Event(event_id=str(i), client=client) for i in range(7)]
+        fail_events = [Event(event_id='fail_' + str(i), client=client) for i in range(4)]
+        source = Source(pass_events + fail_events)
         with pytest.raises(ValueError) as e_info:
             pipeline.run_multithread(source, progress=False, max_failures=2)
         assert str(e_info.value) == 'Max processing failures exceeded.'
 
-        for processor in (processor1, processor2, processor3):
-            assert processor.processed == 7
         assert source.processed == 7
         assert source.failures >= 3
+        processed = [0, 0, 0]
+        for event in pass_events:
+            processed[int(event.metadata['processor']) - 1] += 1
+        assert all(x == 7 for x in processed)
