@@ -897,7 +897,7 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
         self.extension_glob = extension_glob
         self.errors = errors
         if count_total:
-            self.total = sum(1 for _ in self.input_directory.rglob('*.txt'))
+            self.total = sum(1 for _ in self.input_directory.rglob(self.extension_glob))
 
     def provide(self, consume: Callable[[Union['mtap.Document', 'mtap.Event']], None]):
         for path in self.input_directory.rglob(self.extension_glob):
