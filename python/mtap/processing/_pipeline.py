@@ -1,32 +1,32 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright 2021 Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import logging
 import multiprocessing
 import pathlib
 import signal
-import time
 import traceback
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from datetime import datetime
-from threading import Lock, Condition, Thread
+from threading import Lock, Condition
 from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
-    ContextManager, TYPE_CHECKING, overload, NamedTuple, Tuple
+    ContextManager, TYPE_CHECKING, overload
 
 from tqdm import tqdm
 
-from mtap import _config, EventsClient, Config
+from mtap import EventsClient, Config
 from mtap.data import Event
 from mtap.processing import _base, _runners
 
@@ -181,9 +181,54 @@ def _cancel_callback(event, read_ahead, cd, close_events):
 def _create_pipeline(name: Optional[str] = None,
                      events_address: Optional[str] = None,
                      events_client: Optional[EventsClient] = None,
+                     mp_config: 'Optional[MpConfig]' = None,
                      *components: 'processing.ComponentDescriptor'):
     return Pipeline(*components, name=name, events_address=events_address,
-                    events_client=events_client)
+                    events_client=events_client, mp_config=mp_config)
+
+
+class MpConfig:
+    __slots__ = ("max_failures", "show_progress", "workers", "read_ahead", "close_events")
+
+    def __init__(self,
+                 max_failures: Optional[int] = None,
+                 show_progress: Optional[bool] = None,
+                 workers: Optional[int] = None,
+                 read_ahead: Optional[int] = None,
+                 close_events: Optional[bool] = None):
+        """
+
+        Args:
+            max_failures:
+            show_progress:
+            workers:
+            read_ahead:
+            close_events:
+        """
+        self.max_failures = 0 if max_failures is None else max_failures
+        if not type(self.max_failures) == int or self.max_failures < 0:
+            raise ValueError("max_failures must be None or non-negative integer")
+        self.show_progress = True if show_progress is None else show_progress
+        if not type(self.show_progress) == bool:
+            raise ValueError("show_progress must be boolean.")
+        self.workers = 4 if workers is None else workers
+        if not type(self.workers) == int or self.workers <= 0:
+            raise ValueError("workers must be None or positive integer.")
+        self.read_ahead = self.workers if read_ahead is None else read_ahead
+        if not type(self.read_ahead) == int or self.read_ahead < 0:
+            raise ValueError("read_ahead must be None or a non-negative integer")
+        self.close_events = True if close_events is None else close_events
+        if not type(self.close_events) == bool:
+            raise ValueError("close_events must be None or a bool.")
+
+    @staticmethod
+    def from_configuration(conf: Dict) -> 'MpConfig':
+        max_failures = conf.get('max_failures', None)
+        show_progress = conf.get('show_progress', None)
+        workers = conf.get('workers', None)
+        read_ahead = conf.get('read_ahead', None)
+        close_events = conf.get('close_events', None)
+        return MpConfig(max_failures, show_progress, workers, read_ahead, close_events)
 
 
 class Pipeline(MutableSequence['processing.ComponentDescriptor']):
@@ -258,23 +303,29 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         name (str): The pipeline's name.
     """
     __slots__ = ['_component_ids', 'name', '_component_descriptors', 'events_address',
-                 '_created_events_client', '_events_client', '__times_collector', '__components']
+                 'mp_config', '_created_events_client', '_events_client', '__times_collector',
+                 '__components']
 
     def __init__(self, *components: 'processing.ComponentDescriptor',
                  name: Optional[str] = None,
                  events_address: Optional[str] = None,
-                 events_client: Optional[EventsClient] = None):
+                 events_client: Optional[EventsClient] = None,
+                 mp_config: Optional[MpConfig] = None):
         self._component_ids = {}
         self.name = name or 'pipeline'
         self._component_descriptors = list(components)
         self.events_address = events_address
         self._created_events_client = False
+        self._events_client = None
         if events_client is not None:
             self.events_client = events_client
+        self.mp_config = mp_config or MpConfig()
 
     def __reduce__(self):
-        return _create_pipeline, (self.name, self.events_address,
-                                  self.events_client) + tuple(self._component_descriptors)
+        return _create_pipeline, (self.name,
+                                  self.events_address,
+                                  self._events_client,
+                                  self.mp_config) + tuple(self._component_descriptors)
 
     @staticmethod
     def from_yaml_file(conf_path: Union[pathlib.Path, str]) -> 'Pipeline':
@@ -309,26 +360,25 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
 
         """
         name = conf.get('name', None)
+        events_address = conf.get('events_address', None)
         components = []
         conf_components = conf.get('components', [])
         for conf_component in conf_components:
             components.append(
                 RemoteProcessor(
-                    processor_id=conf_component['processorId'],
+                    processor_id=conf_component['processor_id'],
                     address=conf_component['address'],
-                    component_id=conf_component.get('componentId', None),
+                    component_id=conf_component.get('component_id', None),
                     params=dict(conf_component.get('params', {}))
                 )
             )
-
-        return Pipeline(*components, name=name)
+        mp_config = MpConfig.from_configuration(conf.get('mp_config', {}))
+        return Pipeline(*components, name=name, events_address=events_address, mp_config=mp_config)
 
     @property
     def events_client(self) -> EventsClient:
-        try:
+        if self._events_client is not None:
             return self._events_client
-        except AttributeError:
-            pass
         self._created_events_client = True
         self._events_client = EventsClient(address=self.events_address)
         return self._events_client
@@ -366,11 +416,11 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             source: Union[
                 Iterable[Union['mtap.Document', 'mtap.Event']], 'processing.ProcessingSource'],
             *, params: Optional[Dict[str, Any]] = None,
-            progress: bool = True,
+            progress: Optional[bool] = None,
             total: Optional[int] = None,
-            close_events: bool = True,
-            max_failures: int = 0,
-            workers: int = 4,
+            close_events: Optional[bool] = None,
+            max_failures: Optional[int] = None,
+            workers: Optional[int] = None,
             read_ahead: Optional[int] = None
     ):
         """Runs this pipeline on a source which provides multiple documents / events.
@@ -417,6 +467,11 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             >>> pipeline.run_multithread(document_source(), total=len(docs))
 
         """
+        progress = progress if progress is not None else self.mp_config.show_progress
+        close_events = close_events if close_events is not None else self.mp_config.close_events
+        max_failures = max_failures if max_failures is not None else self.mp_config.max_failures
+        workers = workers if workers is not None else self.mp_config.workers
+        read_ahead = read_ahead if read_ahead is not None else self.mp_config.read_ahead
         with _PipelineMultiRunner(self, source, params, progress, total, close_events, max_failures,
                                   workers, read_ahead) as runner:
             runner.run()
@@ -761,7 +816,7 @@ class _PipelineMultiRunner:
         self.source = source
         self.params = params
 
-        self.pool = multiprocessing.get_context('spawn').Pool(
+        self.pool = multiprocessing.Pool(
             self.n_threads,
             initializer=_mp_process_init,
             initargs=(Config(), pipeline)
@@ -807,9 +862,6 @@ class _PipelineMultiRunner:
                 if not self.source.receive_failure(error):
                     logger.error('Error while processing event_id: %s: %s', event_id, error)
                     self.failures += 1
-                    if self.close_events:
-                        event.release_lease()
-                    raise _base.ProcessingError()
             self.task_completed()
             if self.close_events:
                 event.release_lease()

@@ -27,6 +27,8 @@ if TYPE_CHECKING:
 
 
 class ProcessorContext:
+    __slots__ = ('times',)
+
     def __init__(self):
         self.times = {}
 
@@ -60,6 +62,7 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
         >>>         ...
         >>>         stopwatch.stop()
     """
+    __slots__ = ('_key', '_context', '_running', 'duration', '_start')
 
     def __init__(self, context: Optional = None, key: Optional[str] = None):
         self._key = key
@@ -108,6 +111,7 @@ class Processor:
     """Mixin used by all processor abstract base classes that provides the ability to update
     serving status and use timers.
     """
+    __slots__ = ('_health_callback',)
 
     def __new__(cls, *args, **kwargs):
         instance = super().__new__(cls)
@@ -209,6 +213,7 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
         ...          # do work on the event
         ...          ...
     """
+    __slots__ = ()
 
     @abstractmethod
     def process(self, event: 'mtap.Event', params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -260,6 +265,7 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
         ...               ...
 
     """
+    __slots__ = ()
 
     @abstractmethod
     def process_document(self,
@@ -325,6 +331,7 @@ class PipelineResult(NamedTuple('PipelineResult',
         elapsed_time (timedelta): The elapsed time for the entire pipeline.
 
     """
+    __slots__ = ()
 
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, *args, **kwargs)
@@ -371,6 +378,7 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
         timing_info (dict[str, TimerStats]):
             A map from all of the timer keys for the processor to the aggregated duration statistics.
     """
+    __slots__ = ()
 
     def print_times(self):
         """Prints the aggregate timing info for all processing components using ``print``.
@@ -408,9 +416,7 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
 
 
 class ProcessingComponent(ABC):
-    component_id = None  # str: The component_id of the component in a pipeline
-    descriptor = None  # ComponentDescriptor: The ComponentDescriptor used to create the component.
-    processor_id = None
+    __slots__ = ()
 
     @abstractmethod
     def call_process(self, event_id: str,
@@ -441,6 +447,7 @@ class ComponentDescriptor(ABC):
     """A configuration which describes either a local or remote pipeline component and what the
     pipeline needs to do to call the component.
     """
+    __slots__ = ()
 
     @abstractmethod
     def create_pipeline_component(

@@ -11,27 +11,18 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+
+import pickle
 import time
 from datetime import timedelta
+from pathlib import Path
 from typing import Dict, Any, Callable, Union
 
 import pytest
 
 from mtap import Pipeline, LocalProcessor, Event, EventsClient, Document
 from mtap.processing import EventProcessor, ProcessingError, PipelineResult, ProcessingSource
+from mtap.processing._pipeline import MpConfig, RemoteProcessor
 
 
 class Processor(EventProcessor):
@@ -77,9 +68,6 @@ def test_run_concurrently(mocker):
         events = [Event() for _ in range(10)]
         pipeline.run_multithread(events, progress=False)
 
-        for processor in (pipeline._components[x].processor for x in (1, 2, 3)):
-            assert processor.processed == 10
-
 
 def test_run_concurrently_with_failure(mocker):
     client = mocker.Mock(EventsClient)
@@ -95,9 +83,6 @@ def test_run_concurrently_with_failure(mocker):
             Event(event_id='fail_' + str(i), client=client) for i in range(4)]
         with pytest.raises(ValueError) as e_info:
             pipeline.run_multithread(events, progress=False, max_failures=2)
-
-        for processor in (pipeline._components[x].processor for x in (1, 2, 3)):
-            assert processor.processed == 7
 
 
 class Source(ProcessingSource):
@@ -131,12 +116,6 @@ def test_run_concurrently_source(mocker):
         source = Source(events)
         pipeline.run_multithread(source, progress=False)
 
-        assert source.processed == 10
-        processed = [0, 0, 0]
-        for event in events:
-            processed[int(event.metadata['processor']) - 1] += 1
-        assert all(x == 10 for x in processed)
-
 
 def test_run_concurrently_with_failure_source(mocker):
     client = mocker.Mock(EventsClient)
@@ -153,11 +132,55 @@ def test_run_concurrently_with_failure_source(mocker):
         source = Source(pass_events + fail_events)
         with pytest.raises(ValueError) as e_info:
             pipeline.run_multithread(source, progress=False, max_failures=2)
-        assert str(e_info.value) == 'Max processing failures exceeded.'
 
-        assert source.processed == 7
-        assert source.failures >= 3
-        processed = [0, 0, 0]
-        for event in pass_events:
-            processed[int(event.metadata['processor']) - 1] += 1
-        assert all(x == 7 for x in processed)
+
+def test_load_from_config():
+    pipeline = Pipeline.from_yaml_file(Path(__file__).parent / 'pipeline.yml')
+    assert pipeline.name == 'mtap-test-pipeline'
+    assert pipeline.events_address == 'localhost:123'
+    assert pipeline.mp_config.max_failures == 3
+    assert not pipeline.mp_config.show_progress
+    assert pipeline.mp_config.workers == 12
+    assert pipeline.mp_config.read_ahead == 4
+    assert not pipeline.mp_config.close_events
+    assert len(pipeline) == 2
+    assert pipeline[0].processor_id == 'processor-1'
+    assert pipeline[0].address == 'localhost:1234'
+    assert pipeline[1].processor_id == 'processor-2'
+    assert pipeline[1].address == 'localhost:5678'
+
+
+def test_serialization():
+    p = Pipeline(
+        RemoteProcessor(
+            processor_id='processor-1',
+            address='localhost:1234'
+        ),
+        RemoteProcessor(
+            processor_id='processor-2',
+            address='localhost:5678'
+        ),
+        name='mtap-test-pipeline',
+        events_address='localhost:123',
+        mp_config=MpConfig(
+            max_failures=3,
+            show_progress=False,
+            workers=12,
+            read_ahead=4,
+            close_events=False
+        ),
+    )
+    s = pickle.dumps(p)
+    r = pickle.loads(s)
+    assert r.name == 'mtap-test-pipeline'
+    assert r.events_address == 'localhost:123'
+    assert r.mp_config.max_failures == 3
+    assert not r.mp_config.show_progress
+    assert r.mp_config.workers == 12
+    assert r.mp_config.read_ahead == 4
+    assert not r.mp_config.close_events
+    assert len(r) == 2
+    assert r[0].processor_id == 'processor-1'
+    assert r[0].address == 'localhost:1234'
+    assert r[1].processor_id == 'processor-2'
+    assert r[1].address == 'localhost:5678'

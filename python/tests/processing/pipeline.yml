@@ -1,0 +1,13 @@
+name: mtap-test-pipeline
+events_address: localhost:123
+mp_config:
+  max_failures: 3
+  show_progress: False
+  workers: 12
+  read_ahead: 4
+  close_events: False
+components:
+  - processor_id: processor-1
+    address: localhost:1234
+  - processor_id: processor-2
+    address: localhost:5678

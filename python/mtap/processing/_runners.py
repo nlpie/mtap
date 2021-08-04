@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessorRunner(_base.ProcessingComponent):
+    __slots__ = ('processor', 'component_id', 'params', 'metadata', 'processor_id', 'client')
+
     def __init__(self,
                  proc: 'mtap.EventProcessor',
                  client: 'Optional[mtap.EventsClient]',

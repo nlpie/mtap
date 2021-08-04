@@ -53,6 +53,8 @@ class Event:
         >>>     # use event
         >>>     ...
     """
+    __slots__ = ('_event_id', '_client', '_lock', 'default_adapters', '_documents', '_metadata',
+                 '_binaries')
 
     def __init__(self, *, event_id: Optional[str] = None,
                  client: Optional['mtap.EventsClient'] = None,
@@ -247,6 +249,8 @@ class Document:
         >>>     document = event.create_document('plaintext', text='Some document text.')
 
     """
+    __slots__ = ('_document_name', '_event', '_client', '_event_id', '_text', '_labelers',
+                 '_created_indices', '_waiting_indices', 'default_adapters', '_labels')
 
     def __init__(self,
                  document_name: str,
