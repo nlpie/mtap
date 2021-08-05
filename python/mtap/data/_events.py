@@ -19,7 +19,7 @@ import collections
 import threading
 import uuid
 from typing import Iterator, List, Dict, MutableMapping, Generic, TypeVar, NamedTuple, \
-    ContextManager, Iterable, Optional, Sequence, Union, Mapping, TYPE_CHECKING
+    ContextManager, Iterable, Optional, Sequence, Union, Mapping, TYPE_CHECKING, Callable
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2
@@ -54,18 +54,22 @@ class Event:
         >>>     ...
     """
     __slots__ = ('_event_id', '_client', '_lock', 'default_adapters', '_documents', '_metadata',
-                 '_binaries')
+                 '_binaries', '_event_service_instance_id')
 
     def __init__(self, *, event_id: Optional[str] = None,
+                 event_service_instance_id: Optional[str] = None,
                  client: Optional['mtap.EventsClient'] = None,
                  only_create_new: bool = False,
                  default_adapters: Optional[Mapping[str, 'data.ProtoLabelAdapter']] = None):
         self._event_id = event_id or str(uuid.uuid4())
-        self._client = client
+        self._event_service_instance_id = event_service_instance_id
         self._lock = threading.RLock()
         self.default_adapters = default_adapters or {}
-        if client is not None:
-            client.open_event(self._event_id, only_create_new=only_create_new)
+        self._client = client
+        if self._client is not None:
+            self._client = client.get_local_instance(self._event_service_instance_id)
+            self._event_service_instance_id = self._client.instance_id
+            self._client.open_event(self._event_id, only_create_new=only_create_new)
 
     @property
     def client(self) -> Optional['mtap.EventsClient']:
@@ -75,6 +79,11 @@ class Event:
     def event_id(self) -> str:
         """str: The globally unique identifier for this event."""
         return self._event_id
+
+    @property
+    def event_service_instance_id(self) -> str:
+        """str: The unique instance identifier for this event's paired event service."""
+        return self._event_service_instance_id
 
     @property
     def documents(self) -> MutableMapping[str, 'mtap.Document']:
@@ -484,6 +493,43 @@ class Labeler(Generic[L], ContextManager['Labeler']):
                                       label_adapter=self._label_adapter)
 
 
+def create_channel(address):
+    config = _config.Config()
+
+    enable_proxy = config.get('grpc.enable_proxy', False)
+    channel = grpc.insecure_channel(address,
+                                    options=[
+                                        ('grpc.enable_http_proxy', enable_proxy),
+                                        ('grpc.max_send_message_length',
+                                         config.get('grpc.max_send_message_length')),
+                                        ('grpc.max_receive_message_length',
+                                         config.get('grpc.max_receive_message_length'))
+                                    ])
+
+    health = health_pb2_grpc.HealthStub(channel)
+    hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))
+    if hcr.status != health_pb2.HealthCheckResponse.SERVING:
+        raise ValueError('Failed to connect to events service. Status:')
+    return channel
+
+
+class _ClientPool:
+    def __init__(self, channel_factory, addresses):
+        self._ptr = 0
+        self.clients = [EventsClient(address=addresses, channel_factory=channel_factory,
+                                     _pool=self, _channel=channel_factory(a))
+                        for a in addresses]
+        self.instance_id_to_delegate = {d.instance_id: d for d in self.clients}
+
+    def get_instance(self, instance_id):
+        try:
+            return self.instance_id_to_delegate[instance_id]
+        except KeyError:
+            i = self.clients[self._ptr]
+            self._ptr = (self._ptr + 1) % len(self.clients)
+            return i
+
+
 class EventsClient:
     """A client object for interacting with the events service.
 
@@ -503,39 +549,35 @@ class EventsClient:
         >>>                                      text='The quick brown fox jumps over the lazy dog.')
     """
 
-    def __init__(self, address: Optional[str] = None,
-                 *, stub: Optional[events_pb2_grpc.EventsStub] = None,
-                 enable_proxy: bool = False):
-        self.address = address
-        if stub is None:
-            self.stub_provided = False
-            config = _config.Config()
-
-            if address is None:
-                discovery = _discovery.Discovery(_config.Config())
-                address = discovery.discover_events_service('v1')
-
-            enable_proxy = enable_proxy or config.get('grpc.enable_proxy', False)
-            channel = grpc.insecure_channel(address,
-                                            options=[
-                                                ('grpc.enable_http_proxy', enable_proxy),
-                                                ('grpc.max_send_message_length',
-                                                 config.get('grpc.max_send_message_length')),
-                                                ('grpc.max_receive_message_length',
-                                                 config.get('grpc.max_receive_message_length'))
-                                            ])
-
-            health = health_pb2_grpc.HealthStub(channel)
-            hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))
-            if hcr.status != health_pb2.HealthCheckResponse.SERVING:
-                raise ValueError('Failed to connect to events service. Status:')
-
-            self._channel = channel
-            self.stub = events_pb2_grpc.EventsStub(channel)
+    def __init__(self, address: Optional[Union[str, Iterable[str]]],
+                 channel_factory: Callable[[str], grpc.Channel] = None,
+                 _pool: Optional[_ClientPool] = None,
+                 _channel: Optional[grpc.Channel] = None):
+        if address is None:
+            discovery = _discovery.Discovery(_config.Config())
+            address = discovery.discover_events_service('v1')
+        if isinstance(address, str):
+            self.addresses = [address]
+        elif isinstance(address, Iterable):
+            self.addresses = list(address)
         else:
-            self.stub_provided = True
-            self.stub = stub
-        self._is_open = True
+            raise ValueError("Unrecognized address type: " + str(type(address)))
+        self.channel_factory = channel_factory
+        if channel_factory is None:
+            self.channel_factory = create_channel
+        self._pool = _pool
+        if self._pool is None:
+            self._pool = _ClientPool(self.channel_factory, self.addresses)
+        self._channel = _channel
+        if self._channel is not None:
+            self.stub = events_pb2_grpc.EventsStub(self._channel)
+            r = self.stub.GetEventsInstanceId(events_pb2.GetEventsInstanceIdRequest())
+            self._instance_id = r.instance_id
+            self._is_open = True
+
+    @property
+    def instance_id(self) -> str:
+        return self._instance_id
 
     def __enter__(self) -> 'EventsClient':
         return self
@@ -544,7 +586,10 @@ class EventsClient:
         self.close()
 
     def __reduce__(self):
-        return EventsClient, (self.address,)
+        return _create_events_client, (self.addresses, self.channel_factory,)
+
+    def get_local_instance(self, instance_id: Optional[str]) -> 'EventsClient':
+        return self._pool.get_instance(instance_id)
 
     def ensure_open(self):
         if not self._is_open:
@@ -610,8 +655,9 @@ class EventsClient:
         response = self.stub.GetDocumentText(request)
         return response.text
 
-    def get_label_index_info(self, event_id: str, document_name: str) -> List[
-        'data.LabelIndexInfo']:
+    def get_label_index_info(self,
+                             event_id: str,
+                             document_name: str) -> List['data.LabelIndexInfo']:
         request = events_pb2.GetLabelIndicesInfoRequest(event_id=event_id,
                                                         document_name=document_name)
         response = self.stub.GetLabelIndicesInfo(request)
@@ -647,6 +693,10 @@ class EventsClient:
             self._channel.close()
         except AttributeError:
             pass
+
+
+def _create_events_client(addresses, channel_factory):
+    return EventsClient(address=addresses, channel_factory=channel_factory)
 
 
 class _Documents(MutableMapping[str, Document]):

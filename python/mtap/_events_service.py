@@ -16,8 +16,10 @@
 import logging
 import threading
 import typing
+import uuid
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
+from uuid import UUID
 
 import grpc
 from google.protobuf import empty_pb2
@@ -121,6 +123,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
     def __init__(self):
         self.lock = threading.RLock()
         self.events = {}
+        self.instance_id = str(uuid.uuid4())
 
     def _get_event(self, request, context=None):
         event_id = request.event_id
@@ -143,6 +146,10 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                                                                                  document_name))
             raise e
         return document
+
+    def GetEventsInstanceId(self, request, context):
+        LOGGER.debug("GetEventsInstanceId")
+        return events_pb2.GetEventsInstanceIdResponse(instance_id=self.instance_id)
 
     def OpenEvent(self, request, context=None):
         LOGGER.debug("OpenEvent: %s", request.event_id)

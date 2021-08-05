@@ -138,13 +138,13 @@ class LocalProcessor(_base.ComponentDescriptor):
     def create_pipeline_component(
             self,
             component_ids: Dict[str, int],
-            client: 'mtap.EventsClient'
+            client: 'Callable[[], mtap.EventsClient]'
     ) -> 'processing.ProcessingComponent':
         identifier = _unique_component_id(component_ids, self.component_id)
         runner = _runners.ProcessorRunner(proc=self.proc,
                                           identifier=identifier,
                                           params=self.params,
-                                          client=client)
+                                          client=client())
         runner.descriptor = self
         return runner
 
@@ -401,7 +401,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             return self.__components
         except AttributeError:
             self.__components = [desc.create_pipeline_component(self._component_ids,
-                                                                self.events_client)
+                                                                lambda: self.events_client)
                                  for desc in self._component_descriptors]
             return self.__components
 

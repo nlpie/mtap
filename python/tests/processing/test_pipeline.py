@@ -43,6 +43,7 @@ class Processor(EventProcessor):
 
 def test_time_result(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     with Pipeline(
@@ -56,6 +57,7 @@ def test_time_result(mocker):
 
 def test_run_concurrently(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     with Pipeline(
@@ -71,6 +73,7 @@ def test_run_concurrently(mocker):
 
 def test_run_concurrently_with_failure(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     with Pipeline(
@@ -104,6 +107,7 @@ class Source(ProcessingSource):
 
 def test_run_concurrently_source(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     with Pipeline(
@@ -119,6 +123,7 @@ def test_run_concurrently_source(mocker):
 
 def test_run_concurrently_with_failure_source(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     with Pipeline(

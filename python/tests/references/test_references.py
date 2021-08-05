@@ -24,7 +24,7 @@ from mtap.utilities import subprocess_events_server
 @pytest.fixture(name='python_events')
 def fixture_python_events():
     config_path = Path(__file__).parent / 'integrationConfig.yaml'
-    with subprocess_events_server(port=50500, cwd=Path(__file__).parents[2],
+    with subprocess_events_server(cwd=Path(__file__).parents[2],
                                   config_path=config_path) as address:
         yield address
 

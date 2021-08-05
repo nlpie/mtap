@@ -15,6 +15,7 @@
 import contextlib
 import threading
 from abc import ABCMeta, abstractmethod, ABC
+from collections import Callable
 from datetime import timedelta, datetime
 from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, Generator, \
     Tuple, TYPE_CHECKING
@@ -453,6 +454,6 @@ class ComponentDescriptor(ABC):
     def create_pipeline_component(
             self,
             component_ids: Dict[str, int],
-            client: 'mtap.EventsClient'
+            client: 'Callable[[], mtap.EventsClient]'
     ) -> 'processing.ProcessingComponent':
         pass

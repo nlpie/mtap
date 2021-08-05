@@ -89,19 +89,17 @@ def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventPr
         processor_id = namespace.identifier or proc.metadata['name']
 
         enable_http_proxy = namespace.grpc_enable_http_proxy
-        if namespace is None:
-            enable_http_proxy = c['grpc.enable_proxy']
+        if enable_http_proxy is not None:
+            c['grpc.enable_proxy'] = enable_http_proxy
         if mp:
             runner = MpProcessorRunner(proc_fn=proc,
                                        proc_args=proc_args,
                                        workers=namespace.workers,
                                        events_address=namespace.events_address,
-                                       enable_proxy=enable_http_proxy,
                                        identifier=processor_id,
                                        mp_context=mp_context)
         else:
-            client = data.EventsClient(address=namespace.events_address,
-                                       enable_proxy=enable_http_proxy)
+            client = data.EventsClient(address=namespace.events_address)
             runner = _runners.ProcessorRunner(proc, client=client,
                                               identifier=processor_id,
                                               params=None)
@@ -119,10 +117,10 @@ def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventPr
             server.stop()
 
 
-def _mp_initialize(proc_fn, proc_args, events_address, enable_proxy):
+def _mp_initialize(proc_fn, proc_args, events_address, config):
+    _config.Config(config)
     _mp_call_process.processor = proc_fn(*proc_args)
-    _mp_call_process.client = data.EventsClient(address=events_address,
-                                                enable_proxy=enable_proxy)
+    _mp_call_process.client = data.EventsClient(address=events_address)
 
 
 def _mp_call_process(event_id, params):
@@ -140,14 +138,14 @@ class MpProcessorRunner:
                  proc_args: 'typing.Iterable[...]' = (),
                  workers: 'Optional[int]' = 8,
                  events_address: 'Optional[str]' = None,
-                 enable_proxy: bool = False,
                  mp_context=None):
         if mp_context is None:
             import multiprocessing as mp
             mp_context = mp
+        config = _config.Config()
         self.pool = mp_context.Pool(workers,
                                     initializer=_mp_initialize,
-                                    initargs=(proc_fn, proc_args, events_address, enable_proxy))
+                                    initargs=(proc_fn, proc_args, events_address, dict(config)))
         self.metadata = proc_fn.metadata
         self.processor_id = identifier
 

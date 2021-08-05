@@ -25,6 +25,17 @@ package mtap.api.v1;
 
 option java_package = "edu.umn.nlpie.mtap.api.v1";
 
+/* A request to retrieve the UUID for this events service instance.
+ */
+message GetEventsInstanceIdRequest {
+}
+
+message GetEventsInstanceIdResponse {
+  /* The instance identifier for the events instance.
+   */
+  string instance_id = 1;
+}
+
 /* A request to open an event, retrieves a lease that prevents the service from
  * de-allocating the event.
  */
@@ -375,6 +386,12 @@ message GetLabelsResponse {
  * some meaning).
  */
 service Events {
+  rpc GetEventsInstanceId (GetEventsInstanceIdRequest) returns (GetEventsInstanceIdResponse) {
+    option (google.api.http) = {
+      get: "/v1/events/instance_id"
+    };
+  }
+
   /* Acquires a lease for an event, which will prevent this service
    * from deleting the event while the lease is still valid. Can be used to
    * either create new events or return existing events.

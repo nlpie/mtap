@@ -41,11 +41,19 @@ def fixture_events_client_executor():
 
 def test_get_label_index_info(events_channel, events_client_executor):
     def call():
-        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        client = EventsClient(address='a', _pool=object(), _channel=events_channel)
         result = client.get_label_index_info(event_id='1', document_name='plaintext')
         return result
 
     future = events_client_executor.submit(call)
+
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetEventsInstanceId']
+    )
+    rpc.send_initial_metadata(())
+    response = events_pb2.GetEventsInstanceIdResponse()
+    response.instance_id = '0'
+    rpc.terminate(response, None, StatusCode.OK, '')
 
     _, req, rpc = events_channel.take_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabelIndicesInfo']
@@ -63,7 +71,7 @@ def test_get_label_index_info(events_channel, events_client_executor):
 
     rpc.terminate(response, None, StatusCode.OK, '')
 
-    infos = future.result()
+    infos = future.result(timeout=1)
     assert infos is not None
     assert len(infos) == 3
     assert infos[0].index_name == 'foo'
@@ -76,11 +84,20 @@ def test_get_label_index_info(events_channel, events_client_executor):
 
 def test_get_binary_data_names(events_channel, events_client_executor):
     def call():
-        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        client = EventsClient(address='a', _pool=object(), _channel=events_channel)
         result = client.get_all_binary_data_names(event_id='1')
         return result
 
     future = events_client_executor.submit(call)
+
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetEventsInstanceId']
+    )
+    rpc.send_initial_metadata(())
+    response = events_pb2.GetEventsInstanceIdResponse()
+    response.instance_id = '0'
+    rpc.terminate(response, None, StatusCode.OK, '')
+
     _, req, rpc = events_channel.take_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetAllBinaryDataNames']
     )
@@ -93,11 +110,20 @@ def test_get_binary_data_names(events_channel, events_client_executor):
 
 def test_add_binary_data(events_channel, events_client_executor):
     def call():
-        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        client = EventsClient(address='a', _pool=object(), _channel=events_channel)
         result = client.add_binary_data(event_id='1', binary_data_name='foo', binary_data=b'\xFF')
         return result
 
     events_client_executor.submit(call)
+
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetEventsInstanceId']
+    )
+    rpc.send_initial_metadata(())
+    response = events_pb2.GetEventsInstanceIdResponse()
+    response.instance_id = '0'
+    rpc.terminate(response, None, StatusCode.OK, '')
+
     _, req, rpc = events_channel.take_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData']
     )
@@ -109,11 +135,20 @@ def test_add_binary_data(events_channel, events_client_executor):
 
 def test_get_binary_data(events_channel, events_client_executor):
     def call():
-        client = EventsClient(stub=events_pb2_grpc.EventsStub(events_channel))
+        client = EventsClient(address='a', _pool=object(), _channel=events_channel)
         result = client.get_binary_data(event_id='1', binary_data_name='foo')
         return result
 
     future = events_client_executor.submit(call)
+
+    _, req, rpc = events_channel.take_unary_unary(
+        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetEventsInstanceId']
+    )
+    rpc.send_initial_metadata(())
+    response = events_pb2.GetEventsInstanceIdResponse()
+    response.instance_id = '0'
+    rpc.terminate(response, None, StatusCode.OK, '')
+
     _, req, rpc = events_channel.take_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetBinaryData']
     )
