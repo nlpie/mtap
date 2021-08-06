@@ -88,8 +88,9 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
     JsonObjectImpl params = JsonObjectImpl.newBuilder().copyStruct(request.getParams()).build();
 
     String eventID = request.getEventId();
+    String eventServiceInstanceId = request.getEventServiceInstanceId();
     try {
-      ProcessingResult result = runner.process(eventID, params);
+      ProcessingResult result = runner.process(eventID, eventServiceInstanceId, params);
 
       Processing.ProcessResponse.Builder responseBuilder = Processing.ProcessResponse.newBuilder()
           .setResult(result.getResult().copyToStruct(Struct.newBuilder()));

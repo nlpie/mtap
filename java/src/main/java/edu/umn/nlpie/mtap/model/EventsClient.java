@@ -31,6 +31,8 @@ import io.grpc.StatusRuntimeException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -42,9 +44,13 @@ import static edu.umn.nlpie.mtap.MTAP.EVENTS_SERVICE_NAME;
 /**
  * A client to an events service.
  */
-public class EventsClient {
+public class EventsClient implements AutoCloseable {
+
+  private final ManagedChannel channel;
 
   private final EventsGrpc.EventsBlockingStub stub;
+
+  private final String instanceId;
 
   /**
    * Creates a client.
@@ -52,16 +58,15 @@ public class EventsClient {
    * @param channel The GRPC channel to the events service.
    */
   public EventsClient(ManagedChannel channel) {
+    this.channel = channel;
     stub = EventsGrpc.newBlockingStub(channel);
+    GetEventsInstanceIdResponse response = stub
+        .getEventsInstanceId(GetEventsInstanceIdRequest.newBuilder().build());
+    instanceId = response.getInstanceId();
   }
 
-  /**
-   * The stub for the events service.
-   *
-   * @param stub stub object
-   */
-  public EventsClient(EventsGrpc.EventsBlockingStub stub) {
-    this.stub = stub;
+  public String getInstanceId() {
+    return instanceId;
   }
 
   /**
@@ -326,5 +331,10 @@ public class EventsClient {
         .build();
     GetLabelsResponse response = stub.getLabels(request);
     return adapter.createIndexFromResponse(response);
+  }
+
+  @Override
+  public void close() {
+    channel.shutdown();
   }
 }

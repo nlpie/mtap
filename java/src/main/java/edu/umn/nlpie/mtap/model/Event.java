@@ -39,6 +39,7 @@ import java.util.*;
  */
 public class Event implements AutoCloseable {
   private final String eventID;
+  private final String eventInstanceID;
 
   @Nullable
   private final EventsClient client;
@@ -50,9 +51,11 @@ public class Event implements AutoCloseable {
 
 
   Event(@NotNull String eventID,
+        @Nullable String eventInstanceID,
         @Nullable EventsClient client,
         Map<String, ProtoLabelAdapter<?>> defaultAdapters) {
     this.eventID = eventID;
+    this.eventInstanceID = eventInstanceID;
     this.client = client;
     this.defaultAdapters = defaultAdapters;
   }
@@ -82,6 +85,15 @@ public class Event implements AutoCloseable {
    */
   public @NotNull String getEventID() {
     return eventID;
+  }
+
+  /**
+   * Returns the service instance identifier for this event.
+   *
+   * @return A String, potentially null of the service instance id.
+   */
+  public @Nullable String getEventInstanceID() {
+    return eventInstanceID;
   }
 
   /**
@@ -383,13 +395,14 @@ public class Event implements AutoCloseable {
    * A builder for events, whether they are local objects, or distributed objects shared via an
    * events service.
    * <p>
-   * The {@link #getEventsClient()} property controls whether the object will be local or
+   * The {@link #getClientPool()} property controls whether the object will be local or
    * distributed. If it is not set / {@code null}, the object will be local, if it is set, the object
    * will be shared with the events service.
    */
   public static class Builder {
     private @Nullable String eventID = null;
-    private @Nullable EventsClient eventsClient = null;
+    private @Nullable String eventInstanceID = null;
+    private @Nullable EventsClientPool clientPool = null;
     private boolean onlyCreateNew = false;
     private Map<String, ProtoLabelAdapter<?>> defaultAdapters;
 
@@ -398,10 +411,7 @@ public class Event implements AutoCloseable {
      *
      * @return The unique event identifier that will be used for the created event.
      */
-    public @NotNull String getEventID() {
-      if (eventID == null) {
-        eventID = UUID.randomUUID().toString();
-      }
+    public @Nullable String getEventID() {
       return eventID;
     }
 
@@ -410,7 +420,7 @@ public class Event implements AutoCloseable {
      *
      * @param eventID The unique event identifier that will be used for the created event.
      */
-    public void setEventID(@NotNull String eventID) {
+    public void setEventID(@Nullable String eventID) {
       this.eventID = eventID;
     }
 
@@ -421,41 +431,21 @@ public class Event implements AutoCloseable {
      *
      * @return this builder.
      */
-    public @NotNull Event.Builder eventID(@NotNull String eventID) {
+    public @NotNull Event.Builder eventID(@Nullable String eventID) {
       this.eventID = eventID;
       return this;
     }
 
-    /**
-     * The events client that will be used to connect to an events service and share data added to
-     * the event with other services and processors. If it is not set, the
-     *
-     * @return The events client or {@code null} if it has not been set.
-     */
-    public @Nullable EventsClient getEventsClient() {
-      return eventsClient;
+    public @Nullable String getEventInstanceID() {
+      return eventInstanceID;
     }
 
-    /**
-     * The events client that will be used to connect to an events service and share data added to
-     * the event with other services and processors.
-     *
-     * @param eventsClient Events client object.
-     */
-    public void setEventsClient(@Nullable EventsClient eventsClient) {
-      this.eventsClient = eventsClient;
+    public void setEventInstanceID(@Nullable String eventInstanceID) {
+      this.eventInstanceID = eventInstanceID;
     }
 
-    /**
-     * The events client that will be used to connect to an events service and share data added to
-     * the event with other services and processors.
-     *
-     * @param eventsClient Events client object.
-     *
-     * @return This builder.
-     */
-    public @NotNull Event.Builder eventsClient(@Nullable EventsClient eventsClient) {
-      this.eventsClient = eventsClient;
+    public @NotNull Event.Builder eventInstanceID(@Nullable String eventInstanceID) {
+      this.eventInstanceID = eventInstanceID;
       return this;
     }
 
@@ -494,6 +484,19 @@ public class Event implements AutoCloseable {
       return this;
     }
 
+    public @Nullable EventsClientPool getClientPool() {
+      return clientPool;
+    }
+
+    public void setClientPool(@Nullable EventsClientPool clientPool) {
+      this.clientPool = clientPool;
+    }
+
+    public @NotNull Event.Builder clientPool(@Nullable EventsClientPool clientPool) {
+      this.clientPool = clientPool;
+      return this;
+    }
+
     /**
      * Sets a map of label index names to default adapters, that will be used by any documents on
      * this event.
@@ -526,15 +529,26 @@ public class Event implements AutoCloseable {
      *                                                  service and only create new is set.
      */
     public @NotNull Event build() {
-      String eventID = getEventID();
-      if (eventsClient != null) {
-        eventsClient.openEvent(eventID, onlyCreateNew);
+      String eventID = this.eventID;
+      if (eventID == null) {
+        eventID = UUID.randomUUID().toString();
+      }
+      EventsClient client = null;
+      String eventInstanceID = this.eventInstanceID;
+      if (clientPool != null) {
+        if (eventInstanceID != null) {
+          client = clientPool.instanceFor(eventInstanceID);
+        } else {
+          client = clientPool.nextInstance();
+          eventInstanceID = client.getInstanceId();
+        }
+        client.openEvent(eventID, onlyCreateNew);
       }
       Map<String, ProtoLabelAdapter<?>> defaultAdapters = this.defaultAdapters;
       if (defaultAdapters == null) {
         defaultAdapters = Collections.emptyMap();
       }
-      return new Event(eventID, eventsClient, defaultAdapters);
+      return new Event(eventID, eventInstanceID, client, defaultAdapters);
     }
   }
 }

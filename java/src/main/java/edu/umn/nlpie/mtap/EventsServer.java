@@ -171,9 +171,20 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
 
   private static class EventsServicer extends EventsGrpc.EventsImplBase {
     private final @NotNull ConcurrentHashMap<@NotNull String, @NotNull EventStore> backingMap;
+    private final UUID instanceId;
 
     private EventsServicer() {
       backingMap = new ConcurrentHashMap<>();
+      instanceId = UUID.randomUUID();
+    }
+
+    @Override
+    public void getEventsInstanceId(EventsOuterClass.GetEventsInstanceIdRequest request, StreamObserver<EventsOuterClass.GetEventsInstanceIdResponse> responseObserver) {
+      LOGGER.debug("Get Instance Id called");
+      responseObserver.onNext(EventsOuterClass.GetEventsInstanceIdResponse.newBuilder()
+          .setInstanceId(instanceId.toString()).build());
+      responseObserver.onCompleted();
+      LOGGER.debug("Get Instance Id completed");
     }
 
     @Override
