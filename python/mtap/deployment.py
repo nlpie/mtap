@@ -273,7 +273,7 @@ class EventsDeployment:
                 splits = address.split(':')
                 if len(splits) == 2:
                     host, port = splits
-                    if host is '':
+                    if host == '':
                         host = None
                 else:
                     host = splits[0]
