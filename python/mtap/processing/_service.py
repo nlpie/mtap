@@ -140,7 +140,7 @@ def _mp_call_process(event_id, event_service_instance_id, params):
 
 
 class MpProcessorRunner:
-    __slots__ = ('pool', 'metadata', 'processor_id')
+    __slots__ = ('pool', 'metadata', 'processor_id', 'component_id')
 
     def __init__(self,
                  proc: 'mtap.EventProcessor',
@@ -157,6 +157,7 @@ class MpProcessorRunner:
                                     initargs=(proc, events_address, dict(config)))
         self.metadata = proc.metadata
         self.processor_id = identifier
+        self.component_id = identifier
 
     def call_process(self,
                      event_id: str,
@@ -239,7 +240,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
                  config: 'mtap.Config',
                  address: str,
-                 runner: '',
+                 runner: '_base.ProcessingComponent',
                  health_servicer: health.HealthServicer,
                  register: bool = False):
         self.config = config
@@ -250,6 +251,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
         self._times_map = {}
         self._deregister = None
+        self.processed = 0
+        self.failure_count = 0
 
     def start(self, port: int):
 
@@ -306,8 +309,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
             return empty_pb2.Empty()
 
     def GetStats(self, request, context):
-        r = processing_pb2.GetStatsResponse(processed=self._runner.processed,
-                                            failures=self._runner.failure_count)
+        r = processing_pb2.GetStatsResponse(processed=self.processed,
+                                            failures=self.failure_count)
         for k, v in _timing.create_timer_stats(self._times_map, self._runner.component_id).items():
             ts = r.timing_stats[k]
             ts.mean.FromTimedelta(v.mean)

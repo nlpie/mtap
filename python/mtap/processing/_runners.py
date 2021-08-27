@@ -36,10 +36,10 @@ class ProcessorRunner(_base.ProcessingComponent):
                  identifier: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = proc
-        self.component_id = identifier
         self.params = params or {}
         self.metadata = proc.metadata
         self.processor_id = identifier
+        self.component_id = identifier
         self.client = client
 
     def call_process(self, event_id, event_instance_id, params):
@@ -60,11 +60,11 @@ class ProcessorRunner(_base.ProcessingComponent):
 
 
 class RemoteRunner(_base.ProcessingComponent):
-    __slots__ = ('_processor_id', 'component_id', '_address', 'params', '_channel', '_stub')
+    __slots__ = ('processor_id', 'component_id', '_address', 'params', '_channel', '_stub')
 
     def __init__(self, processor_id, component_id, address=None, params=None,
                  enable_proxy=False):
-        self._processor_id = processor_id
+        self.processor_id = processor_id
         self.component_id = component_id
         self._address = address
         self.params = params
@@ -87,13 +87,13 @@ class RemoteRunner(_base.ProcessingComponent):
 
     def call_process(self, event_id, event_instance_id, params):
         logger.debug('processor_id: %s calling process on event_id: %s with event_instance_id: %s',
-                     self._processor_id, event_id, event_instance_id)
+                     self.processor_id, event_id, event_instance_id)
         p = dict(self.params or {})
         if params is not None:
             p.update(params)
 
         with _base.Processor.enter_context() as context:
-            request = processing_pb2.ProcessRequest(processor_id=self._processor_id,
+            request = processing_pb2.ProcessRequest(processor_id=self.processor_id,
                                                     event_id=event_id,
                                                     event_service_instance_id=event_instance_id)
             _structs.copy_dict_to_struct(p, request.params, [p])

@@ -414,6 +414,8 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
 class ProcessingComponent(ABC):
     __slots__ = ()
 
+    metadata = {}
+
     @abstractmethod
     def call_process(self, event_id: str, event_instance_id: str,
                      params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
