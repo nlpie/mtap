@@ -28,7 +28,7 @@ from tqdm import tqdm
 
 from mtap import EventsClient, Config
 from mtap.data import Event
-from mtap.processing import _base, _runners
+from mtap.processing import _base, _runners, _timing
 
 if TYPE_CHECKING:
     import mtap
@@ -67,6 +67,7 @@ class RemoteProcessor(_base.ComponentDescriptor):
             An optional parameter dictionary that will be passed to the processor as parameters
             with every event or document processed. Values should be json-serializable.
     """
+    __slots__ = ('processor_id', 'address', 'component_id', 'params', 'enable_proxy')
 
     def __init__(self, processor_id: str, *, address: Optional[str] = None,
                  component_id: Optional[str] = None, params: Optional[Dict[str, Any]] = None,
@@ -127,6 +128,7 @@ class LocalProcessor(_base.ComponentDescriptor):
             An optional parameter dictionary that will be passed to the processor as parameters
             with every event or document processed. Values should be json-serializable.
     """
+    __slots__ = ('proc', 'component_id', 'params')
 
     def __init__(self, proc: 'mtap.EventProcessor',
                  *, component_id: Optional[str] = None,
@@ -188,23 +190,35 @@ def _create_pipeline(name: Optional[str] = None,
 
 
 class MpConfig:
-    __slots__ = ("max_failures", "show_progress", "workers", "read_ahead", "close_events")
+    """Configuration object for pipeline multiprocessing.
+
+    Args:
+        max_failures (~typing.Optional[int])
+            Override for maximum number of failures before cancelling the pipeline run. Default is
+            0.
+        show_progress (~typing.Optional[bool])
+            Override for whether progress should be displayed in console. Default is true.
+        workers (~typing.Optional[int])
+            Number of workers to concurrently process events through the pipeline. Default is 4.
+        read_ahead (~typing.Optional[int])
+            The number of documents to read onto the events service(s) to queue for processing.
+            Default is equal to number of workers.
+        close_events (~typing.Optional[bool])
+            Whether any events passed from the source to the pipeline should be closed when the
+            pipeline is completed. Default is true.
+        mp_start_method (~typing.Optional[str])
+            The start method for multiprocessing processes see: :meth:`multiprocessing.get_context`.
+    """
+    __slots__ = ("max_failures", "show_progress", "workers", "read_ahead", "close_events",
+                 "mp_start_method")
 
     def __init__(self,
                  max_failures: Optional[int] = None,
                  show_progress: Optional[bool] = None,
                  workers: Optional[int] = None,
                  read_ahead: Optional[int] = None,
-                 close_events: Optional[bool] = None):
-        """
-
-        Args:
-            max_failures:
-            show_progress:
-            workers:
-            read_ahead:
-            close_events:
-        """
+                 close_events: Optional[bool] = None,
+                 mp_start_method: Optional[str] = None):
         self.max_failures = 0 if max_failures is None else max_failures
         if not type(self.max_failures) == int or self.max_failures < 0:
             raise ValueError("max_failures must be None or non-negative integer")
@@ -220,15 +234,11 @@ class MpConfig:
         self.close_events = True if close_events is None else close_events
         if not type(self.close_events) == bool:
             raise ValueError("close_events must be None or a bool.")
+        self.mp_start_method = mp_start_method
 
     @staticmethod
     def from_configuration(conf: Dict) -> 'MpConfig':
-        max_failures = conf.get('max_failures', None)
-        show_progress = conf.get('show_progress', None)
-        workers = conf.get('workers', None)
-        read_ahead = conf.get('read_ahead', None)
-        close_events = conf.get('close_events', None)
-        return MpConfig(max_failures, show_progress, workers, read_ahead, close_events)
+        return MpConfig(**conf)
 
 
 class Pipeline(MutableSequence['processing.ComponentDescriptor']):
@@ -303,7 +313,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         name (str): The pipeline's name.
     """
     __slots__ = ['_component_ids', 'name', '_component_descriptors', 'events_address',
-                 'mp_config', '_created_events_client', '_events_client', '__times_collector',
+                 'mp_config', '_created_events_client', '_events_client', 'times_map',
                  '__components']
 
     def __init__(self, *components: 'processing.ComponentDescriptor',
@@ -320,6 +330,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         if events_client is not None:
             self.events_client = events_client
         self.mp_config = mp_config or MpConfig()
+        self.times_map = {}
 
     def __reduce__(self):
         return _create_pipeline, (self.name,
@@ -360,7 +371,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
 
         """
         name = conf.get('name', None)
-        events_address = conf.get('events_address', None)
+        events_address = conf.get('events_address', None) or conf.get('events_addresses', None)
         components = []
         conf_components = conf.get('components', [])
         for conf_component in conf_components:
@@ -388,14 +399,6 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         self._events_client = value
 
     @property
-    def _times_collector(self):
-        try:
-            return self.__times_collector
-        except AttributeError:
-            self.__times_collector = _runners.ProcessingTimesCollector()
-            return self.__times_collector
-
-    @property
     def _components(self) -> 'List[processing.ProcessingComponent]':
         try:
             return self.__components
@@ -416,12 +419,13 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             source: Union[
                 Iterable[Union['mtap.Document', 'mtap.Event']], 'processing.ProcessingSource'],
             *, params: Optional[Dict[str, Any]] = None,
-            progress: Optional[bool] = None,
+            show_progress: Optional[bool] = None,
             total: Optional[int] = None,
             close_events: Optional[bool] = None,
             max_failures: Optional[int] = None,
             workers: Optional[int] = None,
-            read_ahead: Optional[int] = None
+            read_ahead: Optional[int] = None,
+            mp_context=None
     ):
         """Runs this pipeline on a source which provides multiple documents / events.
 
@@ -433,26 +437,28 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                 A generator of events or documents to process. This should be an
                 :obj:`~typing.Iterable` of either :obj:`Event` or :obj:`Document` objects or a
                 :obj:`~mtap.processing.ProcessingSource`.
-            params (dict[str, ~typing.Any])
+            params (~typing.Optional[dict[str, ~typing.Any]])
                 Json object containing params specific to processing this event, the existing params
                 dictionary defined in :func:`~PipelineBuilder.add_processor` will be updated with
                 the contents of this dict.
-            progress (bool)
+            show_progress (~typing.Optional[bool])
                 Whether to print a progress bar using tqdm.
             total (~typing.Optional[int])
                 An optional argument indicating the total number of events / documents that will be
                 provided by the iterable, for the progress bar.
-            close_events (bool)
+            close_events (~typing.Optional[bool])
                 Whether the pipeline should close events after they have been fully processed
                 through all components.
-            max_failures (int)
+            max_failures (~typing.Optional[int])
                 The number of acceptable failures. Once this amount is exceeded processing will
                 halt. Note that because of the nature of conccurrency processing may continue for a
                 short amount of time before termination.
-            workers (int)
+            workers (~typing.Optional[int])
                 The number of threads to process documents on.
-            read_ahead
+            read_ahead (~typing.Optional[int])
                 The number of source documents to read ahead into memory before processing.
+            mp_context (multiprocessing context, optional)
+                An optional override for the multiprocessing context.
 
         Examples:
             >>> docs = list(Path('abc/').glob('*.txt'))
@@ -467,13 +473,15 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             >>> pipeline.run_multithread(document_source(), total=len(docs))
 
         """
-        progress = progress if progress is not None else self.mp_config.show_progress
+        show_progress = show_progress if show_progress is not None else self.mp_config.show_progress
         close_events = close_events if close_events is not None else self.mp_config.close_events
         max_failures = max_failures if max_failures is not None else self.mp_config.max_failures
         workers = workers if workers is not None else self.mp_config.workers
+        mp_context = (multiprocessing.get_context(self.mp_config.mp_start_method)
+                      if mp_context is None else mp_context)
         read_ahead = read_ahead if read_ahead is not None else self.mp_config.read_ahead
-        with _PipelineMultiRunner(self, source, params, progress, total, close_events, max_failures,
-                                  workers, read_ahead) as runner:
+        with _PipelineMultiRunner(self, source, params, show_progress, total, close_events,
+                                  max_failures, workers, read_ahead, mp_context) as runner:
             runner.run()
 
     def run(self, target: Union['mtap.Event', 'mtap.Document'], *,
@@ -503,7 +511,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         event, params = _event_and_params(target, params)
         event_id = event.event_id
 
-        result = self._run_by_event_id(event_id, params)
+        result = self._run_by_event_id(event_id, event.event_service_instance_id, params)
         self._add_result_times(result)
 
         for component_result in result.component_results:
@@ -513,9 +521,10 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                 pass
         return result
 
-    def _run_by_event_id(self, event_id, params):
+    def _run_by_event_id(self, event_id, event_service_instance_id, params):
         start = datetime.now()
-        results = [component.call_process(event_id, params) for component in self._components]
+        results = [component.call_process(event_id, event_service_instance_id, params)
+                   for component in self._components]
         total = datetime.now() - start
         results = [_base.ProcessingResult(identifier=component.component_id, result_dict=result[0],
                                           timing_info=result[1], created_indices=result[2]) for
@@ -528,7 +537,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         for component_id, _, component_times, _ in result.component_results:
             times.update({component_id + ':' + k: v for k, v in component_times.items()})
         times[self.name + 'total'] = result.elapsed_time
-        self._times_collector.add_times(times)
+        _timing.add_times(self.times_map, times)
 
     @overload
     def processor_timer_stats(self) -> 'List[processing.AggregateTimingInfo]':
@@ -557,13 +566,13 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
 
     def processor_timer_stats(self, identifier=None):
         if identifier is not None:
-            aggregates = self._times_collector.get_aggregates(identifier + ':')
+            aggregates = _timing.create_timer_stats(self.times_map, identifier + ':')
             aggregates = {k[(len(identifier) + 1):]: v for k, v in aggregates.items()}
             return _base.AggregateTimingInfo(identifier=identifier, timing_info=aggregates)
         timing_infos = []
         for component in self._components:
             component_id = component.component_id
-            aggregates = self._times_collector.get_aggregates(component_id + ':')
+            aggregates = _timing.create_timer_stats(self.times_map, component_id + ':')
             aggregates = {k[(len(component_id) + 1):]: v for k, v in aggregates.items()}
             timing_infos.append(
                 _base.AggregateTimingInfo(identifier=component_id, timing_info=aggregates))
@@ -578,7 +587,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
 
         """
         pipeline_id = self.name
-        aggregates = self._times_collector.get_aggregates(pipeline_id)
+        aggregates = _timing.create_timer_stats(self.times_map, pipeline_id)
         aggregates = {k[len(pipeline_id):]: v for k, v in aggregates.items()}
         return _base.AggregateTimingInfo(identifier=self.name, timing_info=aggregates)
 
@@ -648,7 +657,7 @@ class ProcessingSource(ContextManager, ABC):
     for receiving results.
 
     """
-    _total = None
+    __slots__ = ('_total',)
 
     @property
     def total(self) -> Optional[int]:
@@ -658,7 +667,10 @@ class ProcessingSource(ContextManager, ABC):
             str or None count of the total events or None if not known.
 
         """
-        return self._total
+        try:
+            return self._total
+        except AttributeError:
+            return None
 
     @total.setter
     def total(self, count: Optional[int]):
@@ -732,6 +744,7 @@ class _IterableProcessingSource(ProcessingSource):
     """Wraps an iterable in a ProcessingSource for the multi-thread processor.
 
     """
+    __slots__ = ('it',)
 
     def __init__(self, source):
         # We use an iterator here so we can ensure that it gets closed on unexpected / early
@@ -756,11 +769,14 @@ class _IterableProcessingSource(ProcessingSource):
 
 
 class _PipelineProcessor(_base.EventProcessor):
+    __slots__ = ('_components',)
+
     def __init__(self, components: List['processing.ProcessingComponent']):
         self._components = components
 
     def process(self, event: 'mtap.Event', params: Dict[str, Any] = None):
-        results = [component.call_process(event.event_id, params) for component in self._components]
+        results = [component.call_process(event.event_id, event.event_service_instance_id, params)
+                   for component in self._components]
         times = {}
         for _, component_times, _ in results:
             times.update(component_times)
@@ -784,18 +800,22 @@ def _mp_process_init(config, pipeline):
     signal.signal(signal.SIGINT, cleanup_pipeline)
 
 
-def _mp_process_event(event_id, params):
+def _mp_process_event(event_id, event_service_instance_id, params):
     assert isinstance(_mp_pipeline, Pipeline)
     try:
-        result = _mp_pipeline._run_by_event_id(event_id, params)
+        result = _mp_pipeline._run_by_event_id(event_id, event_service_instance_id, params)
     except Exception:
         return event_id, None, traceback.format_exc()
     return event_id, result, None
 
 
 class _PipelineMultiRunner:
+    __slots__ = ('pipeline', 'failures', 'max_failures', 'targets_cond', 'active_targets',
+                 'close_events', 'max_targets', 'n_threads', 'progress_bar', 'source', 'params',
+                 'pool', 'active_events')
+
     def __init__(self, pipeline, source, params, progress, total, close_events, max_failures,
-                 n_threads, read_ahead):
+                 n_threads, read_ahead, mp_context):
         self.pipeline = pipeline
         self.failures = 0
         self.max_failures = max_failures
@@ -816,7 +836,7 @@ class _PipelineMultiRunner:
         self.source = source
         self.params = params
 
-        self.pool = multiprocessing.Pool(
+        self.pool = mp_context.Pool(
             self.n_threads,
             initializer=_mp_process_init,
             initargs=(Config(), pipeline)
@@ -878,7 +898,9 @@ class _PipelineMultiRunner:
                 event.lease()
                 event_id = event.event_id
                 self.active_events[event_id] = event
-                self.pool.apply_async(_mp_process_event, args=(event_id, params),
+                self.pool.apply_async(_mp_process_event, args=(event_id,
+                                                               event.event_service_instance_id,
+                                                               params),
                                       callback=result_handler, error_callback=error_handler)
                 self.increment_active_tasks()
             except BaseException as e:
@@ -934,6 +956,7 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
          errors (~typing.Optional[str]): The errors argument for :func:`open`.
 
     """
+    __slots__ = ('client', 'input_directory', 'document_name', 'extension_glob', 'errors', 'total')
 
     def __init__(self, client: 'mtap.EventsClient',
                  directory: Union[pathlib.Path, str],

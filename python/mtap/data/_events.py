@@ -440,6 +440,8 @@ class Labeler(Generic[L], ContextManager['Labeler']):
     """Object provided by :func:`~'mtap.Document'.get_labeler` which is responsible for adding labels
     to a label index on a document.
     """
+    __slots__ = ('_client', '_document', '_label_index_name', '_label_adapter', 'is_done',
+                 '_current_labels', '_lock')
 
     def __init__(self,
                  client: 'mtap.EventsClient',
@@ -514,6 +516,8 @@ def create_channel(address):
 
 
 class _ClientPool:
+    __slots__ = ('_ptr', 'clients', 'instance_id_to_delegate')
+
     def __init__(self, channel_factory, addresses):
         self._ptr = 0
         self.clients = [EventsClient(address=addresses, channel_factory=channel_factory,
@@ -548,6 +552,8 @@ class EventsClient:
         >>>     document = event.create_document(document_name='plaintext',
         >>>                                      text='The quick brown fox jumps over the lazy dog.')
     """
+    __slots__ = ('addresses', 'channel_factory', '_pool', '_channel', 'stub', '_instance_id',
+                 '_is_open')
 
     def __init__(self, address: Optional[Union[str, Iterable[str]]],
                  channel_factory: Callable[[str], grpc.Channel] = None,
@@ -700,6 +706,8 @@ def _create_events_client(addresses, channel_factory):
 
 
 class _Documents(MutableMapping[str, Document]):
+    __slots__ = ('event', 'event_id', 'client', 'documents')
+
     def __init__(self, event: Event, client: Optional[EventsClient]):
         self.event = event
         self.event_id = event.event_id
@@ -754,6 +762,8 @@ class _Documents(MutableMapping[str, Document]):
 
 
 class _Metadata(MutableMapping[str, str]):
+    __slots__ = ('_client', '_event', '_event_id', '_metadata')
+
     def __init__(self, event: Event, client: Optional[EventsClient] = None):
         self._client = client
         self._event = event
@@ -799,6 +809,8 @@ class _Metadata(MutableMapping[str, str]):
 
 
 class _Binaries(collections.abc.MutableMapping):
+    __slots__ = ('_client', '_event', '_event_id', '_names', '_binaries')
+
     def __init__(self, event: Event, client: Optional[EventsClient] = None):
         self._client = client
         self._event = event
@@ -850,6 +862,8 @@ class _Binaries(collections.abc.MutableMapping):
 
 
 class _LabelIndices(Mapping[str, 'data.LabelIndex']):
+    __slots__ = ('_document', '_document_name', '_event_id', '_client', '_cache', '_names_cache')
+
     def __init__(self, document: Document):
         self._document = document
         self._document_name = document.document_name

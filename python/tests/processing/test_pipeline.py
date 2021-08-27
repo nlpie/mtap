@@ -46,6 +46,7 @@ def test_time_result(mocker):
     client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
+    client.instance_id = 0
     with Pipeline(
             LocalProcessor(Processor(), component_id='test_processor'),
             events_client=client
@@ -60,6 +61,7 @@ def test_run_concurrently(mocker):
     client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
+    client.instance_id = 0
     with Pipeline(
             LocalProcessor(Processor('1', ), component_id='processor1'),
             LocalProcessor(Processor('2', ), component_id='processor2'),
@@ -68,7 +70,7 @@ def test_run_concurrently(mocker):
     ) as pipeline:
         pipeline.events_client = client
         events = [Event() for _ in range(10)]
-        pipeline.run_multithread(events, progress=False)
+        pipeline.run_multithread(events, show_progress=False)
 
 
 def test_run_concurrently_with_failure(mocker):
@@ -76,6 +78,7 @@ def test_run_concurrently_with_failure(mocker):
     client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
+    client.instance_id = 0
     with Pipeline(
             LocalProcessor(Processor('1', ), component_id='processor1'),
             LocalProcessor(Processor('2', ), component_id='processor2'),
@@ -85,7 +88,7 @@ def test_run_concurrently_with_failure(mocker):
         events = [Event(event_id=str(i), client=client) for i in range(7)] + [
             Event(event_id='fail_' + str(i), client=client) for i in range(4)]
         with pytest.raises(ValueError) as e_info:
-            pipeline.run_multithread(events, progress=False, max_failures=2)
+            pipeline.run_multithread(events, show_progress=False, max_failures=2)
 
 
 class Source(ProcessingSource):
@@ -110,15 +113,17 @@ def test_run_concurrently_source(mocker):
     client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
+    client.instance_id = 0
     with Pipeline(
             LocalProcessor(Processor('1', ), component_id='processor1'),
             LocalProcessor(Processor('2', ), component_id='processor2'),
             LocalProcessor(Processor('3', ), component_id='processor3'),
             events_client=client
     ) as pipeline:
+        pipeline.mp_config
         events = [Event() for _ in range(10)]
         source = Source(events)
-        pipeline.run_multithread(source, progress=False)
+        pipeline.run_multithread(source, show_progress=False)
 
 
 def test_run_concurrently_with_failure_source(mocker):
@@ -126,17 +131,18 @@ def test_run_concurrently_with_failure_source(mocker):
     client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
+    client.instance_id = 0
     with Pipeline(
-            LocalProcessor(Processor('1', ), component_id='processor1'),
-            LocalProcessor(Processor('2', ), component_id='processor2'),
-            LocalProcessor(Processor('3', ), component_id='processor3'),
+            LocalProcessor(Processor('1'), component_id='processor1'),
+            LocalProcessor(Processor('2'), component_id='processor2'),
+            LocalProcessor(Processor('3'), component_id='processor3'),
             events_client=client
     ) as pipeline:
         pass_events = [Event(event_id=str(i), client=client) for i in range(7)]
         fail_events = [Event(event_id='fail_' + str(i), client=client) for i in range(4)]
         source = Source(pass_events + fail_events)
         with pytest.raises(ValueError) as e_info:
-            pipeline.run_multithread(source, progress=False, max_failures=2)
+            pipeline.run_multithread(source, show_progress=False, max_failures=2)
 
 
 def test_load_from_config():

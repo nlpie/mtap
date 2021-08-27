@@ -19,7 +19,6 @@ import typing
 import uuid
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
-from uuid import UUID
 
 import grpc
 from google.protobuf import empty_pb2
@@ -44,11 +43,17 @@ class EventsServer:
     Keyword Args:
         port (int): The port to host the server on.
         register (bool): Whether to register the service with service discovery.
-        workers: The number of workers that should handle requests.
+        workers (int): The number of workers that should handle requests.
+        write_address (bool): Whether to write the events service address to a file.
+        config (mtap.Config): An optional mtap config.
     """
 
     def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10,
                  write_address: bool = False, config: 'Optional[mtap.Config]' = None):
+        if host is None:
+            host = '127.0.0.1'
+        if port is None:
+            port = 0
         self.write_address = write_address
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         if config is None:

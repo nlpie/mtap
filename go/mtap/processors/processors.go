@@ -148,13 +148,13 @@ func (ps *ProcessorsServer) watcher() {
 		case <-ps.t.C:
 		}
 		// do lookup, deregistering any processors that went away and adding any new ones.
-		go ps.doUpdate()
+		ps.doUpdate()
 	}
 }
 
-func (ps *ProcessorsServer) doUpdate() error {
+func (ps *ProcessorsServer) doUpdate() {
 	if !ps.semaphore.TryAcquire(1) {
-		return nil
+		return
 	}
 	defer ps.semaphore.Release(1)
 
@@ -164,7 +164,7 @@ func (ps *ProcessorsServer) doUpdate() error {
 	services, _, err := ps.client.Catalog().Services(nil)
 	if err != nil {
 		glog.Warningf("Error getting processing services from consul %v", err)
-		return err
+		return
 	}
 	availableProcessors := make([]string, 0, 10)
 	for service, tags := range services {
@@ -184,7 +184,7 @@ func (ps *ProcessorsServer) doUpdate() error {
 			nil)
 		if err != nil {
 			glog.Errorf("Error getting processing services from consul %v", err)
-			return err
+			return
 		}
 
 		for _, entry := range entries {
@@ -246,8 +246,6 @@ func (ps *ProcessorsServer) doUpdate() error {
 	}
 	ps.processors = processorsCopy
 	glog.V(2).Info("Finished updating processor gateways")
-
-	return nil
 }
 
 func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProcessor) (*processorGateway, error) {

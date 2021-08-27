@@ -23,45 +23,36 @@ from requests import RequestException
 
 import mtap
 from mtap import RemoteProcessor, EventsClient, Event
-from mtap.utilities import subprocess_events_server
+from mtap.utilities import subprocess_events_server, find_free_port
 
 
 @pytest.fixture(name='disc_python_events')
 def fixture_disc_python_events():
-    config_path = Path(__file__).parent / 'integrationConfig.yaml'
-    with subprocess_events_server(port=50500, cwd=Path(__file__).parents[2],
-                                  config_path=config_path, register=True) as address:
+    with subprocess_events_server(cwd=Path(__file__).parents[2], register=True) as address:
         yield address
 
 
 @pytest.fixture(name='disc_python_processor')
 def fixture_disc_python_processor(disc_python_events, processor_watcher):
-    env = dict(os.environ)
-    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['python', '-m', 'mtap.examples.example_processor',
                '-p', '50501', '--register'],
-              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+              start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:50501", process=p)
 
 
 @pytest.fixture(name="disc_java_processor")
 def fixture_disc_java_processor(disc_python_events, processor_watcher):
     mtap_jar = os.environ['MTAP_JAR']
-    env = dict(os.environ)
-    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
     p = Popen(['java', '-cp', mtap_jar,
                'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
                '-p', '50502', '--register'],
-              stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+              stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
 
 
 @pytest.fixture(name="disc_api_gateway")
 def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor):
-    env = dict(os.environ)
-    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
-    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT,
-              env=env)
+    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     session = requests.Session()
     session.trust_env = False
     try:

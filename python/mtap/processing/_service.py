@@ -18,8 +18,7 @@ import threading
 import time
 import traceback
 import typing
-from typing import Any, Dict, Tuple
-from typing import Callable, Iterable, Optional, Union
+from typing import Any, Dict, Tuple, Sequence, Optional, Union
 
 import google.protobuf.empty_pb2 as empty_pb2
 import grpc
@@ -31,7 +30,7 @@ from mtap import _structs
 from mtap import data
 from mtap import utilities
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
-from mtap.processing import _base, _runners
+from mtap.processing import _base, _runners, _timing
 
 if typing.TYPE_CHECKING:
     import mtap
@@ -40,23 +39,20 @@ logger = logging.getLogger(__name__)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
-def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventProcessor]]',
-                  proc_args: 'Iterable[...]' = (),
+def run_processor(proc: 'mtap.EventProcessor',
                   *,
                   mp: bool = False,
-                  namespace: Optional[argparse.Namespace] = None,
-                  args: Optional[typing.Sequence[str]] = None,
+                  options: Optional[argparse.Namespace] = None,
+                  args: Optional[Sequence[str]] = None,
                   mp_context=None):
     """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
 
     Args:
-        proc (EventProcessor or Callable[[...], EventProcessor]): The processor to host.
-        proc_args (Optional[Iterable[...]]): If callable was provided for processor, the arguments
-            used to create the processor instance.
+        proc (EventProcessor): The processor to host.
         mp (bool): If true, will create instances of ``proc`` on multiple forked processes to
             process events. This is useful if the processor is computationally intensive and would
             run into Python GIL issues on a single process.
-        namespace (~typing.Optional[~argparse.Namespace]): The parsed arguments from the parser
+        options (~typing.Optional[~argparse.Namespace]): The parsed arguments from the parser
             returned by :func:`processor_parser`.
         args (~typing.Optional[~typing.Sequence[str]]): Arguments to parse server settings from if
             ``namespace`` was not supplied.
@@ -74,41 +70,44 @@ def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventPr
 
 
     """
-    if namespace is None:
+    if options is None:
         processors_parser = argparse.ArgumentParser(parents=[processor_parser()])
         processors_parser.add_help = True
-        namespace = processors_parser.parse_args(args)
+        options = processors_parser.parse_args(args)
 
-    if namespace.log_level:
-        logging.basicConfig(level=getattr(logging, namespace.log_level))
+    if options.log_level:
+        logging.basicConfig(level=getattr(logging, options.log_level))
+
+    events_addresses = []
+    if options.events_addresses is not None:
+        events_addresses.extend(options.events_addresses.split(','))
 
     with _config.Config() as c:
-        if namespace.mtap_config is not None:
-            c.update_from_yaml(namespace.mtap_config)
+        if options.mtap_config is not None:
+            c.update_from_yaml(options.mtap_config)
         # instantiate runner
-        processor_id = namespace.identifier or proc.metadata['name']
+        processor_id = options.identifier or proc.metadata['name']
 
-        enable_http_proxy = namespace.grpc_enable_http_proxy
+        enable_http_proxy = options.grpc_enable_http_proxy
         if enable_http_proxy is not None:
             c['grpc.enable_proxy'] = enable_http_proxy
         if mp:
-            runner = MpProcessorRunner(proc_fn=proc,
-                                       proc_args=proc_args,
-                                       workers=namespace.workers,
-                                       events_address=namespace.events_address,
+            runner = MpProcessorRunner(proc=proc,
+                                       workers=options.workers,
+                                       events_address=events_addresses,
                                        identifier=processor_id,
                                        mp_context=mp_context)
         else:
-            client = data.EventsClient(address=namespace.events_address)
+            client = data.EventsClient(address=events_addresses)
             runner = _runners.ProcessorRunner(proc, client=client,
                                               identifier=processor_id,
                                               params=None)
         server = ProcessorServer(runner=runner,
-                                 host=namespace.host,
-                                 port=namespace.port,
-                                 register=namespace.register,
-                                 workers=namespace.workers,
-                                 write_address=namespace.write_address)
+                                 host=options.host,
+                                 port=options.port,
+                                 register=options.register,
+                                 workers=options.workers,
+                                 write_address=options.write_address)
         server.start()
         try:
             while True:
@@ -117,27 +116,37 @@ def run_processor(proc: 'Union[mtap.EventProcessor, Callable[[...], mtap.EventPr
             server.stop()
 
 
-def _mp_initialize(proc_fn, proc_args, events_address, config):
+_mp_processor = ...  # EventProcessor
+_mp_client = ...  # EventClient
+
+
+def _mp_initialize(proc: 'mtap.EventProcessor', events_address, config):
+    global _mp_processor
+    global _mp_client
     _config.Config(config)
-    _mp_call_process.processor = proc_fn(*proc_args)
-    _mp_call_process.client = data.EventsClient(address=events_address)
+    _mp_processor = proc
+    _mp_client = data.EventsClient(address=events_address)
 
 
-def _mp_call_process(event_id, params):
+def _mp_call_process(event_id, event_service_instance_id, params):
+    global _mp_processor
+    global _mp_client
     with _base.Processor.enter_context() as c, \
-            data.Event(event_id=event_id, client=_mp_call_process.client) as event:
+            data.Event(event_id=event_id, event_service_instance_id=event_service_instance_id,
+                       client=_mp_client) as event:
         with _base.Processor.started_stopwatch('process_method'):
-            result = _mp_call_process.processor.process(event, params)
+            result = _mp_processor.process(event, params)
         return result, c.times, event.created_indices
 
 
 class MpProcessorRunner:
+    __slots__ = ('pool', 'metadata', 'processor_id')
+
     def __init__(self,
-                 proc_fn: 'typing.Callable[[...], mtap.EventProcessor]',
+                 proc: 'mtap.EventProcessor',
                  identifier: str,
-                 proc_args: 'typing.Iterable[...]' = (),
                  workers: 'Optional[int]' = 8,
-                 events_address: 'Optional[str]' = None,
+                 events_address: 'Optional[Union[str, Sequence[str]]]' = None,
                  mp_context=None):
         if mp_context is None:
             import multiprocessing as mp
@@ -145,18 +154,19 @@ class MpProcessorRunner:
         config = _config.Config()
         self.pool = mp_context.Pool(workers,
                                     initializer=_mp_initialize,
-                                    initargs=(proc_fn, proc_args, events_address, dict(config)))
-        self.metadata = proc_fn.metadata
+                                    initargs=(proc, events_address, dict(config)))
+        self.metadata = proc.metadata
         self.processor_id = identifier
 
     def call_process(self,
                      event_id: str,
+                     event_service_instance_id: str,
                      params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
         p = dict()
         if params is not None:
             p.update(params)
 
-        return self.pool.apply(_mp_call_process, args=(event_id, params))
+        return self.pool.apply(_mp_call_process, args=(event_id, event_service_instance_id, p))
 
     def close(self):
         self.pool.terminate()
@@ -193,7 +203,8 @@ def processor_parser() -> argparse.ArgumentParser:
                                         'service discovery')
     processors_parser.add_argument("--mtap-config", default=None,
                                    help="path to MTAP config file")
-    processors_parser.add_argument('--events-address', '--events', '-e', default=None,
+    processors_parser.add_argument('--events-addresses', '--events-address', '--events', '-e',
+                                   default=None,
                                    help='address of the events service to use, '
                                         'omit to use discovery')
     processors_parser.add_argument('--identifier', '-i',
@@ -205,6 +216,9 @@ def processor_parser() -> argparse.ArgumentParser:
                                    help="Sets the python log level.")
     processors_parser.add_argument('--grpc-enable-http-proxy', action='store_true',
                                    help="If set, will enable usage of http_proxy by grpc.")
+    processors_parser.add_argument('--mp-spawn-method',
+                                   choices=['spawn', 'fork', 'forkserver', None],
+                                   help="A multiprocessing spawn method to use.")
     return processors_parser
 
 
@@ -234,7 +248,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         self.register = register
         self.health_servicer = health_servicer
 
-        self._times_collector = _runners.ProcessingTimesCollector()
+        self._times_map = {}
         self._deregister = None
 
     def start(self, port: int):
@@ -258,15 +272,24 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         self._runner.close()
 
     def Process(self, request, context=None):
+        event_id = request.event_id
+        event_service_instance_id = request.event_service_instance_id
+        logger.debug(
+            'processor_id: %s received process request on event_id: %s with event_service_instance_id: %s',
+            self._runner.processor_id, event_id, event_service_instance_id)
         params = {}
         _structs.copy_struct_to_dict(request.params, params)
         try:
             response = processing_pb2.ProcessResponse()
-            result, times, added_indices = self._runner.call_process(request.event_id, params)
+            result, times, added_indices = self._runner.call_process(
+                event_id,
+                event_service_instance_id,
+                params
+            )
             if result is not None:
                 _structs.copy_dict_to_struct(result, response.result, [])
 
-            self._times_collector.add_times(times)
+            _timing.add_times(self._times_map, times)
             for k, l in times.items():
                 response.timing_info[k].FromTimedelta(l)
             for document_name, l in added_indices.items():
@@ -285,7 +308,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def GetStats(self, request, context):
         r = processing_pb2.GetStatsResponse(processed=self._runner.processed,
                                             failures=self._runner.failure_count)
-        for k, v in self._times_collector.get_aggregates(self._runner.component_id).items():
+        for k, v in _timing.create_timer_stats(self._times_map, self._runner.component_id).items():
             ts = r.timing_stats[k]
             ts.mean.FromTimedelta(v.mean)
             ts.std.FromTimedelta(v.std)
@@ -331,9 +354,9 @@ class ProcessorServer:
                  port: int = 0,
                  *,
                  register: bool = False,
-                 workers: typing.Optional[int] = None,
+                 workers: Optional[int] = None,
                  write_address: bool = False,
-                 config: 'typing.Optional[mtap.Config]' = None):
+                 config: 'Optional[mtap.Config]' = None):
         self.host = host
         self._port = port
         self.processor_id = runner.processor_id
@@ -382,7 +405,7 @@ class ProcessorServer:
         logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
                     self.processor_id, self.host, self.port)
 
-    def stop(self, *, grace: typing.Optional[float] = None) -> threading.Event:
+    def stop(self, *, grace: Optional[float] = None) -> threading.Event:
         """De-registers (if registered with service discovery) the service and immediately stops
         accepting requests, completely stopping the service after a specified `grace` time.
 

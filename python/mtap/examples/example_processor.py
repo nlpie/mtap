@@ -55,4 +55,4 @@ class ExampleProcessor(mtap.DocumentProcessor):
 
 
 if __name__ == '__main__':
-    mtap.run_processor(ExampleProcessor, mp=True)
+    mtap.run_processor(ExampleProcessor(), mp=True)

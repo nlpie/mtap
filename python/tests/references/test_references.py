@@ -18,23 +18,22 @@ from subprocess import Popen, PIPE, STDOUT
 import pytest
 
 from mtap import EventsClient, RemoteProcessor, Pipeline, Event, GenericLabel
-from mtap.utilities import subprocess_events_server
+from mtap.utilities import subprocess_events_server, find_free_port
 
 
 @pytest.fixture(name='python_events')
 def fixture_python_events():
-    config_path = Path(__file__).parent / 'integrationConfig.yaml'
-    with subprocess_events_server(cwd=Path(__file__).parents[2],
-                                  config_path=config_path) as address:
+    with subprocess_events_server(cwd=Path(__file__).parents[2]) as address:
         yield address
 
 
 @pytest.fixture(name='python_references_processor')
 def fixture_python_references_processor(python_events, processor_watcher):
     env = dict(os.environ)
-    p = Popen(['python', '-m', 'mtap.examples.example_references_processor', '-p', '50501',
-               '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
-    yield from processor_watcher(address="127.0.0.1:50501", process=p)
+    port = str(find_free_port())
+    p = Popen(['python', '-m', 'mtap.examples.example_references_processor', '-p', port,
+               '--events', python_events, '--log-level', 'DEBUG'], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="java_references_processor")
@@ -42,16 +41,18 @@ def fixture_java_references_processor(python_events, processor_watcher):
     mtap_jar = os.environ['MTAP_JAR']
     mtap_jar = mtap_jar + ':' + str(Path(__file__).parents[1] / 'slf4j-simple-1.7.30.jar')
     env = dict(os.environ)
+    port = str(find_free_port())
     p = Popen(['java', '-cp', mtap_jar,
                'edu.umn.nlpie.mtap.examples.ReferenceLabelsExampleProcessor',
-               '-p', '50502', '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
-    yield from processor_watcher(address="127.0.0.1:50502", process=p)
+               '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.mark.integration
 def test_java_references(python_events, java_references_processor):
     with EventsClient(address=python_events) as client, Pipeline(
-        RemoteProcessor('mtap-java-reference-labels-example-processor', address='localhost:50502')
+        RemoteProcessor('mtap-java-reference-labels-example-processor',
+                        address=java_references_processor)
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             document = event.create_document('plaintext', 'abcd')
@@ -78,7 +79,7 @@ def test_java_references(python_events, java_references_processor):
 @pytest.mark.integration
 def test_python_references(python_events, python_references_processor):
     with EventsClient(address=python_events) as client, Pipeline(
-            RemoteProcessor('mtap-python-references-example', address='localhost:50501')
+            RemoteProcessor('mtap-python-references-example', address=python_references_processor)
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             document = event.create_document('plaintext', 'abcd')

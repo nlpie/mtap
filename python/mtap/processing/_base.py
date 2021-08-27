@@ -98,13 +98,6 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
             pass
 
 
-class ProcessorMeta(ABCMeta):
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        cls.metadata = {}
-        return cls
-
-
 processor_local = threading.local()
 
 
@@ -113,6 +106,8 @@ class Processor:
     serving status and use timers.
     """
     __slots__ = ('_health_callback',)
+
+    metadata = {}
 
     def __new__(cls, *args, **kwargs):
         instance = super().__new__(cls)
@@ -205,7 +200,7 @@ class Processor:
                 processor_local.context = old_context
 
 
-class EventProcessor(Processor, metaclass=ProcessorMeta):
+class EventProcessor(Processor):
     """Abstract base class for an event processor.
 
     Examples:
@@ -249,7 +244,7 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
         pass
 
 
-class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
+class DocumentProcessor(EventProcessor):
     """Abstract base class for a document processor.
 
     Examples:
@@ -420,7 +415,7 @@ class ProcessingComponent(ABC):
     __slots__ = ()
 
     @abstractmethod
-    def call_process(self, event_id: str,
+    def call_process(self, event_id: str, event_instance_id: str,
                      params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
         """Calls a processor.
 
@@ -428,6 +423,8 @@ class ProcessingComponent(ABC):
         ----------
         event_id: str
             The event to process.
+        event_instance_id: str
+            The service instance the event is stored on.
         params: Dict
             The processor parameters.
 

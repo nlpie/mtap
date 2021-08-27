@@ -88,7 +88,7 @@ func (*consulBuilder) Scheme() string {
 }
 
 func (r *consulResolver) ResolveNow(opts resolver.ResolveNowOptions) {
-	print("resolve now called")
+	glog.V(3).Infof("resolve now called")
 	select {
 	case r.rn <- struct{}{}:
 	default:

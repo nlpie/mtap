@@ -422,6 +422,11 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       } else {
         addresses = new String[]{null};
       }
+      ChannelFactory channelFactory = this.channelFactory;
+      if (channelFactory == null) {
+        channelFactory = new StandardChannelFactory(config);
+      }
+
       EventsClientPool clientPool = EventsClientPool.fromAddresses(addresses, channelFactory);
       ProcessorRunner runner = new LocalProcessorRunner(clientPool, processor);
       DiscoveryMechanism discoveryMechanism = null;
