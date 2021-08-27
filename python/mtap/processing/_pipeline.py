@@ -88,7 +88,6 @@ class RemoteProcessor(_base.ComponentDescriptor):
         runner = _runners.RemoteRunner(processor_id=self.processor_id,
                                        address=self.address, component_id=component_id,
                                        params=self.params, enable_proxy=self.enable_proxy)
-        runner.descriptor = self
         return runner
 
     def __repr__(self):
@@ -147,7 +146,6 @@ class LocalProcessor(_base.ComponentDescriptor):
                                           identifier=identifier,
                                           params=self.params,
                                           client=client())
-        runner.descriptor = self
         return runner
 
     def __repr__(self):
