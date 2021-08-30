@@ -3,39 +3,37 @@ global:
   # Leave null to use 127.0.0.1
   host: null
   # Leave null to use default configuration, otherwise provide a path to an mtap configuration file.
-  mtapConfig: null
+  mtap_config: null
   # Optional override to set the python log-level for all services
-  logLevel: INFO
+  log_level: INFO
   # Boolean yes to register with the configured service discovery.
   register: no
 # Configuration for an optional event service co-deployed with processors.
-eventsService:
+events_service:
   # Whether to deploy the events service.
   enabled: yes
-  # Leave null to use global host
-  host: null
-  # Leave null to use an arbitrary open port
-  port: 10100
+  # The address and port to deploy the events service.
+  address: 127.0.0.1:10100
   # The number of worker threads to handle requests
   workers: 8
 # Configuration that will be shared by all processors.
-sharedProcessorConfig:
+shared_processor_config:
   # An optional GRPC-compatible target for the events service to be used by all processors.
-  eventsAddress: null
+  events_address: null
   # The default number of worker threads which will perform processing.
   workers: 8
   # a list of additional arguments for the processor
   args: [ ]
-  jvmArgs: [ "-Xms32m", "-Xmx8g" ]
-  javaClasspath: null
-  startupTimeout: 30 # How long to wait for the processor to start up and respond.
+  jvm_args: [ "-Xms32m", "-Xmx8g" ]
+  java_classpath: null
+  startup_timeout: 30 # How long to wait for the processor to start up and respond.
 # Below this is a list of the processors to be deployed and their individual settings.
 processors:
   # The implementation language e.g. "python" or "java"
   - implementation: python
     # The processor entry point, either the python module or java class required to launch the
     # processor
-    entryPoint: mtap.examples.example_processor
+    entry_point: mtap.examples.example_processor
     # By default is "yes" when omitted, but can be specified to
     enabled: yes
     # The number of server instances of the processor to launch
@@ -54,11 +52,11 @@ processors:
     workers: 10
     # any arguments to be placed before the chain of processor arguments, for example a positional
     # argument for a sub-command.
-    preArgs: [ ]
+    pre_args: [ ]
     args: [ ]  # a list of additional arguments for the processor
-    startupTimeout: 60 # Optional override for startup timeout
+    startup_timeout: 60 # Optional override for startup timeout
   - implementation: java
-    entryPoint: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor
+    entry_point: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor
     instances: 1
     host: null
     port: 10102

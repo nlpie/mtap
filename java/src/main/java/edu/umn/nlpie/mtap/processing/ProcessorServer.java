@@ -21,7 +21,9 @@ import edu.umn.nlpie.mtap.common.Config;
 import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
+import edu.umn.nlpie.mtap.model.ChannelFactory;
 import edu.umn.nlpie.mtap.model.EventsClient;
+import edu.umn.nlpie.mtap.model.EventsClientPool;
 import edu.umn.nlpie.mtap.utilities.Helpers;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -42,6 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
@@ -158,9 +161,6 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     private String eventsTarget = null;
 
     @Nullable
-    private EventsClient eventsClient = null;
-
-    @Nullable
     @Option(name = "--mtap-config", handler = PathOptionHandler.class, metaVar = "CONFIG_PATH",
         usage = "A path to a config file to load.")
     private Path configFile = null;
@@ -185,6 +185,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
     @Option(name = "--log-level", metaVar = "LOG_LEVEL", usage = "The log level to use.")
     private String logLevel;
+
+    private ChannelFactory channelFactory;
 
     /**
      * Prints a help message.
@@ -304,29 +306,6 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     }
 
     /**
-     * @return A client to use for communication with the events service.
-     */
-    public @Nullable EventsClient getEventsClient() {
-      return eventsClient;
-    }
-
-    /**
-     * @param eventsClient A client to use for communication with the events service.
-     */
-    public void setEventsClient(@Nullable EventsClient eventsClient) {
-      this.eventsClient = eventsClient;
-    }
-
-    /**
-     * @param eventsClient A client to use for communication with the events service.
-     * @return this builder.
-     */
-    public Builder eventsClient(EventsClient eventsClient) {
-      this.eventsClient = eventsClient;
-      return this;
-    }
-
-    /**
      * @return Override for the location of the configuration file.
      */
     public @Nullable Path getConfigFile() {
@@ -437,28 +416,22 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
      */
     public ProcessorServer build(EventProcessor processor) {
       Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
-      DiscoveryMechanism discoveryMechanism = null;
-      EventsClient eventsClient = this.eventsClient;
-      ManagedChannel eventsChannel = null;
-      if (eventsClient == null) {
-        ManagedChannelBuilder<?> channelBuilder;
-        if (eventsTarget == null) {
-          discoveryMechanism = Discovery.getDiscoveryMechanism(config);
-          String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
-          channelBuilder = ManagedChannelBuilder.forTarget(target)
-              .nameResolverFactory(discoveryMechanism.getNameResolverFactory());
-        } else {
-          channelBuilder = ManagedChannelBuilder.forTarget(eventsTarget);
-        }
-        eventsChannel = channelBuilder.maxInboundMessageSize(config.getIntegerValue("grpc.max_receive_message_length"))
-            .usePlaintext().build();
-        eventsClient = new EventsClient(eventsChannel);
-      }
-      ProcessorRunner runner = new LocalProcessorRunner(eventsChannel, eventsClient, processor);
-      if (register) {
-        discoveryMechanism = discoveryMechanism != null ? discoveryMechanism : Discovery.getDiscoveryMechanism(config);
+      String[] addresses;
+      if (eventsTarget != null) {
+        addresses = eventsTarget.split(",");
       } else {
-        discoveryMechanism = null;
+        addresses = new String[]{null};
+      }
+      ChannelFactory channelFactory = this.channelFactory;
+      if (channelFactory == null) {
+        channelFactory = new StandardChannelFactory(config);
+      }
+
+      EventsClientPool clientPool = EventsClientPool.fromAddresses(addresses, channelFactory);
+      ProcessorRunner runner = new LocalProcessorRunner(clientPool, processor);
+      DiscoveryMechanism discoveryMechanism = null;
+      if (register) {
+        discoveryMechanism = Discovery.getDiscoveryMechanism(config);
       }
       HealthService healthService = new HSMHealthService();
       ProcessorService processorService = new DefaultProcessorService(

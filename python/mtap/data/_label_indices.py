@@ -30,6 +30,7 @@ class LabelIndex(Sequence[L], Generic[L]):
     """An immutable :obj:`~typing.Sequence` of labels ordered by their location in text. By default
     sorts by ascending `start_index` and then by ascending `end_index`.
     """
+    __slots__ = ()
 
     @property
     @abstractmethod
@@ -338,6 +339,8 @@ def presorted_label_index(labels: List[L],
 
 
 class _View(metaclass=ABCMeta):
+    __slots__ = ('_labels', '_indices', '_locations')
+
     def __init__(self, labels, indices: Sequence[int] = ...):
         self._labels = labels
         self._indices = range(len(labels)) if indices is ... else indices
@@ -450,6 +453,8 @@ class _View(metaclass=ABCMeta):
 
 
 class _Ascending(_View):
+    __slots__ = ()
+
     def __getitem__(self, idx) -> Union['data.Label', '_View']:
         if isinstance(idx, int):
             return self._labels[self._indices[idx]]
@@ -471,6 +476,8 @@ class _Ascending(_View):
 
 
 class _Descending(_View):
+    __slots__ = ()
+
     def _reverse_index(self, i: int = None):
         return -(i + 1)
 
@@ -527,6 +534,8 @@ def _location(x):
 
 
 class _LabelIndex(LabelIndex[L]):
+    __slots__ = ('_distinct', '_view', '_ascending', '_adapter', '__reversed')
+
     def __init__(self, distinct: bool,
                  view: _View,
                  ascending: bool = True,
@@ -687,6 +696,8 @@ class _LabelIndex(LabelIndex[L]):
 
 
 class _Empty(LabelIndex):
+    __slots__ = ('_distinct', '_adapter')
+
     @property
     def adapter(self) -> Optional['data.ProtoLabelAdapter']:
         return self._adapter

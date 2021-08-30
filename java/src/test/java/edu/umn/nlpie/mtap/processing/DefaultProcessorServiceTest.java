@@ -95,10 +95,11 @@ class DefaultProcessorServiceTest {
     times.put("process_method", Duration.ofNanos(30));
     JsonObjectImpl resultObject = JsonObjectImpl.newBuilder().setProperty("result", true).build();
     ProcessingResult result = new ProcessingResult(createdIndices, times, resultObject);
-    when(mockRunner.process(eq("1"), any(JsonObject.class))).thenReturn(result);
+    when(mockRunner.process(eq("1"), eq("1"), any(JsonObject.class))).thenReturn(result);
 
     Processing.ProcessResponse response = stub.process(Processing.ProcessRequest.newBuilder()
         .setEventId("1")
+        .setEventServiceInstanceId("1")
         .setParams(Struct.newBuilder().putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
         .build()
     );
@@ -106,7 +107,7 @@ class DefaultProcessorServiceTest {
     verify(mockTimingService).addTime("process_method", 30);
 
     ArgumentCaptor<JsonObject> jsonCaptor = ArgumentCaptor.forClass(JsonObjectImpl.class);
-    verify(mockRunner).process(eq("1"), jsonCaptor.capture());
+    verify(mockRunner).process(eq("1"), eq("1"), jsonCaptor.capture());
     JsonObject params = jsonCaptor.getValue();
     assertTrue(params.getBooleanValue("test"));
     assertEquals(1, response.getTimingInfoCount());
@@ -124,11 +125,12 @@ class DefaultProcessorServiceTest {
     createServer(processorService).start();
     ProcessorGrpc.ProcessorBlockingStub stub = createStub();
 
-    when(mockRunner.process(eq("1"), any(JsonObjectImpl.class))).thenThrow(new IllegalStateException("foo"));
+    when(mockRunner.process(eq("1"), eq("1"), any(JsonObjectImpl.class))).thenThrow(new IllegalStateException("foo"));
 
     StatusRuntimeException exception = assertThrows(StatusRuntimeException.class,
         () -> stub.process(Processing.ProcessRequest.newBuilder()
             .setEventId("1")
+            .setEventServiceInstanceId("1")
             .setParams(Struct.newBuilder()
                 .putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
             .build()
@@ -171,10 +173,11 @@ class DefaultProcessorServiceTest {
     times.put("processorId:process_method", Duration.ofNanos(30));
     JsonObjectImpl resultObject = JsonObjectImpl.newBuilder().setProperty("result", true).build();
     ProcessingResult result = new ProcessingResult(createdIndices, times, resultObject);
-    when(mockRunner.process(eq("1"), any(JsonObjectImpl.class))).thenReturn(result);
+    when(mockRunner.process(eq("1"), eq("1"), any(JsonObjectImpl.class))).thenReturn(result);
 
     stub.process(Processing.ProcessRequest.newBuilder()
         .setEventId("1")
+        .setEventServiceInstanceId("1")
         .setParams(Struct.newBuilder().putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
         .build()
     );

@@ -30,6 +30,7 @@ L = TypeVar('L', bound='data.Label')
 class ProtoLabelAdapter(ABC, Generic[L]):
     """Responsible for marshalling and unmarshalling of label objects to and from proto messages.
     """
+    __slots__ = ()
 
     @abstractmethod
     def create_label(self, *args, **kwargs) -> L:
@@ -131,6 +132,8 @@ class ProtoLabelAdapter(ABC, Generic[L]):
 
 
 class _GenericLabelAdapter(ProtoLabelAdapter['mtap.GenericLabel']):
+    __slots__ = ('distinct',)
+
     def __init__(self, distinct):
         self.distinct = distinct
 

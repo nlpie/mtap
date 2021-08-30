@@ -81,10 +81,8 @@ def subprocess_events_server(port: typing.Optional[int] = None,
     cmd = ['python', '-m', 'mtap', 'events', '-p', str(port)]
     if register:
         cmd += ['--register']
-    p = subprocess.Popen(cmd,
-                         start_new_session=True, stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                         cwd=str(cwd), env=env)
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, cwd=str(cwd), env=env)
     try:
         with grpc.insecure_channel(address, [('grpc.enable_http_proxy', False)]) as channel:
             future = grpc.channel_ready_future(channel)
@@ -93,11 +91,12 @@ def subprocess_events_server(port: typing.Optional[int] = None,
     finally:
         p.send_signal(signal.SIGINT)
         try:
-            stdout, _ = p.communicate(timeout=1)
-            print("python events exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
+            stdout, _ = p.communicate(timeout=5)
         except subprocess.TimeoutExpired:
-            print("timed out waiting for python events to terminate")
+            p.kill()
+            stdout, _ = p.communicate()
+        print(stdout.decode('utf-8'))
+        print("python events exited with code: ", p.returncode)
 
 
 def write_address_file(address: str, pid: typing.Optional[str] = None) -> pathlib.Path:

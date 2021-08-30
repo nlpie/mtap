@@ -15,12 +15,12 @@
 import contextlib
 import threading
 from abc import ABCMeta, abstractmethod, ABC
+from collections import Callable
 from datetime import timedelta, datetime
 from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, Generator, \
     Tuple, TYPE_CHECKING
 
 from mtap import data
-
 
 if TYPE_CHECKING:
     import mtap
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
 
 class ProcessorContext:
+    __slots__ = ('times',)
+
     def __init__(self):
         self.times = {}
 
@@ -61,6 +63,7 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
         >>>         ...
         >>>         stopwatch.stop()
     """
+    __slots__ = ('_key', '_context', '_running', 'duration', '_start')
 
     def __init__(self, context: Optional = None, key: Optional[str] = None):
         self._key = key
@@ -95,13 +98,6 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
             pass
 
 
-class ProcessorMeta(ABCMeta):
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        cls = super().__new__(mcs, name, bases, namespace, **kwargs)
-        cls.metadata = {}
-        return cls
-
-
 processor_local = threading.local()
 
 
@@ -109,6 +105,9 @@ class Processor:
     """Mixin used by all processor abstract base classes that provides the ability to update
     serving status and use timers.
     """
+    __slots__ = ('_health_callback',)
+
+    metadata = {}
 
     def __new__(cls, *args, **kwargs):
         instance = super().__new__(cls)
@@ -201,7 +200,7 @@ class Processor:
                 processor_local.context = old_context
 
 
-class EventProcessor(Processor, metaclass=ProcessorMeta):
+class EventProcessor(Processor):
     """Abstract base class for an event processor.
 
     Examples:
@@ -210,6 +209,7 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
         ...          # do work on the event
         ...          ...
     """
+    __slots__ = ()
 
     @abstractmethod
     def process(self, event: 'mtap.Event', params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -244,7 +244,7 @@ class EventProcessor(Processor, metaclass=ProcessorMeta):
         pass
 
 
-class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
+class DocumentProcessor(EventProcessor):
     """Abstract base class for a document processor.
 
     Examples:
@@ -261,6 +261,7 @@ class DocumentProcessor(EventProcessor, metaclass=ProcessorMeta):
         ...               ...
 
     """
+    __slots__ = ()
 
     @abstractmethod
     def process_document(self,
@@ -326,6 +327,8 @@ class PipelineResult(NamedTuple('PipelineResult',
         elapsed_time (timedelta): The elapsed time for the entire pipeline.
 
     """
+    __slots__ = ()
+
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, *args, **kwargs)
 
@@ -371,6 +374,7 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
         timing_info (dict[str, TimerStats]):
             A map from all of the timer keys for the processor to the aggregated duration statistics.
     """
+    __slots__ = ()
 
     def print_times(self):
         """Prints the aggregate timing info for all processing components using ``print``.
@@ -408,11 +412,12 @@ class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
 
 
 class ProcessingComponent(ABC):
-    component_id = None  # str: The component_id of the component in a pipeline
-    descriptor = None  # ComponentDescriptor: The ComponentDescriptor used to create the component.
+    __slots__ = ()
+
+    metadata = {}
 
     @abstractmethod
-    def call_process(self, event_id: str,
+    def call_process(self, event_id: str, event_instance_id: str,
                      params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
         """Calls a processor.
 
@@ -420,6 +425,8 @@ class ProcessingComponent(ABC):
         ----------
         event_id: str
             The event to process.
+        event_instance_id: str
+            The service instance the event is stored on.
         params: Dict
             The processor parameters.
 
@@ -440,8 +447,12 @@ class ComponentDescriptor(ABC):
     """A configuration which describes either a local or remote pipeline component and what the
     pipeline needs to do to call the component.
     """
+    __slots__ = ()
 
     @abstractmethod
-    def create_pipeline_component(self, config: 'mtap.Config',
-                                  component_ids: Dict[str, int]) -> 'processing.ProcessingComponent':
+    def create_pipeline_component(
+            self,
+            component_ids: Dict[str, int],
+            client: 'Callable[[], mtap.EventsClient]'
+    ) -> 'processing.ProcessingComponent':
         pass

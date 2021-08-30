@@ -11,20 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
 """Module for deploying a set of processing services and the events server all at once.
 
 Examples:
@@ -62,7 +48,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import grpc
 
-from mtap import utilities
+from mtap import utilities, _config
 
 __all__ = [
     'Deployment', 'GlobalSettings', 'SharedProcessorConfig', 'EventsDeployment',
@@ -76,7 +62,7 @@ PYTHON_EXE = sys.executable
 
 def _get_java() -> str:
     try:
-        return pathlib.Path(os.environ['JAVA_HOME']) / 'bin' / 'java'
+        return str(pathlib.Path(os.environ['JAVA_HOME']) / 'bin' / 'java')
     except KeyError:
         return 'java'
 
@@ -138,15 +124,15 @@ class GlobalSettings:
 
         """
         conf = conf or {}
-        return GlobalSettings(host=conf.get('host'), mtap_config=conf.get('mtapConfig'),
-                              log_level=conf.get('logLevel'), register=conf.get('register'))
+        return GlobalSettings(host=conf.get('host'), mtap_config=conf.get('mtap_config'),
+                              log_level=conf.get('log_level'), register=conf.get('register'))
 
 
 class SharedProcessorConfig:
     """Configuration that is shared between multiple processor services.
 
     Keyword Args:
-        events_address (Optional[str]): An optional GRPC-compatible target for the events
+        events_addresses (Optional[str]): An optional GRPC-compatible target for the events
             service to be used by all processors.
         workers (Optional[int]): The default number of worker threads which will perform
             processing.
@@ -154,12 +140,14 @@ class SharedProcessorConfig:
             should be appended to every processor.
         jvm_args (Optional[List[str]]): a list of JVM arguments for all java
             processors.
-        classpath (Optional[str]): A classpath string that will be passed to all java
+        java_classpath (Optional[str]): A classpath string that will be passed to all java
             processors.
         startup_timeout (Optional[int]): The default startup timeout for processors.
+        mp_spawn_method (Optional[str]): A :meth:`multiprocessing.get_context` argument to create
+            the multiprocessing context.
 
     Attributes:
-        events_address (Optional[str]): An optional GRPC-compatible target for the events
+        events_addresses (Optional[List[str]]): An optional GRPC-compatible target for the events
             service to be used by all processors.
         workers (Optional[int]): The default number of worker threads which will perform
             processing.
@@ -167,25 +155,29 @@ class SharedProcessorConfig:
             should be appended to every processor.
         jvm_args (Optional[List[str]]): a list of JVM arguments for all java
             processors.
-        classpath (Optional[str]): A classpath string that will be passed to all java
+        java_classpath (Optional[str]): A classpath string that will be passed to all java
             processors.
         startup_timeout (Optional[int]): The default startup timeout for processors.
+        mp_spawn_method (Optional[str]): A :meth:`multiprocessing.get_context` argument to create
+            the multiprocessing context.
 
     """
 
     def __init__(self,
-                 events_address: Optional[str] = None,
+                 events_addresses: Optional[List[str]] = None,
                  workers: Optional[int] = None,
                  additional_args: Optional[List[str]] = None,
                  jvm_args: Optional[List[str]] = None,
-                 classpath: Optional[str] = None,
-                 startup_timeout: Optional[int] = None):
-        self.events_address = events_address
+                 java_classpath: Optional[str] = None,
+                 startup_timeout: Optional[int] = None,
+                 mp_spawn_method: Optional[str] = None):
+        self.events_addresses = events_addresses
         self.workers = workers
         self.additional_args = additional_args
         self.jvm_args = jvm_args
-        self.classpath = classpath
+        self.java_classpath = java_classpath
         self.startup_timeout = startup_timeout or 30
+        self.mp_spawn_method = mp_spawn_method
 
     @staticmethod
     def from_conf(conf: Optional[Dict]) -> 'SharedProcessorConfig':
@@ -199,29 +191,23 @@ class SharedProcessorConfig:
 
         """
         conf = conf or {}
-        return SharedProcessorConfig(events_address=conf.get('eventsAddress'),
-                                     workers=conf.get('workers'),
-                                     additional_args=conf.get('args'),
-                                     jvm_args=conf.get('jvmArgs'),
-                                     classpath=conf.get('javaClasspath'),
-                                     startup_timeout=conf.get('startupTimeout'))
+        return SharedProcessorConfig(**conf)
 
 
 class _ServiceDeployment:
     def __init__(self,
-                 host: Optional[str],
                  workers: Optional[int],
                  register: Optional[bool],
                  mtap_config: Optional[str],
                  log_level: Optional[str]):
-        self.host = host
         self.workers = workers
         self.register = register
         self.mtap_config = mtap_config
         self.log_level = log_level
 
     def service_args(self,
-                     port: Optional[int],
+                     host: Optional[str] = None,
+                     port: Optional[int] = None,
                      register_default: Optional[bool] = None,
                      host_default: Optional[str] = None,
                      workers_default: Optional[int] = None,
@@ -229,7 +215,7 @@ class _ServiceDeployment:
                      log_level_default: Optional[str] = None):
         call = []
 
-        host = self.host or host_default
+        host = host or host_default
         if host is not None:
             call.extend(['--host', str(host)])
 
@@ -260,8 +246,7 @@ class EventsDeployment:
 
     Keyword Args:
         enabled (bool): Whether an events service should be created.
-        host (~typing.Optional[str]): The host address of the events service.
-        port (~typing.Optional[int]): Which port to host on.
+        addresses (~typing.Optional[~typing.Sequence[str]]): The host address of the events service.
         workers (~typing.Optional[int]): The number of worker threads the events service should use.
         register (~typing.Optional[bool]): Whether to register the events service with discovery.
         mtap_config (~typing.Optional[str]): Path to an mtap configuration file.
@@ -271,28 +256,38 @@ class EventsDeployment:
 
     def __init__(self, *,
                  enabled: bool = True,
-                 host: Optional[str] = None,
-                 port: Optional[int] = None,
+                 addresses: Optional[Sequence[str]] = None,
                  workers: Optional[int] = None,
                  register: Optional[bool] = None,
                  mtap_config: Optional[str] = None,
                  log_level: Optional[str] = None):
         self.enabled = enabled
-        self.port = port
-        self.service_deployment = _ServiceDeployment(host, workers, register, mtap_config,
-                                                     log_level)
+        self.addresses = addresses
+        self.service_deployment = _ServiceDeployment(workers, register, mtap_config, log_level)
 
-    def create_call(self, global_settings: GlobalSettings) -> List[str]:
-        call = [PYTHON_EXE, '-m', 'mtap', 'events']
-        service_args = self.service_deployment.service_args(
-            port=self.port,
-            register_default=global_settings.register,
-            host_default=global_settings.host,
-            mtap_config_default=global_settings.mtap_config,
-            log_level_default=global_settings.log_level
-        )
-        call.extend(service_args)
-        return call
+    def create_calls(self, global_settings: GlobalSettings) -> Iterable[List[str]]:
+        for address in self.addresses:
+            host = None
+            port = None
+            if address:
+                splits = address.split(':')
+                if len(splits) == 2:
+                    host, port = splits
+                    if host == '':
+                        host = None
+                else:
+                    host = splits[0]
+            call = [PYTHON_EXE, '-m', 'mtap', 'events']
+            service_args = self.service_deployment.service_args(
+                host=host,
+                port=port,
+                register_default=global_settings.register,
+                host_default=global_settings.host,
+                mtap_config_default=global_settings.mtap_config,
+                log_level_default=global_settings.log_level
+            )
+            call.extend(service_args)
+            yield call
 
     @staticmethod
     def from_conf(conf: Optional[Dict]) -> 'EventsDeployment':
@@ -311,9 +306,19 @@ class EventsDeployment:
         if enabled is None:
             enabled = False
 
-        return EventsDeployment(enabled=enabled, host=conf.get('host'), port=conf.get('port'),
+        address = conf.get('address', None) or conf.get('addresses', None)
+        if address is None:
+            addresses = []
+        elif isinstance(address, str):
+            addresses = [address]
+        elif isinstance(address, Iterable):
+            addresses = list(address)
+        else:
+            raise ValueError('Unrecognized type of address: ' + type(address))
+
+        return EventsDeployment(enabled=enabled, addresses=addresses,
                                 workers=conf.get('workers'), register=conf.get('register'),
-                                mtap_config=conf.get('mtapConfig'))
+                                mtap_config=conf.get('mtap_config'))
 
 
 class ProcessorDeployment:
@@ -327,8 +332,10 @@ class ProcessorDeployment:
     Args:
         implementation (str): Either "java" or "python".
         entry_point (str): Either the java main class, or the python main module.
-        enabled (bool): Whether the processor should be launched as part of deployment.
-        instances (int): The number of instances of the processor to launch.
+        enabled (~typing.Optional[bool]): Whether the processor should be launched as part of
+            deployment. Default is `True` if `None`.
+        instances (~typing.Optional[int]): The number of instances of the processor to launch.
+            Default is `1` if `None`.
         host (~typing.Optional[str]): The listening host for the processor service.
         port (~typing.Optional[int]): The listening port for the processor service.
         workers (~typing.Optional[int]): The number of worker threads per instance.
@@ -342,15 +349,17 @@ class ProcessorDeployment:
             Arguments that occur prior to the MTAP service arguments (like host, port, etc).
         additional_args (~typing.Optional[~typing.List[str]]):
             Arguments that occur after the MTAP service arguments.
-        startup_timeout (Optional[int]): Optional override startup timeout.
+        startup_timeout (~typing.Optional[int]): Optional override startup timeout.
+        mp_spawn_method (~typing.Optional[str]): A :meth:`multiprocessing.get_context` argument to create
+            the multiprocessing context.
 
     """
 
     def __init__(self,
                  implementation: str,
                  entry_point: str,
-                 *, enabled: bool = True,
-                 instances: int = 1,
+                 *, enabled: Optional[bool] = None,
+                 instances: Optional[int] = None,
                  host: Optional[str] = None,
                  port: Optional[int] = None,
                  workers: Optional[int] = None,
@@ -360,18 +369,22 @@ class ProcessorDeployment:
                  identifier: Optional[str] = None,
                  pre_args: Optional[List[str]] = None,
                  additional_args: Optional[List[str]] = None,
-                 startup_timeout: Optional[int] = None):
-        self.enabled = enabled
+                 startup_timeout: Optional[int] = None,
+                 mp_spawn_method: Optional[str] = None):
+        self.enabled = enabled if enabled is not None else True
         self.implementation = implementation
         self.entry_point = entry_point
         self.instances = instances or 1
+        if not issubclass(self.instances, int) or self.instances < 1:
+            raise ValueError("Instances must be strictly positive integer.")
         self.identifier = identifier
         self.pre_args = pre_args
         self.additional_args = additional_args
+        self.host = host
         self.port = port
-        self.service_deployment = _ServiceDeployment(host, workers, register, mtap_config,
-                                                     log_level)
+        self.service_deployment = _ServiceDeployment(workers, register, mtap_config, log_level)
         self.startup_timeout = startup_timeout
+        self.mp_spawn_method = mp_spawn_method
 
     @staticmethod
     def from_conf(conf: Dict) -> 'ProcessorDeployment':
@@ -384,20 +397,7 @@ class ProcessorDeployment:
             ProcessorDeployment object that can be used to constuct the call for the processor.
 
         """
-        return ProcessorDeployment(implementation=conf['implementation'],
-                                   entry_point=conf['entryPoint'],
-                                   enabled=conf.get('enabled', True),
-                                   instances=conf.get('instances', 1),
-                                   host=conf.get('host'),
-                                   port=conf.get('port'),
-                                   workers=conf.get('workers'),
-                                   register=conf.get('register'),
-                                   mtap_config=conf.get('mtapConfig'),
-                                   log_level=conf.get('logLevel'),
-                                   identifier=conf.get('identifier'),
-                                   pre_args=conf.get('preArgs'),
-                                   additional_args=conf.get('args'),
-                                   startup_timeout=conf.get('startupTimeout'))
+        return ProcessorDeployment(**conf)
 
     def create_calls(self,
                      global_settings: GlobalSettings,
@@ -411,12 +411,17 @@ class ProcessorDeployment:
         for port in ports:
             if self.implementation == 'python':
                 call = [PYTHON_EXE, '-m', self.entry_point]
+                mp_spawn_method = shared_config.mp_spawn_method
+                if self.mp_spawn_method is not None:
+                    mp_spawn_method = self.mp_spawn_method
+                if mp_spawn_method is not None:
+                    call.extend(['--mp-spawn-method', mp_spawn_method])
             elif self.implementation == 'java':
                 call = [str(JAVA_EXE)]
                 if shared_config.jvm_args is not None:
                     call.extend(shared_config.jvm_args)
-                if shared_config.classpath is not None:
-                    call.extend(['-cp', shared_config.classpath])
+                if shared_config.java_classpath is not None:
+                    call.extend(['-cp', shared_config.java_classpath])
                 call.append(self.entry_point)
             else:
                 raise ValueError('Unrecognized implementation: ' + self.implementation)
@@ -425,20 +430,22 @@ class ProcessorDeployment:
                 call.extend(self.pre_args)
 
             service_args = self.service_deployment.service_args(
+                host=self.host,
                 port=port,
                 register_default=global_settings.register,
                 host_default=global_settings.host,
                 mtap_config_default=global_settings.mtap_config,
                 log_level_default=global_settings.log_level,
+                workers_default=shared_config.workers
             )
             call.extend(service_args)
 
             if self.identifier is not None:
                 call.extend(['--identifier', self.identifier])
 
-            events_address = shared_config.events_address
-            if events_address is not None:
-                call.extend(['--events', events_address])
+            events_addresses = shared_config.events_addresses
+            if events_addresses is not None:
+                call.extend(['--events', ','.join(events_addresses)])
 
             if self.additional_args is not None:
                 call.extend(self.additional_args)
@@ -484,8 +491,8 @@ class Deployment:
 
         """
         global_settings = GlobalSettings.from_conf(conf.get('global'))
-        events = EventsDeployment.from_conf(conf.get('eventsService'))
-        shared_processor_config = SharedProcessorConfig.from_conf(conf.get('sharedProcessorConfig'))
+        events = EventsDeployment.from_conf(conf.get('events_service'))
+        shared_processor_config = SharedProcessorConfig.from_conf(conf.get('shared_processor_config'))
         processors_list = conf.get('processors', [])
         processors = [ProcessorDeployment.from_conf(c) for c in processors_list]
         return Deployment(global_settings, events, shared_processor_config, *processors)
@@ -518,43 +525,48 @@ class Deployment:
             ServiceDeploymentException: If one of the services fails to launch.
 
         """
-        events_address = None
-        processes_listeners = []
-        if self.events_deployment.enabled:
-            call = self.events_deployment.create_call(self.global_settings)
-            p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            listener, events_address = _listen_test_connectivity(p, "events", 30)
-            processes_listeners.append((p, listener))
-
-        if (not self.global_settings.register
-                and not self.events_deployment.service_deployment.register
-                and self.shared_processor_config.events_address is None):
-            self.shared_processor_config.events_address = events_address
-
-        for processor_deployment in self.processors:
-            if processor_deployment.enabled:
-                for call in processor_deployment.create_calls(self.global_settings,
-                                                              self.shared_processor_config):
-                    logger.debug('Launching processor with call: %s', call)
+        with _config.Config() as c:
+            enable_proxy = c.get('grpc.enable_proxy', False)
+            processes_listeners = []
+            events_addresses = []
+            if self.events_deployment.enabled:
+                for call in self.events_deployment.create_calls(self.global_settings):
                     p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                    startup_timeout = (processor_deployment.startup_timeout
-                                       or self.shared_processor_config.startup_timeout)
-                    listener, _ = _listen_test_connectivity(p, call, startup_timeout)
+                    listener, events_address = _listen_test_connectivity(p, "events", 30, enable_proxy)
+                    events_addresses.append(events_address)
                     processes_listeners.append((p, listener))
 
-        print('Done deploying all servers.', flush=True)
-        try:
-            while True:
-                time.sleep(60 * 60 * 24)
-        except KeyboardInterrupt:
-            print("Shutting down all processors")
-            for p, listener in processes_listeners:
-                listener.join(timeout=1)
+            if (not self.global_settings.register
+                    and not self.events_deployment.service_deployment.register
+                    and self.shared_processor_config.events_addresses is None):
+                self.shared_processor_config.events_addresses = events_addresses
+
+            for processor_deployment in self.processors:
+                if processor_deployment.enabled:
+                    for call in processor_deployment.create_calls(self.global_settings,
+                                                                  self.shared_processor_config):
+                        logger.debug('Launching processor with call: %s', call)
+                        p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                        startup_timeout = (processor_deployment.startup_timeout
+                                           or self.shared_processor_config.startup_timeout)
+                        listener, _ = _listen_test_connectivity(p, call, startup_timeout,
+                                                                enable_proxy)
+                        processes_listeners.append((p, listener))
+
+            print('Done deploying all servers.', flush=True)
+            try:
+                while True:
+                    time.sleep(60 * 60 * 24)
+            except KeyboardInterrupt:
+                print("Shutting down all processors")
+                for p, listener in processes_listeners:
+                    listener.join(timeout=1)
 
 
 def _listen_test_connectivity(p: subprocess.Popen,
                               name: Any,
-                              startup_timeout: int) -> Tuple[threading.Thread, str]:
+                              startup_timeout: int,
+                              enable_proxy: bool = False) -> Tuple[threading.Thread, str]:
     listener = threading.Thread(target=_listen, args=(p,))
     listener.start()
     address = None
@@ -566,7 +578,8 @@ def _listen_test_connectivity(p: subprocess.Popen,
             time.sleep(1)
     if address is None:
         raise ServiceDeploymentException('Timed out waiting for {} to launch'.format(name))
-    with grpc.insecure_channel(address) as channel:
+    with grpc.insecure_channel(address,
+                               options=[('grpc.enable_http_proxy', enable_proxy)]) as channel:
         future = grpc.channel_ready_future(channel)
         try:
             future.result(timeout=startup_timeout)

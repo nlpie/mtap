@@ -19,7 +19,6 @@ from mtap.processing._base import EventProcessor
 from mtap.processing._base import PipelineResult
 from mtap.processing._base import Processor
 from mtap.processing._base import ProcessorContext
-from mtap.processing._base import ProcessorMeta
 from mtap.processing._base import ProcessingComponent
 from mtap.processing._base import ProcessingError
 from mtap.processing._base import ProcessingResult

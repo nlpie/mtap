@@ -21,6 +21,7 @@ import edu.umn.nlpie.mtap.model.EventsClient;
 import edu.umn.nlpie.mtap.common.JsonObject;
 import edu.umn.nlpie.mtap.common.JsonObjectBuilder;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
+import edu.umn.nlpie.mtap.model.EventsClientPool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
@@ -32,15 +33,17 @@ import static org.mockito.Mockito.*;
 class LocalProcessorRunnerTest {
 
   private EventProcessor processor;
+  private EventsClientPool pool;
   private EventsClient events;
   private LocalProcessorRunner runner;
 
   @BeforeEach
   void setUp() {
     processor = mock(EventProcessor.class);
+    pool = mock(EventsClientPool.class);
     events = mock(EventsClient.class);
     runner = new LocalProcessorRunner(
-        null, events,
+        pool,
         processor
     );
   }
@@ -53,8 +56,9 @@ class LocalProcessorRunnerTest {
       builder.setProperty("foo", "bar");
       return null;
     }).when(processor).process(any(Event.class), same(params), any(JsonObjectBuilder.class));
+    doReturn(events).when(pool).instanceFor("1");
 
-    ProcessingResult processingResult = runner.process("1", params);
+    ProcessingResult processingResult = runner.process("1", "1", params);
 
     verify(events).openEvent("1", false);
     verify(processor).process(any(Event.class), same(params), any(JsonObjectBuilder.class));

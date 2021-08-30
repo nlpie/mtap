@@ -13,80 +13,117 @@
 # limitations under the License.
 import os
 import signal
+import tempfile
 import time
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 
 import pytest
 import requests
+import yaml
+try:
+    from yaml import CDumper as Dumper
+except ImportError:
+    from yaml import Dumper
 from requests import RequestException
 
 import mtap
 from mtap import RemoteProcessor, EventsClient, Event
-from mtap.utilities import subprocess_events_server
-
+from mtap.utilities import subprocess_events_server, find_free_port
 
 os.environ['no_proxy'] = '127.0.0.1,localhost'
 
+
 @pytest.fixture(name='python_events')
 def fixture_python_events():
-    config_path = Path(__file__).parent / 'integrationConfig.yaml'
-    with subprocess_events_server(port=50500, cwd=Path(__file__).parents[2],
-                                  config_path=config_path) as address:
+    with subprocess_events_server(cwd=Path(__file__).parents[2]) as address:
         yield address
 
 
 @pytest.fixture(name='python_processor')
 def fixture_python_processor(python_events, processor_watcher):
-    env = dict(os.environ)
-    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
-    p = Popen(['python', '-m', 'mtap.examples.example_processor', '-p', '50501',
-               '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
-    yield from processor_watcher(address="127.0.0.1:50501", process=p)
+    port = str(find_free_port())
+    p = Popen(['python', '-m', 'mtap.examples.example_processor', '-p', port,
+               '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+    yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="java_processor")
 def fixture_java_processor(python_events, processor_watcher):
     mtap_jar = os.environ['MTAP_JAR']
-    env = dict(os.environ)
-    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
+    port = str(find_free_port())
     p = Popen(['java', '-cp', mtap_jar,
                'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
-               '-p', '50502', '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
-    yield from processor_watcher(address="127.0.0.1:50502", process=p)
+               '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+    yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="api_gateway")
 def fixture_api_gateway(python_events, python_processor, java_processor):
-    env = dict(os.environ)
-    env['MTAP_CONFIG'] = str(Path(__file__).parent / 'integrationConfig.yaml')
-    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT,
-              env=env)
-    session = requests.Session()
-    session.trust_env = False
-    try:
-        if p.returncode is not None:
-            raise ValueError("Failed to launch go gateway")
-        for i in range(6):
-            if i == 5:
-                raise ValueError("Failed to connect to go gateway")
-            try:
-                time.sleep(3)
-                resp = session.get("http://localhost:50503/v1/processors", timeout=1)
-                if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
-                    break
-            except RequestException:
-                pass
-        yield
-    finally:
-        session.close()
-        p.send_signal(signal.SIGINT)
+    port = find_free_port()
+    config = {
+        'discovery': 'consul',
+        'grpc': {
+            'enable_proxy': False
+        },
+
+        'max_send_message_length': 104857600,
+        'max_receive_message_length': 104857600,
+        'consul': {
+            'host': 'localhost',
+            'port': 8500,
+            'scheme': 'http',
+            # Python uses {python_naming_scheme}:address[:port][,address[:port],...] as grpc targets
+            'python_naming_scheme': 'ipv4'
+        },
+        'gateway': {
+            'port': port,
+            'refresh_interval': 10,
+            'events': python_events,
+            'processors': [
+                {
+                    'Identifier': 'mtap-example-processor-python',
+                    'Endpoint': python_processor
+                },
+                {
+                    'Identifier': 'mtap-example-processor-java',
+                    'Endpoint': java_processor
+                }
+            ]
+        }
+    }
+
+    with tempfile.NamedTemporaryFile('w', suffix='.yml') as conf_file:
+        yaml.dump(config, conf_file, Dumper=Dumper)
+        conf_file.flush()
+        p = Popen(['mtap-gateway', '-logtostderr', '-v=3', '-mtap-config=' + conf_file.name],
+                  stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+        session = requests.Session()
+        session.trust_env = False
+        gateway = '127.0.0.1:{}'.format(port)
         try:
-            stdout, _ = p.communicate(timeout=1)
-            print("api gateway exited with code: ", p.returncode)
-            print(stdout.decode('utf-8'))
-        except TimeoutExpired:
-            print("timed out waiting for api gateway to terminate")
+            if p.returncode is not None:
+                raise ValueError("Failed to launch go gateway")
+            for i in range(6):
+                if i == 5:
+                    raise ValueError("Failed to connect to go gateway")
+                try:
+                    time.sleep(3)
+                    resp = session.get("http://{}/v1/processors".format(gateway), timeout=1)
+                    if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
+                        break
+                except RequestException:
+                    pass
+            yield gateway
+        finally:
+            session.close()
+            p.send_signal(signal.SIGINT)
+            try:
+                stdout, _ = p.communicate(timeout=1)
+                print("api gateway exited with code: ", p.returncode)
+                print(stdout.decode('utf-8'))
+            except TimeoutExpired:
+                print("timed out waiting for api gateway to terminate")
 
 
 PHASERS = """
@@ -100,9 +137,9 @@ how to fire phasers?"""
 @pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
     with EventsClient(address=python_events) as client, mtap.Pipeline(
-            RemoteProcessor('mtap-example-processor-python', address='localhost:50501',
+            RemoteProcessor('mtap-example-processor-python', address=python_processor,
                             params={'do_work': True}),
-            RemoteProcessor('mtap-example-processor-java', address='localhost:50502',
+            RemoteProcessor('mtap-example-processor-java', address=java_processor,
                             params={'do_work': True})
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
@@ -124,7 +161,8 @@ def test_pipeline(python_events, python_processor, java_processor):
 def test_api_gateway(python_events, python_processor, java_processor, api_gateway):
     session = requests.Session()
     session.trust_env = False
-    resp = session.get("http://localhost:50503/v1/processors")
+    base_url = "http://" + api_gateway
+    resp = session.get(base_url + "/v1/processors")
     assert resp.status_code == 200
     processors = resp.json()
     all_ids = []
@@ -133,7 +171,12 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert 'mtap-example-processor-python' in all_ids
     assert 'mtap-example-processor-java' in all_ids
 
-    resp = session.post("http://localhost:50503/v1/events/1")
+    resp = session.get(base_url + "/v1/events/instance_id")
+    assert resp.status_code == 200
+    instance_id = resp.json()['instance_id']
+    assert instance_id is not None
+
+    resp = session.post(base_url + "/v1/events/1")
     assert resp.status_code == 200
     create_event = resp.json()
     assert create_event['created'] is True
@@ -141,10 +184,10 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'value': 'bar'
     }
-    resp = session.post("http://localhost:50503/v1/events/1/metadata/foo", json=body)
+    resp = session.post(base_url + "/v1/events/1/metadata/foo", json=body)
     assert resp.status_code == 200
 
-    resp = session.get("http://localhost:50503/v1/events/1/metadata")
+    resp = session.get(base_url + "/v1/events/1/metadata")
     assert resp.status_code == 200
     metadata = resp.json()['metadata']
     assert metadata['foo'] == 'bar'
@@ -152,15 +195,15 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'text': PHASERS
     }
-    resp = session.post("http://localhost:50503/v1/events/1/documents/plaintext", json=body)
+    resp = session.post(base_url + "/v1/events/1/documents/plaintext", json=body)
     assert resp.status_code == 200
 
-    resp = session.get("http://localhost:50503/v1/events/1/documents")
+    resp = session.get(base_url + "/v1/events/1/documents")
     assert resp.status_code == 200
     documents = resp.json()["document_names"]
     assert documents == ['plaintext']
 
-    resp = session.get("http://localhost:50503/v1/events/1/documents/plaintext")
+    resp = session.get(base_url + "/v1/events/1/documents/plaintext")
     assert resp.status_code == 200
     text = resp.json()['text']
     assert text == PHASERS
@@ -191,10 +234,10 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
         }
     }
     resp = session.post(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels", json=body)
+        base_url + "/v1/events/1/documents/plaintext/labels/test-labels", json=body)
     assert resp.status_code == 200
 
-    resp = session.get("http://localhost:50503/v1/events/1/documents/plaintext/labels/test-labels")
+    resp = session.get(base_url + "/v1/events/1/documents/plaintext/labels/test-labels")
     assert resp.status_code == 200
     labels = resp.json()
     generic_labels = labels['generic_labels']
@@ -203,13 +246,14 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
 
     body = {
         'processor_id': 'mtap-example-processor-python',
+        'event_service_instance_id': instance_id,
         'params': {
             'document_name': 'plaintext',
             'do_work': True,
         }
     }
     resp = session.post(
-        "http://localhost:50503/v1/processors/mtap-example-processor-python/process/1",
+        base_url + "/v1/processors/mtap-example-processor-python/process/1",
         json=body
     )
     assert resp.status_code == 200
@@ -217,7 +261,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert python_process['result']['answer'] == 42
 
     resp = session.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts"
+        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts"
     )
     assert resp.status_code == 200
     labels = resp.json()
@@ -247,13 +291,14 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
 
     body = {
         'processor_id': 'mtap-example-processor-java',
+        'event_service_instance_id': instance_id,
         'params': {
             'document_name': 'plaintext',
             'do_work': True,
         }
     }
     resp = session.post(
-        "http://localhost:50503/v1/processors/mtap-example-processor-java/process/1",
+        base_url + "/v1/processors/mtap-example-processor-java/process/1",
         json=body
     )
     assert resp.status_code == 200
@@ -261,7 +306,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert java_process['result']['answer'] == 42
 
     resp = session.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
+        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
     )
     assert resp.status_code == 200
     labels = resp.json()['generic_labels']['labels']
@@ -276,7 +321,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     ]
 
     resp = session.get(
-        "http://localhost:50503/v1/events/1/documents/plaintext/labels"
+        base_url + "/v1/events/1/documents/plaintext/labels"
     )
     assert resp.status_code == 200
     indices = resp.json()['label_index_infos']

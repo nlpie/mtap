@@ -159,6 +159,9 @@ func run() error {
 }
 
 func main() {
+	var mtapConfigFlag string
+	flag.StringVar(&mtapConfigFlag, "mtap-config", "",
+		"The path to the mtap configuration file")
 	flag.Parse()
 	viper.SetDefault("consul.host", "localhost")
 	viper.SetDefault("consul.port", 8500)
@@ -169,7 +172,12 @@ func main() {
 	viper.SetDefault("grpc.enable_proxy", false)
 
 	mtapConfig, exists := os.LookupEnv("MTAP_CONFIG")
+	if len(mtapConfigFlag) > 0 {
+		mtapConfig = mtapConfigFlag
+		exists = true
+	}
 	if exists {
+		glog.V(2).Infof("Using config file: %s", mtapConfig)
 		viper.SetConfigFile(mtapConfig)
 	} else {
 		viper.SetConfigName("mtapConfig")

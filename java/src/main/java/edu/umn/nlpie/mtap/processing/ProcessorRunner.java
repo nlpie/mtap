@@ -25,7 +25,11 @@ import java.util.Map;
 
 @Internal
 public interface ProcessorRunner extends AutoCloseable {
-  ProcessingResult process(@NotNull String eventID, @NotNull JsonObject params);
+  ProcessingResult process(
+      @NotNull String eventID,
+      @NotNull String eventInstanceID,
+      @NotNull JsonObject params
+  );
 
   Map<@NotNull String, @Nullable Object> getProcessorMeta();
 

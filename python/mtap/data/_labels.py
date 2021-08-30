@@ -40,6 +40,7 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
         end_index (float):
             The end index exclusive of the location in text.
     """
+    __slots__ = ()
 
     def covers(self, other: Union['data.Location', 'data.Label']):
         """Whether the span of text covered by this label completely overlaps the span of text

@@ -26,14 +26,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class EventTest {
-
+  private EventsClientPool pool;
   private EventsClient mockClient;
   private Event tested;
 
   @BeforeEach
   void setUp() {
+    pool = mock(EventsClientPool.class);
     mockClient = mock(EventsClient.class);
-    tested = new Event.Builder().eventID("1").eventsClient(mockClient).build();
+    doReturn(mockClient).when(pool).nextInstance();
+
+    tested = new Event.Builder().eventID("1").clientPool(pool).build();
   }
 
   @Test

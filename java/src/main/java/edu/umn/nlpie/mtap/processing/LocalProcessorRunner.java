@@ -17,42 +17,39 @@
 package edu.umn.nlpie.mtap.processing;
 
 import edu.umn.nlpie.mtap.Internal;
-import edu.umn.nlpie.mtap.model.Event;
-import edu.umn.nlpie.mtap.model.EventsClient;
 import edu.umn.nlpie.mtap.common.JsonObject;
 import edu.umn.nlpie.mtap.common.JsonObjectBuilder;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
-import io.grpc.ManagedChannel;
+import edu.umn.nlpie.mtap.model.Event;
+import edu.umn.nlpie.mtap.model.EventsClientPool;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Internal
 class LocalProcessorRunner implements ProcessorRunner {
-  private final @Nullable
-  ManagedChannel eventsChannel;
-  private final EventsClient client;
+  private final EventsClientPool clientPool;
   private final EventProcessor processor;
   private final Map<String, Object> processorMeta;
 
   LocalProcessorRunner(
-      @Nullable ManagedChannel eventsChannel,
-      EventsClient client,
+      EventsClientPool clientPool,
       EventProcessor processor
   ) {
-    this.eventsChannel = eventsChannel;
-    this.client = client;
+    this.clientPool = clientPool;
     this.processor = processor;
 
     processorMeta = processor.getProcessorMetadata();
   }
 
   @Override
-  public ProcessingResult process(@NotNull String eventID, @NotNull JsonObject params) {
+  public ProcessingResult process(
+      @NotNull String eventID,
+      @NotNull String eventInstanceID,
+      @NotNull JsonObject params
+  ) {
     try (ProcessorContext context = ProcessorBase.enterContext();
-         Event event = Event.newBuilder().eventID(eventID).eventsClient(client)
+         Event event = Event.newBuilder().eventID(eventID).eventInstanceID(eventInstanceID).clientPool(clientPool)
              .defaultAdapters(processor.getDefaultAdapters()).build()
     ) {
       JsonObjectBuilder<?, ?> resultBuilder = JsonObjectImpl.newBuilder();
@@ -79,10 +76,7 @@ class LocalProcessorRunner implements ProcessorRunner {
 
   @Override
   public void close() throws InterruptedException {
-    if (eventsChannel != null) {
-      eventsChannel.shutdown();
-      eventsChannel.awaitTermination(5, TimeUnit.SECONDS);
-    }
+    clientPool.close();
     processor.shutdown();
   }
 }

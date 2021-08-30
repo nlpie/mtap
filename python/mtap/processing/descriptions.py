@@ -89,6 +89,7 @@ class labels(NamedTuple('LabelDescription',
         properties (~typing.Optional[~typing.List[label_property]]):
             The properties of the labels in the label index.
     """
+
     def __new__(cls,
                 name: str,
                 *,
@@ -217,9 +218,11 @@ def processor(name: str,
     """
 
     def decorator(f: Type['EventProcessor']) -> Type['EventProcessor']:
-        f.metadata['name'] = name
-        f.metadata['human_name'] = human_name
-        f.metadata['description'] = description
+        f.metadata = {
+            'name': name,
+            'human_name': human_name,
+            'description': description
+        }
         if parameters is not None:
             f.metadata['parameters'] = [_parameter_to_map(p) for p in parameters]
         if inputs is not None:

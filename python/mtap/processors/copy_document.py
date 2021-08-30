@@ -90,7 +90,7 @@ def main(args=None):
                         help='Name of target document.')
     ns = parser.parse_args(args)
     p = CopyDocument(ns.source_document_name, ns.target_document_name, ns.index_names)
-    mtap.run_processor(p, namespace=ns)
+    mtap.run_processor(p, options=ns)
 
 
 if __name__ == '__main__':

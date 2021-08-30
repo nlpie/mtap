@@ -16,6 +16,7 @@
 import logging
 import threading
 import typing
+import uuid
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Optional
 
@@ -42,11 +43,17 @@ class EventsServer:
     Keyword Args:
         port (int): The port to host the server on.
         register (bool): Whether to register the service with service discovery.
-        workers: The number of workers that should handle requests.
+        workers (int): The number of workers that should handle requests.
+        write_address (bool): Whether to write the events service address to a file.
+        config (mtap.Config): An optional mtap config.
     """
 
     def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10,
                  write_address: bool = False, config: 'Optional[mtap.Config]' = None):
+        if host is None:
+            host = '127.0.0.1'
+        if port is None:
+            port = 0
         self.write_address = write_address
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         if config is None:
@@ -121,6 +128,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
     def __init__(self):
         self.lock = threading.RLock()
         self.events = {}
+        self.instance_id = str(uuid.uuid4())
 
     def _get_event(self, request, context=None):
         event_id = request.event_id
@@ -143,6 +151,10 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                                                                                  document_name))
             raise e
         return document
+
+    def GetEventsInstanceId(self, request, context):
+        LOGGER.debug("GetEventsInstanceId")
+        return events_pb2.GetEventsInstanceIdResponse(instance_id=self.instance_id)
 
     def OpenEvent(self, request, context=None):
         LOGGER.debug("OpenEvent: %s", request.event_id)

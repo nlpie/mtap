@@ -18,6 +18,7 @@ from mtap.data import DISTINCT_GENERIC_ADAPTER, GENERIC_ADAPTER
 
 def test_add_labels_not_distinct(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
@@ -42,6 +43,7 @@ def test_add_labels_not_distinct(mocker):
 
 def test_add_labels_distinct(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
@@ -66,6 +68,7 @@ def test_add_labels_distinct(mocker):
 
 def test_labeler_not_distinct_default(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
@@ -92,6 +95,7 @@ def test_labeler_not_distinct_default(mocker):
 
 def test_labeler_distinct(mocker):
     client = mocker.Mock(EventsClient)
+    client.get_local_instance.return_value = client
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',

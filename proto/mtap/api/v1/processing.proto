@@ -49,6 +49,10 @@ message ProcessRequest {
    */
   string event_id = 2;
 
+  /* The event service instance uuid to use to get the event.
+   */
+  string event_service_instance_id = 4;
+
   /* A dynamic JSON object of runtime parameters that the processor will use.
    */
   google.protobuf.Struct params = 3;

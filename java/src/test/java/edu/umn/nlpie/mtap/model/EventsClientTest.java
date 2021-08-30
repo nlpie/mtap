@@ -56,6 +56,12 @@ class EventsClientTest {
   @BeforeEach
   void setUp() throws IOException {
     eventsService = mock(EventsGrpc.EventsImplBase.class, Mockito.CALLS_REAL_METHODS);
+    doAnswer((Answer<Void>) invocation -> {
+      StreamObserver<GetEventsInstanceIdResponse> observer = invocation.getArgument(1);
+      observer.onNext(GetEventsInstanceIdResponse.newBuilder().setInstanceId("1").build());
+      observer.onCompleted();
+      return null;
+    }).when(eventsService).getEventsInstanceId(any(), any());
     String name = InProcessServerBuilder.generateName();
     grpcCleanup.register(InProcessServerBuilder
         .forName(name).directExecutor().addService(eventsService).build().start());
