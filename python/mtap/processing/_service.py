@@ -70,6 +70,10 @@ def run_processor(proc: 'mtap.EventProcessor',
 
 
     """
+    from mtap import EventProcessor
+    if not isinstance(proc, EventProcessor):
+        raise ValueError("Processor must be instance of EventProcessor class.")
+
     if options is None:
         processors_parser = argparse.ArgumentParser(parents=[processor_parser()])
         processors_parser.add_help = True

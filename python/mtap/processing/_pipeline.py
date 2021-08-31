@@ -878,7 +878,7 @@ class _PipelineMultiRunner:
                 self.source.receive_result(result, event)
             else:
                 if not self.source.receive_failure(error):
-                    logger.error('Error while processing event_id: %s: %s', event_id, error)
+                    logger.error('Error while processing event_id: %s\n%s', event_id, error)
                     self.failures += 1
             self.task_completed()
             if self.close_events:
