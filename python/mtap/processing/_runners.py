@@ -52,7 +52,13 @@ class ProcessorRunner(_base.ProcessingComponent):
                            event_service_instance_id=event_instance_id,
                            client=self.client) as event:
             with _base.Processor.started_stopwatch('process_method'):
-                result = self.processor.process(event, p)
+                try:
+                    result = self.processor.process(event, p)
+                except Exception as e:
+                    logger.error(
+                        "Error while processing event_id %s through pipeline component  '%s'",
+                        event_id, self.component_id)
+                    raise e
             return result, c.times, event.created_indices
 
     def close(self):
@@ -98,7 +104,12 @@ class RemoteRunner(_base.ProcessingComponent):
                                                     event_service_instance_id=event_instance_id)
             _structs.copy_dict_to_struct(p, request.params, [p])
             with _base.Processor.started_stopwatch('remote_call'):
-                response = self._stub.Process(request)
+                try:
+                    response = self._stub.Process(request)
+                except Exception as e:
+                    logger.error("Error while processing event_id %s through remote pipeline "
+                                 "component  '%s'", event_id, self.component_id)
+                    raise e
             r = {}
             _structs.copy_struct_to_dict(response.result, r)
 

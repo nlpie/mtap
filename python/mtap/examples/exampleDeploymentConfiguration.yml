@@ -19,11 +19,11 @@ events_service:
 # Configuration that will be shared by all processors.
 shared_processor_config:
   # An optional GRPC-compatible target for the events service to be used by all processors.
-  events_address: null
+  events_addresses: null
   # The default number of worker threads which will perform processing.
   workers: 8
   # a list of additional arguments for the processor
-  args: [ ]
+  additional_args: [ ]
   jvm_args: [ "-Xms32m", "-Xmx8g" ]
   java_classpath: null
   startup_timeout: 30 # How long to wait for the processor to start up and respond.

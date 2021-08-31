@@ -375,7 +375,7 @@ class ProcessorDeployment:
         self.implementation = implementation
         self.entry_point = entry_point
         self.instances = instances or 1
-        if not issubclass(self.instances, int) or self.instances < 1:
+        if not isinstance(self.instances, int) or self.instances < 1:
             raise ValueError("Instances must be strictly positive integer.")
         self.identifier = identifier
         self.pre_args = pre_args
@@ -529,6 +529,14 @@ class Deployment:
             enable_proxy = c.get('grpc.enable_proxy', False)
             processes_listeners = []
             events_addresses = []
+
+            def shutdown(kill=False):
+                print("Shutting down all processors")
+                for p, listener in processes_listeners:
+                    if kill:
+                        p.kill()
+                    listener.join(timeout=1)
+
             if self.events_deployment.enabled:
                 for call in self.events_deployment.create_calls(self.global_settings):
                     p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -549,8 +557,12 @@ class Deployment:
                         p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                         startup_timeout = (processor_deployment.startup_timeout
                                            or self.shared_processor_config.startup_timeout)
-                        listener, _ = _listen_test_connectivity(p, call, startup_timeout,
-                                                                enable_proxy)
+                        try:
+                            listener, _ = _listen_test_connectivity(p, call, startup_timeout,
+                                                                    enable_proxy)
+                        except ServiceDeploymentException as e:
+                            logger.error(str(e))
+                            return shutdown(kill=True)
                         processes_listeners.append((p, listener))
 
             print('Done deploying all servers.', flush=True)
@@ -558,9 +570,7 @@ class Deployment:
                 while True:
                     time.sleep(60 * 60 * 24)
             except KeyboardInterrupt:
-                print("Shutting down all processors")
-                for p, listener in processes_listeners:
-                    listener.join(timeout=1)
+                return shutdown()
 
 
 def _listen_test_connectivity(p: subprocess.Popen,
