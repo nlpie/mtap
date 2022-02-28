@@ -23,7 +23,7 @@ from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.test import test as _test
 from pathlib import Path
 
-GRPC_VERSION = '1.37.0'
+GRPC_VERSION = '1.43.0'
 
 
 def generate_proto(source, require=True):

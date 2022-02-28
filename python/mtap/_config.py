@@ -130,7 +130,7 @@ class Config(MutableMapping[str, Any]):
 
     def enter_context(self):
         with self._lock:
-            if self._context.config is not None:
+            if hasattr(self._context, "config") and self._context.config is not None:
                 raise ValueError("Already in a configuration context.")
             self._context.config = self
 
