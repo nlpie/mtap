@@ -383,13 +383,8 @@ class ProcessorServer:
         )
         workers = workers or 10
         thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
-        self._server = grpc.server(thread_pool,
-                                   options=[
-                                       ('grpc.max_send_message_length',
-                                        config.get('grpc.max_send_message_length')),
-                                       ('grpc.max_receive_message_length',
-                                        config.get('grpc.max_receive_message_length'))
-                                   ])
+        options = config.get("grpc.processor_server_options", {})
+        self._server = grpc.server(thread_pool, options=list(options.items()))
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
         self._port = self._server.add_insecure_port("{}:{}".format(self.host, self.port))

@@ -497,16 +497,8 @@ class Labeler(Generic[L], ContextManager['Labeler']):
 
 def create_channel(address):
     config = _config.Config()
-
-    enable_proxy = config.get('grpc.enable_proxy', False)
-    channel = grpc.insecure_channel(address,
-                                    options=[
-                                        ('grpc.enable_http_proxy', enable_proxy),
-                                        ('grpc.max_send_message_length',
-                                         config.get('grpc.max_send_message_length')),
-                                        ('grpc.max_receive_message_length',
-                                         config.get('grpc.max_receive_message_length'))
-                                    ])
+    options = config.get('grpc.events_channel_options', {})
+    channel = grpc.insecure_channel(address, options=list(options.items()))
 
     health = health_pb2_grpc.HealthStub(channel)
     hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))

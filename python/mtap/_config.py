@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def _collapse(d, path, v):
+    d[path] = v
     try:
         p = ''
         if path is not None:
@@ -35,8 +36,6 @@ def _collapse(d, path, v):
         pass
     except TypeError:
         raise ValueError('Failed to load configuration')
-
-    d[path] = v
     return d
 
 

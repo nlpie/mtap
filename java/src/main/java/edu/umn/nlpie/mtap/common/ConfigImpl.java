@@ -170,10 +170,9 @@ public final class ConfigImpl implements Config {
       String key = entry.getKey();
       Object value = entry.getValue();
       String newPrefix = prefix + (prefix.length() > 0 ? "." : "") + key;
+      targetMap.put(newPrefix, value);
       if (value instanceof Map) {
         flattenConfig((Map<String, Object>) value, newPrefix, targetMap);
-      } else {
-        targetMap.put(newPrefix, value);
       }
     }
   }

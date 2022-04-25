@@ -1,8 +1,22 @@
 discovery: consul
 grpc:
-  enable_proxy: False
-  max_send_message_length: 536870912
-  max_receive_message_length: 536870912
+  events_channel_options:
+    grpc.enable_http_proxy: False
+    grpc.max_send_message_length: 536870912
+    grpc.max_receive_message_length: 536870912
+  processor_channel_options:
+    grpc.enable_http_proxy: False
+    grpc.lb_policy_name: round_robin
+    grpc.max_send_message_length: 536870912
+    grpc.max_receive_message_length: 536870912
+  events_server_options:
+    grpc.max_send_message_length: 536870912
+    grpc.max_receive_message_length: 536870912
+  processor_server_options:
+    grpc.max_send_message_length: 536870912
+    grpc.max_receive_message_length: 536870912
+  java_processor_server_options:
+    maxInboundMessageSize: 536870912
 consul:
   host: localhost
   port: 8500
