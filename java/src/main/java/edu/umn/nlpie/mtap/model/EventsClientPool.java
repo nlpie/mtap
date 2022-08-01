@@ -40,7 +40,7 @@ public class EventsClientPool implements AutoCloseable {
   public static EventsClientPool fromAddresses(String[] addresses, ChannelFactory channelFactory) {
     List<EventsClient> clients = new ArrayList<>(addresses.length);
     for (String address : addresses) {
-      clients.add(new EventsClient(channelFactory.createChannel(address)));
+      clients.add(new EventsClient(channelFactory.createChannel(address), address));
     }
     return new EventsClientPool(clients);
   }
