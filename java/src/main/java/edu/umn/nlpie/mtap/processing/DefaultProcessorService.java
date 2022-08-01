@@ -10,6 +10,7 @@ import edu.umn.nlpie.mtap.api.v1.ProcessorGrpc;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.discovery.ServiceInfo;
+import edu.umn.nlpie.mtap.exc.FailedToConnectToEventsException;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.protobuf.ProtoUtils;
@@ -110,6 +111,9 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
       responseObserver.onNext(responseBuilder.build());
       responseObserver.onCompleted();
       processed++;
+    } catch (FailedToConnectToEventsException e) {
+      logger.error("Failed to connect to events service with address: {}", e.getAddress());
+      responseObserver.onError(Status.INTERNAL.withCause(e).asRuntimeException());
     } catch (RuntimeException e) {
       logger.error("Exception during processing of event '{}'", eventID, e);
       Metadata trailers = new Metadata();

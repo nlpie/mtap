@@ -68,7 +68,7 @@ class EventsClientTest {
 
     channel = grpcCleanup.register(InProcessChannelBuilder.forName(name).directExecutor().build());
 
-    tested = new EventsClient(channel);
+    tested = new EventsClient(channel, "fakeAddress");
 
     adapter = mock(ProtoLabelAdapter.class);
   }

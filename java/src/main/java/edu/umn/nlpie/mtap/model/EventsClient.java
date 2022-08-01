@@ -19,27 +19,17 @@ package edu.umn.nlpie.mtap.model;
 import com.google.protobuf.ByteString;
 import edu.umn.nlpie.mtap.api.v1.EventsGrpc;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.*;
-import edu.umn.nlpie.mtap.common.Config;
-import edu.umn.nlpie.mtap.common.ConfigImpl;
-import edu.umn.nlpie.mtap.discovery.Discovery;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.exc.EventExistsException;
+import edu.umn.nlpie.mtap.exc.FailedToConnectToEventsException;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
-
-import static edu.umn.nlpie.mtap.MTAP.EVENTS_SERVICE_NAME;
 
 /**
  * A client to an events service.
@@ -51,22 +41,36 @@ public class EventsClient implements AutoCloseable {
   private final EventsGrpc.EventsBlockingStub stub;
 
   private final String instanceId;
+  private final String address;
 
   /**
    * Creates a client.
    *
    * @param channel The GRPC channel to the events service.
+   * @param address The address of the events client.
    */
-  public EventsClient(ManagedChannel channel) {
+  public EventsClient(ManagedChannel channel, String address) {
     this.channel = channel;
+    this.address = address;
     stub = EventsGrpc.newBlockingStub(channel);
-    GetEventsInstanceIdResponse response = stub
-        .getEventsInstanceId(GetEventsInstanceIdRequest.newBuilder().build());
-    instanceId = response.getInstanceId();
+    GetEventsInstanceIdRequest req = GetEventsInstanceIdRequest.newBuilder().build();
+    try {
+      GetEventsInstanceIdResponse response = stub.getEventsInstanceId(req);
+      instanceId = response.getInstanceId();
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   public String getInstanceId() {
     return instanceId;
+  }
+
+  private void connectionError() {
+    throw new FailedToConnectToEventsException(String.format("Failed to connect to events service: %s", this.address));
   }
 
   /**
@@ -93,6 +97,9 @@ public class EventsClient implements AutoCloseable {
         exception.addSuppressed(e);
         throw exception;
       }
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
       throw e;
     }
   }
@@ -107,7 +114,14 @@ public class EventsClient implements AutoCloseable {
     CloseEventRequest request = CloseEventRequest.newBuilder()
         .setEventId(eventID)
         .build();
-    stub.closeEvent(request);
+    try {
+      stub.closeEvent(request);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -120,8 +134,15 @@ public class EventsClient implements AutoCloseable {
     GetAllMetadataRequest request = GetAllMetadataRequest.newBuilder()
         .setEventId(eventID)
         .build();
-    GetAllMetadataResponse response = stub.getAllMetadata(request);
-    return response.getMetadataMap();
+    try {
+      GetAllMetadataResponse response = stub.getAllMetadata(request);
+      return response.getMetadataMap();
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -138,7 +159,14 @@ public class EventsClient implements AutoCloseable {
         .setKey(key)
         .setValue(value)
         .build();
-    stub.addMetadata(req);
+    try {
+      stub.addMetadata(req);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -151,8 +179,15 @@ public class EventsClient implements AutoCloseable {
     GetAllBinaryDataNamesRequest request = GetAllBinaryDataNamesRequest.newBuilder()
         .setEventId(eventID)
         .build();
-    GetAllBinaryDataNamesResponse response = stub.getAllBinaryDataNames(request);
-    return response.getBinaryDataNamesList();
+    try {
+      GetAllBinaryDataNamesResponse response = stub.getAllBinaryDataNames(request);
+      return response.getBinaryDataNamesList();
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -173,7 +208,14 @@ public class EventsClient implements AutoCloseable {
         .setBinaryDataName(binaryDataName)
         .setBinaryData(ByteString.copyFrom(bytes))
         .build();
-    stub.addBinaryData(request);
+    try {
+      stub.addBinaryData(request);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -188,8 +230,15 @@ public class EventsClient implements AutoCloseable {
         .setEventId(eventID)
         .setBinaryDataName(binaryDataName)
         .build();
-    GetBinaryDataResponse response = stub.getBinaryData(request);
-    return response.getBinaryData().toByteArray();
+    try {
+      GetBinaryDataResponse response = stub.getBinaryData(request);
+      return response.getBinaryData().toByteArray();
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -203,8 +252,15 @@ public class EventsClient implements AutoCloseable {
         .newBuilder()
         .setEventId(eventID)
         .build();
-    GetAllDocumentNamesResponse response = stub.getAllDocumentNames(request);
-    return response.getDocumentNamesList();
+    try {
+      GetAllDocumentNamesResponse response = stub.getAllDocumentNames(request);
+      return response.getDocumentNamesList();
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -225,7 +281,14 @@ public class EventsClient implements AutoCloseable {
         .setDocumentName(documentName)
         .setText(text)
         .build();
-    stub.addDocument(request);
+    try {
+      stub.addDocument(request);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -240,8 +303,15 @@ public class EventsClient implements AutoCloseable {
         .setEventId(eventID)
         .setDocumentName(documentName)
         .build();
-    GetDocumentTextResponse response = stub.getDocumentText(request);
-    return response.getText();
+    try {
+      GetDocumentTextResponse response = stub.getDocumentText(request);
+      return response.getText();
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -259,24 +329,31 @@ public class EventsClient implements AutoCloseable {
         .setEventId(eventID)
         .setDocumentName(documentName)
         .build();
-    GetLabelIndicesInfoResponse response = stub.getLabelIndicesInfo(request);
-    List<LabelIndexInfo> result = new ArrayList<>();
-    for (GetLabelIndicesInfoResponse.LabelIndexInfo info : response.getLabelIndexInfosList()) {
-      LabelIndexInfo.LabelIndexType type;
-      switch (info.getType()) {
-        case CUSTOM:
-          type = LabelIndexInfo.LabelIndexType.CUSTOM;
-          break;
-        case GENERIC:
-          type = LabelIndexInfo.LabelIndexType.GENERIC;
-          break;
-        default:
-          type = LabelIndexInfo.LabelIndexType.UNKNOWN;
-          break;
+    try {
+      GetLabelIndicesInfoResponse response = stub.getLabelIndicesInfo(request);
+      List<LabelIndexInfo> result = new ArrayList<>();
+      for (GetLabelIndicesInfoResponse.LabelIndexInfo info : response.getLabelIndexInfosList()) {
+        LabelIndexInfo.LabelIndexType type;
+        switch (info.getType()) {
+          case CUSTOM:
+            type = LabelIndexInfo.LabelIndexType.CUSTOM;
+            break;
+          case GENERIC:
+            type = LabelIndexInfo.LabelIndexType.GENERIC;
+            break;
+          default:
+            type = LabelIndexInfo.LabelIndexType.UNKNOWN;
+            break;
+        }
+        result.add(new LabelIndexInfo(info.getIndexName(), type));
       }
-      result.add(new LabelIndexInfo(info.getIndexName(), type));
+      return result;
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
     }
-    return result;
   }
 
   /**
@@ -304,7 +381,14 @@ public class EventsClient implements AutoCloseable {
         .setNoKeyValidation(true);
     adapter.addToMessage(labels, requestBuilder);
     AddLabelsRequest request = requestBuilder.build();
-    stub.addLabels(request);
+    try {
+      stub.addLabels(request);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   /**
@@ -329,8 +413,15 @@ public class EventsClient implements AutoCloseable {
         .setDocumentName(document.getName())
         .setIndexName(indexName)
         .build();
-    GetLabelsResponse response = stub.getLabels(request);
-    return adapter.createIndexFromResponse(response);
+    try {
+      GetLabelsResponse response = stub.getLabels(request);
+      return adapter.createIndexFromResponse(response);
+    } catch (StatusRuntimeException e) {
+      if (e.getStatus().getCode() == Status.Code.UNAVAILABLE) {
+        connectionError();
+      }
+      throw e;
+    }
   }
 
   @Override

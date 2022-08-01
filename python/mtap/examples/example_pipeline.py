@@ -33,10 +33,10 @@ def run_pipeline(conf):
     pipeline = Pipeline.from_yaml_file(pipeline_conf)
 
     with mtap.EventsClient(address=conf.events_address) as client:
+        pipeline.events_client = client
         pipeline.append(
             LocalProcessor(
                 proc=SerializationProcessor(ser=JsonSerializer, output_dir=conf.output_directory),
-                client=client,
                 component_id='serialization_processor'
             )
         )

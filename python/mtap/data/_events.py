@@ -497,16 +497,8 @@ class Labeler(Generic[L], ContextManager['Labeler']):
 
 def create_channel(address):
     config = _config.Config()
-
-    enable_proxy = config.get('grpc.enable_proxy', False)
-    channel = grpc.insecure_channel(address,
-                                    options=[
-                                        ('grpc.enable_http_proxy', enable_proxy),
-                                        ('grpc.max_send_message_length',
-                                         config.get('grpc.max_send_message_length')),
-                                        ('grpc.max_receive_message_length',
-                                         config.get('grpc.max_receive_message_length'))
-                                    ])
+    options = config.get('grpc.events_channel_options', {})
+    channel = grpc.insecure_channel(address, options=list(options.items()))
 
     health = health_pb2_grpc.HealthStub(channel)
     hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))
@@ -607,58 +599,106 @@ class EventsClient:
             response = self.stub.OpenEvent(request)
             assert response is not None
         except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
             if e.code() == grpc.StatusCode.ALREADY_EXISTS:
                 raise ValueError("Event already exists") from e
+            raise e
 
     def close_event(self, event_id):
         request = events_pb2.CloseEventRequest(event_id=event_id)
-        response = self.stub.CloseEvent(request)
+        try:
+            response = self.stub.CloseEvent(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response is not None
 
     def get_all_metadata(self, event_id):
         request = events_pb2.GetAllMetadataRequest(event_id=event_id)
-        response = self.stub.GetAllMetadata(request)
+        try:
+            response = self.stub.GetAllMetadata(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response.metadata
 
     def add_metadata(self, event_id, key, value):
         request = events_pb2.AddMetadataRequest(event_id=event_id, key=key, value=value)
-        response = self.stub.AddMetadata(request)
+        try:
+            response = self.stub.AddMetadata(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response is not None
 
     def get_all_binary_data_names(self, event_id: str) -> List[str]:
         request = events_pb2.GetAllBinaryDataNamesRequest(event_id=event_id)
-        response = self.stub.GetAllBinaryDataNames(request)
+        try:
+            response = self.stub.GetAllBinaryDataNames(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return list(response.binary_data_names)
 
     def add_binary_data(self, event_id: str, binary_data_name: str, binary_data: bytes):
         request = events_pb2.AddBinaryDataRequest(event_id=event_id,
                                                   binary_data_name=binary_data_name,
                                                   binary_data=binary_data)
-        response = self.stub.AddBinaryData(request)
+        try:
+            response = self.stub.AddBinaryData(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response is not None
 
     def get_binary_data(self, event_id: str, binary_data_name: str) -> bytes:
         request = events_pb2.GetBinaryDataRequest(event_id=event_id,
                                                   binary_data_name=binary_data_name)
-        response = self.stub.GetBinaryData(request)
+        try:
+            response = self.stub.GetBinaryData(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response.binary_data
 
     def get_all_document_names(self, event_id):
         request = events_pb2.GetAllDocumentNamesRequest(event_id=event_id)
-        response = self.stub.GetAllDocumentNames(request)
+        try:
+            response = self.stub.GetAllDocumentNames(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return list(response.document_names)
 
     def add_document(self, event_id, document_name, text):
         request = events_pb2.AddDocumentRequest(event_id=event_id,
                                                 document_name=document_name,
                                                 text=text)
-        response = self.stub.AddDocument(request)
+        try:
+            response = self.stub.AddDocument(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response is not None
 
     def get_document_text(self, event_id, document_name):
         request = events_pb2.GetDocumentTextRequest(event_id=event_id,
                                                     document_name=document_name)
-        response = self.stub.GetDocumentText(request)
+        try:
+            response = self.stub.GetDocumentText(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response.text
 
     def get_label_index_info(self,
@@ -666,7 +706,12 @@ class EventsClient:
                              document_name: str) -> List['data.LabelIndexInfo']:
         request = events_pb2.GetLabelIndicesInfoRequest(event_id=event_id,
                                                         document_name=document_name)
-        response = self.stub.GetLabelIndicesInfo(request)
+        try:
+            response = self.stub.GetLabelIndicesInfo(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         result = []
         for index in response.label_index_infos:
             if index.type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC:
@@ -683,14 +728,24 @@ class EventsClient:
                                               index_name=index_name,
                                               no_key_validation=True)
         adapter.add_to_message(labels, request)
-        response = self.stub.AddLabels(request)
+        try:
+            response = self.stub.AddLabels(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return response is not None
 
     def get_labels(self, event_id, document_name, index_name, adapter):
         request = events_pb2.GetLabelsRequest(event_id=event_id,
                                               document_name=document_name,
                                               index_name=index_name)
-        response = self.stub.GetLabels(request)
+        try:
+            response = self.stub.GetLabels(request)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+            raise e
         return adapter.create_index_from_response(response)
 
     def close(self):

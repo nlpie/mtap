@@ -58,11 +58,8 @@ class EventsServer:
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         if config is None:
             config = _config.Config()
-        server = grpc.server(thread_pool,
-                             options=[
-                                 ('grpc.max_send_message_length', config['grpc.max_send_message_length']),
-                                 ('grpc.max_receive_message_length', config['grpc.max_receive_message_length'])
-                             ])
+        options = config.get('grpc.events_server_options', {})
+        server = grpc.server(thread_pool, options=list(options.items()))
         servicer = EventsServicer()
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)
         health_servicer = health.HealthServicer()

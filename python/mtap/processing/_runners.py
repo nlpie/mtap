@@ -79,16 +79,8 @@ class RemoteRunner(_base.ProcessingComponent):
         if address is None:
             discovery = _discovery.Discovery(config)
             address = discovery.discover_processor_service(processor_id, 'v1')
-        enable_proxy = enable_proxy or config.get('grpc.enable_proxy', False)
-        self._channel = grpc.insecure_channel(address,
-                                              options=[
-                                                  ("grpc.lb_policy_name", "round_robin"),
-                                                  ("grpc.enable_http_proxy", enable_proxy),
-                                                  ('grpc.max_send_message_length',
-                                                   config.get('grpc.max_send_message_length')),
-                                                  ('grpc.max_receive_message_length',
-                                                   config.get('grpc.max_receive_message_length'))
-                                              ])
+        channel_options = config.get('grpc.processor_channel_options', {})
+        self._channel = grpc.insecure_channel(address, options=list(channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
     def call_process(self, event_id, event_instance_id, params):

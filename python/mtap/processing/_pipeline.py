@@ -232,7 +232,7 @@ class MpConfig:
         self.close_events = True if close_events is None else close_events
         if not type(self.close_events) == bool:
             raise ValueError("close_events must be None or a bool.")
-        self.mp_start_method = mp_start_method
+        self.mp_start_method = "spawn" if mp_start_method is None else mp_start_method
 
     @staticmethod
     def from_configuration(conf: Dict) -> 'MpConfig':
@@ -311,8 +311,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         name (str): The pipeline's name.
     """
     __slots__ = ['_component_ids', 'name', '_component_descriptors', 'events_address',
-                 'mp_config', '_created_events_client', '_events_client', 'times_map',
-                 '__components']
+                 'mp_config', '_created_events_client', '_provided_events_client', 'times_map',
+                 '__components', '_events_client']
 
     def __init__(self, *components: 'processing.ComponentDescriptor',
                  name: Optional[str] = None,
@@ -324,16 +324,15 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         self._component_descriptors = list(components)
         self.events_address = events_address
         self._created_events_client = False
-        self._events_client = None
-        if events_client is not None:
-            self.events_client = events_client
+        self._provided_events_client = events_client
+        self._events_client = events_client
         self.mp_config = mp_config or MpConfig()
         self.times_map = {}
 
     def __reduce__(self):
         return _create_pipeline, (self.name,
                                   self.events_address,
-                                  self._events_client,
+                                  self._provided_events_client,
                                   self.mp_config) + tuple(self._component_descriptors)
 
     @staticmethod
@@ -604,7 +603,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             except AttributeError:
                 pass
         if self._created_events_client:
-            self._events_client.close()
+            self._provided_events_client.close()
 
     def as_processor(self) -> 'processing.EventProcessor':
         """Returns the pipeline as a processor.
@@ -789,7 +788,7 @@ _mp_pipeline = None
 
 def _mp_process_init(config, pipeline):
     global _mp_pipeline
-    config.enter_context()
+    Config(config).enter_context()
     _mp_pipeline = pipeline
 
     def cleanup_pipeline(*_):
@@ -837,7 +836,7 @@ class _PipelineMultiRunner:
         self.pool = mp_context.Pool(
             self.n_threads,
             initializer=_mp_process_init,
-            initargs=(Config(), pipeline)
+            initargs=(dict(Config()), pipeline)
         )
         self.active_events = {}
 

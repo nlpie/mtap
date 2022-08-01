@@ -43,8 +43,8 @@ public class StandardChannelFactory implements ChannelFactory {
     } else {
       channelBuilder = ManagedChannelBuilder.forTarget(address);
     }
-    eventsChannel = channelBuilder.maxInboundMessageSize(config.getIntegerValue("grpc.max_receive_message_length"))
-        .usePlaintext().build();
+    channelBuilder.maxInboundMessageSize(config.getIntegerValue("grpc.java_events_channel_options.maxInboundMessageSize"));
+    eventsChannel = channelBuilder.usePlaintext().build();
     return eventsChannel;
   }
 }

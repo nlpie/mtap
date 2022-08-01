@@ -39,12 +39,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
@@ -443,10 +446,13 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           uniqueServiceId,
           host
       );
-      Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(host, port))
-          .maxInboundMessageSize(config.getIntegerValue("grpc.max_receive_message_length"))
+      NettyServerBuilder builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, port));
+      Server grpcServer = builder
           .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
+          .maxInboundMessageSize(
+              config.getIntegerValue("grpc.java_processor_server_options.maxInboundMessageSize")
+          )
           .addService(processorService).build();
       return new ProcessorServer(processorService, grpcServer, host, writeAddress);
     }
