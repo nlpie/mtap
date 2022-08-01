@@ -232,7 +232,7 @@ class MpConfig:
         self.close_events = True if close_events is None else close_events
         if not type(self.close_events) == bool:
             raise ValueError("close_events must be None or a bool.")
-        self.mp_start_method = mp_start_method
+        self.mp_start_method = "spawn" if mp_start_method is None else mp_start_method
 
     @staticmethod
     def from_configuration(conf: Dict) -> 'MpConfig':
