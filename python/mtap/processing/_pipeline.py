@@ -603,7 +603,7 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             except AttributeError:
                 pass
         if self._created_events_client:
-            self._provided_events_client.close()
+            self._events_client.close()
 
     def as_processor(self) -> 'processing.EventProcessor':
         """Returns the pipeline as a processor.
