@@ -14,7 +14,7 @@
     "/v1/processors/{processor_id}/info": {
       "get": {
         "summary": "Gets information about the processor.",
-        "operationId": "GetInfo",
+        "operationId": "Processor_GetInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -46,7 +46,7 @@
     "/v1/processors/{processor_id}/process/{event_id}": {
       "post": {
         "summary": "Processes an event.",
-        "operationId": "Process",
+        "operationId": "Processor_Process",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -93,7 +93,7 @@
     "/v1/processors/{processor_id}/stats": {
       "get": {
         "summary": "Gets globally-aggregated statistics about the processor.",
-        "operationId": "GetStats",
+        "operationId": "Processor_GetStats",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -221,6 +221,10 @@
         "event_id": {
           "type": "string",
           "description": "The identifier of the event to process."
+        },
+        "event_service_instance_id": {
+          "type": "string",
+          "description": "The event service instance uuid to use to get the event."
         },
         "params": {
           "type": "object",

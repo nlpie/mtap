@@ -11,10 +11,32 @@
     "application/json"
   ],
   "paths": {
+    "/v1/events/instance_id": {
+      "get": {
+        "operationId": "Events_GetEventsInstanceId",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetEventsInstanceIdResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
+            }
+          }
+        },
+        "tags": [
+          "Events"
+        ]
+      }
+    },
     "/v1/events/{event_id}": {
       "delete": {
         "summary": "Cedes a lease for an event, allowing this service to delete the\nevent if no active leases remain.",
-        "operationId": "CloseEvent",
+        "operationId": "Events_CloseEvent",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -52,7 +74,7 @@
       },
       "post": {
         "summary": "Acquires a lease for an event, which will prevent this service\nfrom deleting the event while the lease is still valid. Can be used to\neither create new events or return existing events.",
-        "operationId": "OpenEvent",
+        "operationId": "Events_OpenEvent",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -91,7 +113,7 @@
     },
     "/v1/events/{event_id}/binaries": {
       "get": {
-        "operationId": "GetAllBinaryDataNames",
+        "operationId": "Events_GetAllBinaryDataNames",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -122,7 +144,7 @@
     },
     "/v1/events/{event_id}/binaries/{binary_data_name}": {
       "get": {
-        "operationId": "GetBinaryData",
+        "operationId": "Events_GetBinaryData",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -158,7 +180,7 @@
         ]
       },
       "post": {
-        "operationId": "AddBinaryData",
+        "operationId": "Events_AddBinaryData",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -205,7 +227,7 @@
     "/v1/events/{event_id}/documents": {
       "get": {
         "summary": "Returns the names keys of all documents that are stored on an event.",
-        "operationId": "GetAllDocumentNames",
+        "operationId": "Events_GetAllDocumentNames",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -237,7 +259,7 @@
     "/v1/events/{event_id}/documents/{document_name}": {
       "get": {
         "summary": "Returns the text of a document.",
-        "operationId": "GetDocumentText",
+        "operationId": "Events_GetDocumentText",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -274,7 +296,7 @@
       },
       "post": {
         "summary": "Adds a new document to an event.",
-        "operationId": "AddDocument",
+        "operationId": "Events_AddDocument",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -321,7 +343,7 @@
     "/v1/events/{event_id}/documents/{document_name}/labels": {
       "get": {
         "summary": "Returns the names keys of all label indices that are stored on a document.",
-        "operationId": "GetLabelIndicesInfo",
+        "operationId": "Events_GetLabelIndicesInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -360,7 +382,7 @@
     "/v1/events/{event_id}/documents/{document_name}/labels/{index_name}": {
       "get": {
         "summary": "Gets all of the labels for a single label index.",
-        "operationId": "GetLabels",
+        "operationId": "Events_GetLabels",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -404,7 +426,7 @@
       },
       "post": {
         "summary": "Adds a single label index to the document.",
-        "operationId": "AddLabels",
+        "operationId": "Events_AddLabels",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -458,7 +480,7 @@
     "/v1/events/{event_id}/metadata": {
       "get": {
         "summary": "Endpoint to get all metadata associated with an event.",
-        "operationId": "GetAllMetadata",
+        "operationId": "Events_GetAllMetadata",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -490,7 +512,7 @@
     "/v1/events/{event_id}/metadata/{key}": {
       "post": {
         "summary": "Adds a new metadata entry to an event.",
-        "operationId": "AddMetadata",
+        "operationId": "Events_AddMetadata",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -571,7 +593,7 @@
           "description": "Must be a valid serialized protocol buffer of the above specified type."
         }
       },
-      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\n Example 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\n Example 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := ptypes.MarshalAny(foo)\n     ...\n     foo := \u0026pb.Foo{}\n     if err := ptypes.UnmarshalAny(any, foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n====\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
+      "description": "`Any` contains an arbitrary serialized protocol buffer message along with a\nURL that describes the type of the serialized message.\n\nProtobuf library provides support to pack/unpack Any values in the form\nof utility functions or additional generated methods of the Any type.\n\nExample 1: Pack and unpack a message in C++.\n\n    Foo foo = ...;\n    Any any;\n    any.PackFrom(foo);\n    ...\n    if (any.UnpackTo(\u0026foo)) {\n      ...\n    }\n\nExample 2: Pack and unpack a message in Java.\n\n    Foo foo = ...;\n    Any any = Any.pack(foo);\n    ...\n    if (any.is(Foo.class)) {\n      foo = any.unpack(Foo.class);\n    }\n\n Example 3: Pack and unpack a message in Python.\n\n    foo = Foo(...)\n    any = Any()\n    any.Pack(foo)\n    ...\n    if any.Is(Foo.DESCRIPTOR):\n      any.Unpack(foo)\n      ...\n\n Example 4: Pack and unpack a message in Go\n\n     foo := \u0026pb.Foo{...}\n     any, err := anypb.New(foo)\n     if err != nil {\n       ...\n     }\n     ...\n     foo := \u0026pb.Foo{}\n     if err := any.UnmarshalTo(foo); err != nil {\n       ...\n     }\n\nThe pack methods provided by protobuf library will by default use\n'type.googleapis.com/full.type.name' as the type URL and the unpack\nmethods only use the fully qualified type name after the last '/'\nin the type URL, for example \"foo.bar.com/x/y.z\" will yield type\nname \"y.z\".\n\n\nJSON\n====\nThe JSON representation of an `Any` value uses the regular\nrepresentation of the deserialized, embedded message, with an\nadditional field `@type` which contains the type URL. Example:\n\n    package google.profile;\n    message Person {\n      string first_name = 1;\n      string last_name = 2;\n    }\n\n    {\n      \"@type\": \"type.googleapis.com/google.profile.Person\",\n      \"firstName\": \u003cstring\u003e,\n      \"lastName\": \u003cstring\u003e\n    }\n\nIf the embedded message type is well-known and has a custom JSON\nrepresentation, that representation will be embedded adding a field\n`value` which holds the custom JSON in addition to the `@type`\nfield. Example (for message [google.protobuf.Duration][]):\n\n    {\n      \"@type\": \"type.googleapis.com/google.protobuf.Duration\",\n      \"value\": \"1.212s\"\n    }"
     },
     "protobufNullValue": {
       "type": "string",
@@ -818,6 +840,15 @@
         }
       },
       "description": "Response for getting the document text."
+    },
+    "v1GetEventsInstanceIdResponse": {
+      "type": "object",
+      "properties": {
+        "instance_id": {
+          "type": "string",
+          "description": "The instance identifier for the events instance."
+        }
+      }
     },
     "v1GetLabelIndicesInfoResponse": {
       "type": "object",
