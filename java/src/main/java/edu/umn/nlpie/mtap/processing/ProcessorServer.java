@@ -49,6 +49,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.kohsuke.args4j.OptionHandlerFilter.ALL;
 
@@ -447,12 +448,29 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           host
       );
       NettyServerBuilder builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, port));
+      Integer maxInboundMessageSize = config.getIntegerValue("grpc.processor_options.grpc.max_receive_message_length");
+      if (maxInboundMessageSize != null) {
+        builder.maxInboundMessageSize(maxInboundMessageSize);
+      }
+      Integer keepAliveTime = config.getIntegerValue("grpc.processor_options.grpc.keepalive_time_ms");
+      if (keepAliveTime != null) {
+        builder.keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS);
+      }
+      Integer keepAliveTimeout = config.getIntegerValue("grpc.processor_options.grpc.keepalive_timeout_ms");
+      if (keepAliveTimeout != null) {
+        builder.keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS);
+      }
+      Boolean permitKeepAliveWithoutCalls = config.getBooleanValue("grpc.processor_options.grpc.permit_keepalive_without_calls");
+      if (permitKeepAliveWithoutCalls != null) {
+        builder.permitKeepAliveWithoutCalls(permitKeepAliveWithoutCalls);
+      }
+      Integer permitKeepAliveTime = config.getIntegerValue("grpc.processor_options.grpc.http2.min_ping_interval_without_data_ms");
+      if (permitKeepAliveTime != null) {
+        builder.permitKeepAliveTime(permitKeepAliveTime, TimeUnit.MILLISECONDS);
+      }
       Server grpcServer = builder
           .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
-          .maxInboundMessageSize(
-              config.getIntegerValue("grpc.java_processor_server_options.maxInboundMessageSize")
-          )
           .addService(processorService).build();
       return new ProcessorServer(processorService, grpcServer, host, writeAddress);
     }

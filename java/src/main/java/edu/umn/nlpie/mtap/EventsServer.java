@@ -57,6 +57,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -812,9 +813,28 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
       }
       HealthService healthService = new HSMHealthService();
       EventsServicer eventsServicer = new EventsServicer();
-      Server grpcServer = NettyServerBuilder.forAddress(new InetSocketAddress(hostname, port))
-          .maxInboundMessageSize(config.getIntegerValue("grpc.max_receive_message_length"))
-          .executor(Executors.newFixedThreadPool(workers))
+      NettyServerBuilder builder = NettyServerBuilder.forAddress(new InetSocketAddress(hostname, port));
+      Integer maxInboundMessageSize = config.getIntegerValue("grpc.events_options.grpc.max_receive_message_length");
+      if (maxInboundMessageSize != null) {
+        builder.maxInboundMessageSize(maxInboundMessageSize);
+      }
+      Integer keepAliveTime = config.getIntegerValue("grpc.events_options.grpc.keepalive_time_ms");
+      if (keepAliveTime != null) {
+        builder.keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS);
+      }
+      Integer keepAliveTimeout = config.getIntegerValue("grpc.events_options.grpc.keepalive_timeout_ms");
+      if (keepAliveTimeout != null) {
+        builder.keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS);
+      }
+      Boolean permitKeepAliveWithoutCalls = config.getBooleanValue("grpc.events_options.grpc.permit_keepalive_without_calls");
+      if (permitKeepAliveWithoutCalls != null) {
+        builder.permitKeepAliveWithoutCalls(permitKeepAliveWithoutCalls);
+      }
+      Integer permitKeepAliveTime = config.getIntegerValue("grpc.events_options.grpc.http2.min_ping_interval_without_data_ms");
+      if (permitKeepAliveTime != null) {
+        builder.permitKeepAliveTime(permitKeepAliveTime, TimeUnit.MILLISECONDS);
+      }
+      Server grpcServer = builder.executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(eventsServicer).build();
       return new EventsServer(grpcServer, hostname, writeAddress, healthService,

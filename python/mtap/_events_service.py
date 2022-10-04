@@ -58,7 +58,8 @@ class EventsServer:
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         if config is None:
             config = _config.Config()
-        options = config.get('grpc.events_server_options', {})
+        options = config.get('grpc.events_options', {})
+        LOGGER.info("Events service using options " + str(options))
         server = grpc.server(thread_pool, options=list(options.items()))
         servicer = EventsServicer()
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)

@@ -69,17 +69,19 @@ class RemoteRunner(_base.ProcessingComponent):
     __slots__ = ('processor_id', 'component_id', '_address', 'params', '_channel', '_stub')
 
     def __init__(self, processor_id, component_id, address=None, params=None,
-                 enable_proxy=False):
+                 enable_proxy=None):
         self.processor_id = processor_id
         self.component_id = component_id
         self._address = address
         self.params = params
         address = self._address
         config = Config()
+        if enable_proxy is not None:
+            config['grpc.processor_options.gprc.enable_http_proxy'] = enable_proxy
         if address is None:
             discovery = _discovery.Discovery(config)
             address = discovery.discover_processor_service(processor_id, 'v1')
-        channel_options = config.get('grpc.processor_channel_options', {})
+        channel_options = config.get('grpc.processor_options', {})
         self._channel = grpc.insecure_channel(address, options=list(channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 

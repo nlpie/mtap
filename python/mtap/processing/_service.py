@@ -94,7 +94,7 @@ def run_processor(proc: 'mtap.EventProcessor',
 
         enable_http_proxy = options.grpc_enable_http_proxy
         if enable_http_proxy is not None:
-            c['grpc.enable_proxy'] = enable_http_proxy
+            c['grpc.events_channel_options.grpc.enable_http_proxy'] = enable_http_proxy
         if mp:
             runner = MpProcessorRunner(proc=proc,
                                        workers=options.workers,
@@ -383,7 +383,7 @@ class ProcessorServer:
         )
         workers = workers or 10
         thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
-        options = config.get("grpc.processor_server_options", {})
+        options = config.get("grpc.processor_options", {})
         self._server = grpc.server(thread_pool, options=list(options.items()))
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
