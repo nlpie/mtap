@@ -15,10 +15,9 @@
 import contextlib
 import threading
 from abc import ABCMeta, abstractmethod, ABC
-from collections import Callable
 from datetime import timedelta, datetime
 from typing import List, ContextManager, Any, Dict, NamedTuple, Optional, Mapping, Generator, \
-    Tuple, TYPE_CHECKING
+    Tuple, TYPE_CHECKING, Callable
 
 from mtap import data
 
