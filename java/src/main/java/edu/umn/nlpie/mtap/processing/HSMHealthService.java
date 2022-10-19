@@ -2,7 +2,7 @@ package edu.umn.nlpie.mtap.processing;
 
 import io.grpc.BindableService;
 import io.grpc.health.v1.HealthCheckResponse;
-import io.grpc.services.HealthStatusManager;
+import io.grpc.protobuf.services.HealthStatusManager;
 import org.jetbrains.annotations.NotNull;
 
 public class HSMHealthService implements HealthService {

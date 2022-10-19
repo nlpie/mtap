@@ -24,6 +24,8 @@ import edu.umn.nlpie.mtap.model.ChannelFactory;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
+import java.util.concurrent.TimeUnit;
+
 public class StandardChannelFactory implements ChannelFactory {
   private final Config config;
 
@@ -34,17 +36,32 @@ public class StandardChannelFactory implements ChannelFactory {
   @Override
   public ManagedChannel createChannel(String address) {
     ManagedChannel eventsChannel;
-    ManagedChannelBuilder<?> channelBuilder;
+    ManagedChannelBuilder<?> builder;
     if (address == null) {
       DiscoveryMechanism discoveryMechanism = Discovery.getDiscoveryMechanism(config);
       String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
-      channelBuilder = ManagedChannelBuilder.forTarget(target)
+      builder = ManagedChannelBuilder.forTarget(target)
           .nameResolverFactory(discoveryMechanism.getNameResolverFactory());
     } else {
-      channelBuilder = ManagedChannelBuilder.forTarget(address);
+      builder = ManagedChannelBuilder.forTarget(address);
     }
-    channelBuilder.maxInboundMessageSize(config.getIntegerValue("grpc.java_events_channel_options.maxInboundMessageSize"));
-    eventsChannel = channelBuilder.usePlaintext().build();
+    Integer maxInboundMessageSize = config.getIntegerValue("grpc.events_options.grpc.max_receive_message_length");
+    if (maxInboundMessageSize != null) {
+      builder.maxInboundMessageSize(maxInboundMessageSize);
+    }
+    Integer keepAliveTime = config.getIntegerValue("grpc.events_options.grpc.keepalive_time_ms");
+    if (keepAliveTime != null) {
+      builder.keepAliveTime(keepAliveTime, TimeUnit.MILLISECONDS);
+    }
+    Integer keepAliveTimeout = config.getIntegerValue("grpc.events_options.grpc.keepalive_timeout_ms");
+    if (keepAliveTimeout != null) {
+      builder.keepAliveTimeout(keepAliveTimeout, TimeUnit.MILLISECONDS);
+    }
+    Boolean permitKeepAliveWithoutCalls = config.getBooleanValue("grpc.events_options.grpc.permit_keepalive_without_calls");
+    if (permitKeepAliveWithoutCalls != null) {
+      builder.keepAliveWithoutCalls(permitKeepAliveWithoutCalls);
+    }
+    eventsChannel = builder.usePlaintext().build();
     return eventsChannel;
   }
 }

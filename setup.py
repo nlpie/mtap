@@ -23,7 +23,7 @@ from setuptools.command.build_py import build_py as _build_py
 from setuptools.command.test import test as _test
 from pathlib import Path
 
-GRPC_VERSION = '1.47.0'
+GRPC_VERSION = '1.48.2'
 
 
 def generate_proto(source, require=True):
@@ -145,8 +145,8 @@ setup(
         ]
     },
     install_requires=[
-        'grpcio~=' + GRPC_VERSION,
-        'grpcio-health-checking~=' + GRPC_VERSION,
+        'grpcio>=' + GRPC_VERSION,
+        'grpcio-health-checking>=' + GRPC_VERSION,
         'googleapis-common-protos',
         'pyyaml',
         'python-consul',
@@ -154,18 +154,18 @@ setup(
     ],
     setup_requires=[
         'pytest-runner',
-        'grpcio-tools~=' + GRPC_VERSION,
+        'grpcio-tools>=' + GRPC_VERSION,
         'setuptools_scm',
     ],
     tests_require=[
         'pytest',
         'pytest-mock',
-        'grpcio-testing~=' + GRPC_VERSION,
+        'grpcio-testing>=' + GRPC_VERSION,
         'requests'
     ],
     extras_require={
-        'grpc_tools': ['grpcio-tools~=' + GRPC_VERSION],
-        'tests': ['pytest-runner', 'pytest', 'grpcio-testing~=' + GRPC_VERSION, 'requests', 'pytest-mock'],
+        'grpc_tools': ['grpcio-tools>=' + GRPC_VERSION],
+        'tests': ['pytest-runner', 'pytest', 'grpcio-testing>=' + GRPC_VERSION, 'requests', 'pytest-mock'],
         'docs': ['sphinx', 'sphinx_rtd_theme']
     },
     cmdclass={

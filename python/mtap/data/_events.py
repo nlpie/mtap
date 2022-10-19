@@ -497,7 +497,7 @@ class Labeler(Generic[L], ContextManager['Labeler']):
 
 def create_channel(address):
     config = _config.Config()
-    options = config.get('grpc.events_channel_options', {})
+    options = config.get('grpc.events_options', {})
     channel = grpc.insecure_channel(address, options=list(options.items()))
 
     health = health_pb2_grpc.HealthStub(channel)

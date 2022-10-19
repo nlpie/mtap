@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A stopwatch that can be used to time some piece of work in a processing context and
@@ -56,7 +57,7 @@ public class Stopwatch implements AutoCloseable {
   public void stop() {
     stopwatch.stop();
     if (context != null) {
-      context.putTime(key, stopwatch.elapsed());
+      context.putTime(key, Duration.ofNanos(stopwatch.elapsed(TimeUnit.NANOSECONDS)));
     }
   }
 
@@ -66,7 +67,7 @@ public class Stopwatch implements AutoCloseable {
    * @return The total duration across all start/stop calls.
    */
   public @NotNull Duration elapsed() {
-    return stopwatch.elapsed();
+    return Duration.ofNanos(stopwatch.elapsed(TimeUnit.NANOSECONDS));
   }
 
   /**
@@ -78,7 +79,7 @@ public class Stopwatch implements AutoCloseable {
       stopwatch.stop();
     }
     if (context != null) {
-      context.putTime(key, stopwatch.elapsed());
+      context.putTime(key, Duration.ofNanos(stopwatch.elapsed(TimeUnit.NANOSECONDS)));
     }
   }
 }
