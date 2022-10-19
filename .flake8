@@ -1,16 +1,16 @@
 [flake8]
 exclude =
-    .git
-    __pycache__
-    .eggs
-    .github
-    old
-    build
-    dist
-    go
-    java
-    proto
-    python/docs
-    python/mtap/api/v1
-    python/mtap.egg-info
+    .git,
+    __pycache__,
+    .eggs,
+    .github,
+    old,
+    build,
+    dist,
+    go,
+    java,
+    proto,
+    python/docs,
+    python/mtap/api/v1,
+    python/mtap.egg-info,
     third_party
