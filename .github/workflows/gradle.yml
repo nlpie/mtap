@@ -3,6 +3,8 @@ name: Java CI
 on: 
   pull_request:
     branches: master
+  schedule:
+    - cron: 0 8 * * * 
 
 jobs:
   build:
@@ -12,6 +14,7 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, macos-latest]
+        distribution: 'temurin'
         java-version: ['11', 'x']
 
     steps:
