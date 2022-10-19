@@ -3,6 +3,8 @@ name: Python package
 on:
   pull_request:
     branches: master
+  schedule:
+    - cron: 0 8 * * * # Runs at 2(3) AM CS(D)T
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,7 +12,7 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.6', '3.10']
+        python-version: ['3.6', '3.x']
     steps:
     - uses: actions/checkout@v1
     - name: Set up Python ${{ matrix.python-version }}
