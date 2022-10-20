@@ -14,11 +14,13 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, macos-latest]
-        include:
+        java-version: ['11', 'x']
+        python-version: ['3.6', 'x']
+        exclude:
           - java-version: '11'
-            python-version: '3.6'
+            python-version: 'x'
           - java-version: 'x'
-            python-version: '3.x'
+            python-version: '3.6'
     steps:
       - uses: actions/checkout@v3
 
