@@ -158,6 +158,7 @@ def test_pipeline(python_events, python_processor, java_processor):
 
 
 @pytest.mark.integration
+@pytest.mark.gateway
 def test_api_gateway(python_events, python_processor, java_processor, api_gateway):
     session = requests.Session()
     session.trust_env = False
