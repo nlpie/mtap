@@ -25,6 +25,9 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "integration"
     )
+    config.addinivalue_line(
+        "markers", "gateway"
+    )
 
 
 def pytest_addoption(parser):
@@ -34,6 +37,9 @@ def pytest_addoption(parser):
     )
     parser.addoption(
         "--integration", action="store_true", default=False, help="runs integration tests"
+    )
+    parser.addoption(
+        "--gateway", action="store_true", default=False, help="runs tests that require the Go gateway"
     )
 
 
@@ -48,6 +54,11 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(skip_integration)
+    if not config.getoption("--gateway"):
+        skip_gateway = pytest.mark.skip(reason="need --gatway option to run")
+        for item in items:
+            if "gateway" in item.keywords:
+                item.add_marker(skip_gateway)
 
 
 @pytest.fixture(name='processor_watcher')
