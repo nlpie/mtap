@@ -2,9 +2,8 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'com.google.protobuf' version '0.+'
-    id 'com.github.ben-manes.versions' version '0.27.0'
     id 'signing'
-    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'com.github.johnrengelman.shadow' version '7.+'
 }
 
 def gitVersion = { ->
@@ -15,8 +14,8 @@ def gitVersion = { ->
             standardOutput = stdout
         }
     } catch (Exception e) {
-        // Use fallback fall
-        return new File(projectDir, "version.txt").text
+        // Use fallback for when the git command is not available or not in a git repo.
+        return '1.0.0+development-SNAPSHOT'
     }
     def pattern = ~/v([0-9]+)(?:.([0-9]+))?(?:.([0-9]+))?(?:-(alpha|beta|pre|rc).([0-9]+))?(?:-([0-9]+)-([a-g0-9]+))?(-dirty)?/
     def newVersion = stdout.toString().trim().replaceFirst(pattern) { _,major,minor,patch,pre,preVersion,com,hash,dirty ->
@@ -32,7 +31,8 @@ def gitVersion = { ->
                 preVersion = (preVersion as int) + 1
                 incremented = true
             }
-            result = "-${pre}${preVersion}${result}"
+            def s = "-${pre}${preVersion}"
+            result = s + result
         }
         if (patch != null) {
             if (!incremented) {
@@ -54,12 +54,12 @@ def gitVersion = { ->
         result = "${major}${result}"
         return result
     }
-    new File(projectDir, "version.txt").text = newVersion
+    versionFile.text = newVersion
     return newVersion
 }
 
 group = 'edu.umn.nlpie'
-version gitVersion()
+version = gitVersion()
 ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 
 java {
@@ -103,11 +103,6 @@ sourceSets {
     }
 }
 
-configurations {
-    withLogBindingImplementation.extendsFrom implementation
-    withLogBindingRuntimeOnly.extendsFrom runtimeOnly
-}
-
 dependencies {
     api group: 'org.jetbrains', name: 'annotations', version: '23.+'
     api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '*'
@@ -133,8 +128,6 @@ dependencies {
     testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: junitVersion
     testRuntimeOnly group: 'org.slf4j', name: 'slf4j-simple', version: sl4fjVersion
     testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion
-
-    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '*'
 }
 
 protobuf {

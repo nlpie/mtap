@@ -103,7 +103,7 @@ with (Path(__file__).parent / 'README.md').open(encoding='utf-8') as f:
 setup(
     name='mtap',
     use_scm_version={
-        "fallback_version": "development0",
+        "fallback_version": "0.0.0devel",
         "write_to": "python/mtap/version.py"
     },
     description='A framework for distributed text analysis using gRPC and microservices-based '
