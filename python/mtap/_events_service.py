@@ -49,11 +49,12 @@ class EventsServer:
     """
 
     def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10,
-                 write_address: bool = False, config: 'Optional[mtap.Config]' = None):
+                 sid: Optional[str] = None, write_address: bool = False, config: 'Optional[mtap.Config]' = None):
         if host is None:
             host = '127.0.0.1'
         if port is None:
             port = 0
+        self.sid = sid or str(uuid.uuid4())
         self.write_address = write_address
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         if config is None:
@@ -86,7 +87,8 @@ class EventsServer:
         self._server.start()
         if self.write_address:
             self._address_file = utilities.write_address_file(
-                '{}:{}'.format(self._address, self.port)
+                '{}:{}'.format(self._address, self.port),
+                self.sid
             )
         if self._register:
             from mtap._discovery import Discovery

@@ -40,10 +40,12 @@ import logging
 import os
 import pathlib
 import shutil
+import signal
 import subprocess
 import sys
 import threading
 import time
+import uuid
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import grpc
@@ -208,6 +210,7 @@ class _ServiceDeployment:
     def service_args(self,
                      host: Optional[str] = None,
                      port: Optional[int] = None,
+                     unique_service_identifier: Optional[List[str]] = None,
                      register_default: Optional[bool] = None,
                      host_default: Optional[str] = None,
                      workers_default: Optional[int] = None,
@@ -225,6 +228,9 @@ class _ServiceDeployment:
         if self.register or register_default:
             call.append('--register')
 
+        sid = unique_service_identifier or str(uuid.uuid4())
+        call.extend(["--sid", sid])
+
         workers = self.workers or workers_default
         if workers is not None:
             call.extend(['--workers', str(workers)])
@@ -238,7 +244,7 @@ class _ServiceDeployment:
             call.extend(['--log-level', log_level])
 
         call.append('--write-address')
-        return call
+        return call, sid
 
 
 class EventsDeployment:
@@ -265,7 +271,7 @@ class EventsDeployment:
         self.addresses = addresses
         self.service_deployment = _ServiceDeployment(workers, register, mtap_config, log_level)
 
-    def create_calls(self, global_settings: GlobalSettings) -> Iterable[List[str]]:
+    def create_calls(self, global_settings: GlobalSettings) -> Iterable[Tuple[List[str], str]]:
         for address in self.addresses:
             host = None
             port = None
@@ -278,7 +284,7 @@ class EventsDeployment:
                 else:
                     host = splits[0]
             call = [PYTHON_EXE, '-m', 'mtap', 'events']
-            service_args = self.service_deployment.service_args(
+            service_args, sid = self.service_deployment.service_args(
                 host=host,
                 port=port,
                 register_default=global_settings.register,
@@ -287,7 +293,7 @@ class EventsDeployment:
                 log_level_default=global_settings.log_level
             )
             call.extend(service_args)
-            yield call
+            yield call, sid
 
     @staticmethod
     def from_conf(conf: Optional[Dict]) -> 'EventsDeployment':
@@ -366,7 +372,8 @@ class ProcessorDeployment:
                  register: Optional[bool] = None,
                  mtap_config: Optional[str] = None,
                  log_level: Optional[str] = None,
-                 identifier: Optional[str] = None,
+                 name: Optional[str] = None,
+                 unique_service_identifier: Optional[List[str]] = None,
                  pre_args: Optional[List[str]] = None,
                  additional_args: Optional[List[str]] = None,
                  startup_timeout: Optional[int] = None,
@@ -377,7 +384,8 @@ class ProcessorDeployment:
         self.instances = instances or 1
         if not isinstance(self.instances, int) or self.instances < 1:
             raise ValueError("Instances must be strictly positive integer.")
-        self.identifier = identifier
+        self.name = name
+        self.unique_service_identifier = unique_service_identifier
         self.pre_args = pre_args
         self.additional_args = additional_args
         self.host = host
@@ -401,7 +409,7 @@ class ProcessorDeployment:
 
     def create_calls(self,
                      global_settings: GlobalSettings,
-                     shared_config: SharedProcessorConfig) -> Iterable[List[str]]:
+                     shared_config: SharedProcessorConfig) -> Iterable[Tuple[List[str], str]]:
         if isinstance(self.port, list):
             ports = self.port
         elif self.port is None:
@@ -429,9 +437,10 @@ class ProcessorDeployment:
             if self.pre_args is not None:
                 call.extend(self.pre_args)
 
-            service_args = self.service_deployment.service_args(
+            service_args, sid = self.service_deployment.service_args(
                 host=self.host,
                 port=port,
+                unique_service_identifier=self.unique_service_identifier,
                 register_default=global_settings.register,
                 host_default=global_settings.host,
                 mtap_config_default=global_settings.mtap_config,
@@ -440,8 +449,8 @@ class ProcessorDeployment:
             )
             call.extend(service_args)
 
-            if self.identifier is not None:
-                call.extend(['--identifier', self.identifier])
+            if self.name is not None:
+                call.extend(['--name', self.name])
 
             events_addresses = shared_config.events_addresses
             if events_addresses is not None:
@@ -453,11 +462,11 @@ class ProcessorDeployment:
             if shared_config.additional_args is not None:
                 call.extend(shared_config.additional_args)
 
-            yield call
+            yield call, sid
 
 
 class Deployment:
-    """A automatic deployment configuration which launches a configurable set of MTAP services.
+    """An automatic deployment configuration which launches a configurable set of MTAP services.
 
     Args:
          global_settings (~typing.Optional[GlobalSettings]): Settings shared among all services.
@@ -518,8 +527,11 @@ class Deployment:
             conf = load(f, Loader=Loader)
         return Deployment.load_configuration(conf)
 
-    def run_servers(self):
-        """Starts all of the configured services.
+    def run_servers(self, block=True):
+        """Starts all the configured services.
+
+        Args:
+            block (bool): Whether this method should sleep, blocking the process after launching the services.
 
         Raises:
             ServiceDeploymentException: If one of the services fails to launch.
@@ -527,22 +539,16 @@ class Deployment:
         """
         with _config.Config() as c:
             enable_proxy = c.get('grpc.enable_proxy', False)
-            processes_listeners = []
             events_addresses = []
 
-            def shutdown(kill=False):
-                print("Shutting down all processors")
-                for p, listener in processes_listeners:
-                    if kill:
-                        p.kill()
-                    listener.join(timeout=1)
+            self.processor_listeners = []
 
             if self.events_deployment.enabled:
-                for call in self.events_deployment.create_calls(self.global_settings):
+                for call, sid in self.events_deployment.create_calls(self.global_settings):
                     p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                    listener, events_address = _listen_test_connectivity(p, "events", 30, enable_proxy)
+                    listener, events_address = _listen_test_connectivity(p, "events", sid, 30, enable_proxy)
                     events_addresses.append(events_address)
-                    processes_listeners.append((p, listener))
+                    self.processor_listeners.append((p, listener))
 
             if (not self.global_settings.register
                     and not self.events_deployment.service_deployment.register
@@ -551,30 +557,43 @@ class Deployment:
 
             for processor_deployment in self.processors:
                 if processor_deployment.enabled:
-                    for call in processor_deployment.create_calls(self.global_settings,
+                    for call, sid in processor_deployment.create_calls(self.global_settings,
                                                                   self.shared_processor_config):
                         logger.debug('Launching processor with call: %s', call)
                         p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                         startup_timeout = (processor_deployment.startup_timeout
                                            or self.shared_processor_config.startup_timeout)
                         try:
-                            listener, _ = _listen_test_connectivity(p, call, startup_timeout,
+                            listener, _ = _listen_test_connectivity(p, processor_deployment.entry_point,
+                                                                    sid,
+                                                                    startup_timeout,
                                                                     enable_proxy)
                         except ServiceDeploymentException as e:
                             logger.error(str(e))
-                            return shutdown(kill=True)
-                        processes_listeners.append((p, listener))
+                            return self.shutdown(kill=True)
+                        self.processor_listeners.append((p, listener))
 
             print('Done deploying all servers.', flush=True)
-            try:
-                while True:
-                    time.sleep(60 * 60 * 24)
-            except KeyboardInterrupt:
-                return shutdown()
+            if block:
+                try:
+                    while True:
+                        time.sleep(60 * 60 * 24)
+                except KeyboardInterrupt:
+                    return self.shutdown()
+
+    def shutdown(self, kill=False, stop=False):
+        print("Shutting down all processors")
+        for p, listener in self.processor_listeners:
+            if kill:
+                p.kill()
+            if stop:
+                p.send_signal(signal.SIGTERM)
+            listener.join(timeout=1)
 
 
 def _listen_test_connectivity(p: subprocess.Popen,
                               name: Any,
+                              sid: str,
                               startup_timeout: int,
                               enable_proxy: bool = False) -> Tuple[threading.Thread, str]:
     listener = threading.Thread(target=_listen, args=(p,))
@@ -582,7 +601,7 @@ def _listen_test_connectivity(p: subprocess.Popen,
     address = None
     for i in range(startup_timeout):
         try:
-            address = utilities.read_address(str(p.pid))
+            address = utilities.read_address(sid)
             break
         except FileNotFoundError:
             time.sleep(1)

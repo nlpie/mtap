@@ -8,15 +8,15 @@ plugins {
 
 def gitVersion = { ->
     def stdout = new ByteArrayOutputStream()
-    try {
-        exec {
-            commandLine 'git', 'describe', '--tags', '--dirty'
-            standardOutput = stdout
-        }
-    } catch (Exception e) {
-        // Use fallback for when the git command is not available or not in a git repo.
-        return '1.0.0+development-SNAPSHOT'
+    def execResult = exec {
+        commandLine 'git', 'describe', '--tags', '--dirty'
+        standardOutput = stdout
+        ignoreExitValue = true
     }
+    if (execResult.exitValue != 0) {
+        return '0.0.0+development-SNAPSHOT'
+    }
+
     def pattern = ~/v([0-9]+)(?:.([0-9]+))?(?:.([0-9]+))?(?:-(alpha|beta|pre|rc).([0-9]+))?(?:-([0-9]+)-([a-g0-9]+))?(-dirty)?/
     def newVersion = stdout.toString().trim().replaceFirst(pattern) { _,major,minor,patch,pre,preVersion,com,hash,dirty ->
         def incremented = false
@@ -54,7 +54,6 @@ def gitVersion = { ->
         result = "${major}${result}"
         return result
     }
-    versionFile.text = newVersion
     return newVersion
 }
 
@@ -63,8 +62,8 @@ version = gitVersion()
 ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_9
-    targetCompatibility = JavaVersion.VERSION_1_9
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 repositories {
@@ -73,11 +72,6 @@ repositories {
     mavenCentral()
     mavenLocal()
 }
-
-def grpcVersion = '1.+'
-def protobufVersion = '3.+'
-def junitVersion = '5.+'
-def sl4fjVersion = '1.+'
 
 java {
     withJavadocJar()
@@ -102,6 +96,11 @@ sourceSets {
         }
     }
 }
+
+def grpcVersion = '1.+'
+def protobufVersion = '3.+'
+def junitVersion = '5.+'
+def sl4fjVersion = '2.+'
 
 dependencies {
     api group: 'org.jetbrains', name: 'annotations', version: '23.+'

@@ -42,18 +42,18 @@ class ProcessorServerBuilderTest {
         "--register",
         "--port",
         "10",
-        "--identifier",
+        "--name",
         "blah",
         "--mtap-config",
         "/etc/config",
-        "--unique-service-id",
+        "--sid",
         "2");
     assertEquals("localhost:8080", options.getEventsTarget());
     assertTrue(options.getRegister());
     assertEquals(10, options.getPort());
-    assertEquals("blah", options.getIdentifier());
+    assertEquals("blah", options.getName());
     assertEquals(Paths.get("/etc/config"), options.getConfigFile());
-    assertEquals("2", options.getUniqueServiceId());
+    assertEquals("2", options.getSid());
   }
 
   @Test
@@ -95,8 +95,8 @@ class ProcessorServerBuilderTest {
 
   @Test
   void setIdentifier() {
-    options.setIdentifier("foo");
-    assertEquals("foo", options.getIdentifier());
+    options.setName("foo");
+    assertEquals("foo", options.getName());
   }
 
   @Test
@@ -109,20 +109,20 @@ class ProcessorServerBuilderTest {
         "--register",
         "--port",
         "10",
-        "--identifier",
+        "--name",
         "blah",
         "--mtap-config",
         "/etc/config",
-        "--unique-service-id",
+        "--sid",
         "2",
         "--extra",
         "foo");
     assertEquals("localhost:8080", options.getEventsTarget());
     assertTrue(options.getRegister());
     assertEquals(10, options.getPort());
-    assertEquals("blah", options.getIdentifier());
+    assertEquals("blah", options.getName());
     assertEquals(Paths.get("/etc/config"), options.getConfigFile());
-    assertEquals("2", options.getUniqueServiceId());
+    assertEquals("2", options.getSid());
     assertEquals("foo", options.extra);
   }
 

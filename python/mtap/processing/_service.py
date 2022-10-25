@@ -18,6 +18,7 @@ import threading
 import time
 import traceback
 import typing
+import uuid
 from typing import Any, Dict, Tuple, Sequence, Optional, Union
 
 import google.protobuf.empty_pb2 as empty_pb2
@@ -90,7 +91,8 @@ def run_processor(proc: 'mtap.EventProcessor',
         if options.mtap_config is not None:
             c.update_from_yaml(options.mtap_config)
         # instantiate runner
-        processor_id = options.identifier or proc.metadata['name']
+        name = options.name or proc.metadata['name']
+        sid = options.sid or uuid.uuid4()
 
         enable_http_proxy = options.grpc_enable_http_proxy
         if enable_http_proxy is not None:
@@ -99,14 +101,15 @@ def run_processor(proc: 'mtap.EventProcessor',
             runner = MpProcessorRunner(proc=proc,
                                        workers=options.workers,
                                        events_address=events_addresses,
-                                       identifier=processor_id,
+                                       processor_name=name,
                                        mp_context=mp_context)
         else:
             client = data.EventsClient(address=events_addresses)
             runner = _runners.ProcessorRunner(proc, client=client,
-                                              identifier=processor_id,
+                                              processor_name=name,
                                               params=None)
         server = ProcessorServer(runner=runner,
+                                 sid=sid,
                                  host=options.host,
                                  port=options.port,
                                  register=options.register,
@@ -144,11 +147,12 @@ def _mp_call_process(event_id, event_service_instance_id, params):
 
 
 class MpProcessorRunner:
-    __slots__ = ('pool', 'metadata', 'processor_id', 'component_id')
+    __slots__ = ('pool', 'metadata', 'processor_name', 'component_id')
 
     def __init__(self,
                  proc: 'mtap.EventProcessor',
-                 identifier: str,
+                 processor_name: str,
+                 component_id: 'Optional[str]' = None,
                  workers: 'Optional[int]' = 8,
                  events_address: 'Optional[Union[str, Sequence[str]]]' = None,
                  mp_context=None):
@@ -160,8 +164,8 @@ class MpProcessorRunner:
                                     initializer=_mp_initialize,
                                     initargs=(proc, events_address, dict(config)))
         self.metadata = proc.metadata
-        self.processor_id = identifier
-        self.component_id = identifier
+        self.processor_name = processor_name
+        self.component_id = component_id or processor_name
 
     def call_process(self,
                      event_id: str,
@@ -212,9 +216,10 @@ def processor_parser() -> argparse.ArgumentParser:
                                    default=None,
                                    help='address of the events service to use, '
                                         'omit to use discovery')
-    processors_parser.add_argument('--identifier', '-i',
-                                   help="Optional argument if you want the processor to register "
-                                        "under a different identifier than its name.")
+    processors_parser.add_argument('--name', '-n',
+                                   help="Optional override service name, defaults to the processor annotation")
+    processors_parser.add_argument('--sid',
+                                   help="A unique identifier for this instance of the processor service.")
     processors_parser.add_argument('--write-address', action='store_true',
                                    help='If set, will write the server address ')
     processors_parser.add_argument('--log-level', type=str, default='INFO',
@@ -260,20 +265,21 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 
     def start(self, port: int):
 
-        self.health_servicer.set(self._runner.processor_id, 'SERVING')
+        self.health_servicer.set(self._runner, 'SERVING')
 
         if self.register:
             from mtap._discovery import Discovery
             service_registration = Discovery(config=self.config)
             self._deregister = service_registration.register_processor_service(
+                self._runner.processor_name,
+                self._runner.sid,
                 self.address,
                 port,
-                self._runner.component_id,
                 'v1'
             )
 
     def shutdown(self):
-        self.health_servicer.set(self._runner.processor_id, 'NOT_SERVING')
+        self.health_servicer.set(self._runner.processor_name, 'NOT_SERVING')
         if self._deregister is not None:
             self._deregister()
         self._runner.close()
@@ -282,8 +288,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         event_id = request.event_id
         event_service_instance_id = request.event_service_instance_id
         logger.debug(
-            'processor_id: %s received process request on event_id: %s with event_service_instance_id: %s',
-            self._runner.processor_id, event_id, event_service_instance_id)
+            'processor_name: %s received process request on event_id: %s with event_service_instance_id: %s',
+            self._runner.processor_name, event_id, event_service_instance_id)
         params = {}
         _structs.copy_struct_to_dict(request.params, params)
         try:
@@ -343,7 +349,7 @@ class ProcessorServer:
         events_address (~typing.Optional[str]):
             The address of the events server, or omitted / None if the events service should be
             discovered.
-        processor_id (~typing.Optional[str]):
+        processor_name (~typing.Optional[str]):
             The identifier to register the processor under, if omitted the processor name will be
             used.
         workers (~typing.Optional[int]):
@@ -360,13 +366,15 @@ class ProcessorServer:
                  host: str,
                  port: int = 0,
                  *,
+                 sid: Optional[None] = None,
                  register: bool = False,
                  workers: Optional[int] = None,
                  write_address: bool = False,
                  config: 'Optional[mtap.Config]' = None):
         self.host = host
         self._port = port
-        self.processor_id = runner.processor_id
+        self.processor_name = runner.processor_name
+        self.sid = sid or str(uuid.uuid4())
         self.write_address = write_address
 
         if config is None:
@@ -403,9 +411,9 @@ class ProcessorServer:
         self._server.start()
         self._servicer.start(self.port)
         if self.write_address:
-            self._address_file = utilities.write_address_file('{}:{}'.format(self.host, self.port))
-        logger.info('Started processor server with id: "%s"  on address: "%s:%d"',
-                    self.processor_id, self.host, self.port)
+            self._address_file = utilities.write_address_file('{}:{}'.format(self.host, self.port), self.sid)
+        logger.info('Started processor server with name: "%s"  on address: "%s:%d"',
+                    self.processor_name, self.host, self.port)
 
     def stop(self, *, grace: Optional[float] = None) -> threading.Event:
         """De-registers (if registered with service discovery) the service and immediately stops
@@ -423,8 +431,8 @@ class ProcessorServer:
         Returns:
             threading.Event: A shutdown event for the server.
         """
-        print('Shutting down processor server with id: "{}"  on address: "{}:{}"'.format(
-            self.processor_id, self.host, self.port))
+        print('Shutting down processor server with name: "{}"  on address: "{}:{}"'.format(
+            self.processor_name, self.host, self.port))
         if self._address_file is not None:
             self._address_file.unlink()
         self._servicer.shutdown()

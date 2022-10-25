@@ -16,6 +16,7 @@ import os
 import pathlib
 import signal
 import subprocess
+import sys
 import typing
 
 import grpc
@@ -78,7 +79,7 @@ def subprocess_events_server(port: typing.Optional[int] = None,
     if port is None:
         port = find_free_port()
     address = '127.0.0.1:' + str(port)
-    cmd = ['python', '-m', 'mtap', 'events', '-p', str(port)]
+    cmd = [sys.executable, '-m', 'mtap', 'events', '-p', str(port)]
     if register:
         cmd += ['--register']
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -99,14 +100,14 @@ def subprocess_events_server(port: typing.Optional[int] = None,
         print("python events exited with code: ", p.returncode)
 
 
-def write_address_file(address: str, pid: typing.Optional[str] = None) -> pathlib.Path:
+def write_address_file(address: str, sid: str) -> pathlib.Path:
     """Writes the address file (a file containing just the address for a processor). This is a file
     used to communicate a service's port (potentially chosen randomly) back to the script that
     launched the service.
 
     Args:
         address (str): The host.
-        pid (str, optional): The process ID. If omitted will use `os.getpid()` to retrieve the pid.
+        sid (str, optional): The service unique identifier
 
     Returns:
         str: The path to the file.
@@ -114,26 +115,24 @@ def write_address_file(address: str, pid: typing.Optional[str] = None) -> pathli
     """
     directory = mtap_home() / 'addresses'
     directory.mkdir(parents=True, exist_ok=True)
-    if pid is None:
-        pid = os.getpid()
-    address_path = directory / '{}.address'.format(pid)
+    address_path = directory / '{}.address'.format(sid)
     with address_path.open('w') as fio:
         fio.write(address)
     return address_path
 
 
-def read_address(pid: str) -> str:
+def read_address(sid: str) -> str:
     """Reads the address for a service with a specified PID.
 
     Args:
-        pid (str): The service's PID.
+        sid (str): The service's service identifier.
 
     Returns:
         str: The address.
 
     """
     directory = mtap_home() / 'addresses'
-    address_path = directory / '{}.address'.format(pid)
+    address_path = directory / '{}.address'.format(sid)
     with address_path.open('r') as fin:
         txt = fin.read()
     return txt

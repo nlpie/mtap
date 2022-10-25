@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import sys
 from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
 
@@ -31,28 +32,25 @@ def fixture_python_events():
 def fixture_python_references_processor(python_events, processor_watcher):
     env = dict(os.environ)
     port = str(find_free_port())
-    p = Popen(['python', '-m', 'mtap.examples.example_references_processor', '-p', port,
+    p = Popen([sys.executable, '-m', 'mtap.examples.example_references_processor', '-p', port,
                '--events', python_events, '--log-level', 'DEBUG'], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="java_references_processor")
-def fixture_java_references_processor(python_events, processor_watcher):
-    mtap_jar = os.environ['MTAP_JAR']
-    mtap_jar = mtap_jar + ':' + str(Path(__file__).parents[1] / 'slf4j-simple-1.7.30.jar')
+def fixture_java_references_processor(java_exe, python_events, processor_watcher):
     env = dict(os.environ)
     port = str(find_free_port())
-    p = Popen(['java', '-cp', mtap_jar,
-               'edu.umn.nlpie.mtap.examples.ReferenceLabelsExampleProcessor',
-               '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.ReferenceLabelsExampleProcessor',
+                          '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.mark.integration
 def test_java_references(python_events, java_references_processor):
     with EventsClient(address=python_events) as client, Pipeline(
-        RemoteProcessor('mtap-java-reference-labels-example-processor',
-                        address=java_references_processor)
+            RemoteProcessor('mtap-java-reference-labels-example-processor',
+                            address=java_references_processor)
     ) as pipeline:
         with Event(event_id='1', client=client) as event:
             document = event.create_document('plaintext', 'abcd')

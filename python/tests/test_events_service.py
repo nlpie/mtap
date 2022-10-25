@@ -16,7 +16,6 @@ import grpc
 import grpc_testing
 import pytest
 
-import mtap.data._base
 from mtap._events_service import EventsServicer
 from mtap.api.v1 import events_pb2
 
@@ -38,7 +37,7 @@ def fixture_events_server():
     )
 
 
-def test_OpenEvent(events_server: grpc_testing.Server):
+def test_open_event(events_server: grpc_testing.Server):
     request = events_pb2.OpenEventRequest(event_id='1')
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
@@ -49,7 +48,7 @@ def test_OpenEvent(events_server: grpc_testing.Server):
     assert response.created is True
 
 
-def test_OpenEvent_without_id(events_server):
+def test_open_event_without_id(events_server):
     request = events_pb2.OpenEventRequest(event_id=None)
     _, _, status_code, description = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
@@ -62,14 +61,14 @@ def test_OpenEvent_without_id(events_server):
     assert description == 'event_id was not set.'
 
 
-def test_OpenEvent_duplicate(events_server):
+def test_open_event_duplicate(events_server):
     request = events_pb2.OpenEventRequest(event_id='1')
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         request,
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
@@ -79,7 +78,7 @@ def test_OpenEvent_duplicate(events_server):
     assert response.created is False
 
 
-def test_OpenEvent_only_create(events_server):
+def test_open_event_only_create(events_server):
     request = events_pb2.OpenEventRequest(event_id='1', only_create_new=True)
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
@@ -90,14 +89,14 @@ def test_OpenEvent_only_create(events_server):
     assert response.created is True
 
 
-def test_OpenEvent_only_create_duplicate(events_server):
+def test_open_event_only_create_duplicate(events_server):
     request = events_pb2.OpenEventRequest(event_id='1', only_create_new=True)
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         request,
         None
-    )
+    ).termination()
     _, _, status_code, description = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
@@ -107,19 +106,19 @@ def test_OpenEvent_only_create_duplicate(events_server):
     assert status_code == grpc.StatusCode.ALREADY_EXISTS
 
 
-def test_CloseEvent_delete(events_server):
+def test_close_event_delete(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['CloseEvent'],
         {},
         events_pb2.CloseEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
@@ -129,25 +128,25 @@ def test_CloseEvent_delete(events_server):
     assert response.created is True
 
 
-def test_CloseEvent_no_delete(events_server):
+def test_close_event_no_delete(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['CloseEvent'],
         {},
         events_pb2.CloseEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
@@ -157,7 +156,7 @@ def test_CloseEvent_no_delete(events_server):
     assert response.created is False
 
 
-def test_AddMetadataBadEvent(events_server):
+def test_add_metadata_bad_event(events_server):
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddMetadata'],
         {},
@@ -167,13 +166,13 @@ def test_AddMetadataBadEvent(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddMetadata(events_server):
+def test_add_metadata(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddMetadata'],
         {},
@@ -183,13 +182,13 @@ def test_AddMetadata(events_server):
     assert status_code == grpc.StatusCode.OK
 
 
-def test_AddMetadata_EmptyKey(events_server):
+def test_add_metadata_empty_key(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddMetadata'],
         {},
@@ -199,13 +198,13 @@ def test_AddMetadata_EmptyKey(events_server):
     assert status_code == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_AddMetadata_NoneKey(events_server):
+def test_add_metadata_none_key(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddMetadata'],
         {},
@@ -215,25 +214,25 @@ def test_AddMetadata_NoneKey(events_server):
     assert status_code == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_GetAllMetadata(events_server):
+def test_get_all_metadata(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddMetadata'],
         {},
         events_pb2.AddMetadataRequest(event_id='1', key='foo', value='bar'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddMetadata'],
         {},
         events_pb2.AddMetadataRequest(event_id='1', key='baz', value='buh'),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetAllMetadata'],
         {},
@@ -244,13 +243,13 @@ def test_GetAllMetadata(events_server):
     assert d == {'foo': 'bar', 'baz': 'buh'}
 
 
-def test_GetAllBinaryDataNames(events_server):
+def test_get_all_binary_data_names(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData'],
         {},
@@ -258,7 +257,7 @@ def test_GetAllBinaryDataNames(events_server):
                                         binary_data_name='a',
                                         binary_data=b'\xBF\xAF'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData'],
         {},
@@ -266,7 +265,7 @@ def test_GetAllBinaryDataNames(events_server):
                                         binary_data_name='b',
                                         binary_data=b'\xAF\xBF'),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetAllBinaryDataNames'],
         {},
@@ -278,13 +277,13 @@ def test_GetAllBinaryDataNames(events_server):
     assert len(response.binary_data_names) == 2
 
 
-def test_AddGetBinaryData(events_server):
+def test_add_get_binary_data(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddBinaryData'],
         {},
@@ -292,7 +291,7 @@ def test_AddGetBinaryData(events_server):
                                         binary_data_name='a',
                                         binary_data=b'\xBF\xAF'),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetBinaryData'],
         {},
@@ -302,7 +301,7 @@ def test_AddGetBinaryData(events_server):
     assert response.binary_data == b'\xBF\xAF'
 
 
-def test_AddDocument_bad_event(events_server):
+def test_add_document_bad_event(events_server):
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -314,13 +313,13 @@ def test_AddDocument_bad_event(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddDocument(events_server):
+def test_add_document(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -332,13 +331,13 @@ def test_AddDocument(events_server):
     assert status_code == grpc.StatusCode.OK
 
 
-def test_AddDocument_empty_name(events_server):
+def test_add_document_empty_name(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -350,13 +349,13 @@ def test_AddDocument_empty_name(events_server):
     assert status_code == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_AddDocument_empty_text(events_server):
+def test_add_document_empty_text(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -368,13 +367,13 @@ def test_AddDocument_empty_text(events_server):
     assert status_code == grpc.StatusCode.OK
 
 
-def test_AddDocument_exists(events_server):
+def test_add_document_exists(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -382,7 +381,7 @@ def test_AddDocument_exists(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -394,13 +393,13 @@ def test_AddDocument_exists(events_server):
     assert status_code == grpc.StatusCode.ALREADY_EXISTS
 
 
-def test_GetAllDocuments(events_server):
+def test_get_all_documents(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -408,7 +407,7 @@ def test_GetAllDocuments(events_server):
                                       document_name='plaintext',
                                       text=''),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -416,7 +415,7 @@ def test_GetAllDocuments(events_server):
                                       document_name='other',
                                       text=''),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetAllDocumentNames'],
         {},
@@ -428,7 +427,7 @@ def test_GetAllDocuments(events_server):
     assert len(response.document_names) == 2
 
 
-def test_GetDocumentText_bad_event(events_server):
+def test_get_document_text_bad_event(events_server):
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetDocumentText'],
         {},
@@ -439,13 +438,13 @@ def test_GetDocumentText_bad_event(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetDocumentText_bad_document(events_server):
+def test_get_document_text_bad_document(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetDocumentText'],
         {},
@@ -456,13 +455,13 @@ def test_GetDocumentText_bad_document(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetDocumentText(events_server):
+def test_get_document_text(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -470,7 +469,7 @@ def test_GetDocumentText(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     response, _, _, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetDocumentText'],
         {},
@@ -481,7 +480,7 @@ def test_GetDocumentText(events_server):
     assert response.text == PHASERS
 
 
-def test_GetLabelIndicesInfo_bad_event(events_server):
+def test_get_label_indices_info_bad_event(events_server):
     request = events_pb2.GetLabelIndicesInfoRequest(event_id='1', document_name='plaintext')
 
     _, _, status_code, _ = events_server.invoke_unary_unary(
@@ -493,13 +492,13 @@ def test_GetLabelIndicesInfo_bad_event(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabelIndicesInfo_bad_document(events_server):
+def test_get_label_indices_info_bad_document(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     request = events_pb2.GetLabelIndicesInfoRequest(event_id='1', document_name='plaintext')
 
     _, _, status_code, _ = events_server.invoke_unary_unary(
@@ -511,13 +510,13 @@ def test_GetLabelIndicesInfo_bad_document(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabelIndicesInfo(events_server):
+def test_get_label_indices_info(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -525,7 +524,7 @@ def test_GetLabelIndicesInfo(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -553,7 +552,7 @@ def test_GetLabelIndicesInfo(events_server):
     assert res.label_index_infos[0].type == events_pb2.GetLabelIndicesInfoResponse.LabelIndexInfo.GENERIC
 
 
-def test_AddLabels_bad_event(events_server):
+def test_add_labels_bad_event(events_server):
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -571,13 +570,13 @@ def test_AddLabels_bad_event(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddLabels_bad_document(events_server):
+def test_add_labels_bad_document(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -595,13 +594,13 @@ def test_AddLabels_bad_document(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_AddLabels_bad_index_name(events_server):
+def test_add_labels_bad_index_name(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -609,7 +608,7 @@ def test_AddLabels_bad_index_name(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='')
@@ -627,13 +626,13 @@ def test_AddLabels_bad_index_name(events_server):
     assert status_code == grpc.StatusCode.INVALID_ARGUMENT
 
 
-def test_AddLabels(events_server):
+def test_add_labels(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -641,7 +640,7 @@ def test_AddLabels(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -658,13 +657,13 @@ def test_AddLabels(events_server):
     assert status_code == grpc.StatusCode.OK
 
 
-def test_AddLabels_no_labels(events_server):
+def test_add_labels_no_labels(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -672,7 +671,7 @@ def test_AddLabels_no_labels(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -685,7 +684,7 @@ def test_AddLabels_no_labels(events_server):
     assert status_code == grpc.StatusCode.OK
 
 
-def test_GetLabels_bad_event(events_server):
+def test_get_labels_bad_event(events_server):
     r = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabels'],
@@ -696,13 +695,13 @@ def test_GetLabels_bad_event(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabels_bad_document_name(events_server):
+def test_get_labels_bad_document_name(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     r = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabels'],
@@ -713,13 +712,13 @@ def test_GetLabels_bad_document_name(events_server):
     assert status_code == grpc.StatusCode.NOT_FOUND
 
 
-def test_GetLabels_bad_index_name(events_server):
+def test_get_labels_bad_index_name(events_server):
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['OpenEvent'],
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -727,7 +726,7 @@ def test_GetLabels_bad_index_name(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     r = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     _, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabels'],
@@ -744,7 +743,7 @@ def test_GetLabels_no_labels(events_server):
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -752,7 +751,7 @@ def test_GetLabels_no_labels(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddLabels'],
         {},
@@ -760,7 +759,7 @@ def test_GetLabels_no_labels(events_server):
                                     document_name='plaintext',
                                     index_name='labels'),
         None
-    )
+    ).termination()
     req = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     res, _, status_code, _ = events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['GetLabels'],
@@ -777,7 +776,7 @@ def test_GetLabels(events_server):
         {},
         events_pb2.OpenEventRequest(event_id='1'),
         None
-    )
+    ).termination()
     events_server.invoke_unary_unary(
         events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name['AddDocument'],
         {},
@@ -785,7 +784,7 @@ def test_GetLabels(events_server):
                                       document_name='plaintext',
                                       text=PHASERS),
         None
-    )
+    ).termination()
     request = events_pb2.AddLabelsRequest(event_id='1',
                                           document_name='plaintext',
                                           index_name='labels')
@@ -798,7 +797,7 @@ def test_GetLabels(events_server):
         {},
         request,
         None
-    )
+    ).termination()
 
     req = events_pb2.GetLabelsRequest(event_id='1', document_name='plaintext', index_name='labels')
     res, _, status_code, _ = events_server.invoke_unary_unary(

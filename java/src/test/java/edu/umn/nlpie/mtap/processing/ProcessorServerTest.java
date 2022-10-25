@@ -26,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -64,6 +65,6 @@ class ProcessorServerTest {
   }
 
   private ProcessorServer createProcessorServer(Server server) {
-    return new ProcessorServer(mockProcessorService, server, "127.0.0.1", false);
+    return new ProcessorServer(mockProcessorService, server, "127.0.0.1", UUID.randomUUID().toString(), false);
   }
 }

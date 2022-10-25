@@ -17,12 +17,12 @@ mp_config:
   # Whether to close events that are handed off from the source to the pipeline.
   close_events: True
 components:
-  - processor_id: mtap-example-processor-python # The processor's identifier
+  - name: mtap-example-processor-python # The processor's identifier
     address: localhost:10101 # The address of the processor, null to use service discovery
     component_id: null
     params:
       do_work: yes
-  - processor_id: mtap-example-processor-java
+  - name: mtap-example-processor-java
     address: localhost:10102
     component_id: null
     params:

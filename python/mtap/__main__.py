@@ -34,7 +34,7 @@ def run_events_server(args):
     with Config() as c:
         if args.mtap_config is not None:
             c.update_from_yaml(args.mtap_config)
-        server = EventsServer(args.host, port=args.port, register=args.register,
+        server = EventsServer(args.host, sid=args.sid, port=args.port, register=args.register,
                               workers=args.workers,
                               write_address=args.write_address)
         server.start()
@@ -65,6 +65,7 @@ def main(args=None):
                                help='the port to serve the service on')
     events_parser.add_argument('--workers', '-w', type=int, default=10,
                                help='number of worker threads to handle requests')
+    events_parser.add_argument('--sid', help='The unique service identifier for the events service.')
     events_parser.add_argument('--register', '-r', action='store_true',
                                help='whether to register the service with the configured '
                                     'service discovery')

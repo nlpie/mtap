@@ -103,7 +103,7 @@ with (Path(__file__).parent / 'README.md').open(encoding='utf-8') as f:
 setup(
     name='mtap',
     use_scm_version={
-        "fallback_version": "0.0.0devel",
+        "fallback_version": "0.0.0.devel",
         "write_to": "python/mtap/version.py"
     },
     description='A framework for distributed text analysis using gRPC and microservices-based '
@@ -161,11 +161,17 @@ setup(
         'pytest',
         'pytest-mock',
         'grpcio-testing>=' + GRPC_VERSION,
-        'requests'
+        'requests',
+        'importlib-resources'
     ],
     extras_require={
         'grpc_tools': ['grpcio-tools>=' + GRPC_VERSION],
-        'tests': ['pytest-runner', 'pytest', 'grpcio-testing>=' + GRPC_VERSION, 'requests', 'pytest-mock'],
+        'tests': ['pytest-runner',
+                  'pytest',
+                  'grpcio-testing>=' + GRPC_VERSION,
+                  'requests',
+                  'pytest-mock',
+                  'importlib-resources'],
         'docs': ['sphinx', 'sphinx_rtd_theme']
     },
     cmdclass={

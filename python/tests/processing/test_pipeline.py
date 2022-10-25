@@ -16,15 +16,14 @@ import pickle
 import time
 from datetime import timedelta
 from pathlib import Path
-from typing import Dict, Any, Callable, Union
+from typing import Dict, Any
 
-import pytest
-
-from mtap import Pipeline, LocalProcessor, Event, EventsClient, Document
-from mtap.processing import EventProcessor, ProcessingError, PipelineResult, ProcessingSource
+from mtap import Pipeline, LocalProcessor, Event, EventsClient, processor
+from mtap.processing import EventProcessor
 from mtap.processing._pipeline import MpConfig, RemoteProcessor
 
 
+@processor('test-processor')
 class Processor(EventProcessor):
     def __init__(self, identifier='1'):
         self.identifier = identifier
@@ -56,7 +55,6 @@ def test_time_result(mocker):
         assert result.component_results[0].timing_info['process_method'] >= timedelta(seconds=0.001)
 
 
-
 def test_load_from_config():
     pipeline = Pipeline.from_yaml_file(Path(__file__).parent / 'pipeline.yml')
     assert pipeline.name == 'mtap-test-pipeline'
@@ -67,20 +65,20 @@ def test_load_from_config():
     assert pipeline.mp_config.read_ahead == 4
     assert not pipeline.mp_config.close_events
     assert len(pipeline) == 2
-    assert pipeline[0].processor_id == 'processor-1'
+    assert pipeline[0].processor_name == 'processor-1'
     assert pipeline[0].address == 'localhost:1234'
-    assert pipeline[1].processor_id == 'processor-2'
+    assert pipeline[1].processor_name == 'processor-2'
     assert pipeline[1].address == 'localhost:5678'
 
 
 def test_serialization():
     p = Pipeline(
         RemoteProcessor(
-            processor_id='processor-1',
+            processor_name='processor-1',
             address='localhost:1234'
         ),
         RemoteProcessor(
-            processor_id='processor-2',
+            processor_name='processor-2',
             address='localhost:5678'
         ),
         name='mtap-test-pipeline',
@@ -103,7 +101,7 @@ def test_serialization():
     assert r.mp_config.read_ahead == 4
     assert not r.mp_config.close_events
     assert len(r) == 2
-    assert r[0].processor_id == 'processor-1'
+    assert r[0].processor_name == 'processor-1'
     assert r[0].address == 'localhost:1234'
-    assert r[1].processor_id == 'processor-2'
+    assert r[1].processor_name == 'processor-2'
     assert r[1].address == 'localhost:5678'

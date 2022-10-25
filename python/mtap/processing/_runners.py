@@ -28,18 +28,19 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessorRunner(_base.ProcessingComponent):
-    __slots__ = ('processor', 'component_id', 'params', 'metadata', 'processor_id', 'client')
+    __slots__ = ('processor', 'processor_name', 'component_id', 'params', 'metadata', 'client')
 
     def __init__(self,
                  proc: 'mtap.EventProcessor',
                  client: 'Optional[mtap.EventsClient]',
-                 identifier: Optional[str] = None,
+                 processor_name: str = None,
+                 component_id: str = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = proc
         self.params = params or {}
         self.metadata = proc.metadata
-        self.processor_id = identifier
-        self.component_id = identifier
+        self.processor_name = processor_name
+        self.component_id = component_id
         self.client = client
 
     def call_process(self, event_id, event_instance_id, params):
@@ -66,11 +67,11 @@ class ProcessorRunner(_base.ProcessingComponent):
 
 
 class RemoteRunner(_base.ProcessingComponent):
-    __slots__ = ('processor_id', 'component_id', '_address', 'params', '_channel', '_stub')
+    __slots__ = ('processor_name', 'component_id', '_address', 'params', '_channel', '_stub')
 
-    def __init__(self, processor_id, component_id, address=None, params=None,
+    def __init__(self, processor_name, component_id, address=None, params=None,
                  enable_proxy=None):
-        self.processor_id = processor_id
+        self.processor_name = processor_name
         self.component_id = component_id
         self._address = address
         self.params = params
@@ -80,20 +81,20 @@ class RemoteRunner(_base.ProcessingComponent):
             config['grpc.processor_options.gprc.enable_http_proxy'] = enable_proxy
         if address is None:
             discovery = _discovery.Discovery(config)
-            address = discovery.discover_processor_service(processor_id, 'v1')
+            address = discovery.discover_processor_service(processor_name, 'v1')
         channel_options = config.get('grpc.processor_options', {})
         self._channel = grpc.insecure_channel(address, options=list(channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
     def call_process(self, event_id, event_instance_id, params):
         logger.debug('processor_id: %s calling process on event_id: %s with event_instance_id: %s',
-                     self.processor_id, event_id, event_instance_id)
+                     self.processor_name, event_id, event_instance_id)
         p = dict(self.params or {})
         if params is not None:
             p.update(params)
 
         with _base.Processor.enter_context() as context:
-            request = processing_pb2.ProcessRequest(processor_id=self.processor_id,
+            request = processing_pb2.ProcessRequest(processor_id=self.processor_name,
                                                     event_id=event_id,
                                                     event_service_instance_id=event_instance_id)
             _structs.copy_dict_to_struct(p, request.params, [p])
