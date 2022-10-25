@@ -23,6 +23,7 @@ from mtap.data import GenericLabel
 from mtap.data import label
 from mtap.data import label_index
 from mtap.data import Location
+from mtap.deployment import Deployment
 from mtap.processing import descriptions
 from mtap.processing import DocumentProcessor
 from mtap.processing import EventProcessor

@@ -37,8 +37,8 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
   private final @Nullable DiscoveryMechanism discoveryMechanism;
   private final @NotNull HealthService healthService;
 
-  private final @NotNull String processorId;
-  private final @NotNull String uniqueServiceId;
+  private final @NotNull String name;
+  private final @NotNull String sid;
 
   private final @NotNull String host;
 
@@ -51,34 +51,34 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
       @NotNull TimingService timingService,
       @Nullable DiscoveryMechanism discoveryMechanism,
       @NotNull HealthService healthService,
-      @Nullable String processorId,
-      @Nullable String uniqueServiceId,
+      @Nullable String name,
+      @Nullable String sid,
       @NotNull String host
   ) {
     this.runner = runner;
     this.timingService = timingService;
     this.discoveryMechanism = discoveryMechanism;
     this.healthService = healthService;
-    this.processorId = processorId != null ? processorId : runner.getProcessor().getProcessorName();
-    this.uniqueServiceId = uniqueServiceId != null ? uniqueServiceId : UUID.randomUUID().toString();
+    this.name = name != null ? name : runner.getProcessor().getProcessorName();
+    this.sid = sid != null ? sid : UUID.randomUUID().toString();
     this.host = host;
   }
 
   @Override
   public void started(int port) throws UnknownHostException {
     this.port = port;
-    healthService.startedServing(processorId);
+    healthService.startedServing(name);
     if (discoveryMechanism != null) {
       ServiceInfo serviceInfo = new ServiceInfo(
-          processorId,
-          uniqueServiceId,
+          name,
+          sid,
           host,
           port,
           Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
       );
       discoveryMechanism.register(serviceInfo);
     }
-    logger.info("Server for processor_id: {} started on port: {}", processorId, port);
+    logger.info("Server for processor_id: {} started on port: {}", name, port);
   }
 
   @Override
@@ -173,15 +173,15 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
   @Override
   public void close() throws InterruptedException {
-    System.out.println("Shutting down processor server with id: \"" + processorId + "\" on address: \"" + host + ":" + port + "\"");
+    System.out.println("Shutting down processor server with id: \"" + name + "\" on address: \"" + host + ":" + port + "\"");
     ServiceInfo serviceInfo = new ServiceInfo(
-        processorId,
-        uniqueServiceId,
+        name,
+        sid,
         null,
         -1,
         Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
     );
-    healthService.stoppedServing(processorId);
+    healthService.stoppedServing(name);
     if (discoveryMechanism != null) {
       discoveryMechanism.deregister(serviceInfo);
     }

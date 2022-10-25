@@ -16,17 +16,13 @@
 
 package edu.umn.nlpie.mtap.processing;
 
-import edu.umn.nlpie.mtap.MTAP;
 import edu.umn.nlpie.mtap.common.Config;
 import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.model.ChannelFactory;
-import edu.umn.nlpie.mtap.model.EventsClient;
 import edu.umn.nlpie.mtap.model.EventsClientPool;
 import edu.umn.nlpie.mtap.utilities.Helpers;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -39,15 +35,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -65,6 +56,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
   private final Server grpcServer;
   private final ProcessorService processorService;
   private final String host;
+
+  private final String sid;
   private final boolean writeAddress;
   private boolean running = false;
   private Path addressFile = null;
@@ -73,11 +66,13 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       ProcessorService processorService,
       Server grpcServer,
       String host,
+      String sid,
       boolean writeAddress
   ) {
     this.processorService = processorService;
     this.host = host;
     this.grpcServer = grpcServer;
+    this.sid = sid;
     this.writeAddress = writeAddress;
   }
 
@@ -92,7 +87,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
     if (writeAddress) {
       Path homeDir = Helpers.getHomeDirectory();
-      addressFile = homeDir.resolve("addresses").resolve("" + ProcessHandle.current().pid() + ".address");
+      addressFile = homeDir.resolve("addresses").resolve(sid + ".address");
       try (BufferedWriter writer = Files.newBufferedWriter(addressFile, StandardOpenOption.CREATE_NEW)) {
         writer.write("" + host + ":" + port);
       }
@@ -170,15 +165,15 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     private Path configFile = null;
 
     @Nullable
-    @Option(name = "-i", aliases = {"--identifier"}, metaVar = "PROCESSOR_ID",
+    @Option(name = "-n", aliases = {"--name"}, metaVar = "PROCESSOR_NAME",
         usage = "The identifier to register the processor under. If not specified will default " +
             "to the @Processor annotation name.")
-    private String identifier = null;
+    private String name = null;
 
     @Nullable
-    @Option(name = "-u", aliases = {"--unique-service-id"}, metaVar = "UNIQUE_SERVICE_ID",
+    @Option(name = "--sid", metaVar = "SERVICE_INSTANCE_ID",
         usage = "A unique per-instance server id that will be used to register and deregister the processor")
-    private String uniqueServiceId = null;
+    private String sid = null;
 
     @Option(name = "-w", aliases = {"--workers"}, metaVar = "N_WORKERS",
         usage = "The number of threads for GRPC workers.")
@@ -333,69 +328,69 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     }
 
     /**
-     * An optional identifier to replace the processor's default identifier for service registration
+     * An optional name to replace the processor's default name for service registration
      * and discovery.
      *
      * @return A dns-complaint (only alphanumeric characters and dashes -) string
      */
-    public @Nullable String getIdentifier() {
-      return identifier;
+    public @Nullable String getName() {
+      return name;
     }
 
     /**
-     * Sets the optional identifier to replace the processor's default identifier for service
+     * Sets the optional name to replace the processor's default service name for service
      * registration and discovery.
      *
-     * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
+     * @param name A dns-complaint (only alphanumeric characters and dashes -) string.
      */
-    public void setIdentifier(@Nullable String identifier) {
-      this.identifier = identifier;
+    public void setName(@Nullable String name) {
+      this.name = name;
     }
 
     /**
-     * Sets the optional identifier to replace the processor's default identifier for service
+     * Sets the optional name to replace the processor's default service name for service
      * registration and discovery.
      *
-     * @param identifier A dns-complaint (only alphanumeric characters and dashes -) string.
+     * @param name A dns-complaint (only alphanumeric characters and dashes -) string.
      * @return this builder.
      */
-    public @NotNull Builder identifier(@Nullable String identifier) {
-      this.identifier = identifier;
+    public @NotNull Builder name(@Nullable String name) {
+      this.name = name;
       return this;
     }
 
     /**
      * Gets a unique, per-instance service identifier used to register and deregister the processor
      * with service discovery. Note: This identifier is not used to discover the service like
-     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     * {@link #getName()}, only to enable de-registration of this specific service instance.
      *
      * @return String identifier or a random UUID if not set.
      */
-    public @Nullable String getUniqueServiceId() {
-      return uniqueServiceId;
+    public @Nullable String getSid() {
+      return sid;
     }
 
     /**
      * Sets a unique, per-instance service identifier used to register and deregister the processor
      * with service discovery. Note: This identifier is not used to discover the service like
-     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     * {@link #getName()}, only to enable de-registration of this specific service instance.
      *
-     * @param uniqueServiceId A string identifier unique to this service instance.
+     * @param sid A string identifier unique to this service instance.
      */
-    public void setUniqueServiceId(@NotNull String uniqueServiceId) {
-      this.uniqueServiceId = uniqueServiceId;
+    public void setSid(@NotNull String sid) {
+      this.sid = sid;
     }
 
     /**
      * Sets a unique, per-instance service identifier used to register and deregister the processor
      * with service discovery. Note: This identifier is not used to discover the service like
-     * {@link #getIdentifier()}, only to enable de-registration of this specific service instance.
+     * {@link #getName()}, only to enable de-registration of this specific service instance.
      *
      * @param uniqueServiceId A string identifier unique to this service instance.
      * @return this builder
      */
     public @NotNull Builder uniqueServiceId(@NotNull String uniqueServiceId) {
-      this.uniqueServiceId = uniqueServiceId;
+      this.sid = uniqueServiceId;
       return this;
     }
 
@@ -443,8 +438,8 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           new DefaultTimingService(),
           discoveryMechanism,
           healthService,
-          identifier,
-          uniqueServiceId,
+          name,
+          sid,
           host
       );
       NettyServerBuilder builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, port));
@@ -472,7 +467,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(processorService).build();
-      return new ProcessorServer(processorService, grpcServer, host, writeAddress);
+      return new ProcessorServer(processorService, grpcServer, host, sid, writeAddress);
     }
 
     /**

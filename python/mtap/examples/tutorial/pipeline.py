@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     with EventsClient(address=sys.argv[1]) as client, \
             Pipeline(
-                RemoteProcessor(processor_id='hello', address=sys.argv[2])
+                RemoteProcessor(processor_name='hello', address=sys.argv[2])
             ) as pipeline:
         with Event(event_id='1', client=client) as event:
             document = Document(document_name='name', text='YOUR NAME')

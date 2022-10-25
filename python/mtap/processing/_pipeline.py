@@ -56,7 +56,7 @@ class RemoteProcessor(_base.ComponentDescriptor):
             with every event or document processed. Values should be json-serializable.
 
     Attributes:
-        processor_id (str): The identifier used for health checking and discovery.
+        processor_name (str): The identifier used for health checking and discovery.
         address (~typing.Optional[str]):
             Optionally an address to use, will use service discovery configuration to locate
             processors if this is None / omitted.
@@ -67,12 +67,12 @@ class RemoteProcessor(_base.ComponentDescriptor):
             An optional parameter dictionary that will be passed to the processor as parameters
             with every event or document processed. Values should be json-serializable.
     """
-    __slots__ = ('processor_id', 'address', 'component_id', 'params', 'enable_proxy')
+    __slots__ = ('processor_name', 'address', 'component_id', 'params', 'enable_proxy')
 
-    def __init__(self, processor_id: str, *, address: Optional[str] = None,
+    def __init__(self, processor_name: str, *, address: Optional[str] = None,
                  component_id: Optional[str] = None, params: Optional[Dict[str, Any]] = None,
                  enable_proxy: bool = False):
-        self.processor_id = processor_id
+        self.processor_name = processor_name
         self.address = address
         self.component_id = component_id
         self.params = params
@@ -83,16 +83,18 @@ class RemoteProcessor(_base.ComponentDescriptor):
             component_ids: Dict[str, int],
             client: 'mtap.EventsClient'
     ) -> 'processing.ProcessingComponent':
-        component_id = self.component_id or self.processor_id
+        component_id = self.component_id or self.processor_name
         component_id = _unique_component_id(component_ids, component_id)
-        runner = _runners.RemoteRunner(processor_id=self.processor_id,
-                                       address=self.address, component_id=component_id,
-                                       params=self.params, enable_proxy=self.enable_proxy)
+        runner = _runners.RemoteRunner(processor_name=self.processor_name,
+                                       component_id=component_id,
+                                       address=self.address,
+                                       params=self.params,
+                                       enable_proxy=self.enable_proxy)
         return runner
 
     def __repr__(self):
-        return "RemoteProcessor(processor_id={}, address={}, component_id={}, params={})".format(
-            *map(repr, [self.processor_id, self.address, self.component_id, self.params])
+        return "RemoteProcessor(processor_name={}, address={}, component_id={}, params={})".format(
+            *map(repr, [self.processor_name, self.address, self.component_id, self.params])
         )
 
 
@@ -127,13 +129,14 @@ class LocalProcessor(_base.ComponentDescriptor):
             An optional parameter dictionary that will be passed to the processor as parameters
             with every event or document processed. Values should be json-serializable.
     """
-    __slots__ = ('proc', 'component_id', 'params')
+    __slots__ = ('proc', 'processor_name', 'component_id', 'params')
 
     def __init__(self, proc: 'mtap.EventProcessor',
                  *, component_id: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.proc = proc
-        self.component_id = component_id or proc.metadata['name']
+        self.processor_name = proc.metadata['name']
+        self.component_id = component_id or self.processor_name
         self.params = params
 
     def create_pipeline_component(
@@ -143,15 +146,17 @@ class LocalProcessor(_base.ComponentDescriptor):
     ) -> 'processing.ProcessingComponent':
         identifier = _unique_component_id(component_ids, self.component_id)
         runner = _runners.ProcessorRunner(proc=self.proc,
-                                          identifier=identifier,
+                                          processor_name=self.processor_name,
+                                          component_id=identifier,
                                           params=self.params,
                                           client=client())
         return runner
 
     def __repr__(self):
-        return 'LocalProcessor(proc={}, component_id={}, params={}'.format(
+        return 'LocalProcessor(proc={}, processor_name={}, component_id={}, params={}'.format(
             *map(repr, [
                 self.proc,
+                self.processor_name,
                 self.component_id,
                 self.params
             ]))
@@ -285,27 +290,27 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         >>> pipeline = Pipeline(RemoteProcessor('foo', address='localhost:50000'),
                                 RemoteProcessor('bar', address='localhost:50000'))
         >>> pipeline
-        Pipeline(RemoteProcessor(processor_id='foo', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='bar', address='localhost:50000', component_id=None, params=None))
+        Pipeline(RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='bar', address='localhost:50000', component_id=None, params=None))
         >>> pipeline.append(RemoteProcessor('baz', address='localhost:50001'))
         >>> pipeline
-        Pipeline(RemoteProcessor(processor_id='foo', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='bar', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='baz', address='localhost:50001', component_id=None, params=None))
+        Pipeline(RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='bar', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='baz', address='localhost:50001', component_id=None, params=None))
         >>> del pipeline[1]
         >>> pipeline
-        Pipeline(RemoteProcessor(processor_id='foo', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='baz', address='localhost:50001', component_id=None, params=None))
-        >>> pipeline[1] = RemoteProcessor(processor_id='bar', address='localhost:50003')
+        Pipeline(RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='baz', address='localhost:50001', component_id=None, params=None))
+        >>> pipeline[1] = RemoteProcessor(processor_name='bar', address='localhost:50003')
         >>> pipeline
-        Pipeline(RemoteProcessor(processor_id='foo', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='bar', address='localhost:50003', component_id=None, params=None))
+        Pipeline(RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='bar', address='localhost:50003', component_id=None, params=None))
         >>> pipeline += list(pipeline)  # Putting in a new list to prevent an infinite recursion
         >>> pipeline
-        Pipeline(RemoteProcessor(processor_id='foo', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='bar', address='localhost:50003', component_id=None, params=None),
-                 RemoteProcessor(processor_id='foo', address='localhost:50000', component_id=None, params=None),
-                 RemoteProcessor(processor_id='bar', address='localhost:50003', component_id=None, params=None))
+        Pipeline(RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='bar', address='localhost:50003', component_id=None, params=None),
+                 RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
+                 RemoteProcessor(processor_name='bar', address='localhost:50003', component_id=None, params=None))
 
     Attributes:
         name (str): The pipeline's name.
@@ -367,15 +372,29 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             Pipeline created from the configuration.
 
         """
+        bad_keys = [k for k in conf.keys() if k not in ['name', 'events_addresses', 'events_address', 'components',
+                                                        'mp_config']]
+        if len(bad_keys) > 0:
+            raise ValueError('Unrecognized keys in pipeline configuration: {}'.format(bad_keys))
         name = conf.get('name', None)
+        if 'events_address' in conf.keys() and 'events_addresses' in conf.keys():
+            raise ValueError("Only one of 'events_address' and 'events_addresses' should be specified.")
         events_address = conf.get('events_address', None) or conf.get('events_addresses', None)
         components = []
         conf_components = conf.get('components', [])
         for conf_component in conf_components:
+            bad_keys = [k for k in conf_component.keys()
+                        if k not in ['processor_id', 'name', 'component_id', 'address', 'params']]
+            if len(bad_keys) > 0:
+                raise ValueError('Unrecognized pipeline component key(s) {}'.format(bad_keys))
+            if 'processor_id' in conf_component:
+                logger.warning("The 'processor_id' field has been renamed to 'name' in pipeline configurations."
+                               "For now it is automatically migrated, but it may fail in a future version")
+                conf_component['name'] = conf_component['processor_id']
             components.append(
                 RemoteProcessor(
-                    processor_id=conf_component['processor_id'],
-                    address=conf_component['address'],
+                    processor_name=conf_component['name'],
+                    address=conf_component.get('address', None),
                     component_id=conf_component.get('component_id', None),
                     params=dict(conf_component.get('params', {}))
                 )

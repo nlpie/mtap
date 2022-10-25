@@ -7,7 +7,7 @@ mp_config:
   read_ahead: 4
   close_events: False
 components:
-  - processor_id: processor-1
+  - name: processor-1
     address: localhost:1234
-  - processor_id: processor-2
+  - name: processor-2
     address: localhost:5678

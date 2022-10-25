@@ -13,6 +13,7 @@
 # limitations under the License.
 import os
 import signal
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -21,6 +22,7 @@ from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 import pytest
 import requests
 import yaml
+
 try:
     from yaml import CDumper as Dumper
 except ImportError:
@@ -43,18 +45,16 @@ def fixture_python_events():
 @pytest.fixture(name='python_processor')
 def fixture_python_processor(python_events, processor_watcher):
     port = str(find_free_port())
-    p = Popen(['python', '-m', 'mtap.examples.example_processor', '-p', port,
+    p = Popen([sys.executable, '-m', 'mtap.examples.example_processor', '-p', port,
                '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="java_processor")
-def fixture_java_processor(python_events, processor_watcher):
-    mtap_jar = os.environ['MTAP_JAR']
+def fixture_java_processor(java_exe, python_events, processor_watcher):
     port = str(find_free_port())
-    p = Popen(['java', '-cp', mtap_jar,
-               'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
-               '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
+                          '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 

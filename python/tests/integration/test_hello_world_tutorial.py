@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-from pathlib import Path
+import sys
 from subprocess import PIPE, STDOUT, Popen, run
 
 import pytest
@@ -30,18 +30,17 @@ def fixture_python_events():
 @pytest.fixture(name='hello_processor')
 def fixture_hello_processor(python_events, processor_watcher):
     port = find_free_port()
-    p = Popen(['python', '-m', 'mtap.examples.tutorial.hello', '-p', str(port),
+    p = Popen([sys.executable, '-m', 'mtap.examples.tutorial.hello', '-p', str(port),
                '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     address = "127.0.0.1:" + str(port)
     yield from processor_watcher(address=address, process=p)
 
 
 @pytest.fixture(name='java_hello_processor')
-def fixture_java_hello_processor(python_events, processor_watcher):
-    mtap_jar = os.environ['MTAP_JAR']
+def fixture_java_hello_processor(java_exe, python_events, processor_watcher):
     port = str(find_free_port())
-    p = Popen(['java', '-cp', mtap_jar, 'edu.umn.nlpie.mtap.examples.HelloWorldExample',
-               '-p', port, '--events', python_events],
+    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.HelloWorldExample',
+                          '-p', port, '--events', python_events],
               stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     address = "127.0.0.1:" + port
     yield from processor_watcher(address=address, process=p)

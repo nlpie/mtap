@@ -26,7 +26,7 @@ class Discovery(abc.ABC):
         return super(Discovery, cls).__new__(cls)
 
     @abc.abstractmethod
-    def register_events_service(self, address, port, version):
+    def register_events_service(self, sid, address, port, version):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -34,7 +34,7 @@ class Discovery(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def register_processor_service(self, address, port, processor_name, version):
+    def register_processor_service(self, name, sid, address, port, version):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -50,9 +50,10 @@ class ConsulDiscovery(Discovery):
                                port=config['consul.port'],
                                scheme=config['consul.scheme'])
 
-    def register_events_service(self, address, port, version):
+    def register_events_service(self, sid, address, port, version):
         name = constants.EVENTS_SERVICE_NAME
         self.c.agent.service.register(name,
+                                      service_id=sid,
                                       port=port,
                                       check={
                                           'grpc': "{}:{}/{}".format(address, port, name),
@@ -62,7 +63,7 @@ class ConsulDiscovery(Discovery):
                                       tags=[version])
 
         def deregister():
-            self.c.agent.service.deregister(name)
+            self.c.agent.service.deregister(name, service_id=sid)
 
         return deregister
 
@@ -79,20 +80,19 @@ class ConsulDiscovery(Discovery):
             addresses.append("{}:{}".format(service['Node']['Address'], service['Service']['Port']))
         return "ipv4:" + ','.join(addresses)
 
-    def register_processor_service(self, address, port, processor_id, version):
-        uuid = str(uuid1())
-        self.c.agent.service.register(processor_id,
-                                      service_id=uuid,
+    def register_processor_service(self, name, sid, address, port, version):
+        self.c.agent.service.register(name,
+                                      service_id=sid,
                                       port=port,
                                       check={
-                                          'grpc': "{}:{}/{}".format(address, port, processor_id),
+                                          'grpc': "{}:{}/{}".format(address, port, name),
                                           'interval': "10s",
                                           'status': 'passing'
                                       },
                                       tags=[constants.PROCESSING_SERVICE_TAG])
 
         def deregister():
-            self.c.agent.service.deregister(service_id=uuid)
+            self.c.agent.service.deregister(service_id=sid)
 
         return deregister
 

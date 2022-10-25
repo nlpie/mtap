@@ -46,14 +46,14 @@ processors:
     # For example: instances: 3 and port: 10101 will assign the ports 10101, 10102, and 10103
     # Alternatively, you can omit instances and use a list of ports here: e.g. [10101, 10102, 10103]
     port: 10101
-    # an optional identifier override.
-    identifier: null
+    # an optional processor name override.
+    name: null
     # An optional override for the number of worker threads per server.
     workers: 10
     # any arguments to be placed before the chain of processor arguments, for example a positional
     # argument for a sub-command.
     pre_args: [ ]
-    args: [ ]  # a list of additional arguments for the processor
+    additional_args: [ ]  # a list of additional arguments for the processor
     startup_timeout: 60 # Optional override for startup timeout
   - implementation: java
     entry_point: edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor

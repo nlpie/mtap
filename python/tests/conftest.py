@@ -11,11 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
+import os
 import signal
 import subprocess
 
 import grpc
 import pytest
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def pytest_configure(config):
@@ -80,3 +84,22 @@ def fixture_processor_watcher():
             except subprocess.TimeoutExpired:
                 print("timed out waiting for processor to terminate")
     return func
+
+
+@pytest.fixture(name='java_exe')
+def fixture_java_exe():
+    import pathlib
+    try:
+        mtap_jar = os.environ['MTAP_JAR']
+    except KeyError:
+        mtap_jar = None
+    if not mtap_jar:
+        try:
+            java_libs = pathlib.Path(__file__).parents[2] / 'java' / 'build' / 'libs'
+            mtap_jar = next(java_libs.glob('*-all.jar'))
+        except (FileNotFoundError, StopIteration):
+            raise ValueError('MTAP_JAR not found, is required for tests')
+    try:
+        return [str(pathlib.Path(os.environ['JAVA_HOME']) / 'bin' / 'java'), '-cp', str(mtap_jar)]
+    except KeyError:
+        return ['java', '-cp', str(mtap_jar)]
