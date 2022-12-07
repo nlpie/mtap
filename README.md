@@ -9,8 +9,8 @@ MTAP is used to create independent, scalable, interoperable text analysis pipeli
 components in either Python or Java. 
 
 ## Requirements
-- Operating System: We test on Ubuntu 20.04 and MacOS Big Sur, but other UNIX-like distributions should work.
-- [Python 3.6+](https://www.python.org/downloads/) We test on Python 3.6 and the latest stable version of Python. 
+- Operating System: We test on Ubuntu 22.04 and MacOS Big Sur, but other UNIX-like distributions should work.
+- [Python 3.7+](https://www.python.org/downloads/) We test on Python 3.7 and the latest stable version of Python. 
 - Optional: [Java 8+](https://adoptium.net) (_If you want to create Java Processors_) We test on Java 8 and the latest 
   stable version of Java.
 - Optional: [Go 13+](https://golang.org) if you want to run the RESTful API Gateway.

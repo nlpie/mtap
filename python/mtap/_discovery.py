@@ -14,7 +14,6 @@
 """Internal service discovery magic."""
 
 import abc
-from uuid import uuid1
 
 from mtap import constants
 
@@ -46,6 +45,7 @@ class ConsulDiscovery(Discovery):
     def __init__(self, config):
         import consul
         host = config['consul.host']
+        self.interval = config['consul.interval']
         self.c = consul.Consul(host=host,
                                port=config['consul.port'],
                                scheme=config['consul.scheme'])
@@ -57,13 +57,13 @@ class ConsulDiscovery(Discovery):
                                       port=port,
                                       check={
                                           'grpc': "{}:{}/{}".format(address, port, name),
-                                          'interval': "10s",
+                                          'interval': self.interval,
                                           'status': 'passing'
                                       },
                                       tags=[version])
 
         def deregister():
-            self.c.agent.service.deregister(name, service_id=sid)
+            self.c.agent.service.deregister(service_id=sid)
 
         return deregister
 
@@ -86,7 +86,7 @@ class ConsulDiscovery(Discovery):
                                       port=port,
                                       check={
                                           'grpc': "{}:{}/{}".format(address, port, name),
-                                          'interval': "10s",
+                                          'interval': self.interval,
                                           'status': 'passing'
                                       },
                                       tags=[constants.PROCESSING_SERVICE_TAG])

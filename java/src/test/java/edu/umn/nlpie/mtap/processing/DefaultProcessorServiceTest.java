@@ -16,6 +16,7 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
 import org.junit.Rule;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DefaultProcessorServiceTest {
+
   @Rule
   public final GrpcCleanupRule grpcCleanup = new GrpcCleanupRule();
 
@@ -54,14 +56,18 @@ class DefaultProcessorServiceTest {
   HealthService mockHealthService;
 
   String processorId = "processorId";
-
   String uniqueServiceId = "uniqueServiceId";
-
   private String name;
+  private AutoCloseable mocksClosable;
 
   @BeforeEach
   void setUp() {
-    MockitoAnnotations.initMocks(this);
+    mocksClosable = MockitoAnnotations.openMocks(this);
+  }
+
+  @AfterEach
+  void tearDown() throws Exception {
+    mocksClosable.close();
   }
 
   @Test

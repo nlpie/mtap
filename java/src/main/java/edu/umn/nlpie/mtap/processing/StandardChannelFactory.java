@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 
 public class StandardChannelFactory implements ChannelFactory {
   private final Config config;
+  private boolean nameResolverAdded = false;
+  private Object nameResolverAddedMutex = new Object();
 
   public StandardChannelFactory(Config config) {
     this.config = config;
@@ -39,9 +41,9 @@ public class StandardChannelFactory implements ChannelFactory {
     ManagedChannelBuilder<?> builder;
     if (address == null) {
       DiscoveryMechanism discoveryMechanism = Discovery.getDiscoveryMechanism(config);
+      discoveryMechanism.initializeNameResolution();
       String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
-      builder = ManagedChannelBuilder.forTarget(target)
-          .nameResolverFactory(discoveryMechanism.getNameResolverFactory());
+      builder = ManagedChannelBuilder.forTarget(target);
     } else {
       builder = ManagedChannelBuilder.forTarget(address);
     }

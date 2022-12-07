@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
+
 import signal
+import sys
 import time
 from pathlib import Path
 from subprocess import Popen, TimeoutExpired, PIPE, STDOUT
@@ -23,7 +24,7 @@ from requests import RequestException
 
 import mtap
 from mtap import RemoteProcessor, EventsClient, Event
-from mtap.utilities import subprocess_events_server, find_free_port
+from mtap.utilities import subprocess_events_server
 
 
 @pytest.fixture(name='disc_python_events')
@@ -34,25 +35,23 @@ def fixture_disc_python_events():
 
 @pytest.fixture(name='disc_python_processor')
 def fixture_disc_python_processor(disc_python_events, processor_watcher):
-    p = Popen(['python', '-m', 'mtap.examples.example_processor',
+    p = Popen([sys.executable, '-m', 'mtap.examples.example_processor',
                '-p', '50501', '--register'],
               start_new_session=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:50501", process=p)
 
 
 @pytest.fixture(name="disc_java_processor")
-def fixture_disc_java_processor(disc_python_events, processor_watcher):
-    mtap_jar = os.environ['MTAP_JAR']
-    p = Popen(['java', '-cp', mtap_jar,
-               'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
-               '-p', '50502', '--register'],
+def fixture_disc_java_processor(java_exe, disc_python_events, processor_watcher):
+    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor', '-p', '50502', '--register'],
               stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
 
 
 @pytest.fixture(name="disc_api_gateway")
 def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor):
-    p = Popen(['mtap-gateway', '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+    p = Popen(['mtap-gateway', '-mtap-config',  str(Path(__file__).parent / 'integrationConfig.yaml'),
+               '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     session = requests.Session()
     session.trust_env = False
     try:
@@ -63,7 +62,7 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
                 raise ValueError("Failed to connect to go gateway")
             try:
                 time.sleep(3)
-                resp = session.get("http://localhost:50503/v1/processors")
+                resp = session.get("http://127.0.0.1:50503/v1/processors")
                 if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
                     break
             except RequestException:

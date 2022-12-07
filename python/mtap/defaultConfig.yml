@@ -26,3 +26,4 @@ consul:
   port: 8500
   scheme: http
   python_naming_scheme: ipv4
+  interval: 5s

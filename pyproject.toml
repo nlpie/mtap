@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools-scm[toml]>=6.2", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtap"
+description = "A framework for distributed text analysis using gRPC and microservices-based architecture."
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE.txt"}
+keywords = ["nlp", "grpc"]
+authors = [
+    {name = "University of Minnesota NLP/IE Group", email = "nlp-ie@umn.edu"},
+    {name = "Ben Knoll", email = "benknoll@umn.edu"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing :: General",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+    "grpcio>=1.48.2",
+    "grpcio-health-checking>=1.48.2",
+    "googleapis-common-protos",
+    "pyyaml",
+    "tqdm",
+]
+dynamic = ["version"]
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["mtap"]
+
+[tool.setuptools_scm]
+write_to = "python/mtap/version.py"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-mock",
+    "grpcio-testing>=1.48.2",
+    "requests",
+    "importlib-resources",
+]
+docs = [
+    "sphinx",
+]
+consul = ["python-consul"]
+
+[project.urls]
+homepage = "https://nlpie.github.io/mtap"
+documentation = "https://nlpie.github.io/mtap-python-api/index.html"
+repository = "https://github.com/nlpie/mtap.git"

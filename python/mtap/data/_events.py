@@ -518,12 +518,14 @@ class _ClientPool:
         self.instance_id_to_delegate = {d.instance_id: d for d in self.clients}
 
     def get_instance(self, instance_id):
-        try:
-            return self.instance_id_to_delegate[instance_id]
-        except KeyError:
-            i = self.clients[self._ptr]
-            self._ptr = (self._ptr + 1) % len(self.clients)
-            return i
+        if instance_id is not None:
+            try:
+                return self.instance_id_to_delegate[instance_id]
+            except KeyError:
+                raise KeyError(f"instance_id: {instance_id} not found. Available instances: {self.instance_id_to_delegate.keys()}")
+        i = self.clients[self._ptr]
+        self._ptr = (self._ptr + 1) % len(self.clients)
+        return i
 
 
 class EventsClient:
@@ -551,7 +553,7 @@ class EventsClient:
                  channel_factory: Callable[[str], grpc.Channel] = None,
                  _pool: Optional[_ClientPool] = None,
                  _channel: Optional[grpc.Channel] = None):
-        if address is None:
+        if address is None or (isinstance(address, Iterable) and len(address) == 0):
             discovery = _discovery.Discovery(_config.Config())
             address = discovery.discover_events_service('v1')
         if isinstance(address, str):

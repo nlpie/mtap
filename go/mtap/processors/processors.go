@@ -26,22 +26,22 @@ import (
 	"github.com/nlpie/mtap/go/mtap/api/v1"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-type processorGateway struct {
+type Gateway struct {
 	mux      *runtime.ServeMux
 	ctx      context.Context
 	cancel   context.CancelFunc
 	isManual bool
 }
 
-// listens for new processors from the consul server.
-type ProcessorsServer struct {
+type Server struct {
 	Dispatcher          *mux.Router
-	processors          map[string]*processorGateway
+	processors          map[string]*Gateway
 	t                   *time.Ticker
 	ctx                 context.Context
 	client              *api.Client
@@ -72,10 +72,10 @@ type ManualProcessor struct {
 	Endpoint   string
 }
 
-func NewProcessorsServer(ctx context.Context, config *Config) (*ProcessorsServer, error) {
-	ps := &ProcessorsServer{
+func NewProcessorsServer(ctx context.Context, config *Config) (*Server, error) {
+	ps := &Server{
 		Dispatcher: mux.NewRouter(),
-		processors: make(map[string]*processorGateway),
+		processors: make(map[string]*Gateway),
 		t:          time.NewTicker(time.Second * config.RefreshInterval),
 		authority:  config.ConsulAddress + ":" + strconv.Itoa(config.ConsulPort),
 		ctx:        ctx,
@@ -108,7 +108,7 @@ func NewProcessorsServer(ctx context.Context, config *Config) (*ProcessorsServer
 	return ps, nil
 }
 
-func (ps *ProcessorsServer) handleProcessors(w http.ResponseWriter, r *http.Request) {
+func (ps *Server) handleProcessors(w http.ResponseWriter, r *http.Request) {
 	glog.V(3).Info("\"processors\" endpoint request")
 	processors := make([]processorInfo, 0, len(ps.processors))
 	for k := range ps.processors {
@@ -128,7 +128,7 @@ func (ps *ProcessorsServer) handleProcessors(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (ps *ProcessorsServer) dispatchToProcessor(w http.ResponseWriter, r *http.Request) {
+func (ps *Server) dispatchToProcessor(w http.ResponseWriter, r *http.Request) {
 	glog.V(3).Info("Dispatching a processor gateway request")
 	vars := mux.Vars(r)
 	identifier := vars["Identifier"]
@@ -140,7 +140,7 @@ func (ps *ProcessorsServer) dispatchToProcessor(w http.ResponseWriter, r *http.R
 	}
 }
 
-func (ps *ProcessorsServer) watcher() {
+func (ps *Server) watcher() {
 	for {
 		select {
 		case <-ps.ctx.Done():
@@ -152,7 +152,7 @@ func (ps *ProcessorsServer) watcher() {
 	}
 }
 
-func (ps *ProcessorsServer) doUpdate() {
+func (ps *Server) doUpdate() {
 	if !ps.semaphore.TryAcquire(1) {
 		return
 	}
@@ -202,7 +202,7 @@ func (ps *ProcessorsServer) doUpdate() {
 		}
 	}
 
-	processorsCopy := make(map[string]*processorGateway, len(ps.processors))
+	processorsCopy := make(map[string]*Gateway, len(ps.processors))
 	for k, pg := range ps.processors {
 		processorsCopy[k] = pg
 	}
@@ -248,7 +248,7 @@ func (ps *ProcessorsServer) doUpdate() {
 	glog.V(2).Info("Finished updating processor gateways")
 }
 
-func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProcessor) (*processorGateway, error) {
+func (ps *Server) newManualProcessorGateway(manualProcessor ManualProcessor) (*Gateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v with address: %v", manualProcessor.Identifier, manualProcessor.Endpoint)
 	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	ctx, cancel := context.WithCancel(ps.ctx)
@@ -260,21 +260,23 @@ func (ps *ProcessorsServer) newManualProcessorGateway(manualProcessor ManualProc
 		ps.createDialOptions())
 
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	gateway := processorGateway{mux: gwmux, ctx: ctx, cancel: cancel, isManual: true}
+	gateway := Gateway{mux: gwmux, ctx: ctx, cancel: cancel, isManual: true}
 	return &gateway, nil
 }
 
-func (ps *ProcessorsServer) createDialOptions() []grpc.DialOption {
-	dialOptions := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancerName("round_robin")}
+func (ps *Server) createDialOptions() []grpc.DialOption {
+	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`)}
 	if !ps.grpcEnableHttpProxy {
 		dialOptions = append(dialOptions, grpc.WithNoProxy())
 	}
 	return dialOptions
 }
 
-func (ps *ProcessorsServer) newProcessorGateway(pn string) (*processorGateway, error) {
+func (ps *Server) newProcessorGateway(pn string) (*Gateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v", pn)
 	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
 	ctx, cancel := context.WithCancel(ps.ctx)
@@ -286,8 +288,9 @@ func (ps *ProcessorsServer) newProcessorGateway(pn string) (*processorGateway, e
 		ps.createDialOptions())
 
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	gateway := processorGateway{mux: gwmux, ctx: ctx, cancel: cancel, isManual: false}
+	gateway := Gateway{mux: gwmux, ctx: ctx, cancel: cancel, isManual: false}
 	return &gateway, nil
 }
