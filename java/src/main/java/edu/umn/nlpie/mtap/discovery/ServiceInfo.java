@@ -16,8 +16,11 @@
 
 package edu.umn.nlpie.mtap.discovery;
 
+import edu.umn.nlpie.mtap.Internal;
+
 import java.util.List;
 
+@Internal
 public class ServiceInfo {
   private final String name;
   private final String identifier;

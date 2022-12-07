@@ -48,6 +48,7 @@ class ExampleTestProcessor(DocumentProcessor):
 def fixture_processor_servicer():
     runner = _runners.ProcessorRunner(ExampleTestProcessor(), client=None)
     processor_service = _ProcessorServicer(config={}, runner=runner, address='',
+                                           sid='1',
                                            health_servicer=None)
     yield grpc_testing.server_from_dictionary(
         {

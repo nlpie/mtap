@@ -39,34 +39,34 @@ type consulBuilder struct {
 }
 
 type consulResolver struct {
-	freq       time.Duration
-	t          *time.Timer
-	service    string
-	tags       []string
-	ctx        context.Context
-	cancel     context.CancelFunc
-	updating   bool
-	cc         resolver.ClientConn
-	client     *api.Client
-	wg         sync.WaitGroup
-	rn         chan struct{}
+	freq     time.Duration
+	t        *time.Timer
+	service  string
+	tags     []string
+	ctx      context.Context
+	cancel   context.CancelFunc
+	updating bool
+	cc       resolver.ClientConn
+	client   *api.Client
+	wg       sync.WaitGroup
+	rn       chan struct{}
 }
 
 func NewBuilder() resolver.Builder {
 	return &consulBuilder{}
 }
 
-func (*consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+func (*consulBuilder) Build(target resolver.Target, cc resolver.ClientConn, _ resolver.BuildOptions) (resolver.Resolver, error) {
 	glog.V(3).Infof("Creating resolver for target %v", target)
 	consulConfig := api.DefaultConfig()
-	consulConfig.Address = target.Authority
+	consulConfig.Address = target.URL.Host
 
 	client, e := api.NewClient(consulConfig)
 	if e != nil {
 		return nil, e
 	}
 
-	split := strings.Split(target.Endpoint, "/")
+	split := strings.Split(target.URL.Path, "/")
 	r := &consulResolver{
 		freq:    defaultFreq,
 		t:       time.NewTimer(0),
@@ -87,7 +87,7 @@ func (*consulBuilder) Scheme() string {
 	return "consul"
 }
 
-func (r *consulResolver) ResolveNow(opts resolver.ResolveNowOptions) {
+func (r *consulResolver) ResolveNow(_ resolver.ResolveNowOptions) {
 	glog.V(3).Infof("resolve now called")
 	select {
 	case r.rn <- struct{}{}:
@@ -121,7 +121,7 @@ func (r *consulResolver) watcher() {
 		addrs := r.lookup()
 		r.t.Reset(r.freq)
 
-		r.cc.UpdateState(resolver.State{
+		_ = r.cc.UpdateState(resolver.State{
 			Addresses:     addrs,
 			ServiceConfig: nil,
 		})

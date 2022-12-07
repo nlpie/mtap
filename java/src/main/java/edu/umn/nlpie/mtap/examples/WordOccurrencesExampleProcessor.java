@@ -60,9 +60,7 @@ import java.util.regex.Pattern;
     }
 )
 public class WordOccurrencesExampleProcessor extends DocumentProcessor {
-
   private final Pattern pattern = Pattern.compile("\\w+");
-
   private final String word;
 
   public WordOccurrencesExampleProcessor(String word) {

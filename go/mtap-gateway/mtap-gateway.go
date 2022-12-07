@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"io"
 	"net/http"
 	"os"
@@ -71,7 +72,7 @@ func serveSwagger(r *mux.Router) {
 func run() error {
 	glog.V(1).Infoln("Starting MTAP API Gateway")
 	err := viper.ReadInConfig() // Find and read the config file
-	if err != nil { // Handle errors reading the config file
+	if err != nil {             // Handle errors reading the config file
 		// will use sensible defaults
 		err = nil
 	}
@@ -89,9 +90,9 @@ func run() error {
 	serveSwagger(m)
 
 	config := processors.Config{
-		ConsulAddress:   consulHost,
-		ConsulPort:      consulPort,
-		RefreshInterval: viper.GetDuration("gateway.refresh_interval"),
+		ConsulAddress:       consulHost,
+		ConsulPort:          consulPort,
+		RefreshInterval:     viper.GetDuration("gateway.refresh_interval"),
 		GrpcEnableHttpProxy: viper.GetBool("grpc.enable_proxy"),
 	}
 
@@ -123,7 +124,8 @@ func run() error {
 		ctx,
 		gwmux,
 		eventsAddr,
-		[]grpc.DialOption{grpc.WithInsecure(), grpc.WithBalancerName("round_robin")})
+		[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`)})
 	if err != nil {
 		return err
 	}
@@ -133,11 +135,11 @@ func run() error {
 	glog.V(1).Infoln("Serving on port " + port)
 
 	srv := &http.Server{
-		Addr: ":"+port,
+		Addr:         ":" + port,
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler: m,
+		Handler:      m,
 	}
 
 	go func() {
@@ -151,7 +153,7 @@ func run() error {
 
 	<-c
 
-	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second * 10)
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel2()
 	_ = srv.Shutdown(ctx2)
 	_ = fmt.Errorf("shutting down")

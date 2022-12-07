@@ -18,14 +18,13 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 )
 
 func main() {
 	dir := os.Args[1]
-	fs, _ := ioutil.ReadDir(dir)
+	fs, _ := os.ReadDir(dir)
 	out, _ := os.Create(dir + "/swaggers.go")
 	_, err := out.Write([]byte("package mtap_api_v1 \n\nconst (\n"))
 	if err != nil {
@@ -34,7 +33,7 @@ func main() {
 	}
 	for _, f := range fs {
 		if strings.HasSuffix(f.Name(), ".json") {
-			swagger, err := ioutil.ReadFile(dir + "/" + f.Name())
+			swagger, err := os.ReadFile(dir + "/" + f.Name())
 			swaggerString := string(swagger)
 
 			name := strings.TrimSuffix(f.Name(), ".swagger.json")

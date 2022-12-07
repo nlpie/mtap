@@ -92,7 +92,7 @@ def run_processor(proc: 'mtap.EventProcessor',
             c.update_from_yaml(options.mtap_config)
         # instantiate runner
         name = options.name or proc.metadata['name']
-        sid = options.sid or uuid.uuid4()
+        sid = options.sid
 
         enable_http_proxy = options.grpc_enable_http_proxy
         if enable_http_proxy is not None:
@@ -249,11 +249,13 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
                  config: 'mtap.Config',
                  address: str,
+                 sid: str,
                  runner: '_base.ProcessingComponent',
                  health_servicer: health.HealthServicer,
                  register: bool = False):
         self.config = config
         self.address = address
+        self.sid = sid
         self._runner = runner
         self.register = register
         self.health_servicer = health_servicer
@@ -270,13 +272,11 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         if self.register:
             from mtap._discovery import Discovery
             service_registration = Discovery(config=self.config)
-            self._deregister = service_registration.register_processor_service(
-                self._runner.processor_name,
-                self._runner.sid,
-                self.address,
-                port,
-                'v1'
-            )
+            self._deregister = service_registration.register_processor_service(self._runner.processor_name,
+                                                                               self.sid,
+                                                                               self.address,
+                                                                               port,
+                                                                               'v1')
 
     def shutdown(self):
         self.health_servicer.set(self._runner.processor_name, 'NOT_SERVING')
@@ -382,9 +382,11 @@ class ProcessorServer:
 
         self._health_servicer = health.HealthServicer()
         self._health_servicer.set('', 'SERVING')
+        self._health_servicer.set(self.processor_name, 'SERVING')
         self._servicer = _ProcessorServicer(
             config=config,
             address=host,
+            sid=self.sid,
             runner=runner,
             health_servicer=self._health_servicer,
             register=register

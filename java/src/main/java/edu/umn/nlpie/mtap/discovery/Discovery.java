@@ -16,8 +16,10 @@
 
 package edu.umn.nlpie.mtap.discovery;
 
+import edu.umn.nlpie.mtap.Internal;
 import edu.umn.nlpie.mtap.common.Config;
 
+@Internal
 public class Discovery {
   private Discovery() {
     throw new UnsupportedOperationException("Instantiation of static utility class.");

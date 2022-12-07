@@ -1,13 +1,8 @@
-
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
-# generated protos
-*_pb2.py
-*_pb2_grpc.py
 
 # C extensions
 *.so
@@ -383,3 +378,6 @@ python/docs/_build
 
 Pipfile
 Pipfile.lock
+
+# override for test logging jar
+!python/tests/slf4j-simple-*.jar

@@ -21,33 +21,43 @@ import com.orbitz.consul.Consul;
 import com.orbitz.consul.model.agent.ImmutableRegCheck;
 import com.orbitz.consul.model.agent.ImmutableRegistration;
 import edu.umn.nlpie.mtap.common.Config;
-import io.grpc.NameResolver;
+import io.grpc.*;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 
-public class ConsulDiscoveryMechanism implements DiscoveryMechanism {
+@Internal
+final class ConsulDiscoveryMechanism implements DiscoveryMechanism {
   private final String host;
   private final int port;
+  private final String interval;
+  private final Object agentMutex = new Object();
   private AgentClient agent = null;
 
   ConsulDiscoveryMechanism(Config config) {
     host = config.getStringValue("consul.host");
     port = config.getIntegerValue("consul.port");
+    interval = config.getStringValue("consul.interval");
   }
 
   public AgentClient getAgent() {
-    if (agent == null) {
-      try {
-        this.agent = Consul.builder()
-            .withUrl(new URL("http", host, port, ""))
-            .build().agentClient();
-      } catch (MalformedURLException e) {
-        throw new IllegalStateException(e);
+    AgentClient result = agent;
+    if (result == null) {
+      synchronized (agentMutex) {
+        result = agent;
+        if (result == null) {
+          try {
+            result = agent = Consul.builder()
+                .withUrl(new URL("http", host, port, ""))
+                .build().agentClient();
+          } catch (MalformedURLException e) {
+            throw new IllegalStateException(e);
+          }
+        }
       }
     }
-    return agent;
+    return result;
   }
 
   @Override
@@ -69,7 +79,7 @@ public class ConsulDiscoveryMechanism implements DiscoveryMechanism {
   @Override
   public void register(ServiceInfo serviceInfo) {
     ImmutableRegCheck grpcCheck = ImmutableRegCheck.builder()
-        .interval("10s")
+        .interval(interval)
         .grpc(serviceInfo.getHost() + ":" + serviceInfo.getPort() + "/" + serviceInfo.getName())
         .status("passing")
         .build();
@@ -91,7 +101,7 @@ public class ConsulDiscoveryMechanism implements DiscoveryMechanism {
   }
 
   @Override
-  public NameResolver.Factory getNameResolverFactory() {
-    return new ConsulNameResolver.Factory();
+  public void initializeNameResolution() {
+    ConsulNameResolverProvider.register();
   }
 }

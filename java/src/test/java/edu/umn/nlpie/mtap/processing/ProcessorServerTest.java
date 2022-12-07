@@ -20,11 +20,13 @@ import io.grpc.Server;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.testing.GrpcCleanupRule;
 import org.junit.Rule;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.UUID;
 
@@ -39,9 +41,20 @@ class ProcessorServerTest {
   @Mock
   private ProcessorService mockProcessorService;
 
+  private AutoCloseable mocks;
+
   @BeforeEach
   void setUp() {
-    MockitoAnnotations.initMocks(this);
+    mocks = MockitoAnnotations.openMocks(this);
+  }
+
+  @AfterEach
+  void tearDown() {
+    try {
+      mocks.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test

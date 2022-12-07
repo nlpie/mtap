@@ -62,7 +62,7 @@ class EventsServer:
         options = config.get('grpc.events_options', {})
         LOGGER.info("Events service using options " + str(options))
         server = grpc.server(thread_pool, options=list(options.items()))
-        servicer = EventsServicer()
+        servicer = EventsServicer(instance_id=self.sid)
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)
         health_servicer = health.HealthServicer()
         health_servicer.set('', 'SERVING')
@@ -93,7 +93,8 @@ class EventsServer:
         if self._register:
             from mtap._discovery import Discovery
             service_registration = Discovery(config=self._config)
-            self._deregister = service_registration.register_events_service(self._address,
+            self._deregister = service_registration.register_events_service(self.sid,
+                                                                            self._address,
                                                                             self._port,
                                                                             'v1')
 
@@ -125,10 +126,10 @@ class EventsServer:
 
 
 class EventsServicer(events_pb2_grpc.EventsServicer):
-    def __init__(self):
+    def __init__(self, instance_id=None):
         self.lock = threading.RLock()
         self.events = {}
-        self.instance_id = str(uuid.uuid4())
+        self.instance_id = instance_id or str(uuid.uuid4())
 
     def _get_event(self, request, context=None):
         event_id = request.event_id

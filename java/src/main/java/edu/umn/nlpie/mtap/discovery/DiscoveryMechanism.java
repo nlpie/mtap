@@ -16,8 +16,9 @@
 
 package edu.umn.nlpie.mtap.discovery;
 
-import io.grpc.NameResolver;
+import edu.umn.nlpie.mtap.Internal;
 
+@Internal
 public interface DiscoveryMechanism {
   String getServiceTarget(String serviceName, String... tags);
 
@@ -29,5 +30,5 @@ public interface DiscoveryMechanism {
 
   void deregister(ServiceInfo serviceInfo);
 
-  NameResolver.Factory getNameResolverFactory();
+  void initializeNameResolution();
 }
