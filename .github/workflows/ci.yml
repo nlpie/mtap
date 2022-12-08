@@ -38,7 +38,26 @@ jobs:
       - name: Build with Gradle
         working-directory: java
         run: ./gradlew clean build shadowJar
-
+        
+      # Install Go gateway
+      - name: Set up Go gateway
+        working-directory: go
+        run: go install mtap-gateway/mtap-gateway.go
+        
+      # Install and Start Consul for Discovery Testing
+      - name: Set up Consul
+        run: |
+          if [ $RUNNER_OS == "macOS" ]; then
+            brew install consul
+          elif [ $RUNNER_OS == "Linux" ]; then
+            helm repo add hashicorp https://helm.releases.hashicorp.com
+            helm install consul hashicorp/consul --set global.name=consul --create-namespace --namespace consul
+          else
+            echo "OS must be 'Linux' or 'macOS' not $RUNNER_OS"
+            exit 1
+          fi
+      - name: Start Consul
+        run: consul agent -dev &
       # Python pip install
       - name: Install Python package with dependencies
         run: |
@@ -56,4 +75,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration 
+          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration --consul --gateway
