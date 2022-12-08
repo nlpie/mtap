@@ -40,7 +40,11 @@ jobs:
         run: ./gradlew clean build shadowJar
         
       # Install Go gateway
-      - name: Set up Go gateway
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - name: Install mtap-gateway
         working-directory: go
         run: go install mtap-gateway/mtap-gateway.go
         
