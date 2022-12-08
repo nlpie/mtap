@@ -50,10 +50,10 @@ jobs:
           if [ $RUNNER_OS == "macOS" ]; then
             brew install consul
           elif [ $RUNNER_OS == "Linux" ]; then
-            curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
-            apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-            apt-get update
-            apt-get install consul
+            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+            sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+            sudo apt-get update
+            sudo apt-get install consul
           else
             echo "OS must be 'Linux' or 'macOS' not $RUNNER_OS"
             exit 1
