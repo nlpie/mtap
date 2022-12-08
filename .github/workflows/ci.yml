@@ -2,7 +2,7 @@ name: MTAP Continuous Integration
 
 on:
   pull_request:
-    branches: master
+    branches: main
   schedule:
     - cron: 0 8 * * *
 jobs:
@@ -38,12 +38,37 @@ jobs:
       - name: Build with Gradle
         working-directory: java
         run: ./gradlew clean build shadowJar
-
+        
+      # Install Go gateway
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '>=1.17.0'
+      - name: Install mtap-gateway
+        working-directory: go
+        run: go install mtap-gateway/mtap-gateway.go
+        
+      # Install and Start Consul for Discovery Testing
+      - name: Set up Consul
+        run: |
+          if [ $RUNNER_OS == "macOS" ]; then
+            brew install consul
+          elif [ $RUNNER_OS == "Linux" ]; then
+            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+            sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+            sudo apt-get update
+            sudo apt-get install consul
+          else
+            echo "OS must be 'Linux' or 'macOS' not $RUNNER_OS"
+            exit 1
+          fi
+      - name: Start Consul
+        run: consul agent -dev &
       # Python pip install
       - name: Install Python package with dependencies
         run: |
           python -m pip install --upgrade pip setuptools
-          pip install .[test]
+          pip install .[test,consul]
       - name: Lint with flake8
         run: |
           pip install flake8
@@ -56,4 +81,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration 
+          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration --consul --gateway
