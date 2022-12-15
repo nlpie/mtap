@@ -1,3 +1,11 @@
-include LICENSE.txt README.md
 recursive-exclude go *
-recursive-exclude java *
+
+recursive-include java *.java *.gradle gradlew gradlew.bat
+recursive-include java/gradle *.jar *.properties
+recursive-include java/src/main/resources *
+recursive-include java/src/test/resources *
+
+recursive-include proto *
+recursive-include third_party *
+
+recursive-include python *.yml

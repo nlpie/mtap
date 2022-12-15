@@ -12,24 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mtap.processing._base import AggregateTimingInfo
-from mtap.processing._base import ComponentDescriptor
-from mtap.processing._base import DocumentProcessor
-from mtap.processing._base import EventProcessor
-from mtap.processing._base import PipelineResult
-from mtap.processing._base import Processor
-from mtap.processing._base import ProcessorContext
-from mtap.processing._base import ProcessingComponent
-from mtap.processing._base import ProcessingError
-from mtap.processing._base import ProcessingResult
-from mtap.processing._base import Stopwatch
-from mtap.processing._base import TimerStats
+from mtap.processing._base import (
+    AggregateTimingInfo,
+    ComponentDescriptor,
+    DocumentProcessor,
+    EventProcessor,
+    PipelineResult,
+    Processor,
+    ProcessorContext,
+    ProcessingComponent,
+    ProcessingError,
+    ProcessingResult,
+    Stopwatch,
+    TimerStats,
+)
 from mtap.processing.descriptions import processor
-from mtap.processing._pipeline import FilesInDirectoryProcessingSource
-from mtap.processing._pipeline import LocalProcessor
-from mtap.processing._pipeline import Pipeline
-from mtap.processing._pipeline import ProcessingSource
-from mtap.processing._pipeline import RemoteProcessor
-from mtap.processing._service import processor_parser
-from mtap.processing._service import ProcessorServer
-from mtap.processing._service import run_processor
+from mtap.processing._pipeline import (
+    FilesInDirectoryProcessingSource,
+    LocalProcessor,
+    Pipeline,
+    ProcessingSource,
+    RemoteProcessor,
+)
+from mtap.processing._service import processor_parser, ProcessorServer, run_processor
