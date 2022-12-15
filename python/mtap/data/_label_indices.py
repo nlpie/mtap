@@ -15,8 +15,18 @@
 from abc import ABCMeta, abstractmethod
 from bisect import bisect_left, bisect_right
 from operator import attrgetter
-from typing import Union, Optional, Any, Iterator, List, TypeVar, Sequence, Generic, Callable, \
-    TYPE_CHECKING
+from typing import (
+    Union,
+    Optional,
+    Any,
+    Iterator,
+    List,
+    TypeVar,
+    Sequence,
+    Generic,
+    Callable,
+    TYPE_CHECKING,
+)
 
 from mtap.data import _labels
 

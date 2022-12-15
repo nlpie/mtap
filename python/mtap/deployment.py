@@ -91,13 +91,13 @@ class GlobalSettings:
     """Settings shared by event service and all processors.
 
     Keyword Args:
-        host (Optional[str]): The global host, by default will use "127.0.0.1".
+        host (Optional[str]): The global host override, forces all services to use a specific host name.
         mtap_config (Optional[str]): The path to an MTAP config file to load for all services.
         log_level (Optional[str]): A python logging level to pass to all services.
         register (Optional[str]): Whether services should register with service discovery.
 
     Attributes:
-        host (Optional[str]): The global host, by default will use "127.0.0.1".
+        host (Optional[str]): The global host override, forces all services to use a specific host name.
         mtap_config (Optional[str]): The path to an MTAP config file to load for all services.
         log_level (Optional[str]): A python logging level to pass to all services.
         register (Optional[str]): Whether services should register with service discovery.
@@ -212,13 +212,13 @@ class _ServiceDeployment:
                      port: Optional[int] = None,
                      unique_service_identifier: Optional[List[str]] = None,
                      register_default: Optional[bool] = None,
-                     host_default: Optional[str] = None,
+                     global_host: Optional[str] = None,
                      workers_default: Optional[int] = None,
                      mtap_config_default: Optional[str] = None,
                      log_level_default: Optional[str] = None):
         call = []
 
-        host = host or host_default
+        host = global_host or host
         if host is not None:
             call.extend(['--host', str(host)])
 
@@ -288,7 +288,7 @@ class EventsDeployment:
                 host=host,
                 port=port,
                 register_default=global_settings.register,
-                host_default=global_settings.host,
+                global_host=global_settings.host,
                 mtap_config_default=global_settings.mtap_config,
                 log_level_default=global_settings.log_level
             )
@@ -442,7 +442,7 @@ class ProcessorDeployment:
                 port=port,
                 unique_service_identifier=self.unique_service_identifier,
                 register_default=global_settings.register,
-                host_default=global_settings.host,
+                global_host=global_settings.host,
                 mtap_config_default=global_settings.mtap_config,
                 log_level_default=global_settings.log_level,
                 workers_default=shared_config.workers

@@ -20,18 +20,26 @@ Attributes:
         (non-overlapping) :obj:`~mtap.GenericLabel`.
 """
 
-from mtap.data._events import Document
-from mtap.data._events import Event
-from mtap.data._events import EventsClient
-from mtap.data._events import Labeler
 from mtap.data._base import LabelIndexType, LabelIndexInfo
-from mtap.data._label_adapters import GENERIC_ADAPTER
-from mtap.data._label_adapters import DISTINCT_GENERIC_ADAPTER
-from mtap.data._label_adapters import ProtoLabelAdapter
-from mtap.data._label_indices import label_index
-from mtap.data._label_indices import presorted_label_index
-from mtap.data._label_indices import LabelIndex
-from mtap.data._labels import GenericLabel
-from mtap.data._labels import Label
-from mtap.data._labels import label
-from mtap.data._labels import Location
+from mtap.data._events import (
+    Document,
+    Event,
+    EventsClient,
+    Labeler,
+)
+from mtap.data._label_adapters import (
+    GENERIC_ADAPTER,
+    DISTINCT_GENERIC_ADAPTER,
+    ProtoLabelAdapter,
+)
+from mtap.data._label_indices import (
+    LabelIndex,
+    label_index,
+    presorted_label_index,
+)
+from mtap.data._labels import (
+    GenericLabel,
+    Label,
+    Location,
+    label,
+)

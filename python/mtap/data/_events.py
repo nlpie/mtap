@@ -18,8 +18,23 @@
 import collections
 import threading
 import uuid
-from typing import Iterator, List, Dict, MutableMapping, Generic, TypeVar, NamedTuple, \
-    ContextManager, Iterable, Optional, Sequence, Union, Mapping, TYPE_CHECKING, Callable
+from typing import (
+    Iterator,
+    List,
+    Dict,
+    MutableMapping,
+    Generic,
+    TypeVar,
+    NamedTuple,
+    ContextManager,
+    Iterable,
+    Optional,
+    Sequence,
+    Union,
+    Mapping,
+    TYPE_CHECKING,
+    Callable,
+)
 
 import grpc
 from grpc_health.v1 import health_pb2_grpc, health_pb2

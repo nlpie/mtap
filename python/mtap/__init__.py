@@ -16,25 +16,28 @@
 from mtap import version
 from mtap._config import Config
 from mtap._events_service import EventsServer
-from mtap.data import Document
-from mtap.data import Event
-from mtap.data import EventsClient
-from mtap.data import GenericLabel
-from mtap.data import label
-from mtap.data import label_index
-from mtap.data import Location
+from mtap.data import (
+    Document,
+    Event,
+    EventsClient,
+    GenericLabel,
+    label,
+    label_index,
+    Location,
+)
 from mtap.deployment import Deployment
-from mtap.processing import descriptions
-from mtap.processing import DocumentProcessor
-from mtap.processing import EventProcessor
-from mtap.processing import processor_parser
-from mtap.processing import LocalProcessor
-from mtap.processing import Pipeline
-from mtap.processing import ProcessorServer
-from mtap.processing import RemoteProcessor
-from mtap.processing import processor
-from mtap.processing import run_processor
-
-__version__ = version.version
+from mtap.processing import (
+    DocumentProcessor,
+    EventProcessor,
+    LocalProcessor,
+    Pipeline,
+    ProcessorServer,
+    RemoteProcessor,
+    descriptions,
+    processor,
+    processor_parser,
+    run_processor,
+)
+from mtap.version import *
 
 __all__ = [s for s in dir()]

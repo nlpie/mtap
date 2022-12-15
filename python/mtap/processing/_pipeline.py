@@ -21,8 +21,19 @@ from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from datetime import datetime
 from threading import Lock, Condition
-from typing import Optional, Dict, Any, Union, List, MutableSequence, Iterable, Callable, \
-    ContextManager, TYPE_CHECKING, overload
+from typing import (
+    Optional,
+    Dict,
+    Any,
+    Union,
+    List,
+    MutableSequence,
+    Iterable,
+    Callable,
+    ContextManager,
+    TYPE_CHECKING,
+    overload,
+)
 
 from tqdm import tqdm
 
@@ -42,9 +53,7 @@ class RemoteProcessor(_base.ComponentDescriptor):
     to perform processing.
 
     Args:
-        processor_id (str): The identifier used for health checking and discovery.
-
-    Keyword Args:
+        processor_name (str): The identifier used for health checking and discovery.
         address (~typing.Optional[str]):
             Optionally an address to use, will use service discovery configuration to locate
             processors if this is None / omitted.
@@ -103,15 +112,9 @@ class LocalProcessor(_base.ComponentDescriptor):
 
     Args:
         proc (EventProcessor): The processor instance to run with the pipeline.
-
-    Keyword Args:
         component_id (str):
             How the processor's results will be identified locally. Will be modified to be unique
             if it is not unique relative to other component in a pipeline.
-        client (EventsClient):
-            The client used by the local processor to connect to an events service to retrieve
-            events and documents. Required because pipeline components are all called using
-            identifiers and not concrete objects.
         params (~typing.Optional[dict, Any]):
             An optional parameter dictionary that will be passed to the processor as parameters
             with every event or document processed. Values should be json-serializable.
@@ -121,10 +124,6 @@ class LocalProcessor(_base.ComponentDescriptor):
         component_id (~typing.Optional[str]):
             How the processor's results will be identified locally. Will be modified to be unique
             if it is not unique relative to other component in a pipeline.
-        client (EventsClient):
-            The client used by the local processor to connect to an events service to retrieve
-            events and documents. Required because pipeline components are all called using
-            identifiers and not concrete objects.
         params (~typing.Optional[dict, Any]):
             An optional parameter dictionary that will be passed to the processor as parameters
             with every event or document processed. Values should be json-serializable.
@@ -260,35 +259,41 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         name (~typing.Optional[str]): An optional name for the pipeline, defaults to 'pipeline'.
         config (~typing.Optional[Config]): An optional config override.
 
+    Attributes:
+        name (str): The pipeline's name.
+
     Examples:
         Remote pipeline with name discovery:
 
-        >>> with mtap.Events() as events, mtap.Pipeline(
+        >>> with mtap.Pipeline(
         >>>         RemoteProcessor('processor-1-id'),
         >>>         RemoteProcessor('processor-2-id'),
         >>>         RemoteProcessor('processor-3-id')
         >>>     ) as pipeline:
+        >>>     client = pipeline.events_client
         >>>     for txt in txts:
-        >>>         with events.open_event() as event:
+        >>>         with Event(client=client) as event:
         >>>             document = event.add_document('plaintext', txt)
         >>>             results = pipeline.run(document)
 
         Remote pipeline using addresses:
 
-        >>> with mtap.Events(address='localhost:50051') as events, mtap.Pipeline(
+        >>> with mtap.Pipeline(
         >>>         RemoteProcessor('processor-1-name', address='localhost:50052'),
         >>>         RemoteProcessor('processor-2-id', address='localhost:50053'),
-        >>>         RemoteProcessor('processor-3-id', address='localhost:50054')
+        >>>         RemoteProcessor('processor-3-id', address='localhost:50054'),
+        >>>         events_address='localhost:50051'
         >>>     ) as pipeline:
+        >>>     client = pipeline.events_client
         >>>     for txt in txts:
-        >>>         event = events.open_event()
-        >>>         document = event.add_document('plaintext', txt)
-        >>>         results = pipeline.run(document)
+        >>>         with Event(client=client) as event:
+        >>>             document = event.add_document('plaintext', txt)
+        >>>             results = pipeline.run(document)
 
         Modifying pipeline
 
         >>> pipeline = Pipeline(RemoteProcessor('foo', address='localhost:50000'),
-                                RemoteProcessor('bar', address='localhost:50000'))
+        >>>                     RemoteProcessor('bar', address='localhost:50000'))
         >>> pipeline
         Pipeline(RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
                  RemoteProcessor(processor_name='bar', address='localhost:50000', component_id=None, params=None))
@@ -311,9 +316,6 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                  RemoteProcessor(processor_name='bar', address='localhost:50003', component_id=None, params=None),
                  RemoteProcessor(processor_name='foo', address='localhost:50000', component_id=None, params=None),
                  RemoteProcessor(processor_name='bar', address='localhost:50003', component_id=None, params=None))
-
-    Attributes:
-        name (str): The pipeline's name.
     """
     __slots__ = ['_component_ids', 'name', '_component_descriptors', 'events_address',
                  'mp_config', '_created_events_client', '_provided_events_client', 'times_map',
@@ -477,12 +479,12 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                 An optional override for the multiprocessing context.
 
         Examples:
-            >>> docs = list(Path('abc/').glob('*.txt'))
+            >>> docs = list(pathlib.Path('abc/').glob('*.txt'))
             >>> def document_source():
             >>>     for path in docs:
             >>>         with path.open('r') as f:
             >>>             txt = f.read()
-            >>>         with Event(event_id=path.name, client=client) as event:
+            >>>         with Event(event_id=path.name, client=pipeline.events_client) as event:
             >>>             doc = event.create_document('plaintext', txt)
             >>>             yield doc
             >>>

@@ -15,8 +15,19 @@
 import threading
 from abc import ABC, abstractmethod, ABCMeta
 from queue import Queue
-from typing import List, Tuple, Set, TYPE_CHECKING, TypeVar, NamedTuple, Any, Mapping, Sequence, \
-    Union, Optional
+from typing import (
+    List,
+    Tuple,
+    Set,
+    TYPE_CHECKING,
+    TypeVar,
+    NamedTuple,
+    Any,
+    Mapping,
+    Sequence,
+    Union,
+    Optional
+)
 
 if TYPE_CHECKING:
     import mtap
