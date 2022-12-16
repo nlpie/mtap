@@ -13,7 +13,6 @@
 # limitations under the License.
 """Public API and access points for the MTAP Framework."""
 
-from mtap import version
 from mtap._config import Config
 from mtap._events_service import EventsServer
 from mtap.data import (
@@ -25,7 +24,6 @@ from mtap.data import (
     label_index,
     Location,
 )
-from mtap.deployment import Deployment
 from mtap.processing import (
     DocumentProcessor,
     EventProcessor,
@@ -39,5 +37,3 @@ from mtap.processing import (
     run_processor,
 )
 from mtap.version import *
-
-__all__ = [s for s in dir()]
