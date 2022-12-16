@@ -36,4 +36,9 @@ from mtap.processing import (
     processor_parser,
     run_processor,
 )
-from mtap.version import *
+from mtap.version import (
+    __version__,
+    __version_tuple__,
+    version,
+    version_tuple
+)

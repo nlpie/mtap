@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessorRunner(_base.ProcessingComponent):
-    __slots__ = ('processor', 'processor_name', 'component_id', 'params', 'metadata', 'client')
+    __slots__ = ('processor', '_processor_name', '_component_id', 'params', 'metadata', 'client')
 
     def __init__(self,
                  proc: 'mtap.EventProcessor',
@@ -39,9 +39,17 @@ class ProcessorRunner(_base.ProcessingComponent):
         self.processor = proc
         self.params = params or {}
         self.metadata = proc.metadata
-        self.processor_name = processor_name
-        self.component_id = component_id
+        self._processor_name = processor_name
+        self._component_id = component_id
         self.client = client
+
+    @property
+    def processor_name(self) -> str:
+        return self._processor_name
+
+    @property
+    def component_id(self) -> str:
+        return self._component_id
 
     def call_process(self, event_id, event_instance_id, params):
         p = dict(self.params)
@@ -67,12 +75,12 @@ class ProcessorRunner(_base.ProcessingComponent):
 
 
 class RemoteRunner(_base.ProcessingComponent):
-    __slots__ = ('processor_name', 'component_id', '_address', 'params', '_channel', '_stub')
+    __slots__ = ('_processor_name', '_component_id', '_address', 'params', '_channel', '_stub')
 
     def __init__(self, processor_name, component_id, address=None, params=None,
                  enable_proxy=None):
-        self.processor_name = processor_name
-        self.component_id = component_id
+        self._processor_name = processor_name
+        self._component_id = component_id
         self._address = address
         self.params = params
         address = self._address
@@ -85,6 +93,14 @@ class RemoteRunner(_base.ProcessingComponent):
         channel_options = config.get('grpc.processor_options', {})
         self._channel = grpc.insecure_channel(address, options=list(channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
+
+    @property
+    def processor_name(self) -> str:
+        return self._processor_name
+
+    @property
+    def component_id(self) -> str:
+        return self._component_id
 
     def call_process(self, event_id, event_instance_id, params):
         logger.debug('processor_id: %s calling process on event_id: %s with event_instance_id: %s',

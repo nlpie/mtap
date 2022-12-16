@@ -11,11 +11,9 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-import os.path
 
 import mtap
-import pytest
-
+from mtap.deployment import Deployment
 
 text = """
 Why, friends, you go to do you know not what:
@@ -41,7 +39,7 @@ def test_deployment(java_exe):
     deployment_config = files('mtap.examples').joinpath('exampleDeploymentConfiguration.yml')
     run_config = files('mtap.examples').joinpath('examplePipelineConfiguration.yml')
     with as_file(deployment_config) as deployment_f, as_file(run_config) as run_f:
-        deployment = mtap.Deployment.from_yaml_file(deployment_f)
+        deployment = Deployment.from_yaml_file(deployment_f)
         deployment.shared_processor_config.java_classpath = java_exe[-1]
         try:
             deployment.run_servers(block=False)

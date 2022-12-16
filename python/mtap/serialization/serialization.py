@@ -1,4 +1,16 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright 2022 Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +34,7 @@ import io
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Union, Dict, Any, Optional
+from typing import Union, Dict, Any, Optional, TextIO
 
 import mtap
 from mtap import data, processing
@@ -76,8 +88,6 @@ def document_to_dict(document: mtap.Document, *, include_label_text: bool = Fals
 
     Args:
         document (Document): The document object.
-
-    Keyword Args:
         include_label_text (bool): Whether to include the text labels cover with the labels.
 
     Returns:
@@ -153,7 +163,7 @@ class Serializer(ABC):
         ...
 
     @abstractmethod
-    def event_to_file(self, event: mtap.Event, f: Union[Path, str, io.IOBase],
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO],
                       *, include_label_text: bool = False):
         """Writes the event to a file.
 
@@ -168,7 +178,7 @@ class Serializer(ABC):
         ...
 
     @abstractmethod
-    def file_to_event(self, f: Union[Path, str, io.IOBase], *,
+    def file_to_event(self, f: Union[Path, str, TextIO], *,
                       client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         """Loads an event from a serialized file.
 
@@ -215,7 +225,7 @@ class _JsonSerializer(Serializer):
     def extension(self) -> str:
         return '.json'
 
-    def event_to_file(self, event: mtap.Event, f: Path, *, include_label_text: bool = False):
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO], *, include_label_text: bool = False):
         import json
         with processing.Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
@@ -228,7 +238,7 @@ class _JsonSerializer(Serializer):
                 with f.open('w') as f:
                     json.dump(d, f)
 
-    def file_to_event(self, f: Union[Path, str, io.IOBase],
+    def file_to_event(self, f: Union[Path, str, TextIO],
                       client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         import json
         with processing.Processor.started_stopwatch('io'):
@@ -249,7 +259,7 @@ class _YamlSerializer(Serializer):
     def extension(self) -> str:
         return '.yml'
 
-    def event_to_file(self, event: mtap.Event, f: Union[Path, str, io.IOBase], *,
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO], *,
                       include_label_text: bool = False):
         import yaml
         try:
@@ -266,7 +276,7 @@ class _YamlSerializer(Serializer):
                 with f.open('w') as f:
                     yaml.dump(d, f, Dumper=Dumper)
 
-    def file_to_event(self, f: Union[Path, str, io.IOBase], *,
+    def file_to_event(self, f: Union[Path, str, TextIO], *,
                       client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         import yaml
         try:
@@ -289,7 +299,7 @@ class _PickleSerializer(Serializer):
     def extension(self) -> str:
         return '.pickle'
 
-    def event_to_file(self, event: mtap.Event, f: Union[Path, str, io.IOBase], *,
+    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO], *,
                       include_label_text: bool = False):
         import pickle
         with processing.Processor.started_stopwatch('transform'):
@@ -301,7 +311,7 @@ class _PickleSerializer(Serializer):
                 with Path(f).open('wb') as f:
                     pickle.dump(d, f)
 
-    def file_to_event(self, f: Union[Path, str, io.IOBase], *,
+    def file_to_event(self, f: Union[Path, str, TextIO], *,
                       client: Optional[mtap.EventsClient] = None) -> mtap.Event:
         import pickle
         with processing.Processor.started_stopwatch('io'):

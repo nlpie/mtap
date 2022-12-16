@@ -537,7 +537,8 @@ class _ClientPool:
             try:
                 return self.instance_id_to_delegate[instance_id]
             except KeyError:
-                raise KeyError(f"instance_id: {instance_id} not found. Available instances: {self.instance_id_to_delegate.keys()}")
+                raise KeyError(f"instance_id: {instance_id} not found. "
+                               f"Available instances: {self.instance_id_to_delegate.keys()}")
         i = self.clients[self._ptr]
         self._ptr = (self._ptr + 1) % len(self.clients)
         return i

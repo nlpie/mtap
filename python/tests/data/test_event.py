@@ -88,7 +88,7 @@ def test_get_document_missing(mocker):
         _ = event.documents['foo']
 
 
-def test_get_document_missing_no_client(mocker):
+def test_get_document_missing_no_client():
     event = Event(event_id='1')
     with pytest.raises(KeyError):
         _ = event.documents['foo']

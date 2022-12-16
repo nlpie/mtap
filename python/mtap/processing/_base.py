@@ -1,4 +1,4 @@
-# Copyright 2019 Regents of the University of Minnesota.
+# Copyright 2022 Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -262,8 +262,8 @@ class DocumentProcessor(EventProcessor):
         ...     def process(self, document, params):
         ...         # do processing on document
         ...         ...
-    
-    
+
+
         >>> class ExampleProcessor(mtap.DocumentProcessor):
         ...     def process(self, document, params):
         ...          with self.started_stopwatch('key'):
@@ -306,24 +306,22 @@ class ProcessingError(Exception):
     pass
 
 
-ProcessingResult = NamedTuple('ProcessingResult',
-                              [('identifier', str),
-                               ('result_dict', Dict),
-                               ('timing_info', Dict),
-                               ('created_indices', Dict[str, List[str]])])
+class ProcessingResult(NamedTuple):
+    """The result of processing one document or event.
 
-ProcessingResult.__doc__ = """The result of processing one document or event."""
-ProcessingResult.identifier.__doc__ = """The id of the processor with respect to the pipeline."""
-ProcessingResult.result_dict.__doc__ = """The json object returned by the processor as its results."""
-ProcessingResult.timing_info.__doc__ = """A dictionary of the times taken processing this 
-document"""
-ProcessingResult.created_indices.__doc__ = """Any indices that have been added to documents by this 
-processor."""
+    Attributes:
+        identifier (str): The id of the processor with respect to the pipeline.
+        result_dict: The json object returned by the processor as its results.
+        timing_info: A dictionary of the times taken processing this document
+        created_indices: Any indices that have been added to documents by this processor.
+    """
+    identifier: str
+    result_dict: Dict
+    timing_info: Dict
+    created_indices: Dict[str, List[str]]
 
 
-class PipelineResult(NamedTuple('PipelineResult',
-                                [('component_results', List[ProcessingResult]),
-                                 ('elapsed_time', timedelta)])):
+class PipelineResult(NamedTuple):
     """The result of processing an event or document in a pipeline.
 
     Attributes:
@@ -337,10 +335,8 @@ class PipelineResult(NamedTuple('PipelineResult',
         elapsed_time (timedelta): The elapsed time for the entire pipeline.
 
     """
-    __slots__ = ()
-
-    def __new__(cls, *args, **kwargs):
-        return super().__new__(cls, *args, **kwargs)
+    component_results: List[ProcessingResult]
+    elapsed_time: timedelta
 
     def component_result(self, identifier: str) -> ProcessingResult:
         """Returns the component result for a specific identifier.
@@ -358,33 +354,33 @@ class PipelineResult(NamedTuple('PipelineResult',
             raise KeyError('No result for identifier: ' + identifier)
 
 
-TimerStats = NamedTuple('TimerStats',
-                        [('mean', timedelta),
-                         ('std', timedelta),
-                         ('min', timedelta),
-                         ('max', timedelta),
-                         ('sum', timedelta)])
-TimerStats.__doc__ = """Statistics about a specific keyed measured duration recorded by a 
-:obj:`~mtap.processing.base.Stopwatch`."""
-TimerStats.mean.__doc__ = """The sample mean of all measured durations."""
-TimerStats.std.__doc__ = """The sample standard deviation of all measured 
-durations."""
-TimerStats.max.__doc__ = """The minimum of all measured durations."""
-TimerStats.min.__doc__ = """The maximum of all measured durations."""
-TimerStats.sum.__doc__ = """The sum of all measured durations."""
+class TimerStats(NamedTuple):
+    """Statistics about a specific keyed measured duration recorded by a :obj:`~mtap.processing.base.Stopwatch`.
+
+    Attributes
+        mean: The sample mean of all measured durations.
+        std: The sample standard deviation of all measured durations.
+        min: The minimum of all measured durations.
+        max: The maximum of all measured durations.
+        sum: The sum of all measured durations.
+    """
+    mean: timedelta
+    std: timedelta
+    min: timedelta
+    max: timedelta
+    sum: timedelta
 
 
-class AggregateTimingInfo(NamedTuple('AggregateTimingInfo',
-                                     [('identifier', str),
-                                      ('timing_info', Dict[str, 'processing.TimerStats'])])):
-    """Collection of all of the timing info for a specific processor.
+class AggregateTimingInfo(NamedTuple):
+    """Collection of all the timing info for a specific processor.
 
     Attributes:
         identifier (str): The ID of the processor with respect to the pipeline.
         timing_info (dict[str, TimerStats]):
-            A map from all of the timer keys for the processor to the aggregated duration statistics.
+            A map from all the timer keys for the processor to the aggregated duration statistics.
     """
-    __slots__ = ()
+    identifier: str
+    timing_info: 'Dict[str, processing.TimerStats]'
 
     def print_times(self):
         """Prints the aggregate timing info for all processing components using ``print``.
@@ -426,25 +422,29 @@ class ProcessingComponent(ABC):
 
     metadata = {}
 
+    @property
+    @abstractmethod
+    def processor_name(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def component_id(self) -> str:
+        ...
+
     @abstractmethod
     def call_process(self, event_id: str, event_instance_id: str,
                      params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
         """Calls a processor.
 
         Parameters
-        ----------
-        event_id: str
-            The event to process.
-        event_instance_id: str
-            The service instance the event is stored on.
-        params: Dict
-            The processor parameters.
+            event_id (str): The event to process.
+            event_instance_id (str): The service instance the event is stored on.
+            params (Dict): The processor parameters.
 
         Returns
-        -------
-        tuple of dict, dict, dict
-            A tuple of the processing result dictionary, the processor times dictionary, and the
-            created indices dictionary.
+            Tuple[Dict, Dict, Dict]: A tuple of the processing result dictionary, the processor times dictionary, and
+                the "created indices" dictionary.
 
         """
         ...

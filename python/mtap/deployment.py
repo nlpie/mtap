@@ -558,7 +558,7 @@ class Deployment:
             for processor_deployment in self.processors:
                 if processor_deployment.enabled:
                     for call, sid in processor_deployment.create_calls(self.global_settings,
-                                                                  self.shared_processor_config):
+                                                                       self.shared_processor_config):
                         logger.debug('Launching processor with call: %s', call)
                         p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                         startup_timeout = (processor_deployment.startup_timeout

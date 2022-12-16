@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides functionality for measuring processor performance against gold standards."""
+import sys
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable, Tuple, TextIO, TYPE_CHECKING
-
-import sys
 
 __all__ = [
     'Metric',
@@ -33,7 +32,7 @@ from mtap.utilities import tokenization
 
 if TYPE_CHECKING:
     import mtap
-    from mtap import data, label_index
+    from mtap import data
 
 
 class Metric(ABC):

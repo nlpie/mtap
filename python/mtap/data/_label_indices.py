@@ -207,7 +207,8 @@ class LabelIndex(Sequence[L], Generic[L]):
             ...                      label(5, 15, x=5),
             ...                      label(10, 15, x=6)])
             >>> index.overlapping(6, 10)
-            label_index([GenericLabel(0, 10, x=2), GenericLabel(5, 10, x=3), GenericLabel(5, 15, x=5), GenericLabel(7, 10, x=4)], distinct=False)
+            label_index([GenericLabel(0, 10, x=2), GenericLabel(5, 10, x=3), GenericLabel(5, 15, x=5),
+                         GenericLabel(7, 10, x=4)], distinct=False)
 
 
         """
@@ -306,7 +307,8 @@ class LabelIndex(Sequence[L], Generic[L]):
             ...                      label(5, 15, x=5),
             ...                      label(10, 15, x=6)])
             >>> index.descending()
-            label_index([GenericLabel(10, 15, x=6), GenericLabel(7, 10, x=4), GenericLabel(5, 15, x=5), GenericLabel(5, 10, x=3), GenericLabel(0, 10, x=2), GenericLabel(0, 5, x=1)], distinct=False)
+            label_index([GenericLabel(10, 15, x=6), GenericLabel(7, 10, x=4), GenericLabel(5, 15, x=5),
+                         GenericLabel(5, 10, x=3), GenericLabel(0, 10, x=2), GenericLabel(0, 5, x=1)], distinct=False)
         """
         ...
 
@@ -333,7 +335,8 @@ def label_index(labels: List[L],
         ...                      label(5, 15, x=5),
         ...                      label(10, 15, x=6)])
         >>> index
-        label_index([GenericLabel(0, 5, x=1), GenericLabel(0, 10, x=2), GenericLabel(5, 10, x=3), GenericLabel(5, 15, x=5), GenericLabel(7, 10, x=4), GenericLabel(10, 15, x=6)], distinct=False)
+        label_index([GenericLabel(0, 5, x=1), GenericLabel(0, 10, x=2), GenericLabel(5, 10, x=3),
+                     GenericLabel(5, 15, x=5), GenericLabel(7, 10, x=4), GenericLabel(10, 15, x=6)], distinct=False)
 
     """
     labels = sorted(labels, key=attrgetter('location'))
@@ -674,7 +677,7 @@ class _LabelIndex(LabelIndex[L]):
 
     def __repr__(self):
         return ("label_index(["
-                + ", ".join(repr(l) for l in self)
+                + ", ".join(map(repr, self))
                 + "], distinct={})".format(self.distinct))
 
     def __eq__(self, other):
