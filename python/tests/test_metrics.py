@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from io import StringIO
+import io
+
+import serialization
 
 from mtap import Event
 from mtap.metrics import Accuracy, Metrics, FirstTokenConfusion, ConfusionMatrix
@@ -139,7 +141,7 @@ def test_print_debug_fn():
     with doc.get_labeler('tested') as label_tested:
         label_tested(10, 15)
 
-    string_io = StringIO()
+    string_io = io.StringIO()
     metric = FirstTokenConfusion(print_debug='fn', debug_handle=string_io)
     metric.update(doc, doc.labels['tested'], doc.labels['target'])
     assert string_io.getvalue() == 'False Negatives\nThe quick brown {fox} jumps over the lazy dog.\n\n'
@@ -153,7 +155,7 @@ def test_print_debug_fp():
     with doc.get_labeler('tested') as label_tested:
         label_tested(10, 15)
 
-    string_io = StringIO()
+    string_io = io.StringIO()
     metric = FirstTokenConfusion(print_debug='fp', debug_handle=string_io)
     metric.update(doc, doc.labels['tested'], doc.labels['target'])
     assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox jumps over the lazy dog.\n\n'
@@ -167,7 +169,7 @@ def test_print_debug_all():
     with doc.get_labeler('tested') as label_tested:
         label_tested(10, 15)
 
-    string_io = StringIO()
+    string_io = io.StringIO()
     metric = FirstTokenConfusion(print_debug='all', debug_handle=string_io)
     metric.update(doc, doc.labels['tested'], doc.labels['target'])
     assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox jumps over the lazy dog.\n\nFalse Negatives\nThe quick brown {fox} jumps over the lazy dog.\n\n'

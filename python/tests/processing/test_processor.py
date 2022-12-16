@@ -17,7 +17,6 @@ from mtap.processing import Processor
 
 
 def test_stopwatch_no_fail_outside_context():
-    blah = False
     with Processor.started_stopwatch('foo'):
         blah = True
     assert blah

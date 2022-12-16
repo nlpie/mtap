@@ -1,4 +1,4 @@
-#  Copyright 2020 Regents of the University of Minnesota.
+#  Copyright 2022 Regents of the University of Minnesota.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -11,4 +11,18 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#
+"""MTAP input/output and serialization"""
+
+from mtap.serialization._serialization import (
+    event_to_dict,
+    document_to_dict,
+    dict_to_event,
+    dict_to_document,
+    Serializer,
+    SerializationProcessor,
+    JsonSerializer,
+    YamlSerializer,
+    PickleSerializer,
+    standard_serializers,
+    get_serializer
+)

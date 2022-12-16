@@ -15,13 +15,13 @@
 import sys
 
 if __name__ == '__main__':
-    from mtap import Document, Event, EventsClient, Pipeline, RemoteProcessor
+    from mtap import Document, Event, Pipeline, RemoteProcessor
 
-    with EventsClient(address=sys.argv[1]) as client, \
-            Pipeline(
-                RemoteProcessor(processor_name='hello', address=sys.argv[2])
-            ) as pipeline:
-        with Event(event_id='1', client=client) as event:
+    with Pipeline(
+            RemoteProcessor(processor_name='hello', address=sys.argv[2]),
+            events_address=sys.argv[1]
+    ) as pipeline:
+        with Event(event_id='1', client=pipeline.events_client) as event:
             document = Document(document_name='name', text='YOUR NAME')
             event.add_document(document)
             pipeline.run(document)

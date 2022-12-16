@@ -39,8 +39,6 @@ class EventsServer:
 
     Args:
         host (str): The address / hostname / IP to host the server on.
-
-    Keyword Args:
         port (int): The port to host the server on.
         register (bool): Whether to register the service with service discovery.
         workers (int): The number of workers that should handle requests.

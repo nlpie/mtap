@@ -487,6 +487,7 @@ class Deployment:
         self.events_deployment = events_deployment
         self.shared_processor_config = shared_processor_config
         self.processors = processors
+        self.processor_listeners = []
 
     @staticmethod
     def load_configuration(conf: Dict) -> 'Deployment':
@@ -541,8 +542,6 @@ class Deployment:
             enable_proxy = c.get('grpc.enable_proxy', False)
             events_addresses = []
 
-            self.processor_listeners = []
-
             if self.events_deployment.enabled:
                 for call, sid in self.events_deployment.create_calls(self.global_settings):
                     p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -558,7 +557,7 @@ class Deployment:
             for processor_deployment in self.processors:
                 if processor_deployment.enabled:
                     for call, sid in processor_deployment.create_calls(self.global_settings,
-                                                                  self.shared_processor_config):
+                                                                       self.shared_processor_config):
                         logger.debug('Launching processor with call: %s', call)
                         p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
                         startup_timeout = (processor_deployment.startup_timeout

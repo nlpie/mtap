@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from mtap import Event, label
-from mtap.io.serialization import event_to_dict
+from mtap.serialization import event_to_dict
 
 text = "It seems that perfection is attained not when there is nothing more to add, but when " \
        "there is nothing more to remove."

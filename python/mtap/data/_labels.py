@@ -450,12 +450,12 @@ def _staticize(labels: Sequence['data.Label'],
     """
     labels = sorted(labels, key=lambda x: x.location)
     waiting_on = set()
-    for i, l in enumerate(labels):
-        l.document = document
-        l.identifier = i
-        l.label_index_name = label_index_name
-    for l in labels:
-        l.collect_floating_references(waiting_on)
+    for i, lbl in enumerate(labels):
+        lbl.document = document
+        lbl.identifier = i
+        lbl.label_index_name = label_index_name
+    for lbl in labels:
+        lbl.collect_floating_references(waiting_on)
     return labels, waiting_on
 
 

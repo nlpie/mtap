@@ -87,4 +87,3 @@ def copy_struct_to_dict(struct, dictionary):
             dictionary[k] = d
         else:
             raise TypeError("Unrecognized type:", type(v))
-

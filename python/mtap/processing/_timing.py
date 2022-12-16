@@ -11,15 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-from datetime import timedelta
 import math
 import typing
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from mtap.processing import _base
 
 if TYPE_CHECKING:
-    import mtap
     from mtap import processing
 
 
@@ -66,6 +65,6 @@ def add_times(times_map, times):
         agg.add_time(v)
 
 
-def create_timer_stats(times_map, prefix=None) -> typing.Dict[str, 'processing.TimerStats']:
+def create_timer_stats(times_map, prefix=None) -> 'typing.Dict[str, processing.TimerStats]':
     return {identifier: stats.finalize()
             for identifier, stats in times_map.items() if identifier.startswith(prefix)}
