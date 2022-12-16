@@ -15,7 +15,7 @@ from tempfile import TemporaryFile
 
 import mtap
 from mtap import Event, Document
-from mtap.io.serialization import JsonSerializer
+from mtap.serialization import JsonSerializer
 
 
 def test_json_serializer():

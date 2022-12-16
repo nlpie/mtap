@@ -19,7 +19,7 @@ except ImportError:
     from yaml import Loader, Dumper
 
 from mtap import Event, Document, label
-from mtap.io.serialization import YamlSerializer
+from mtap.serialization import YamlSerializer
 
 
 def test_yml_serializer():

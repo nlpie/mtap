@@ -487,6 +487,7 @@ class Deployment:
         self.events_deployment = events_deployment
         self.shared_processor_config = shared_processor_config
         self.processors = processors
+        self.processor_listeners = []
 
     @staticmethod
     def load_configuration(conf: Dict) -> 'Deployment':
@@ -540,8 +541,6 @@ class Deployment:
         with _config.Config() as c:
             enable_proxy = c.get('grpc.enable_proxy', False)
             events_addresses = []
-
-            self.processor_listeners = []
 
             if self.events_deployment.enabled:
                 for call, sid in self.events_deployment.create_calls(self.global_settings):

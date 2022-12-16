@@ -28,7 +28,7 @@
 from tempfile import TemporaryFile
 
 from mtap import Event, Document, label
-from mtap.io.serialization import PickleSerializer
+from mtap.serialization import PickleSerializer
 
 
 def test_pickle_serializer():

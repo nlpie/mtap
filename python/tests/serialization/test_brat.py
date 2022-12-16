@@ -15,7 +15,7 @@
 from pathlib import Path
 
 from mtap import GenericLabel
-from mtap.io.brat import read_brat_documents
+from mtap.serialization.brat import read_brat_documents
 
 
 def test_read_brat_documents():
