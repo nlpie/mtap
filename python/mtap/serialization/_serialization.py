@@ -42,20 +42,6 @@ from mtap import descriptions as d
 
 logger = logging.getLogger(__name__)
 
-__all__ = [
-    'event_to_dict',
-    'document_to_dict',
-    'dict_to_event',
-    'dict_to_document',
-    'Serializer',
-    'SerializationProcessor',
-    'JsonSerializer',
-    'YamlSerializer',
-    'PickleSerializer',
-    'standard_serializers',
-    'get_serializer'
-]
-
 
 def event_to_dict(event: mtap.Event, *, include_label_text: bool = False) -> Dict:
     """A helper method that turns an event into a python dictionary.

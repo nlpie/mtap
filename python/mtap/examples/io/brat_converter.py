@@ -15,7 +15,7 @@
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
-from mtap.io import brat, serialization
+from mtap import brat, serialization
 
 
 class BratConverter(Namespace):
