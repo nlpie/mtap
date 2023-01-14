@@ -15,6 +15,7 @@ import logging
 import os
 import signal
 import subprocess
+from threading import Thread
 
 import grpc
 import pytest
@@ -65,24 +66,34 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip_gateway)
 
 
+def _listen(process: subprocess.Popen):
+    for line in process.stdout:
+        print(line.decode(), end='')
+    return process.wait()
+
+
 @pytest.fixture(name='processor_watcher')
 def fixture_processor_watcher():
-    def func(address, process):
+    def func(address, process, timeout=20.0):
+        listener = Thread(target=_listen, args=(process,))
+        listener.start()
         try:
             if process.returncode is not None:
                 raise ValueError('subprocess terminated')
             with grpc.insecure_channel(address, [('grpc.enable_http_proxy', False)]) as channel:
                 future = grpc.channel_ready_future(channel)
-                future.result(timeout=20)
+                future.result(timeout=timeout)
             yield address
         finally:
-            process.send_signal(signal.SIGINT)
             try:
-                stdout, _ = process.communicate(timeout=1)
+                process.terminate()
+                listener.join(timeout=5.0)
+                if listener.is_alive():
+                    process.kill()
+                    listener.join()
                 print("processor exited with code: ", process.returncode)
-                print(stdout.decode('utf-8'))
-            except subprocess.TimeoutExpired:
-                print("timed out waiting for processor to terminate")
+            except Exception:
+                pass
     return func
 
 

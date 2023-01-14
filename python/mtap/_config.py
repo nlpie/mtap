@@ -20,7 +20,7 @@ from typing import Any, MutableMapping, Iterator, Union
 
 from mtap.utilities import mtap_home
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('mtap.config')
 
 
 def _collapse(d, path, v):

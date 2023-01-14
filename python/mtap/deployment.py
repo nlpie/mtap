@@ -57,7 +57,7 @@ __all__ = [
     'ProcessorDeployment', 'main', 'deployment_parser', 'ServiceDeploymentException',
 ]
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('mtap.deployment')
 
 PYTHON_EXE = sys.executable
 
@@ -569,25 +569,38 @@ class Deployment:
                                                                     enable_proxy)
                         except ServiceDeploymentException as e:
                             logger.error(str(e))
-                            return self.shutdown(kill=True)
+                            return self.shutdown()
                         self.processor_listeners.append((p, listener))
 
             print('Done deploying all servers.', flush=True)
             if block:
-                try:
-                    while True:
-                        time.sleep(60 * 60 * 24)
-                except KeyboardInterrupt:
-                    return self.shutdown()
+                e = threading.Event()
 
-    def shutdown(self, kill=False, stop=False):
+                def do_stop(*_):
+                    e.set()
+
+                signal.signal(signal.SIGINT, do_stop)
+                signal.signal(signal.SIGTERM, do_stop)
+
+                try:
+                    e.wait()
+                except KeyboardInterrupt:
+                    pass
+                return self.shutdown()
+
+    def shutdown(self):
         print("Shutting down all processors")
         for p, listener in self.processor_listeners:
-            if kill:
-                p.kill()
-            if stop:
-                p.send_signal(signal.SIGTERM)
-            listener.join(timeout=1)
+            try:
+                p.terminate()
+                listener.join(timeout=10.0)
+                if listener.is_alive():
+                    print(f'Unsuccessfully terminated processor {p.args}... killing.')
+                    p.kill()
+                    listener.join()
+            except Exception:
+                print(f"Failed to properly shutdown processor {p.args}")
+                pass
 
 
 def _listen_test_connectivity(p: subprocess.Popen,

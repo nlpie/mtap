@@ -31,7 +31,7 @@ from mtap.api.v1 import events_pb2, events_pb2_grpc
 if typing.TYPE_CHECKING:
     import mtap
 
-LOGGER = logging.getLogger(__name__)
+logger = logging.getLogger('mtap.events')
 
 
 class EventsServer:
@@ -58,7 +58,7 @@ class EventsServer:
         if config is None:
             config = _config.Config()
         options = config.get('grpc.events_options', {})
-        LOGGER.info("Events service using options " + str(options))
+        logger.info("Events service using options " + str(options))
         server = grpc.server(thread_pool, options=list(options.items()))
         servicer = EventsServicer(instance_id=self.sid)
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)
@@ -81,7 +81,7 @@ class EventsServer:
     def start(self):
         """Starts the service.
         """
-        LOGGER.info('Starting events server on address: "%s:%d"', self._address, self._port)
+        logger.info('Starting events server on address: "%s:%d"', self._address, self._port)
         self._server.start()
         if self.write_address:
             self._address_file = utilities.write_address_file(
@@ -152,11 +152,11 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return document
 
     def GetEventsInstanceId(self, request, context):
-        LOGGER.debug("GetEventsInstanceId")
+        logger.debug("GetEventsInstanceId")
         return events_pb2.GetEventsInstanceIdResponse(instance_id=self.instance_id)
 
     def OpenEvent(self, request, context=None):
-        LOGGER.debug("OpenEvent: %s", request.event_id)
+        logger.debug("OpenEvent: %s", request.event_id)
         event_id = request.event_id
         if event_id == '':
             msg = "event_id was not set."
@@ -182,7 +182,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.OpenEventResponse(created=created_event)
 
     def CloseEvent(self, request, context=None):
-        LOGGER.debug("CloseEvent: %s", request.event_id)
+        logger.debug("CloseEvent: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -246,7 +246,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.GetBinaryDataResponse(binary_data=event.binaries[name])
 
     def AddDocument(self, request, context=None):
-        LOGGER.debug("AddDocument: %s", request.event_id)
+        logger.debug("AddDocument: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -267,7 +267,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.AddDocumentResponse()
 
     def GetAllDocumentNames(self, request, context=None):
-        LOGGER.debug("GetAllDocumentNames: %s", request.event_id)
+        logger.debug("GetAllDocumentNames: %s", request.event_id)
         try:
             event, event_id = self._get_event(request, context)
         except KeyError:
@@ -276,7 +276,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         return events_pb2.GetAllDocumentNamesResponse(document_names=names)
 
     def GetDocumentText(self, request, context=None):
-        LOGGER.debug("GetDocumentText: %s", request.event_id)
+        logger.debug("GetDocumentText: %s", request.event_id)
         try:
             document = self._get_document(request, context)
         except KeyError:

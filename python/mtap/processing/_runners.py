@@ -24,7 +24,7 @@ from mtap.processing import _base
 if TYPE_CHECKING:
     import mtap
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('mtap.processing')
 
 
 class ProcessorRunner(_base.ProcessingComponent):

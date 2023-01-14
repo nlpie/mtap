@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     import mtap
     from mtap import processing
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('mtap.processing')
 
 
 class RemoteProcessor(_base.ComponentDescriptor):

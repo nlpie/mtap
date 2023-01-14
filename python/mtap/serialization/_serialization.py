@@ -40,7 +40,7 @@ import mtap
 from mtap import data, processing
 from mtap import descriptions as d
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('mtap.serialization')
 
 
 def event_to_dict(event: mtap.Event, *, include_label_text: bool = False) -> Dict:
