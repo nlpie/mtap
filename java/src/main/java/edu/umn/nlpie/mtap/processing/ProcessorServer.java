@@ -104,16 +104,19 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     }
     try {
       processorService.close();
-    } catch (InterruptedException e) {
-      logger.error("Exception closing processor service", e);
+    } catch (Exception e) {
+      // Print to system
+      System.err.println("Exception closing processor service.");
+      e.printStackTrace(System.err);
     }
-    grpcServer.shutdown();
+    grpcServer.shutdownNow();
     running = false;
     if (addressFile != null) {
       try {
         Files.delete(addressFile);
-      } catch (IOException e) {
-        logger.error("Failed to delete address file", e);
+      } catch (Exception e) {
+        System.err.println("Failed to delete address file");
+        e.printStackTrace(System.err);
       }
     }
   }

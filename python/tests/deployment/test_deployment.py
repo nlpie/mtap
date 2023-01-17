@@ -49,4 +49,4 @@ def test_deployment(java_exe):
                 results = pipeline.run(d)
                 assert results is not None
         finally:
-            deployment.shutdown(stop=True)
+            deployment.shutdown()

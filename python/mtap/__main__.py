@@ -13,9 +13,8 @@
 # limitations under the License.
 import argparse
 import logging
-from time import sleep
-
-_ONE_DAY_IN_SECONDS = 60 * 60 * 24
+import signal
+import threading
 
 
 def run_events_server(args):
@@ -32,12 +31,21 @@ def run_events_server(args):
         server = EventsServer(args.host, sid=args.sid, port=args.port, register=args.register,
                               workers=args.workers,
                               write_address=args.write_address)
+
+        e = threading.Event()
+
+        def do_stop(*_):
+            e.set()
+
+        signal.signal(signal.SIGINT, do_stop)
+        signal.signal(signal.SIGTERM, do_stop)
+
         server.start()
         try:
-            while True:
-                sleep(_ONE_DAY_IN_SECONDS)
+            e.wait()
         except KeyboardInterrupt:
-            server.stop(grace=5.0)
+            pass
+        server.stop()
 
 
 parser = argparse.ArgumentParser(allow_abbrev=False)

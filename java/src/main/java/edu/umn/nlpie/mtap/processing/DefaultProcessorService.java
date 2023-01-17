@@ -173,7 +173,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
   @Override
   public void close() throws InterruptedException {
-    System.out.println("Shutting down processor server with id: \"" + name + "\" on address: \"" + host + ":" + port + "\"");
+    System.out.println("Shutting down processor server with name: \"" + name + "\" on address: \"" + host + ":" + port + "\"");
     ServiceInfo serviceInfo = new ServiceInfo(
         name,
         sid,

@@ -14,8 +14,8 @@
 import argparse
 import concurrent.futures.thread as thread
 import logging
+import signal
 import threading
-import time
 import traceback
 import typing
 import uuid
@@ -36,8 +36,7 @@ from mtap.processing import _base, _runners, _timing
 if typing.TYPE_CHECKING:
     import mtap
 
-logger = logging.getLogger(__name__)
-_ONE_DAY_IN_SECONDS = 60 * 60 * 24
+logger = logging.getLogger('mtap.processing')
 
 
 def run_processor(proc: 'mtap.EventProcessor',
@@ -115,12 +114,21 @@ def run_processor(proc: 'mtap.EventProcessor',
                                  register=options.register,
                                  workers=options.workers,
                                  write_address=options.write_address)
+
+        e = threading.Event()
+
+        def do_stop(*_):
+            e.set()
+
+        signal.signal(signal.SIGINT, do_stop)
+        signal.signal(signal.SIGTERM, do_stop)
+
         server.start()
         try:
-            while True:
-                time.sleep(_ONE_DAY_IN_SECONDS)
+            e.wait()
         except KeyboardInterrupt:
-            server.stop()
+            pass
+        server.stop()
 
 
 _mp_processor = ...  # EventProcessor
