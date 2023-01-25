@@ -103,8 +103,8 @@ class RemoteRunner(_base.ProcessingComponent):
         return self._component_id
 
     def call_process(self, event_id, event_instance_id, params):
-        logger.debug('processor_id: %s calling process on event_id: %s with event_instance_id: %s',
-                     self.processor_name, event_id, event_instance_id)
+        logger.debug('calling process (%s, %s) on event: (%s, %s)',
+                     self.processor_name, self._address, event_id, event_instance_id)
         p = dict(self.params or {})
         if params is not None:
             p.update(params)
@@ -116,7 +116,8 @@ class RemoteRunner(_base.ProcessingComponent):
             _structs.copy_dict_to_struct(p, request.params, [p])
             with _base.Processor.started_stopwatch('remote_call'):
                 try:
-                    response = self._stub.Process(request)
+                    response = self._stub.Process(request,
+                                                  metadata=[('processor-name', self.processor_name)])
                 except Exception as e:
                     logger.error("Error while processing event_id %s through remote pipeline "
                                  "component  '%s'", event_id, self.component_id)

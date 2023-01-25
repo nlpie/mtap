@@ -19,6 +19,7 @@ import threading
 import traceback
 import typing
 import uuid
+from logging.handlers import QueueListener
 from typing import Any, Dict, Tuple, Sequence, Optional, Union
 
 import google.protobuf.empty_pb2 as empty_pb2
@@ -101,7 +102,8 @@ def run_processor(proc: 'mtap.EventProcessor',
                                        workers=options.workers,
                                        events_address=events_addresses,
                                        processor_name=name,
-                                       mp_context=mp_context)
+                                       mp_context=mp_context,
+                                       log_level=options.log_level)
         else:
             client = data.EventsClient(address=events_addresses)
             runner = _runners.ProcessorRunner(proc, client=client,
@@ -135,9 +137,15 @@ _mp_processor = ...  # EventProcessor
 _mp_client = ...  # EventClient
 
 
-def _mp_initialize(proc: 'mtap.EventProcessor', events_address, config):
+def _mp_initialize(proc: 'mtap.EventProcessor', events_address, config, log_queue):
     global _mp_processor
     global _mp_client
+
+    h = logging.handlers.QueueHandler(log_queue)
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(logging.DEBUG)
+
     _config.Config(config)
     _mp_processor = proc
     _mp_client = data.EventsClient(address=events_address)
@@ -155,7 +163,7 @@ def _mp_call_process(event_id, event_service_instance_id, params):
 
 
 class MpProcessorRunner:
-    __slots__ = ('pool', 'metadata', 'processor_name', 'component_id')
+    __slots__ = ('pool', 'metadata', 'processor_name', 'component_id', 'log_listener')
 
     def __init__(self,
                  proc: 'mtap.EventProcessor',
@@ -163,14 +171,22 @@ class MpProcessorRunner:
                  component_id: 'Optional[str]' = None,
                  workers: 'Optional[int]' = 8,
                  events_address: 'Optional[Union[str, Sequence[str]]]' = None,
-                 mp_context=None):
+                 mp_context=None,
+                 log_level=None):
         if mp_context is None:
             import multiprocessing as mp
             mp_context = mp
         config = _config.Config()
+        log_queue = mp_context.Queue(-1)
+        handler = logging.StreamHandler()
+        log_level = 'INFO' if log_level is None else log_level
+        handler.setLevel(log_level)
+        self.log_listener = QueueListener(log_queue, handler)
+        self.log_listener.start()
+
         self.pool = mp_context.Pool(workers,
                                     initializer=_mp_initialize,
-                                    initargs=(proc, events_address, dict(config)))
+                                    initargs=(proc, events_address, dict(config), log_queue))
         self.metadata = proc.metadata
         self.processor_name = processor_name
         self.component_id = component_id or processor_name
@@ -188,6 +204,7 @@ class MpProcessorRunner:
     def close(self):
         self.pool.terminate()
         self.pool.join()
+        self.log_listener.stop()
 
 
 def processor_parser() -> argparse.ArgumentParser:
@@ -296,7 +313,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         event_id = request.event_id
         event_service_instance_id = request.event_service_instance_id
         logger.debug(
-            'processor_name: %s received process request on event_id: %s with event_service_instance_id: %s',
+            '%s received process request on event: (%s, %s)',
             self._runner.processor_name, event_id, event_service_instance_id)
         params = {}
         _structs.copy_struct_to_dict(request.params, params)

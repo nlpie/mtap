@@ -171,6 +171,7 @@ class SharedProcessorConfig:
                  additional_args: Optional[List[str]] = None,
                  jvm_args: Optional[List[str]] = None,
                  java_classpath: Optional[str] = None,
+                 java_additional_args: Optional[List[str]] = None,
                  startup_timeout: Optional[int] = None,
                  mp_spawn_method: Optional[str] = None):
         self.events_addresses = events_addresses
@@ -178,6 +179,7 @@ class SharedProcessorConfig:
         self.additional_args = additional_args
         self.jvm_args = jvm_args
         self.java_classpath = java_classpath
+        self.java_additional_args = java_additional_args
         self.startup_timeout = startup_timeout or 30
         self.mp_spawn_method = mp_spawn_method
 
@@ -462,6 +464,9 @@ class ProcessorDeployment:
             if shared_config.additional_args is not None:
                 call.extend(shared_config.additional_args)
 
+            if self.implementation == 'java' and shared_config.java_additional_args is not None:
+                call.extend(shared_config.java_additional_args)
+
             yield call, sid
 
 
@@ -486,7 +491,7 @@ class Deployment:
         self.global_settings = global_settings
         self.events_deployment = events_deployment
         self.shared_processor_config = shared_processor_config
-        self.processors = processors
+        self.processors = list(processors)
         self.processor_listeners = []
 
     @staticmethod
