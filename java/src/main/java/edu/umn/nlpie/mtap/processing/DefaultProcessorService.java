@@ -20,7 +20,6 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -65,7 +64,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
   }
 
   @Override
-  public void started(int port) throws UnknownHostException {
+  public void started(int port) {
     this.port = port;
     healthService.startedServing(name);
     if (discoveryMechanism != null) {
@@ -90,6 +89,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
     String eventID = request.getEventId();
     String eventServiceInstanceId = request.getEventServiceInstanceId();
+    logger.debug("{} received process request on event: ({}, {})", this.name, eventID, eventServiceInstanceId);
     try {
       ProcessingResult result = runner.process(eventID, eventServiceInstanceId, params);
 

@@ -397,6 +397,32 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       return this;
     }
 
+    public int getWorkers() {
+      return workers;
+    }
+
+    public void setWorkers(int workers) {
+      this.workers = workers;
+    }
+
+    public @NotNull Builder workers(int workers) {
+      this.workers = workers;
+      return this;
+    }
+
+    public boolean getWriteAddress() {
+      return writeAddress;
+    }
+
+    public void setWriteAddress(boolean writeAddress) {
+      this.writeAddress = writeAddress;
+    }
+
+    public @NotNull Builder writeAddress(boolean writeAddress) {
+      this.writeAddress = writeAddress;
+      return this;
+    }
+
     public @NotNull String getLogLevel() {
       return logLevel;
     }
@@ -407,6 +433,19 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
     public @NotNull Builder logLevel(@Nullable String logLevel) {
       this.logLevel = logLevel;
+      return this;
+    }
+
+    public ChannelFactory getChannelFactory() {
+      return channelFactory;
+    }
+
+    public void setChannelFactory(@Nullable ChannelFactory channelFactory) {
+      this.channelFactory = channelFactory;
+    }
+
+    public @NotNull Builder channelFactory(@Nullable ChannelFactory channelFactory) {
+      this.channelFactory = channelFactory;
       return this;
     }
 

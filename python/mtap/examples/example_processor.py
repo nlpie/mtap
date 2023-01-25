@@ -13,8 +13,6 @@
 # limitations under the License.
 """An example document processor."""
 
-from typing import Dict, Any, Optional
-
 from mtap import DocumentProcessor, processor, run_processor
 from mtap.processing.descriptions import parameter, labels, label_property
 

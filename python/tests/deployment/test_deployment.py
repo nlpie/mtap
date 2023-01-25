@@ -13,7 +13,8 @@
 #  limitations under the License.
 
 import mtap
-from mtap.deployment import Deployment
+from mtap import RemoteProcessor
+from mtap.deployment import Deployment, ProcessorDeployment
 
 text = """
 Why, friends, you go to do you know not what:
@@ -40,13 +41,35 @@ def test_deployment(java_exe):
     run_config = files('mtap.examples').joinpath('examplePipelineConfiguration.yml')
     with as_file(deployment_config) as deployment_f, as_file(run_config) as run_f:
         deployment = Deployment.from_yaml_file(deployment_f)
+        deployment.global_settings.log_level = 'DEBUG'
         deployment.shared_processor_config.java_classpath = java_exe[-1]
+        deployment.shared_processor_config.jvm_args = ["-Dorg.slf4j.simpleLogger.log.edu.umn.nlpie.mtap=debug"]
+        deployment.processors.append(ProcessorDeployment(
+            implementation='python',
+            entry_point='mtap.examples.tutorial.hello',
+            port=10103
+        ))
         try:
             deployment.run_servers(block=False)
             pipeline = mtap.Pipeline.from_yaml_file(run_f)
+            pipeline.append(
+                RemoteProcessor(
+                    processor_name='hello',
+                    address='127.0.0.1:10103'
+                )
+            )
             with mtap.Event(client=pipeline.events_client) as e:
                 d = e.create_document('plaintext', text)
                 results = pipeline.run(d)
                 assert results is not None
+            with mtap.Event(client=pipeline.events_client) as e:
+                d = e.create_document('plaintext', text)
+
+                def source():
+                    yield d
+
+                pipeline.run_multithread(source(), total=1, log_level='DEBUG')
+                assert len(d.labels['mtap.examples.letter_counts']) > 0
+                assert len(d.labels['mtap.examples.word_occurrences']) > 0
         finally:
             deployment.shutdown()

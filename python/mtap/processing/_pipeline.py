@@ -20,6 +20,7 @@ import traceback
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from datetime import datetime
+from logging.handlers import QueueHandler, QueueListener
 from threading import Lock, Condition
 from typing import (
     Optional,
@@ -443,7 +444,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
             max_failures: Optional[int] = None,
             workers: Optional[int] = None,
             read_ahead: Optional[int] = None,
-            mp_context=None
+            mp_context=None,
+            log_level: Optional[Union[str, int]] = None
     ):
         """Runs this pipeline on a source which provides multiple documents / events.
 
@@ -477,6 +479,8 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
                 The number of source documents to read ahead into memory before processing.
             mp_context (multiprocessing context, optional)
                 An optional override for the multiprocessing context.
+            log_level (~typing.Optional[~typing.Union[str, int]]
+                The log_level for running the pipeline.
 
         Examples:
             >>> docs = list(pathlib.Path('abc/').glob('*.txt'))
@@ -498,13 +502,14 @@ class Pipeline(MutableSequence['processing.ComponentDescriptor']):
         mp_context = (multiprocessing.get_context(self.mp_config.mp_start_method)
                       if mp_context is None else mp_context)
         read_ahead = read_ahead if read_ahead is not None else self.mp_config.read_ahead
+        log_level = 'INFO' if log_level is None else log_level
         with _PipelineMultiRunner(self, source, params, show_progress, total, close_events,
-                                  max_failures, workers, read_ahead, mp_context) as runner:
+                                  max_failures, workers, read_ahead, mp_context, log_level) as runner:
             runner.run()
 
     def run(self, target: Union['mtap.Event', 'mtap.Document'], *,
             params: Optional[Dict[str, Any]] = None) -> 'processing.PipelineResult':
-        """Processes the event/document using all of the processors in the pipeline.
+        """Processes the event/document using all the processors in the pipeline.
 
         Args:
             target (~typing.Union[Event, Document]): Either an event or a document to process.
@@ -807,8 +812,15 @@ class _PipelineProcessor(_base.EventProcessor):
 _mp_pipeline = None
 
 
-def _mp_process_init(config, pipeline):
+def _mp_process_init(config, pipeline, queue):
     global _mp_pipeline
+
+    # set up multiprocess logging via queue back to listener
+    h = logging.handlers.QueueHandler(queue)
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(logging.DEBUG)
+
     Config(config).enter_context()
     _mp_pipeline = pipeline
 
@@ -830,10 +842,10 @@ def _mp_process_event(event_id, event_service_instance_id, params):
 class _PipelineMultiRunner:
     __slots__ = ('pipeline', 'failures', 'max_failures', 'targets_cond', 'active_targets',
                  'close_events', 'max_targets', 'n_threads', 'progress_bar', 'source', 'params',
-                 'pool', 'active_events')
+                 'pool', 'active_events', 'log_listener')
 
     def __init__(self, pipeline, source, params, progress, total, close_events, max_failures,
-                 n_threads, read_ahead, mp_context):
+                 n_threads, read_ahead, mp_context, log_level):
         self.pipeline = pipeline
         self.failures = 0
         self.max_failures = max_failures
@@ -854,10 +866,16 @@ class _PipelineMultiRunner:
         self.source = source
         self.params = params
 
+        logging_queue = mp_context.Queue(-1)
+        handler = logging.StreamHandler()
+        handler.setLevel(log_level)
+        self.log_listener = QueueListener(logging_queue, handler)
+        self.log_listener.start()
+
         self.pool = mp_context.Pool(
             self.n_threads,
             initializer=_mp_process_init,
-            initargs=(dict(Config()), pipeline)
+            initargs=(dict(Config()), pipeline, logging_queue)
         )
         self.active_events = {}
 
@@ -949,6 +967,7 @@ class _PipelineMultiRunner:
         if self.close_events:
             for event in self.active_events.values():
                 event.close()
+        self.log_listener.stop()
 
 
 def _unique_component_id(component_ids, component_id):
