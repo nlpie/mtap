@@ -47,23 +47,6 @@ jobs:
       - name: Install mtap-gateway
         working-directory: go
         run: go install mtap-gateway/mtap-gateway.go
-        
-      # Install and Start Consul for Discovery Testing
-      - name: Set up Consul
-        run: |
-          if [ $RUNNER_OS == "macOS" ]; then
-            brew install consul
-          elif [ $RUNNER_OS == "Linux" ]; then
-            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-            sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-            sudo apt-get update
-            sudo apt-get install consul
-          else
-            echo "OS must be 'Linux' or 'macOS' not $RUNNER_OS"
-            exit 1
-          fi
-      - name: Start Consul
-        run: consul agent -dev &
       # Python pip install
       - name: Install Python package with dependencies
         run: |
@@ -81,4 +64,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration --consul --gateway
+          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration --gateway
