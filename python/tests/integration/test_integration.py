@@ -117,13 +117,17 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
             yield gateway
         finally:
             session.close()
-            p.send_signal(signal.SIGINT)
+            p.terminate()
             try:
                 stdout, _ = p.communicate(timeout=1)
                 print("api gateway exited with code: ", p.returncode)
                 print(stdout.decode('utf-8'))
             except TimeoutExpired:
                 print("timed out waiting for api gateway to terminate")
+                p.kill()
+                stdout, _ = p.communicate()
+                print("api gateway exited with code: ", p.returncode)
+                print(stdout.decode('utf-8'))
 
 
 PHASERS = """
@@ -163,7 +167,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     session = requests.Session()
     session.trust_env = False
     base_url = "http://" + api_gateway
-    resp = session.get(base_url + "/v1/processors")
+    resp = session.get(base_url + "/v1/processors", timeout=10)
     assert resp.status_code == 200
     processors = resp.json()
     all_ids = []
@@ -172,7 +176,7 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert 'mtap-example-processor-python' in all_ids
     assert 'mtap-example-processor-java' in all_ids
 
-    resp = session.get(base_url + "/v1/events/instance_id")
+    resp = session.get(base_url + "/v1/events/instance_id", timeout=1)
     assert resp.status_code == 200
     instance_id = resp.json()['instance_id']
     assert instance_id is not None
@@ -185,10 +189,10 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'value': 'bar'
     }
-    resp = session.post(base_url + "/v1/events/1/metadata/foo", json=body)
+    resp = session.post(base_url + "/v1/events/1/metadata/foo", json=body, timeout=1)
     assert resp.status_code == 200
 
-    resp = session.get(base_url + "/v1/events/1/metadata")
+    resp = session.get(base_url + "/v1/events/1/metadata", timeout=1)
     assert resp.status_code == 200
     metadata = resp.json()['metadata']
     assert metadata['foo'] == 'bar'
@@ -196,15 +200,15 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'text': PHASERS
     }
-    resp = session.post(base_url + "/v1/events/1/documents/plaintext", json=body)
+    resp = session.post(base_url + "/v1/events/1/documents/plaintext", json=body, timeout=1)
     assert resp.status_code == 200
 
-    resp = session.get(base_url + "/v1/events/1/documents")
+    resp = session.get(base_url + "/v1/events/1/documents", timeout=1)
     assert resp.status_code == 200
     documents = resp.json()["document_names"]
     assert documents == ['plaintext']
 
-    resp = session.get(base_url + "/v1/events/1/documents/plaintext")
+    resp = session.get(base_url + "/v1/events/1/documents/plaintext", timeout=1)
     assert resp.status_code == 200
     text = resp.json()['text']
     assert text == PHASERS
@@ -235,10 +239,10 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
         }
     }
     resp = session.post(
-        base_url + "/v1/events/1/documents/plaintext/labels/test-labels", json=body)
+        base_url + "/v1/events/1/documents/plaintext/labels/test-labels", json=body, timeout=1)
     assert resp.status_code == 200
 
-    resp = session.get(base_url + "/v1/events/1/documents/plaintext/labels/test-labels")
+    resp = session.get(base_url + "/v1/events/1/documents/plaintext/labels/test-labels", timeout=1)
     assert resp.status_code == 200
     labels = resp.json()
     generic_labels = labels['generic_labels']
@@ -255,14 +259,15 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     }
     resp = session.post(
         base_url + "/v1/processors/mtap-example-processor-python/process/1",
-        json=body
+        json=body,
+        timeout=1
     )
     assert resp.status_code == 200
     python_process = resp.json()
     assert python_process['result']['answer'] == 42
 
     resp = session.get(
-        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts"
+        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts", timeout=1
     )
     assert resp.status_code == 200
     labels = resp.json()
@@ -300,14 +305,16 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     }
     resp = session.post(
         base_url + "/v1/processors/mtap-example-processor-java/process/1",
-        json=body
+        json=body,
+        timeout=1
     )
     assert resp.status_code == 200
     java_process = resp.json()
     assert java_process['result']['answer'] == 42
 
     resp = session.get(
-        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences"
+        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.word_occurrences",
+        timeout=1
     )
     assert resp.status_code == 200
     labels = resp.json()['generic_labels']['labels']
@@ -322,7 +329,8 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     ]
 
     resp = session.get(
-        base_url + "/v1/events/1/documents/plaintext/labels"
+        base_url + "/v1/events/1/documents/plaintext/labels",
+        timeout=1
     )
     assert resp.status_code == 200
     indices = resp.json()['label_index_infos']

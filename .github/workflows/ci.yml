@@ -47,7 +47,7 @@ jobs:
       - name: Install mtap-gateway
         working-directory: go
         run: go install mtap-gateway/mtap-gateway.go
-        
+
       # Install and Start Consul for Discovery Testing
       - name: Set up Consul
         run: |
@@ -81,4 +81,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          MTAP_JAR=$(echo java/build/libs/*-all.jar) pytest python/tests --integration --consul --gateway
+          pytest -s python/tests --integration --consul --gateway

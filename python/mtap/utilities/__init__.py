@@ -90,7 +90,7 @@ def subprocess_events_server(port: typing.Optional[int] = None,
             future.result(timeout=10)
         yield address
     finally:
-        p.send_signal(signal.SIGINT)
+        p.terminate()
         try:
             stdout, _ = p.communicate(timeout=5)
         except subprocess.TimeoutExpired:

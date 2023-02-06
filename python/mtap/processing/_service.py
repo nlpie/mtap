@@ -175,7 +175,7 @@ class MpProcessorRunner:
                  log_level=None):
         if mp_context is None:
             import multiprocessing as mp
-            mp_context = mp
+            mp_context = mp.get_context('spawn')
         config = _config.Config()
         log_queue = mp_context.Queue(-1)
         handler = logging.StreamHandler()
@@ -397,7 +397,6 @@ class ProcessorServer:
                  write_address: bool = False,
                  config: 'Optional[mtap.Config]' = None):
         self.host = host
-        self._port = port
         self.processor_name = runner.processor_name
         self.sid = sid or str(uuid.uuid4())
         self.write_address = write_address
@@ -422,7 +421,9 @@ class ProcessorServer:
         self._server = grpc.server(thread_pool, options=list(options.items()))
         health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
         processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
-        self._port = self._server.add_insecure_port("{}:{}".format(self.host, self.port))
+        self._port = self._server.add_insecure_port("{}:{}".format(self.host, port))
+        if port != 0 and self._port != port:
+            raise ValueError(f"Unable to bind on port {port}, likely in use.")
         self._stopped_event = threading.Event()
         self._address_file = None
 

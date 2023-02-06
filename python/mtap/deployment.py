@@ -46,6 +46,7 @@ import sys
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import grpc
@@ -492,7 +493,7 @@ class Deployment:
         self.events_deployment = events_deployment
         self.shared_processor_config = shared_processor_config
         self.processors = list(processors)
-        self.processor_listeners = []
+        self._processor_listeners = []
 
     @staticmethod
     def load_configuration(conf: Dict) -> 'Deployment':
@@ -533,105 +534,115 @@ class Deployment:
             conf = load(f, Loader=Loader)
         return Deployment.load_configuration(conf)
 
-    def run_servers(self, block=True):
-        """Starts all the configured services.
-
-        Args:
-            block (bool): Whether this method should sleep, blocking the process after launching the services.
+    @contextmanager
+    def run_servers(self) -> None:
+        """A context manager that starts all the configured services in subprocesses and returns.
 
         Raises:
-            ServiceDeploymentException: If one of the services fails to launch.
+            ServiceDeploymentException: If one or more of the services fails to launch.
+
+        Examples
+        >>> deploy = Deployment.from_yaml_file('deploy_config.yml')
+        >>> with deploy.run_servers():
+        >>>     # do something that requires the servers.
+        >>> # servers are automatically shutdown / terminated when the block is exited
 
         """
-        with _config.Config() as c:
-            enable_proxy = c.get('grpc.enable_proxy', False)
-            events_addresses = []
+        try:
+            self._do_launch_all_processors()
+            yield
+        finally:
+            self.shutdown()
 
-            if self.events_deployment.enabled:
-                for call, sid in self.events_deployment.create_calls(self.global_settings):
-                    p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                    listener, events_address = _listen_test_connectivity(p, "events", sid, 30, enable_proxy)
-                    events_addresses.append(events_address)
-                    self.processor_listeners.append((p, listener))
+    def run_servers_and_wait(self):
+        """Starts the specified servers and blocks until KeyboardInterrupt, SIGINT, or SIGTERM are received.
 
-            if (not self.global_settings.register
-                    and not self.events_deployment.service_deployment.register
-                    and self.shared_processor_config.events_addresses is None):
-                self.shared_processor_config.events_addresses = events_addresses
+        Returns:
 
-            for processor_deployment in self.processors:
-                if processor_deployment.enabled:
-                    for call, sid in processor_deployment.create_calls(self.global_settings,
-                                                                       self.shared_processor_config):
-                        logger.debug('Launching processor with call: %s', call)
-                        p = subprocess.Popen(call, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                        startup_timeout = (processor_deployment.startup_timeout
-                                           or self.shared_processor_config.startup_timeout)
-                        try:
-                            listener, _ = _listen_test_connectivity(p, processor_deployment.entry_point,
-                                                                    sid,
-                                                                    startup_timeout,
-                                                                    enable_proxy)
-                        except ServiceDeploymentException as e:
-                            logger.error(str(e))
-                            return self.shutdown()
-                        self.processor_listeners.append((p, listener))
+        """
+        e = threading.Event()
+        signal.signal(signal.SIGINT, lambda *_: e.set())
+        signal.signal(signal.SIGTERM, lambda *_: e.set())
 
-            print('Done deploying all servers.', flush=True)
-            if block:
-                e = threading.Event()
+        with self.run_servers():
+            try:
+                e.wait()
+            except KeyboardInterrupt:
+                pass
 
-                def do_stop(*_):
-                    e.set()
+    def _do_launch_all_processors(self):
+        c = _config.Config()
+        enable_proxy = c.get('grpc.enable_proxy', False)
+        events_addresses = []
 
-                signal.signal(signal.SIGINT, do_stop)
-                signal.signal(signal.SIGTERM, do_stop)
+        # deploy events service
+        if self.events_deployment.enabled:
+            for call, sid in self.events_deployment.create_calls(self.global_settings):
+                # Start new session here because otherwise subprocesses get hit with signals meant for parent
+                events_address = self._start_subprocess(call, "events", sid, 30, enable_proxy)
+                events_addresses.append(events_address)
 
-                try:
-                    e.wait()
-                except KeyboardInterrupt:
-                    pass
-                return self.shutdown()
+        # attach deployed events service addresses if it's not already specified or will be picked up by service disc.
+        if (not self.global_settings.register
+                and not self.events_deployment.service_deployment.register
+                and self.shared_processor_config.events_addresses is None):
+            self.shared_processor_config.events_addresses = events_addresses
+
+        # deploy processors
+        for processor_deployment in self.processors:
+            if processor_deployment.enabled:
+                for call, sid in processor_deployment.create_calls(self.global_settings,
+                                                                   self.shared_processor_config):
+                    logger.debug('Launching processor with call: %s', call)
+                    # Start new session here because otherwise subprocesses get hit with signals meant for parent
+                    startup_timeout = (processor_deployment.startup_timeout
+                                       or self.shared_processor_config.startup_timeout)
+                    self._start_subprocess(call, processor_deployment.entry_point, sid, startup_timeout, enable_proxy)
+        print('Done deploying all servers.', flush=True)
 
     def shutdown(self):
         print("Shutting down all processors")
-        for p, listener in self.processor_listeners:
+        excs = []
+        for p, listener in self._processor_listeners:
             try:
                 p.terminate()
-                listener.join(timeout=10.0)
+                listener.join(timeout=15.0)
                 if listener.is_alive():
                     print(f'Unsuccessfully terminated processor {p.args}... killing.')
                     p.kill()
                     listener.join()
-            except Exception:
+            except Exception as e:
                 print(f"Failed to properly shutdown processor {p.args}")
-                pass
+                excs.append(e)
 
-
-def _listen_test_connectivity(p: subprocess.Popen,
-                              name: Any,
-                              sid: str,
-                              startup_timeout: int,
-                              enable_proxy: bool = False) -> Tuple[threading.Thread, str]:
-    listener = threading.Thread(target=_listen, args=(p,))
-    listener.start()
-    address = None
-    for i in range(startup_timeout):
-        try:
-            address = utilities.read_address(sid)
-            break
-        except FileNotFoundError:
-            time.sleep(1)
-    if address is None:
-        raise ServiceDeploymentException('Timed out waiting for {} to launch'.format(name))
-    with grpc.insecure_channel(address,
-                               options=[('grpc.enable_http_proxy', enable_proxy)]) as channel:
-        future = grpc.channel_ready_future(channel)
-        try:
-            future.result(timeout=startup_timeout)
-        except grpc.FutureTimeoutError:
-            raise ServiceDeploymentException('Failed to launch: {}'.format(name))
-    return listener, address
+    def _start_subprocess(self,
+                          call: List[str],
+                          name: Any,
+                          sid: str,
+                          startup_timeout: int,
+                          enable_proxy: bool = False) -> str:
+        # starts process and listener, stores for later cleanup, returns address.
+        p = subprocess.Popen(call, start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        listener = threading.Thread(target=_listen, args=(p,))
+        listener.start()
+        self._processor_listeners.append((p, listener))  # Adding early so it gets cleaned up on failure
+        address = None
+        for i in range(startup_timeout):
+            try:
+                address = utilities.read_address(sid)
+                break
+            except FileNotFoundError:
+                time.sleep(1)
+        if address is None:
+            raise ServiceDeploymentException(f'Failed to launch, timed out waiting: {name}')
+        with grpc.insecure_channel(address,
+                                   options=[('grpc.enable_http_proxy', enable_proxy)]) as channel:
+            future = grpc.channel_ready_future(channel)
+            try:
+                future.result(timeout=startup_timeout)
+            except grpc.FutureTimeoutError:
+                raise ServiceDeploymentException(f'Failed to launch, unresponsive: {name}')
+        return address
 
 
 def main(args: Optional[Sequence[str]] = None,
