@@ -43,7 +43,7 @@ pip install mtap
 Gradle:
 
 ```groovy
-implementation 'edu.umn.nlpie:mtap:1.0.0-rc4'
+implementation 'edu.umn.nlpie:mtap:1.0.0-rc5'
 ```
 
 Maven:
@@ -52,7 +52,7 @@ Maven:
 <dependency>
   <groupId>edu.umn.nlpie</groupId>
   <artifactId>mtap</artifactId>
-  <version>1.0.0-rc4</version>
+  <version>1.0.0-rc5</version>
 </dependency>
 ```
 
