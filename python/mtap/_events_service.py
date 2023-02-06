@@ -67,6 +67,8 @@ class EventsServer:
         health_servicer.set(constants.EVENTS_SERVICE_NAME, 'SERVING')
         health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
         self._port = server.add_insecure_port(host + ':' + str(port))
+        if port != 0 and self._port != port:
+            raise ValueError(f'Unable to bind on port {port}.')
         self._server = server
         self._address = host
         self._config = _config.Config()
@@ -81,7 +83,7 @@ class EventsServer:
     def start(self):
         """Starts the service.
         """
-        logger.info('Starting events server on address: "%s:%d"', self._address, self._port)
+        logger.info(f'Starting events server (%s) on address: "%s:%d"', self.sid, self._address, self._port)
         self._server.start()
         if self.write_address:
             self._address_file = utilities.write_address_file(

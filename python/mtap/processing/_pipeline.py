@@ -812,14 +812,14 @@ class _PipelineProcessor(_base.EventProcessor):
 _mp_pipeline = None
 
 
-def _mp_process_init(config, pipeline, queue):
+def _mp_process_init(config, pipeline, queue, log_level):
     global _mp_pipeline
 
     # set up multiprocess logging via queue back to listener
     h = logging.handlers.QueueHandler(queue)
     root = logging.getLogger()
     root.addHandler(h)
-    root.setLevel(logging.DEBUG)
+    root.setLevel(log_level)
 
     Config(config).enter_context()
     _mp_pipeline = pipeline
@@ -868,6 +868,8 @@ class _PipelineMultiRunner:
 
         logging_queue = mp_context.Queue(-1)
         handler = logging.StreamHandler()
+        f = logging.Formatter('%(asctime)s %(processName)-10s %(name)s %(levelname)-8s %(message)s')
+        handler.setFormatter(f)
         handler.setLevel(log_level)
         self.log_listener = QueueListener(logging_queue, handler)
         self.log_listener.start()
@@ -875,7 +877,7 @@ class _PipelineMultiRunner:
         self.pool = mp_context.Pool(
             self.n_threads,
             initializer=_mp_process_init,
-            initargs=(dict(Config()), pipeline, logging_queue)
+            initargs=(dict(Config()), pipeline, logging_queue, log_level)
         )
         self.active_events = {}
 

@@ -49,8 +49,7 @@ def test_deployment(java_exe):
             entry_point='mtap.examples.tutorial.hello',
             port=10103
         ))
-        try:
-            deployment.run_servers(block=False)
+        with deployment.run_servers():
             pipeline = mtap.Pipeline.from_yaml_file(run_f)
             pipeline.append(
                 RemoteProcessor(
@@ -71,5 +70,3 @@ def test_deployment(java_exe):
                 pipeline.run_multithread(source(), total=1, log_level='DEBUG')
                 assert len(d.labels['mtap.examples.letter_counts']) > 0
                 assert len(d.labels['mtap.examples.word_occurrences']) > 0
-        finally:
-            deployment.shutdown()
