@@ -62,7 +62,7 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
                 raise ValueError("Failed to connect to go gateway")
             try:
                 time.sleep(3)
-                resp = session.get("http://127.0.0.1:50503/v1/processors")
+                resp = session.get("http://127.0.0.1:50503/v1/processors", timeout=10)
                 if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
                     break
             except RequestException:
@@ -70,13 +70,17 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
         yield
     finally:
         session.close()
-        p.send_signal(signal.SIGINT)
+        p.terminate()
         try:
             stdout, _ = p.communicate(timeout=1)
             print("api gateway exited with code: ", p.returncode)
             print(stdout.decode('utf-8'))
         except TimeoutExpired:
             print("timed out waiting for api gateway to terminate")
+            p.kill()
+            stdout, _ = p.communicate()
+            print("api gateway exited with code: ", p.returncode)
+            print(stdout.decode('utf-8'))
 
 
 PHASERS = """
@@ -114,7 +118,7 @@ def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_proc
 def test_disc_api_gateway(disc_api_gateway):
     session = requests.Session()
     session.trust_env = False
-    resp = session.get("http://localhost:50503/v1/processors")
+    resp = session.get("http://localhost:50503/v1/processors", timeout=10)
     assert resp.status_code == 200
     processors = resp.json()
     all_ids = []
