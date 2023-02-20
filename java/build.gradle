@@ -112,6 +112,7 @@ dependencies {
     implementation group: 'io.grpc', name: 'grpc-protobuf', version: grpcVersion
     implementation group: 'io.grpc', name: 'grpc-stub', version: grpcVersion
 
+    implementation group: 'com.google.protobuf', name: 'protobuf-java', version: protobufVersion
     implementation group: 'com.google.protobuf', name: 'protobuf-java-util', version: protobufVersion
 
     implementation group: 'org.yaml', name: 'snakeyaml', version: '1.+'
