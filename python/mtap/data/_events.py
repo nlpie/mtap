@@ -516,7 +516,8 @@ def create_channel(address):
     channel = grpc.insecure_channel(address, options=list(options.items()))
 
     health = health_pb2_grpc.HealthStub(channel)
-    hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME))
+    hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME),
+                       metadata=[('service-name', constants.EVENTS_SERVICE_NAME)])
     if hcr.status != health_pb2.HealthCheckResponse.SERVING:
         raise ValueError('Failed to connect to events service. Status:')
     return channel

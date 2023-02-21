@@ -1,22 +1,26 @@
-FROM ubuntu:20.04
+FROM ubuntu:latest
 
-ARG DEBIAN_FRONTEND=noninteractive
+ENV PYTHONBUFFERED TRUE
 
-RUN apt-get update
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+    python3-dev \
+    python3-pip \
+    build-essential \
+    openjdk-8-jdk-headless \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get -qy install git
-RUN apt-get -qy install openjdk-11-jdk-headless
-RUN apt-get -qy install build-essential
-RUN apt-get -qy install python3 python3-pip
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+RUN update-alternatives --install /usr/local/bin/pip pip /usr/bin/pip3 1
 
-WORKDIR /home/mtap
+RUN python -m pip install --upgrade pip
 
-RUN pip3 install --upgrade pip
-RUN python3 -m pip install --upgrade setuptools
+COPY . /mtap/
 
-COPY . mtap
+RUN pip install --no-cache-dir /mtap
 
-RUN pip3 install ./mtap
-RUN ./mtap/java/gradlew -p /home/mtap/mtap/java clean build shadowJar publishToMavenLocal
+ENV JAVA_OPTS="-Xmx512m \"-XX:MaxMetaspaceSize=256m\""
+RUN /mtap/java/gradlew --no-build-cache --no-daemon --stacktrace -p /mtap/java publishToMavenLocal
 
-ENTRYPOINT /bin/sh
+ENTRYPOINT ["bin", "bash"]

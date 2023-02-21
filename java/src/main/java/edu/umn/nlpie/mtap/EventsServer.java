@@ -69,6 +69,7 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
   private static final Logger LOGGER = LoggerFactory.getLogger(EventsServer.class);
   private final @NotNull Server grpcServer;
   private final @NotNull String host;
+  private final @NotNull String sid;
   private final boolean writeAddress;
   private final @NotNull HealthService healthService;
   private final @Nullable DiscoveryMechanism discoveryMechanism;
@@ -81,12 +82,14 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
   EventsServer(
       @NotNull Server grpcServer,
       @NotNull String host,
+      @NotNull String sid,
       boolean writeAddress,
       @NotNull HealthService healthService,
       @Nullable DiscoveryMechanism discoveryMechanism
-      ) {
+  ) {
     this.grpcServer = grpcServer;
     this.host = host;
+    this.sid = sid;
     this.writeAddress = writeAddress;
     this.healthService = healthService;
     this.discoveryMechanism = discoveryMechanism;
@@ -103,8 +106,7 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
 
     if (writeAddress) {
       Path homeDir = Helpers.getHomeDirectory();
-      addressFile = homeDir.resolve("addresses").resolve("" + ProcessHandle.current().pid()
-          + ".address");
+      addressFile = homeDir.resolve("addresses").resolve(sid + ".address");
       try (BufferedWriter w = Files.newBufferedWriter(addressFile, StandardOpenOption.CREATE_NEW)) {
         w.write("" + host + ":" + port);
       }
@@ -172,18 +174,18 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
 
   private static class EventsServicer extends EventsGrpc.EventsImplBase {
     private final @NotNull ConcurrentHashMap<@NotNull String, @NotNull EventStore> backingMap;
-    private final UUID instanceId;
+    private final String instanceId;
 
-    private EventsServicer() {
+    private EventsServicer(String instanceId) {
       backingMap = new ConcurrentHashMap<>();
-      instanceId = UUID.randomUUID();
+      this.instanceId = instanceId;
     }
 
     @Override
     public void getEventsInstanceId(EventsOuterClass.GetEventsInstanceIdRequest request, StreamObserver<EventsOuterClass.GetEventsInstanceIdResponse> responseObserver) {
       LOGGER.debug("Get Instance Id called");
       responseObserver.onNext(EventsOuterClass.GetEventsInstanceIdResponse.newBuilder()
-          .setInstanceId(instanceId.toString()).build());
+          .setInstanceId(instanceId).build());
       responseObserver.onCompleted();
       LOGGER.debug("Get Instance Id completed");
     }
@@ -725,7 +727,11 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
             "directory")
     private boolean writeAddress = false;
 
-    public Builder() { }
+    @Option(name = "--sid", usage = "The service identifier")
+    private String sid = null;
+
+    public Builder() {
+    }
 
     public @NotNull String getHostname() {
       return hostname;
@@ -805,6 +811,19 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
       return this;
     }
 
+    public @Nullable String sid() {
+      return sid;
+    }
+
+    public void setSid(@Nullable String sid) {
+      this.sid = sid;
+    }
+
+    public @NotNull Builder withSid(@Nullable String sid) {
+      this.sid = sid;
+      return this;
+    }
+
     public EventsServer build() {
       Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
       DiscoveryMechanism discoveryMechanism = null;
@@ -812,7 +831,11 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
         discoveryMechanism = Discovery.getDiscoveryMechanism(config);
       }
       HealthService healthService = new HSMHealthService();
-      EventsServicer eventsServicer = new EventsServicer();
+      String sid = this.sid;
+      if (sid == null) {
+        sid = UUID.randomUUID().toString();
+      }
+      EventsServicer eventsServicer = new EventsServicer(sid);
       NettyServerBuilder builder = NettyServerBuilder.forAddress(new InetSocketAddress(hostname, port));
       Integer maxInboundMessageSize = config.getIntegerValue("grpc.events_options.grpc.max_receive_message_length");
       if (maxInboundMessageSize != null) {
@@ -837,8 +860,7 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
       Server grpcServer = builder.executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(eventsServicer).build();
-      return new EventsServer(grpcServer, hostname, writeAddress, healthService,
-          discoveryMechanism);
+      return new EventsServer(grpcServer, hostname, sid, writeAddress, healthService, discoveryMechanism);
     }
   }
 
