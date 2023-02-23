@@ -59,23 +59,23 @@ To perform processing, create another file ``pipeline.py``:
 ```python
 from mtap import Document, Event, EventsClient, Pipeline, RemoteProcessor
 
-with EventsClient(address='localhost:9090') as client, \
-     Pipeline(
-         RemoteProcessor('hello', address='localhost:9091')
-     ) as pipeline:
-  with Event(event_id='1', client=client) as event:
-    document = Document(document_name='name', text='YOUR NAME')
-    event.add_document(document)
-    pipeline.run(document)
-    index = document.get_label_index('hello')
-    for label in index:
-      print(label.response)
+with Pipeline(
+        RemoteProcessor(processor_name='hello', address=sys.argv[2]),
+        events_address=sys.argv[1]
+) as pipeline:
+    with Event(event_id='1', client=pipeline.events_client) as event:
+        document = Document(document_name='name', text='YOUR NAME')
+        event.add_document(document)
+        pipeline.run(document)
+        index = document.get_label_index('hello')
+        for label in index:
+            print(label.response)
 ```
 
 To run this pipeline type
 
 ```bash
-python pipeline.py
+python pipeline.py localhost:9090 localhost:9091
 ```
 
 ## Interacting with the Events Service

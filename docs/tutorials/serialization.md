@@ -14,17 +14,18 @@ serialize the results to a JSON file.
 
 ```python
 from mtap import EventsClient, Event, Pipeline, RemoteProcessor, LocalProcessor
-from mtap.io.serialization import JsonSerializer, SerializationProcessor
+from mtap.serialization import JsonSerializer, SerializationProcessor
 
-with EventsClient(address='localhost:10000') as client, Pipeline(
+with Pipeline(
       RemoteProcessor('example-1', address='localhost:10001'),
       RemoteProcessor('example-2', address='localhost:10002'),
       LocalProcessor(SerializationProcessor(JsonSerializer,
                                             output_dir='path/to/output_dir'),
                      component_id='serialize',
-                     client=client)
+                     client=client),
+      events_address='localhost:10000'
     ) as pipeline:
-  with Event(event_id=path.stem, client=client) as event:
+  with Event(event_id=path.stem, client=pipeline.events_client) as event:
     doc = event.create_document('plaintext', document_text)
     pipeline.run(doc)
 ```
@@ -39,12 +40,13 @@ pipeline on that event.
 from mtap import Pipeline, RemoteProcessor, EventsClient, LocalProcessor
 from mtap.io.serialization import JsonSerializer
 
-with EventsClient(address='localhost:10000') as client, Pipeline(
+with Pipeline(
       RemoteProcessor('example-1', address='localhost:10001'),
-      RemoteProcessor('example-2', address='localhost:10002')
+      RemoteProcessor('example-2', address='localhost:10002'),
+      events_address='localhost:10000'
     ) as pipeline:
   for test_file in input_dir.glob('**/*.json'):
-    with JsonSerializer.file_to_event(test_file, client=client) as event:
+    with JsonSerializer.file_to_event(test_file, client=pipeline.events_client) as event:
         document = event.documents['plaintext']
         results = pipeline.run(document)
 

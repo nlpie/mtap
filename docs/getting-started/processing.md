@@ -28,8 +28,7 @@ between more than one document, or summarizing a document.
 #### Python
 
 ```python
-from mtap import processor
-from mtap.processing import EventProcessor
+from mtap import processor, EventProcessor
 
 @processor('example-event-processor')
 class ExampleProcessor(EventProcessor):
