@@ -36,7 +36,7 @@ classifiers = [
 ]
 dependencies = [
     "grpcio>=1.48.2,<1.52.0",
-    "grpcio-health-checking>=1.48.2",
+    "grpcio-health-checking>=1.48.2,<1.52.0",
     "googleapis-common-protos",
     "pyyaml",
     "tqdm",
