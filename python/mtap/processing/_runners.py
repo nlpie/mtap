@@ -117,7 +117,7 @@ class RemoteRunner(_base.ProcessingComponent):
             with _base.Processor.started_stopwatch('remote_call'):
                 try:
                     response = self._stub.Process(request,
-                                                  metadata=[('processor-name', self.processor_name)])
+                                                  metadata=[('service-name', self.processor_name)])
                 except Exception as e:
                     logger.error("Error while processing event_id %s through remote pipeline "
                                  "component  '%s'", event_id, self.component_id)
