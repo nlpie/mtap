@@ -13,9 +13,9 @@
 # limitations under the License.
 """Internal processors and pipelines functionality."""
 import contextlib
+import datetime
 import threading
 from abc import ABCMeta, abstractmethod, ABC
-from datetime import timedelta, datetime
 from typing import (
     List,
     ContextManager,
@@ -79,7 +79,7 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
         self._key = key
         self._context = context
         self._running = False
-        self.duration = timedelta()
+        self.duration = datetime.timedelta()
         self._start = None
 
     def start(self):
@@ -87,14 +87,14 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
         """
         if not self._running:
             self._running = True
-            self._start = datetime.now()
+            self._start = datetime.datetime.now()
 
     def stop(self):
         """Stops / pauses the timer
         """
         if self._running:
             self._running = False
-            self.duration += datetime.now() - self._start
+            self.duration += datetime.datetime.now() - self._start
 
     def __enter__(self):
         return self
@@ -308,12 +308,6 @@ class ProcessingError(Exception):
 
 class ProcessingResult(NamedTuple):
     """The result of processing one document or event.
-
-    Attributes:
-        identifier (str): The id of the processor with respect to the pipeline.
-        result_dict: The json object returned by the processor as its results.
-        timing_info: A dictionary of the times taken processing this document
-        created_indices: Any indices that have been added to documents by this processor.
     """
     identifier: str
     result_dict: Dict
@@ -321,22 +315,23 @@ class ProcessingResult(NamedTuple):
     created_indices: Dict[str, List[str]]
 
 
+ProcessingResult.identifier.__doc__ = "str: The id of the processor with respect to the pipeline."
+ProcessingResult.result_dict.__doc__ = "Dict: The json object returned by the processor as its results."
+ProcessingResult.timing_info.__doc__ = "Dict: A dictionary of the times taken processing this document."
+ProcessingResult.created_indices.__doc__ = "Dict[str, List[str]]: Any indices that have been added to documents by " \
+                                           "this processor."
+
 class PipelineResult(NamedTuple):
     """The result of processing an event or document in a pipeline.
-
-    Attributes:
-        component_results (List[ProcessingResult]): The processing results for each individual
-            component
-        elapsed_time (timedelta): The elapsed time for the entire pipeline.
 
     Args:
         component_results (List[ProcessingResult]): The processing results for each individual
             component
-        elapsed_time (timedelta): The elapsed time for the entire pipeline.
+        elapsed_time (~datetime.timedelta): The elapsed time for the entire pipeline.
 
     """
     component_results: List[ProcessingResult]
-    elapsed_time: timedelta
+    elapsed_time: datetime.timedelta
 
     def component_result(self, identifier: str) -> ProcessingResult:
         """Returns the component result for a specific identifier.
@@ -354,30 +349,30 @@ class PipelineResult(NamedTuple):
             raise KeyError('No result for identifier: ' + identifier)
 
 
+PipelineResult.component_results.__doc__ = "List[ProcessingResult]: The processing results for each individual " \
+                                           "component"
+PipelineResult.elapsed_time.__doc__ = "~datetime.timedelta: The elapsed time for the entire pipeline."
+
+
 class TimerStats(NamedTuple):
     """Statistics about a specific keyed measured duration recorded by a :obj:`~mtap.processing.base.Stopwatch`.
-
-    Attributes
-        mean: The sample mean of all measured durations.
-        std: The sample standard deviation of all measured durations.
-        min: The minimum of all measured durations.
-        max: The maximum of all measured durations.
-        sum: The sum of all measured durations.
     """
-    mean: timedelta
-    std: timedelta
-    min: timedelta
-    max: timedelta
-    sum: timedelta
+    mean: datetime.timedelta
+    std: datetime.timedelta
+    min: datetime.timedelta
+    max: datetime.timedelta
+    sum: datetime.timedelta
+
+
+TimerStats.mean.__doc__ = "~datetime.timedelta: The sample mean of all measured durations."
+TimerStats.std.__doc__ = "~datetime.timedelta: The sample standard deviation of all measured durations."
+TimerStats.min.__doc__ = "~datetime.timedelta: The minimum of all measured durations."
+TimerStats.max.__doc__ = "~datetime.timedelta: The maximum of all measured durations."
+TimerStats.sum.__doc__ = "~datetime.timedelta: The sum of all measured durations."
 
 
 class AggregateTimingInfo(NamedTuple):
     """Collection of all the timing info for a specific processor.
-
-    Attributes:
-        identifier (str): The ID of the processor with respect to the pipeline.
-        timing_info (dict[str, TimerStats]):
-            A map from all the timer keys for the processor to the aggregated duration statistics.
     """
     identifier: str
     timing_info: 'Dict[str, processing.TimerStats]'
@@ -415,6 +410,11 @@ class AggregateTimingInfo(NamedTuple):
         for key, stats in self.timing_info.items():
             yield '{}:{},{},{},{},{},{}\n'.format(self.identifier, key, stats.mean, stats.std,
                                                   stats.min, stats.max, stats.sum)
+
+
+AggregateTimingInfo.identifier.__doc__ = "str: The ID of the processor with respect to the pipeline."
+AggregateTimingInfo.timing_info.__doc__ = "dict[str, TimerStats]: A map from all the timer keys for the processor to " \
+                                          "the aggregated duration statistics."
 
 
 class ProcessingComponent(ABC):
