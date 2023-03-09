@@ -104,7 +104,7 @@ def sl4fjVersion = '2.0.6'
 
 dependencies {
     api group: 'org.jetbrains', name: 'annotations', version: '23.1.0'
-    api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '2.14.2'
+    api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: ['2.9.0','2.14.2']
     api group: 'args4j', name: 'args4j', version: '2.33'
 
     implementation group: 'com.google.guava', name: 'guava', version: '31.1-jre'
