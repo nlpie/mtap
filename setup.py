@@ -30,8 +30,8 @@ class protoc(Command):
     def run(self):
         import grpc_tools.protoc
 
-        with (importlib_resources.as_file(importlib_resources.files('google')) as api_protos,
-              tempfile.TemporaryDirectory() as tempdir):
+        with importlib_resources.as_file(importlib_resources.files('google')) as api_protos, \
+                tempfile.TemporaryDirectory() as tempdir:
             shutil.copytree(os.fspath(api_protos), os.path.join(tempdir, 'google'))
             for proto in ['events.proto', 'processing.proto']:
                 grpc_tools.protoc.main([
