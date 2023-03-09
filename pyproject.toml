@@ -63,6 +63,7 @@ test = [
     "grpcio-testing>=1.48.2,<1.51.1",
     "requests==2.28.1",
     "importlib-resources==5.10.0",
+    "googleapis-common-protos==1.57.0",
 ]
 docs = [
     "sphinx==5.3.0",
