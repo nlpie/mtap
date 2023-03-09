@@ -98,7 +98,7 @@ sourceSets {
 }
 
 def grpcVersion = '1.53.0'
-def protobufVersion = '3.22.0'
+def protobufVersion = '3.22.1'
 def junitVersion = '5.9.2'
 def sl4fjVersion = '2.0.6'
 
