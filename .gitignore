@@ -370,7 +370,11 @@ gradle-app.setting
 # go release folder
 /go/release/
 
+# generated code
 python/mtap/version.py
+python/mtap/api/v1/
+!python/mtap/api/v1/__init__.py
+
 python/docs/_build
 
 .project
@@ -381,3 +385,4 @@ Pipfile.lock
 
 # override for test logging jar
 !python/tests/slf4j-simple-*.jar
+
