@@ -2,12 +2,10 @@ version: 2
 updates:
   - package-ecosystem: pip
     directory: /
-    versioning-strategy: widen
     schedule:
       interval: weekly
   - package-ecosystem: gradle
     directory: /java/
-    versioning-strategy: widen
     schedule:
       interval: daily
   - package-ecosystem: gomod
