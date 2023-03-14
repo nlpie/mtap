@@ -1,3 +1,6 @@
+![PyPI](https://img.shields.io/pypi/v/mtap)
+![Maven Central](https://img.shields.io/maven-central/v/edu.umn.nlpie/mtap)
+
 # MTAP
 
 [nlpie.github.io/mtap](https://nlpie.github.io/mtap)
