@@ -181,14 +181,6 @@ publishing {
 
             from components.java
             artifacts = [jar, sourcesJar, javadocJar]
-            versionMapping {
-                usage('java-api') {
-                    fromResolutionOf('runtimeClasspath')
-                }
-                usage('java-runtime') {
-                    fromResolutionResult()
-                }
-            }
 
             pom {
                 name = 'Microservice Text Analysis Platform'

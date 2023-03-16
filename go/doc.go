@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/processing.proto
-//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
-//go:generate protoc -I/usr/local/include -I../proto -I../third_party/api-common-protos-0.1.0 --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
 //go:generate go run store-swaggers/main.go mtap/api/v1
 package mtap
