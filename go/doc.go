@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis-common-protos-1_3_1 --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis-common-protos-1_3_1 --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis-common-protos-1_3_1 --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
-//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis-common-protos-1_3_1 --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/processing.proto
-//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis-common-protos-1_3_1 --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
-//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis-common-protos-1_3_1 --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/events.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --go_out=plugins=grpc,paths=source_relative:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --grpc-gateway_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
+//go:generate protoc -I/usr/local/include -I../proto -Ithird_party/googleapis --swagger_out=logtostderr=true:. ../proto/mtap/api/v1/processing.proto
 //go:generate go run store-swaggers/main.go mtap/api/v1
 package mtap
