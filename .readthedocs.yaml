@@ -11,7 +11,7 @@ build:
         python: "3.10"
     jobs:
         pre_install:
-            - git update-index --assume-unchanged environment.yml docs/conf.py
+            - git update-index --assume-unchanged environment.yml python/docs/conf.py
 
 sphinx:
     configuration: python/docs/conf.py
