@@ -372,8 +372,8 @@ gradle-app.setting
 
 # generated code
 python/mtap/version.py
-python/mtap/api/v1/
 !python/mtap/api/v1/__init__.py
+python/mtap/api/v1/
 
 python/docs/_build
 
