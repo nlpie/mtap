@@ -49,6 +49,7 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
 import grpc
@@ -147,7 +148,7 @@ class SharedProcessorConfig:
             processors.
         java_classpath (~typing.Optional[str]): A classpath string that will be passed to all java
             processors.
-        startup_timeout (~typing.Optional[int]): The default startup timeout for processors.
+        startup_timeout (~typing.Optional[float]): The default startup timeout for processors.
         mp_spawn_method (~typing.Optional[str]): A :meth:`multiprocessing.get_context` argument to create
             the multiprocessing context.
 
@@ -162,7 +163,7 @@ class SharedProcessorConfig:
             processors.
         java_classpath (~typing.Optional[str]): A classpath string that will be passed to all java
             processors.
-        startup_timeout (~typing.Optional[int]): The default startup timeout for processors.
+        startup_timeout (~typing.Optional[float]): The default startup timeout for processors.
         mp_spawn_method (~typing.Optional[str]): A :meth:`multiprocessing.get_context` argument to create
             the multiprocessing context.
 
@@ -175,7 +176,7 @@ class SharedProcessorConfig:
                  jvm_args: Optional[List[str]] = None,
                  java_classpath: Optional[str] = None,
                  java_additional_args: Optional[List[str]] = None,
-                 startup_timeout: Optional[int] = None,
+                 startup_timeout: Optional[float] = None,
                  mp_spawn_method: Optional[str] = None):
         self.events_addresses = events_addresses
         self.workers = workers
@@ -183,7 +184,7 @@ class SharedProcessorConfig:
         self.jvm_args = jvm_args
         self.java_classpath = java_classpath
         self.java_additional_args = java_additional_args
-        self.startup_timeout = startup_timeout or 30
+        self.startup_timeout = startup_timeout or 30.0
         self.mp_spawn_method = mp_spawn_method
 
     @staticmethod
@@ -382,7 +383,7 @@ class ProcessorDeployment:
             Arguments that occur prior to the MTAP service arguments (like host, port, etc).
         additional_args (~typing.Optional[~typing.List[str]]):
             Arguments that occur after the MTAP service arguments.
-        startup_timeout (~typing.Optional[int]): Optional override startup timeout.
+        startup_timeout (~typing.Optional[float]): Optional override startup timeout.
         mp_spawn_method (~typing.Optional[str]): A :meth:`multiprocessing.get_context` argument to create
             the multiprocessing context.
 
@@ -399,7 +400,7 @@ class ProcessorDeployment:
             Arguments that occur prior to the MTAP service arguments (like host, port, etc).
         additional_args (~typing.Optional[~typing.List[str]]):
             Arguments that occur after the MTAP service arguments.
-        startup_timeout (~typing.Optional[int]): Optional override startup timeout.
+        startup_timeout (~typing.Optional[float]): Optional override startup timeout.
         mp_spawn_method (~typing.Optional[str]): A :meth:`multiprocessing.get_context` argument to create
             the multiprocessing context.
 
@@ -420,7 +421,7 @@ class ProcessorDeployment:
                  unique_service_identifier: Optional[List[str]] = None,
                  pre_args: Optional[List[str]] = None,
                  additional_args: Optional[List[str]] = None,
-                 startup_timeout: Optional[int] = None,
+                 startup_timeout: Optional[float] = None,
                  mp_spawn_method: Optional[str] = None):
         self.implementation = implementation
         self.entry_point = entry_point
@@ -670,7 +671,7 @@ class Deployment:
                           call: List[str],
                           name: Any,
                           sid: str,
-                          startup_timeout: int,
+                          startup_timeout: float,
                           enable_proxy: bool = False) -> str:
         # starts process and listener, stores for later cleanup, returns address.
         p = subprocess.Popen(call, start_new_session=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -678,7 +679,8 @@ class Deployment:
         listener.start()
         self._processor_listeners.append((p, listener))  # Adding early so it gets cleaned up on failure
         address = None
-        for i in range(startup_timeout):
+        deadline = time.time() + startup_timeout
+        while time.time() < deadline:
             try:
                 address = utilities.read_address(sid)
                 break
@@ -690,7 +692,10 @@ class Deployment:
                                    options=[('grpc.enable_http_proxy', enable_proxy)]) as channel:
             future = grpc.channel_ready_future(channel)
             try:
-                future.result(timeout=startup_timeout)
+                timeout = deadline - time.time()
+                if timeout < 0:
+                    raise ServiceDeploymentException(f'Failed to launch, timed out waiting: {name}')
+                future.result(timeout=timeout)
             except grpc.FutureTimeoutError:
                 raise ServiceDeploymentException(f'Failed to launch, unresponsive: {name}')
         return address

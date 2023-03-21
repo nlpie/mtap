@@ -21,12 +21,13 @@ import (
 	"encoding/json"
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hashicorp/consul/api"
-	"github.com/nlpie/mtap/go/mtap/api/v1"
+	ApiV1 "github.com/nlpie/mtap/go/mtap/api/v1"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
 	"net/http"
 	"strconv"
 	"time"
@@ -250,10 +251,10 @@ func (ps *Server) doUpdate() {
 
 func (ps *Server) newManualProcessorGateway(manualProcessor ManualProcessor) (*Gateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v with address: %v", manualProcessor.Identifier, manualProcessor.Endpoint)
-	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{MarshalOptions: protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}}))
 	ctx, cancel := context.WithCancel(ps.ctx)
 
-	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
+	err := ApiV1.RegisterProcessorHandlerFromEndpoint(
 		ctx,
 		gwmux,
 		manualProcessor.Endpoint,
@@ -278,10 +279,10 @@ func (ps *Server) createDialOptions() []grpc.DialOption {
 
 func (ps *Server) newProcessorGateway(pn string) (*Gateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v", pn)
-	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{MarshalOptions: protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}}))
 	ctx, cancel := context.WithCancel(ps.ctx)
 
-	err := mtap_api_v1.RegisterProcessorHandlerFromEndpoint(
+	err := ApiV1.RegisterProcessorHandlerFromEndpoint(
 		ctx,
 		gwmux,
 		"consul://"+ps.authority+"/"+pn+"/v1-mtap-processor",

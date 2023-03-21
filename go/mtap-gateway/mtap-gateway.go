@@ -21,53 +21,22 @@ import (
 	"flag"
 	"fmt"
 	"github.com/golang/glog"
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/nlpie/mtap/go/mtap/api/v1"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	ApiV1 "github.com/nlpie/mtap/go/mtap/api/v1"
 	_ "github.com/nlpie/mtap/go/mtap/consul"
 	"github.com/nlpie/mtap/go/mtap/processors"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"io"
+	"google.golang.org/protobuf/encoding/protojson"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"time"
 )
-
-func serveSwagger(r *mux.Router) {
-	m := mux.NewRouter()
-	m.HandleFunc("/v1/processors/swagger.json",
-		func(w http.ResponseWriter, req *http.Request) {
-			_, err := io.Copy(w, strings.NewReader(mtap_api_v1.Processing))
-			if err != nil {
-				w.WriteHeader(500)
-			}
-			w.Header().Set("Content-Type", "application/json")
-		})
-
-	m.HandleFunc("/v1/events/swagger.json",
-		func(w http.ResponseWriter, req *http.Request) {
-			_, err := io.Copy(w, strings.NewReader(mtap_api_v1.Events))
-			if err != nil {
-				w.WriteHeader(500)
-			}
-			w.Header().Set("Content-Type", "application/json")
-		})
-
-	corsHandler := handlers.CORS(
-		handlers.AllowedOrigins([]string{"*"}),
-		handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"}),
-		handlers.AllowedHeaders([]string{"Content-Type", "api-key", "Authorization"}),
-	)
-	r.Handle("/v1/processors/swagger.json", corsHandler(m))
-	r.Handle("/v1/events/swagger.json", corsHandler(m))
-}
 
 func run() error {
 	glog.V(1).Infoln("Starting MTAP API Gateway")
@@ -86,8 +55,6 @@ func run() error {
 	consulAddr := consulHost + ":" + strconv.Itoa(consulPort)
 
 	m := mux.NewRouter()
-
-	serveSwagger(m)
 
 	config := processors.Config{
 		ConsulAddress:       consulHost,
@@ -110,7 +77,8 @@ func run() error {
 	}
 	m.PathPrefix("/v1/processors").Handler(server.Dispatcher)
 
-	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName: true, EmitDefaults: true}))
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard,
+		&runtime.JSONPb{MarshalOptions: protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}}))
 	eventsLookup := viper.Get("gateway.events")
 	var eventsAddr string
 	if eventsLookup != nil {
@@ -120,7 +88,7 @@ func run() error {
 		eventsAddr = fmt.Sprintf("consul://%s/mtap-events/v1", consulAddr)
 		glog.Info("Using consul service discovery for events: ", eventsAddr)
 	}
-	err = mtap_api_v1.RegisterEventsHandlerFromEndpoint(
+	err = ApiV1.RegisterEventsHandlerFromEndpoint(
 		ctx,
 		gwmux,
 		eventsAddr,

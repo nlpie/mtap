@@ -23,6 +23,7 @@ import "google/protobuf/struct.proto";
 package mtap.api.v1;
 
 option java_package = "edu.umn.nlpie.mtap.api.v1";
+option go_package = "mtap/api/v1";
 
 /* The name of a newly created label index during a process call.
  */
