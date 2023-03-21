@@ -24,6 +24,7 @@ import "google/protobuf/struct.proto";
 package mtap.api.v1;
 
 option java_package = "edu.umn.nlpie.mtap.api.v1";
+option go_package = "mtap/api/v1";
 
 /* A request to retrieve the UUID for this events service instance.
  */
