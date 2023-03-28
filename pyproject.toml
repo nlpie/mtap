@@ -61,7 +61,7 @@ write_to = "python/mtap/version.py"
 test = [
     "pytest==7.2.2",
     "pytest-mock==3.10.0",
-    "grpcio-testing>=1.48.2,<=1.51.3",
+    "grpcio-testing>=1.48.2,<=1.53.0",
     "requests==2.28.2",
     "importlib-resources==5.12.0",
 ]
