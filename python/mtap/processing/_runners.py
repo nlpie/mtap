@@ -11,37 +11,49 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 import logging
 from typing import Optional, Dict, Any, TYPE_CHECKING
 
 import grpc
 
-from mtap import _discovery, _structs, Config
+from mtap import _structs, Config
 from mtap import data
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
-from mtap.processing import _base
+from mtap.data import FailedToConnectToEventsServiceException
+from mtap.processing._base import ProcessingComponent, Processor
+from mtap.processing._error_handling import ProcessingException
 
 if TYPE_CHECKING:
-    import mtap
+    from mtap import EventProcessor, EventsClient
+    from mtap.data import EventsAddressLike
 
 logger = logging.getLogger('mtap.processing')
 
 
-class ProcessorRunner(_base.ProcessingComponent):
-    __slots__ = ('processor', '_processor_name', '_component_id', 'params', 'metadata', 'client')
+class LocalRunner(ProcessingComponent):
+    __slots__ = (
+        '_processor',
+        '_events_address',
+        '_processor_name',
+        '_component_id',
+        '_params',
+        'metadata',
+        '_client'
+    )
 
     def __init__(self,
-                 proc: 'mtap.EventProcessor',
-                 client: 'Optional[mtap.EventsClient]',
-                 processor_name: str = None,
-                 component_id: str = None,
+                 processor: 'EventProcessor',
+                 events_address: 'EventsAddressLike',
+                 component_id: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
-        self.processor = proc
-        self.params = params or {}
-        self.metadata = proc.metadata
-        self._processor_name = processor_name
-        self._component_id = component_id
-        self.client = client
+        self._processor = processor
+        self._events_address = events_address
+        self._processor_name = processor.metadata['name']
+        self._component_id = component_id or self.processor_name
+        self._params = params or {}
+        self.metadata = processor.metadata
+        self._client = None
 
     @property
     def processor_name(self) -> str:
@@ -51,47 +63,88 @@ class ProcessorRunner(_base.ProcessingComponent):
     def component_id(self) -> str:
         return self._component_id
 
+    @property
+    def _events_client(self) -> 'EventsClient':
+        if self._client is None:
+            self._client = data.EventsClient(self._events_address)
+        return self._client
+
     def call_process(self, event_id, event_instance_id, params):
-        p = dict(self.params)
+        p = copy.deepcopy(self._params)
         if params is not None:
             p.update(params)
 
-        with _base.Processor.enter_context() as c, \
-                data.Event(event_id=event_id,
-                           event_service_instance_id=event_instance_id,
-                           client=self.client) as event:
-            with _base.Processor.started_stopwatch('process_method'):
+        with Processor.enter_context() as c, \
+                data.Event(
+                    event_id=event_id,
+                    event_service_instance_id=event_instance_id,
+                    client=self._events_client,
+                    label_adapters=self._processor.custom_label_adapters
+                ) as event:
+            with Processor.started_stopwatch('process_method'):
                 try:
-                    result = self.processor.process(event, p)
-                except Exception as e:
-                    logger.error(
-                        "Error while processing event_id %s through pipeline component  '%s'",
-                        event_id, self.component_id)
+                    result = self._processor.process(event, p)
+                except FailedToConnectToEventsServiceException as e:
+                    raise ProcessingException.from_local_exception(
+                        e, self.component_id, e.msg
+                    )
+                except KeyError as e:
+                    if e.args[0] == 'document_name':
+                        raise ProcessingException.from_local_exception(
+                            e, self.component_id,
+                            "This error is likely caused by attempting "
+                            "to run an event through a document processor. "
+                            "Either call the pipeline with a document or "
+                            "set the 'document_name' processor parameter."
+                        )
                     raise e
+                except Exception as e:
+                    raise ProcessingException.from_local_exception(
+                        e, self.component_id
+                    )
             return result, c.times, event.created_indices
 
     def close(self):
-        pass
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
 
-class RemoteRunner(_base.ProcessingComponent):
-    __slots__ = ('_processor_name', '_component_id', '_address', 'params', '_channel', '_stub')
+class RemoteRunner(ProcessingComponent):
+    __slots__ = (
+        '_processor_name',
+        '_component_id',
+        '_address',
+        '_params',
+        '_channel',
+        '_stub'
+    )
 
-    def __init__(self, processor_name, component_id, address=None, params=None,
-                 enable_proxy=None):
+    def __init__(
+            self,
+            processor_name,
+            component_id,
+            address=None,
+            params=None,
+            enable_proxy=None
+    ):
         self._processor_name = processor_name
         self._component_id = component_id
         self._address = address
-        self.params = params
+        self._params = params or {}
         address = self._address
         config = Config()
         if enable_proxy is not None:
-            config['grpc.processor_options.gprc.enable_http_proxy'] = enable_proxy
+            config['grpc.processor_options.gprc.enable_http_proxy'] \
+                = enable_proxy
         if address is None:
-            discovery = _discovery.Discovery(config)
-            address = discovery.discover_processor_service(processor_name, 'v1')
+            from mtap.discovery import DiscoveryMechanism
+            discovery = DiscoveryMechanism()
+            address = discovery.discover_processor_service(processor_name,
+                                                           'v1')
         channel_options = config.get('grpc.processor_options', {})
-        self._channel = grpc.insecure_channel(address, options=list(channel_options.items()))
+        self._channel = grpc.insecure_channel(address, options=list(
+            channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
     @property
@@ -104,24 +157,41 @@ class RemoteRunner(_base.ProcessingComponent):
 
     def call_process(self, event_id, event_instance_id, params):
         logger.debug('calling process (%s, %s) on event: (%s, %s)',
-                     self.processor_name, self._address, event_id, event_instance_id)
-        p = dict(self.params or {})
+                     self.processor_name, self._address, event_id,
+                     event_instance_id)
+        p = copy.deepcopy(self._params)
         if params is not None:
             p.update(params)
 
-        with _base.Processor.enter_context() as context:
-            request = processing_pb2.ProcessRequest(processor_id=self.processor_name,
-                                                    event_id=event_id,
-                                                    event_service_instance_id=event_instance_id)
+        with Processor.enter_context() as context:
+            request = processing_pb2.ProcessRequest(
+                processor_id=self.processor_name,
+                event_id=event_id,
+                event_service_instance_id=event_instance_id
+            )
             _structs.copy_dict_to_struct(p, request.params, [p])
-            with _base.Processor.started_stopwatch('remote_call'):
+            with Processor.started_stopwatch('remote_call'):
                 try:
-                    response = self._stub.Process(request,
-                                                  metadata=[('service-name', self.processor_name)])
+                    response = self._stub.Process(
+                        request,
+                        metadata=[('service-name', self.processor_name)])
+                except grpc.RpcError as e:
+                    if e.code() == grpc.StatusCode.UNAVAILABLE:
+                        raise ProcessingException.from_local_exception(
+                            e,
+                            self.component_id,
+                            "Failed to connect to processor service, check "
+                            "that the service is running and the address is "
+                            "correctly configured."
+                        )
+                    raise ProcessingException.from_rpc_error(
+                        e, self.component_id, self._address
+                    )
                 except Exception as e:
-                    logger.error("Error while processing event_id %s through remote pipeline "
-                                 "component  '%s'", event_id, self.component_id)
-                    raise e
+                    raise ProcessingException.from_local_exception(
+                        e, self.component_id
+                    )
+
             r = {}
             _structs.copy_struct_to_dict(response.result, r)
 
@@ -132,10 +202,12 @@ class RemoteRunner(_base.ProcessingComponent):
             created_indices = {}
             for created_index in response.created_indices:
                 try:
-                    doc_created_indices = created_indices[created_index.document_name]
+                    doc_created_indices = created_indices[
+                        created_index.document_name]
                 except KeyError:
                     doc_created_indices = []
-                    created_indices[created_index.document_name] = doc_created_indices
+                    created_indices[
+                        created_index.document_name] = doc_created_indices
                 doc_created_indices.append(created_index.index_name)
 
             return r, context.times, created_indices

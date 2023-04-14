@@ -1,5 +1,6 @@
+****
 mtap
-====
+****
 .. module:: mtap
 
 .. contents::
@@ -30,73 +31,135 @@ usage:
                         path to config file
 
 API Documentation
------------------
+=================
 
 Events service client, documents
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+--------------------------------
 .. autoclass:: EventsClient
 .. autoclass:: Event
+   :members:
 .. autoclass:: Document
+   :members:
 .. autoclass:: mtap.data.Labeler
+   :members:
 .. autoclass:: mtap.data.LabelIndexInfo
-   :exclude-members: __getnewargs__, __new__, __repr__
+   :members:
 .. autoclass:: mtap.data.LabelIndexType
+   :members:
 
 Labels
-^^^^^^
+------
 .. autoclass:: mtap.data.Label
+   :members:
 .. autoclass:: mtap.data.Location
+   :members:
 .. autofunction:: label
 .. autoclass:: GenericLabel
+   :members:
+   :show-inheritance:
 
 Label Indices
-^^^^^^^^^^^^^
+-------------
 .. autofunction:: label_index
 .. autoclass:: mtap.data.LabelIndex
+   :members:
 
 Custom Label Types
-^^^^^^^^^^^^^^^^^^
+------------------
 .. autoclass:: mtap.data.ProtoLabelAdapter
+   :members:
 
 Creating Processors
-^^^^^^^^^^^^^^^^^^^
+-------------------
 .. autoclass:: mtap.processing.Processor
+   :members:
 .. autoclass:: EventProcessor
+   :members:
+   :show-inheritance:
 .. autoclass:: DocumentProcessor
-   :exclude-members: process
+   :members:
+   :show-inheritance:
 .. autoclass:: mtap.processing.Stopwatch
+   :members:
 
 Processor Description Decorators
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autofunction:: processor
-.. autofunction:: mtap.processing.descriptions.parameter
-.. autofunction:: mtap.processing.descriptions.labels
-.. autofunction:: mtap.processing.descriptions.label_property
+.. automodule:: mtap.processing.descriptions
+   :members:
+   :no-inherited-members:
+   :exclude-members: processor
 
 Running Services
-^^^^^^^^^^^^^^^^
+----------------
+.. module:: mtap
+   :noindex:
 .. autofunction:: processor_parser
 .. autofunction:: run_processor
-.. autoclass:: EventsServer
-.. autoclass:: ProcessorServer
 
 Running a pipeline
-^^^^^^^^^^^^^^^^^^
+------------------
 .. autoclass:: Pipeline
-   :exclude-members: insert
+   :members:
+   :show-inheritance:
+.. autoclass:: mtap.processing.MpConfig
+   :members:
 .. autoclass:: mtap.processing.ComponentDescriptor
 .. autoclass:: RemoteProcessor
+   :show-inheritance:
 .. autoclass:: LocalProcessor
-.. autoclass:: mtap.processing.ProcessingSource
-.. autoclass:: mtap.processing.PipelineResult
-   :exclude-members: __getnewargs__, __new__, __repr__
-.. autoclass:: mtap.processing.ProcessingResult
-   :exclude-members: __getnewargs__, __new__, __repr__
-.. autoclass:: mtap.processing.TimerStats
-   :exclude-members: __getnewargs__, __new__, __repr__
-.. autoclass:: mtap.processing.AggregateTimingInfo
-   :exclude-members: __getnewargs__, __new__, __repr__
+   :show-inheritance:
+
+Pipeline Document Sources
+^^^^^^^^^^^^^^^^^^^^^^^^^
+.. module:: mtap.processing
+   :noindex:
+.. autoclass:: ProcessingSource
+   :members:
+.. autoclass:: FilesInDirectoryProcessingSource
+   :members:
+   :show-inheritance:
+
+Pipeline Results
+^^^^^^^^^^^^^^^^
+.. autoclass:: BatchPipelineResult
+.. autoclass:: PipelineResult
+.. autoclass:: ComponentResult
+.. autoclass:: TimerStats
+.. autoclass:: AggregateTimingInfo
+   :members:
+
+Pipeline Error Handling
+^^^^^^^^^^^^^^^^^^^^^^^
+.. automodule:: mtap.processing._error_handling
+   :no-members:
+.. module:: mtap.processing
+.. autoclass:: ProcessingErrorHandler
+.. autoclass:: ErrorInfo
+.. autoclass:: ErrorOrigin
+   :members:
+.. autoclass:: StopProcessing
+.. autoclass:: SuppressError
+.. autoclass:: ErrorHandlerRegistry
+   :members:
+.. autoclass:: SimpleErrorHandler
+   :members:
+   :show-inheritance:
+.. autoclass:: TerminationErrorHandler
+   :members:
+   :show-inheritance:
+.. autoclass:: LoggingErrorHandler
+   :members:
+   :show-inheritance:
+.. autoclass:: ErrorsDirectoryErrorHandler
+   :members:
+   :show-inheritance:
+.. autoclass:: SuppressAllErrorsHandler
+   :members:
+   :show-inheritance:
 
 Configuration
-^^^^^^^^^^^^^
+-------------
+.. module:: mtap
+   :noindex:
 .. autoclass:: Config

@@ -48,7 +48,7 @@ def fixture_java_hello_processor(java_exe, python_events, processor_watcher):
 
 @pytest.mark.integration
 def test_hello_world(python_events, hello_processor):
-    p = run(['python', '-m', 'mtap.examples.tutorial.pipeline', python_events, hello_processor],
+    p = run([sys.executable, '-m', 'mtap.examples.tutorial.pipeline', python_events, hello_processor],
             stdout=PIPE)
     p.check_returncode()
     assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'
@@ -56,7 +56,7 @@ def test_hello_world(python_events, hello_processor):
 
 @pytest.mark.integration
 def test_java_hello_world(python_events, java_hello_processor):
-    p = run(['python', '-m', 'mtap.examples.tutorial.pipeline', python_events,
+    p = run([sys.executable, '-m', 'mtap.examples.tutorial.pipeline', python_events,
              java_hello_processor], stdout=PIPE)
     p.check_returncode()
     assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'

@@ -20,6 +20,7 @@ import edu.umn.nlpie.mtap.common.Config;
 import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
+import edu.umn.nlpie.mtap.examples.HelloWorldExample;
 import edu.umn.nlpie.mtap.model.ChannelFactory;
 import edu.umn.nlpie.mtap.model.EventsClientPool;
 import edu.umn.nlpie.mtap.utilities.Helpers;
@@ -520,6 +521,23 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
      */
     public ProcessorServer createServer(EventProcessor processor) {
       return build(processor);
+    }
+  }
+
+  public static void hostProcessor(String[] args, EventProcessor processor) {
+    ProcessorServer.Builder options = new ProcessorServer.Builder();
+    CmdLineParser parser = new CmdLineParser(options);
+    try {
+      parser.parseArgument(args);
+      ProcessorServer server = options.build(processor);
+      server.start();
+      server.blockUntilShutdown();
+    } catch (IOException e) {
+      System.err.println("Failed to start server: " + e.getMessage());
+    } catch (InterruptedException e) {
+      System.err.println("Server interrupted.");
+    } catch (CmdLineException e) {
+      ProcessorServer.Builder.printHelp(parser, EventProcessor.class, e, null);
     }
   }
 }

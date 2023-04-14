@@ -11,9 +11,10 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import pytest
 
 import mtap
-from mtap import RemoteProcessor
+from mtap import RemoteProcessor, EventsClient
 from mtap.deployment import Deployment, ProcessorDeployment
 
 text = """
@@ -35,6 +36,7 @@ Here was a Caesar! when comes such another?
 """
 
 
+@pytest.mark.integration
 def test_deployment(java_exe):
     from importlib_resources import files, as_file
     deployment_config = files('mtap.examples').joinpath('exampleDeploymentConfiguration.yml')
@@ -57,16 +59,18 @@ def test_deployment(java_exe):
                     address='127.0.0.1:10103'
                 )
             )
-            with mtap.Event(client=pipeline.events_client) as e:
-                d = e.create_document('plaintext', text)
-                results = pipeline.run(d)
-                assert results is not None
-            with mtap.Event(client=pipeline.events_client) as e:
-                d = e.create_document('plaintext', text)
+            pipeline.mp_config.close_events = False
+            with EventsClient(deployment.events_deployment.address) as c:
+                with mtap.Event(client=c) as e:
+                    d = e.create_document('plaintext', text)
+                    results = pipeline.run(d)
+                    assert results is not None
+                with mtap.Event(client=c) as e:
+                    d = e.create_document('plaintext', text)
 
-                def source():
-                    yield d
+                    def source():
+                        yield d
 
-                pipeline.run_multithread(source(), total=1, log_level='DEBUG')
-                assert len(d.labels['mtap.examples.letter_counts']) > 0
-                assert len(d.labels['mtap.examples.word_occurrences']) > 0
+                    pipeline.run_multithread(source(), total=1, log_level='DEBUG')
+                    assert len(d.labels['mtap.examples.letter_counts']) > 0
+                    assert len(d.labels['mtap.examples.word_occurrences']) > 0

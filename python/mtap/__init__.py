@@ -27,14 +27,14 @@ from mtap.data import (
 from mtap.processing import (
     DocumentProcessor,
     EventProcessor,
-    LocalProcessor,
     Pipeline,
     ProcessorServer,
-    RemoteProcessor,
     descriptions,
     processor,
     processor_parser,
     run_processor,
+    RemoteProcessor,
+    LocalProcessor,
 )
 from mtap.version import (
     __version__,

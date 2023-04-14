@@ -141,7 +141,7 @@ class DefaultProcessorServiceTest {
                 .putFields("test", Value.newBuilder().setBoolValue(true).build()).build())
             .build()
         ));
-    assertEquals("INTERNAL: java.lang.IllegalStateException: foo", exception.getMessage());
+    assertEquals("UNKNOWN: Internal error during processing.", exception.getMessage());
   }
 
   @Test

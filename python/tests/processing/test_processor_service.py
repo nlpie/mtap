@@ -17,9 +17,9 @@ import grpc
 import grpc_testing
 import pytest
 
-from mtap import processor, Document
+from mtap import processor, Document, DocumentProcessor
 from mtap.api.v1 import processing_pb2
-from mtap.processing import DocumentProcessor, _runners
+from mtap.processing import _runners
 from mtap.processing.descriptions import parameter, labels, label_property
 from mtap.processing._service import _ProcessorServicer
 
@@ -31,13 +31,15 @@ from mtap.processing._service import _ProcessorServicer
                          description="desc.")
            ],
            inputs=[
-               labels('input_index', properties=[label_property('bar', data_type='bool')])
+               labels('input_index',
+                      properties=[label_property('bar', data_type='bool')])
            ],
            outputs=[
                labels('output_index',
                       description='desc.',
-                      properties=[label_property('foo', data_type='str', nullable=True,
-                                                      description='A label property.')])
+                      properties=[
+                          label_property('foo', data_type='str', nullable=True,
+                                         description='A label property.')])
            ])
 class ExampleTestProcessor(DocumentProcessor):
     def process_document(self, document: Document, params: Dict[str, Any]):
@@ -46,22 +48,26 @@ class ExampleTestProcessor(DocumentProcessor):
 
 @pytest.fixture(name='processor_servicer')
 def fixture_processor_servicer():
-    runner = _runners.ProcessorRunner(ExampleTestProcessor(), client=None)
-    processor_service = _ProcessorServicer(config={}, runner=runner, address='',
+    runner = _runners.LocalRunner(ExampleTestProcessor(), events_address=None)
+    processor_service = _ProcessorServicer(runner=runner,
+                                           address='',
                                            sid='1',
                                            health_servicer=None)
     yield grpc_testing.server_from_dictionary(
         {
-            processing_pb2.DESCRIPTOR.services_by_name['Processor']: processor_service
+            processing_pb2.DESCRIPTOR.services_by_name[
+                'Processor']: processor_service
         },
         grpc_testing.strict_real_time()
     )
 
 
 def test_GetInfo(processor_servicer):
-    request = processing_pb2.GetInfoRequest(processor_id='mtap-example-processor-python')
+    request = processing_pb2.GetInfoRequest(
+        processor_id='mtap-example-processor-python')
     resp, _, status_code, _ = processor_servicer.invoke_unary_unary(
-        processing_pb2.DESCRIPTOR.services_by_name['Processor'].methods_by_name['GetInfo'],
+        processing_pb2.DESCRIPTOR.services_by_name[
+            'Processor'].methods_by_name['GetInfo'],
         {},
         request,
         None
@@ -86,4 +92,5 @@ def test_GetInfo(processor_servicer):
     assert resp.metadata['outputs'][0]['properties'][0]['name'] == 'foo'
     assert resp.metadata['outputs'][0]['properties'][0]['data_type'] == 'str'
     assert resp.metadata['outputs'][0]['properties'][0]['nullable']
-    assert resp.metadata['outputs'][0]['properties'][0]['description'] == 'A label property.'
+    assert resp.metadata['outputs'][0]['properties'][0][
+               'description'] == 'A label property.'

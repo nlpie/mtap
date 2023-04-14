@@ -16,9 +16,6 @@ import threading
 from abc import ABC, abstractmethod, ABCMeta
 from queue import Queue
 from typing import (
-    List,
-    Tuple,
-    Set,
     TYPE_CHECKING,
     TypeVar,
     NamedTuple,
@@ -30,50 +27,50 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    import mtap
-    from mtap import data
+    from mtap import (
+        Document
+    )
 
 
-class Location(NamedTuple('Location', [('start_index', float), ('end_index', float)])):
+LocationLike = 'Union[Location, Label, int]'
+
+
+class Location(NamedTuple):
     """A location in text, a tuple of (`start_index`, `end_index`).
 
     Used to perform comparison of labels based on their locations.
-
-    Args:
-        start_index (float):
-            The start index inclusive of the location in text.
-        end_index (float):
-            The end index exclusive of the location in text.
-
-    Attributes:
-        start_index (float):
-            The start index inclusive of the location in text.
-        end_index (float):
-            The end index exclusive of the location in text.
     """
-    __slots__ = ()
 
-    def covers(self, other: Union['data.Location', 'data.Label']):
-        """Whether the span of text covered by this label completely overlaps the span of text
-        covered by the ``other`` label or location.
+    start_index: float
+    """The start index inclusive of the location in text."""
+
+    end_index: float
+    """The end index exclusive of the location in text."""
+
+    def covers(self, other: 'Union[Location, Label]'):
+        """Whether the span of text covered by this label completely overlaps
+        the span of text covered by the ``other`` label or location.
 
         Args:
-            other (~typing.Union[Location, Label]): A location or label to compare against.
+            other: A location or label to compare against.
 
         Returns:
-            bool: ``True`` if `other` is completely overlapped/covered ``False`` otherwise.
+            ``True`` if `other` is completely overlapped/covered
+                ``False`` otherwise.
         """
-        return self.start_index <= other.start_index and self.end_index >= other.end_index
+        return self.start_index <= other.start_index \
+            and self.end_index >= other.end_index
 
-    def relative_to(self, location: Union['data.Location', 'data.Label', int]) -> 'data.Location':
-        """Creates a location relative to the the same origin as ``location`` and makes it relative
-        to ``location``.
+    def relative_to(self, location: LocationLike) -> 'Location':
+        """Creates a location relative to the same origin as ``location``
+        and makes it relative to ``location``.
 
         Args:
-            location (int or Location or Label): A location to relativize this location to.
+            location: A location to relativize this
+                location to.
 
         Returns:
-            ~data.Location: A copy with updated indices.
+            A copy with updated indices.
 
         Examples:
             >>> sentence = Location(10, 20)
@@ -87,18 +84,20 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
         except AttributeError:
             start_index = location
         if not isinstance(start_index, int):
-            raise ValueError('location must be Label, Location, or an int value')
-        return Location(self.start_index - start_index, self.end_index - start_index)
+            raise ValueError(
+                'location must be Label, Location, or an int value')
+        return Location(self.start_index - start_index,
+                        self.end_index - start_index)
 
-    def offset_by(self, location: Union['data.Location', 'data.Label', int]) -> 'data.Location':
-        """Creates a location by offsetting this location by an integer or the ``start_index`` of a
-        location / label. Derelativizes this location.
+    def offset_by(self, location: LocationLike) -> 'Location':
+        """Creates a location by offsetting this location by an integer or the
+        ``start_index`` of a location / label. De-relativizes this location.
 
         Args:
-            location (int or Location or Label): A location to offset this location by.
+            location: A location to offset this location by.
 
         Returns:
-            ~data.Location: A copy with updated indices.
+            A copy with updated indices.
 
         Examples:
             >>> sentence = Location(10, 20)
@@ -112,8 +111,11 @@ class Location(NamedTuple('Location', [('start_index', float), ('end_index', flo
         except AttributeError:
             start_index = location
         if not isinstance(start_index, int):
-            raise ValueError('location must be Label, Location, or an int value')
-        return Location(self.start_index + start_index, self.end_index + start_index)
+            raise ValueError(
+                'location must be Label, Location, or an int value'
+            )
+        return Location(self.start_index + start_index,
+                        self.end_index + start_index)
 
 
 class Label(ABC, metaclass=ABCMeta):
@@ -122,48 +124,51 @@ class Label(ABC, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def document(self) -> 'mtap.Document':
-        """Document: The parent document this label appears on."""
+    def document(self) -> 'Document':
+        """The parent document this label appears on."""
         ...
 
     @document.setter
     @abstractmethod
-    def document(self, value: 'mtap.Document'):
-        """Sets the label's document, this will automatically be done when the label is created
-        via a Document (i.e. get_label_index) or added to a document (i.e. via labeler or add_labels).
+    def document(self, value: 'Document'):
+        """Sets the label's document, this will automatically be done when the
+        label is created via a Document (i.e. get_label_index) or added to a
+        document (i.e. via labeler or add_labels).
         """
         ...
 
     @property
     @abstractmethod
     def label_index_name(self) -> str:
-        """str: The label index this label appears on."""
+        """The label index this label appears on."""
         ...
 
     @label_index_name.setter
     @abstractmethod
     def label_index_name(self, value: str):
-        """Sets the name for the label index this label appears on. Will automatically be called
-        when a label is added to a document via labeler or add_labels."""
+        """Sets the name for the label index this label appears on. Will
+        automatically be called when a label is added to a document via
+        labeler or add_labels."""
         ...
 
     @property
     @abstractmethod
     def identifier(self) -> int:
-        """int: The index of the label within its label index."""
+        """The index of the label within its label index."""
         ...
 
     @identifier.setter
     @abstractmethod
     def identifier(self, value: int):
-        """The index of the label within its label index. Labels will automatically be assigned
-        this when added to a document via labeler or add_labels."""
+        """The index of the label within its label index. Labels will
+        automatically be assigned this when added to a document via labeler or
+        add_labels."""
         ...
 
     @property
     @abstractmethod
     def start_index(self) -> int:
-        """int: The index of the first character of the text covered by this label.
+        """The index of the first character of the text covered by this label.
         """
         ...
 
@@ -175,7 +180,7 @@ class Label(ABC, metaclass=ABCMeta):
     @property
     @abstractmethod
     def end_index(self) -> int:
-        """int: The index after the last character of the text covered by this label.
+        """The index after the last character of the text covered by this label.
         """
         ...
 
@@ -186,28 +191,29 @@ class Label(ABC, metaclass=ABCMeta):
 
     @property
     def location(self) -> Location:
-        """Location: A tuple of (start_index, end_index) used to perform sorting and
-            comparison first based on start_index, then based on end_index.
+        """A tuple of (start_index, end_index) used to perform sorting and
+        comparison first based on start_index, then based on end_index.
         """
         return Location(self.start_index, self.end_index)
 
     @property
     def text(self):
-        """str: The slice of document text covered by this label. Will retrieve from events server
-        if it is not cached locally.
+        """The slice of document text covered by this label. Will
+        retrieve from events server if it is not cached locally.
         """
         return self.document.text[self.start_index:self.end_index]
 
     @abstractmethod
     def shallow_fields_equal(self, other) -> bool:
-        """Tests if the fields on this label and locations of references are the same as another
-        label.
+        """Tests if the fields on this label and locations of references are
+        the same as another label.
 
         Args:
             other: The other label to test.
 
         Returns:
-            True if all of the fields are equal and the references are at the same locations.
+            True if all the fields are equal and the references are at the
+            same locations.
 
         """
         pass
@@ -223,19 +229,20 @@ _repr_local = threading.local()
 
 
 class GenericLabel(Label):
-    """Default implementation of the Label class which uses a dictionary to store attributes.
+    """Default implementation of the Label class which uses a dictionary to
+    store attributes.
 
     Will be suitable for the majority of use cases for labels.
 
     Args:
-        start_index (int): The index of the first character in text to be included in the label.
-        end_index (int): The index after the last character in text to be included in the label.
-
-    Keyword Args:
-        document (~typing.Optional[Document]): The parent document of the label. This will be
-            automatically set if a the label is created via labeler.
-        **kwargs : Arbitrary, any other fields that should be added to the label, values must be
-            json-serializable.
+        start_index: The index of the first character in text to be included
+            in the label.
+        end_index: The index after the last character in text to be included
+            in the label.
+        document: The parent document of the label. This will be automatically
+            set if the label is created via labeler.
+        **kwargs : Arbitrary, any other fields that should be added to the
+            label, values must be json-serializable.
 
     Examples:
         >>> pos_tag = pos_tag_labeler(0, 5)
@@ -250,8 +257,8 @@ class GenericLabel(Label):
 
     def __init__(self, start_index: int, end_index: int, *,
                  identifier: Optional[int] = None,
-                 document: Optional['mtap.Document'] = None,
-                 label_index_name: Optional['str'] = None,
+                 document: 'Optional[Document]' = None,
+                 label_index_name: Optional[str] = None,
                  fields: Optional[dict] = None,
                  reference_field_ids: Optional[dict] = None,
                  **kwargs):
@@ -273,11 +280,11 @@ class GenericLabel(Label):
             setattr(self, key, value)
 
     @property
-    def document(self) -> 'mtap.Document':
+    def document(self) -> 'Document':
         return self._document
 
     @document.setter
-    def document(self, document: 'mtap.Document'):
+    def document(self, document: 'Document'):
         self._document = document
 
     @property
@@ -313,7 +320,8 @@ class GenericLabel(Label):
         self._end_index = end_index
 
     def _is_reserved(self, key):
-        return key in self.__dict__.keys() or key in vars(GenericLabel) or key in vars(Label)
+        return key in self.__dict__.keys() or key in vars(
+            GenericLabel) or key in vars(Label)
 
     def __getattr__(self, item):
         try:
@@ -329,12 +337,15 @@ class GenericLabel(Label):
             self.reference_cache[item] = _dereference(ref_value, self.document)
             return self.reference_cache[item]
         except KeyError:
-            raise AttributeError('Key "{}" not in fields, reference cache, or reference ids.'
-                                 .format(item))
+            raise AttributeError(
+                'Key "{}" not in fields, reference cache, or reference ids.'
+                .format(item))
 
     def __setattr__(self, key, value):
-        if key in ('document', 'label_index_name', 'identifier', 'start_index', 'end_index',
-                   '_document', '_label_index_name', '_identifier', '_start_index', '_end_index',
+        if key in ('document', 'label_index_name', 'identifier', 'start_index',
+                   'end_index',
+                   '_document', '_label_index_name', '_identifier',
+                   '_start_index', '_end_index',
                    'fields', 'reference_field_ids', 'reference_cache'):
             object.__setattr__(self, key, value)
             return
@@ -358,8 +369,10 @@ class GenericLabel(Label):
     def shallow_fields_equal(self, other):
         if not self.fields == other.fields:
             return False
-        refs = set(self.reference_field_ids.keys()).union(self.reference_cache.keys())
-        other_refs = set(other.reference_field_ids.keys()).union(other.reference_cache.keys())
+        refs = set(self.reference_field_ids.keys()).union(
+            self.reference_cache.keys())
+        other_refs = set(other.reference_field_ids.keys()).union(
+            other.reference_cache.keys())
         if not refs == other_refs:
             return False
         for k in refs:
@@ -418,45 +431,22 @@ class GenericLabel(Label):
 
 def label(start_index: int,
           end_index: int,
-          *, document: Optional['mtap.Document'] = None,
+          *, document: 'Optional[Document]' = None,
           **kwargs) -> GenericLabel:
     """An alias for :class:`GenericLabel`.
 
     Args:
-        start_index (int): The index of the first character in text to be included in the label.
-        end_index (int): The index after the last character in text to be included in the label.
-        document (~typing.Optional[Document]): The parent document of the label. This will be
-            automatically set if a the label is created via labeler.
-        **kwargs : Arbitrary, any other fields that should be added to the label, values must be
-            json-serializable.
+        start_index: The index of the first character in text to be included
+            in the label.
+        end_index: The index after the last character in text to be included
+            in the label.
+        document: The parent document of the label. This will be automatically
+            set if the label is created via labeler.
+        **kwargs : Arbitrary, any other fields that should be added to the
+            label, values must be json-serializable.
 
     """
     return GenericLabel(start_index, end_index, document=document, **kwargs)
-
-
-def _staticize(labels: Sequence['data.Label'],
-               document: 'mtap.Document',
-               label_index_name: str) -> Tuple[List['data.Label'], Set[int]]:
-    """Prepares a label index for serialization by finalizing sort order and setting label
-    identifiers.
-
-    Args:
-        labels (~typing.Sequence[GenericLabel]): The labels in a label index.
-
-    Returns:
-        List['GenericLabel']: The labels sorted by position.
-        Set[int]: A set of labels which a referenced by labels in this index.
-
-    """
-    labels = sorted(labels, key=lambda x: x.location)
-    waiting_on = set()
-    for i, lbl in enumerate(labels):
-        lbl.document = document
-        lbl.identifier = i
-        lbl.label_index_name = label_index_name
-    for lbl in labels:
-        lbl.collect_floating_references(waiting_on)
-    return labels, waiting_on
 
 
 def _is_referential(o: Any, parents=None) -> bool:
@@ -475,8 +465,9 @@ def _is_referential(o: Any, parents=None) -> bool:
             if map_is_ref is None:
                 map_is_ref = x
             elif x != map_is_ref:
-                raise TypeError('Label dictionaries cannot have mixes of references to labels'
-                                'and primitive types.')
+                raise TypeError(
+                    'Label dictionaries cannot have mixes of references to labels'
+                    'and primitive types.')
         return map_is_ref
     elif isinstance(o, Sequence):
         seq_is_ref = None
@@ -487,14 +478,15 @@ def _is_referential(o: Any, parents=None) -> bool:
             if seq_is_ref is None:
                 seq_is_ref = x
             elif x != seq_is_ref:
-                raise TypeError('Label lists cannot have mixes of references to labels'
-                                'and primitive types.')
+                raise TypeError(
+                    'Label lists cannot have mixes of references to labels'
+                    'and primitive types.')
         return seq_is_ref
     else:
         raise TypeError('Unrecognized type')
 
 
-def _dereference(o: Any, document: 'mtap.Document') -> Any:
+def _dereference(o: Any, document: 'Document') -> Any:
     if o is None:
         return o
     if isinstance(o, str):

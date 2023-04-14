@@ -16,13 +16,13 @@ from datetime import timedelta
 
 import pytest
 
-from mtap.processing import PipelineResult, ProcessingResult
+from mtap.processing import PipelineResult, ComponentResult
 
 
 def test_component_result():
     result = PipelineResult(
         component_results=[
-            ProcessingResult(
+            ComponentResult(
                 identifier='a',
                 result_dict={'b': 'c'},
                 timing_info={},

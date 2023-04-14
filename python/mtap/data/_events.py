@@ -12,20 +12,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """Events service client API and wrapper classes.
-
 """
 
-import collections
 import threading
 import uuid
 from typing import (
+    Any,
     Iterator,
     List,
     Dict,
     MutableMapping,
     Generic,
     TypeVar,
-    NamedTuple,
     ContextManager,
     Iterable,
     Optional,
@@ -34,76 +32,123 @@ from typing import (
     Mapping,
     TYPE_CHECKING,
     Callable,
+    overload,
 )
 
 import grpc
-from grpc_health.v1 import health_pb2_grpc, health_pb2
 
-from mtap import _config, _discovery, constants
+from mtap import _config, constants
 from mtap.api.v1 import events_pb2, events_pb2_grpc
-from mtap.data import _base, _labels, _label_adapters
+from mtap.data import _base, _label_adapters
+from mtap.data._label_adapters import ProtoLabelAdapter
 
 if TYPE_CHECKING:
     import mtap
     import mtap.data as data
 
 L = TypeVar('L', bound='data.Label')
+EventsAddressLike = Union[str, Iterable[str], None]
 
 
 class Event:
-    """An object for interacting with a specific event locally or on the events service.
+    """An object for interacting with a specific event locally or on the
+    events service.
 
-    The Event object functions as a map from string document names to :obj:`Document` objects that
-    can be used to access document data from the events server.
+    The Event object functions as a map from string document names to
+    :obj:`Document` objects that can be used to access document data from the
+    events server.
 
-    Keyword Args:
-        event_id (~typing.Optional[str]):
-            A globally-unique identifier for the event, or omit / none for a random UUID.
-        client (~typing.Optional[EventsClient]):
-            A client for an events service to push any changes to the event to.
-        only_create_new (bool): Fails if the event already exists on the events service.
+    To connect to the events service and load an existing event, all of
+    ``event_id``, ``event_service_instance_id``, and ``client`` must be
+    specified.
+
+    Args:
+        event_id: A globally-unique identifier for the event, or omit / none
+            for a random UUID.
+        event_service_instance_id: A global-unique identifier for the events
+            service instance that the event lives on.
+        client: If specified, connects to the events service with id
+            ``event_service_instance_id`` and accesses either accesses the
+            existing event with the ``event_id`` or creates a new one.
+        only_create_new: Fails if the event already exists on the events
+            service.
+
+    Attributes:
+        label_adapters: A mapping of string label index names to
+            :class:`ProtoLabelAdapter` instances to perform custom
+            mapping of label types.
 
     Examples:
-        >>> with EventsClient() as c, Event(event_id='id', client=c) as event:
+        Creating a new event locally.
+
+        >>> event = Event()
+
+        Creating a new event remotely.
+
+        >>> with EventsClient(address='localohost:50000') as c, \
+        >>>     Event(event_id='id', client=c) as event:
         >>>     # use event
         >>>     ...
-    """
-    __slots__ = ('_event_id', '_client', '_lock', 'default_adapters', '_documents', '_metadata',
-                 '_binaries', '_event_service_instance_id')
 
-    def __init__(self, *, event_id: Optional[str] = None,
-                 event_service_instance_id: Optional[str] = None,
-                 client: Optional['mtap.EventsClient'] = None,
-                 only_create_new: bool = False,
-                 default_adapters: Optional[Mapping[str, 'data.ProtoLabelAdapter']] = None):
+        Connecting to an existing event.
+
+        >>> with EventsClient(address='localohost:50000') as c, \
+        >>>     Event(event_id='id',
+        >>>           event_service_instance_id='events_sid',
+        >>>           client=c) as event:
+        >>>
+        >>>
+    """
+    __slots__ = ('_event_id', '_client', '_lock', 'label_adapters',
+                 '_documents', '_metadata', '_binaries',
+                 '_event_service_instance_id')
+
+    label_adapters: 'Dict[str, ProtoLabelAdapter]'
+
+    def __init__(
+            self,
+            *, event_id: Optional[str] = None,
+            event_service_instance_id: Optional[str] = None,
+            client: 'Optional[mtap.EventsClient]' = None,
+            only_create_new: bool = False,
+            label_adapters: 'Optional[Mapping[str, ProtoLabelAdapter]]'
+            = None
+    ):
         self._event_id = event_id or str(uuid.uuid4())
         self._event_service_instance_id = event_service_instance_id
         self._lock = threading.RLock()
-        self.default_adapters = default_adapters or {}
+        if label_adapters is not None:
+            self.label_adapters = dict(label_adapters)
+        else:
+            self.label_adapters = {}
         self._client = client
         if self._client is not None:
-            self._client = client.get_local_instance(self._event_service_instance_id)
+            self._client = client.get_local_instance(
+                self._event_service_instance_id
+            )
             self._event_service_instance_id = self._client.instance_id
-            self._client.open_event(self._event_id, only_create_new=only_create_new)
+            self._client.open_event(self._event_id,
+                                    only_create_new=only_create_new)
 
     @property
-    def client(self) -> Optional['mtap.EventsClient']:
+    def client(self) -> 'Optional[mtap.EventsClient]':
         return self._client
 
     @property
     def event_id(self) -> str:
-        """str: The globally unique identifier for this event."""
+        """The globally unique identifier for this event."""
         return self._event_id
 
     @property
     def event_service_instance_id(self) -> str:
-        """str: The unique instance identifier for this event's paired event service."""
+        """The unique instance identifier for this event's paired event
+        service."""
         return self._event_service_instance_id
 
     @property
-    def documents(self) -> MutableMapping[str, 'mtap.Document']:
-        """~typing.MutableMapping[str, Document]: A mutable mapping of strings to :obj:`Document`
-        objects that can be used to query and add documents to the event."""
+    def documents(self) -> 'MutableMapping[str, mtap.Document]':
+        """A mutable mapping of strings to :obj:`Document` objects that can be
+        used to query and add documents to the event."""
         try:
             return self._documents
         except AttributeError:
@@ -112,8 +157,8 @@ class Event:
 
     @property
     def metadata(self) -> MutableMapping[str, str]:
-        """~typing.MutableMapping[str, str]: A mutable mapping of strings to strings that can be
-        used to query and add metadata to the event."""
+        """A mutable mapping of strings to strings that can be used to query
+        and add metadata to the event."""
         try:
             return self._metadata
         except AttributeError:
@@ -122,8 +167,8 @@ class Event:
 
     @property
     def binaries(self) -> MutableMapping[str, bytes]:
-        """~typing.MutableMapping[str, str]: A mutable mapping of strings to bytes that can be used
-        to query and add binary data to the event."""
+        """A mutable mapping of strings to bytes that can be used to query and
+        add binary data to the event."""
         try:
             return self._binaries
         except AttributeError:
@@ -132,59 +177,65 @@ class Event:
 
     @property
     def created_indices(self) -> Dict[str, List[str]]:
-        """~typing.Dict[str, ~typing.List[str]]: A mapping of document names to a list of the names
-        of all the label indices that have been added to that document"""
+        """A mapping of document names to a list of the names of all the label
+        indices that have been added to that document"""
         return {document_name: document.created_indices
                 for document_name, document in self.documents.items()}
 
     def close(self):
-        """Closes this event. Lets the event service know that we are done with the event,
-        allowing to clean up the event if no other clients have open leases to it."""
+        """Closes this event. Lets the event service know that we are done
+        with the event, allowing to clean up the event if no other clients
+        have open leases to it."""
         if self.client is not None:
             self.release_lease()
 
-    def create_document(self, document_name: str, text: str) -> 'mtap.Document':
+    def create_document(self,
+                        document_name: str,
+                        text: str) -> 'mtap.Document':
         """Adds a document to the event keyed by `document_name` and
         containing the specified `text`.
 
         Args:
-            document_name (str): The event-unique identifier for the document, example: 'plaintext'.
-            text (str):
-                The content of the document. This is a required field, document text is final and
-                immutable, as changing the text would very likely invalidate any labels on the
-                document.
+            document_name: The event-unique identifier for the document,
+                example: ``'plaintext'``.
+            text: The content of the document. This is a required field,
+                and the document text is final and immutable.
 
         Returns:
-            Document: The added document.
+            The added document.
 
         Examples:
 
             >>> event = Event()
-            >>> document = event.create_document('plaintext', text="The text of the document.")
+            >>> doc = event.create_document('plaintext',
+            >>>                             text="The text of the document.")
 
         """
         if not isinstance(text, str):
             raise ValueError('text is not string.')
-        document = Document(document_name, text=text, event=self)
+        document = Document(document_name, text=text, event=self,
+                            label_adapters=self.label_adapters)
         self.documents[document_name] = document
         return document
 
     def add_document(self, document: 'mtap.Document'):
-        """Adds the document to this event, first uploading to events service if this event has a
-        client connection to the events service.
+        """Adds the document to this event, first uploading to events service
+        if this event has a client connection to the events service.
 
         Args:
-            document (~mtap.Document): The document to add to this event.
+            document: The document to add to this event.
 
         Examples:
 
             >>> event = Event()
-            >>> document = Document('plaintext', text="The text of the document.")
-            >>> event.add_document(document)
+            >>> doc = Document('plaintext',
+            >>>                text="The text of the document.")
+            >>> event.add_document(doc)
 
         """
-        if document._event is not None:
-            raise ValueError('The document already exists on an event')
+        if document.event is not None:
+            raise ValueError('This document already has an event, it cannot '
+                             'be added to another.')
         document._event = self
         document._client = self.client
         document._event_id = self.event_id
@@ -213,37 +264,32 @@ class Event:
             self.client.close_event(self.event_id)
 
 
-class _WaitingIndex(NamedTuple('_WaitingIndex',
-                               [('index_name', str),
-                                ('labels', List['mtap.GenericLabel']),
-                                ('waiting_on', List[int])])):
-    """A label index that is waiting on some labels to be staticized before uploading.
-    """
+LabelAdapters = Mapping[str, ProtoLabelAdapter]
 
 
 class Document:
-    """An object for interacting with text and labels stored on an :class:`Event`.
+    """An object for interacting with text and labels stored on an
+    :class:`Event`.
 
-    Documents are keyed by their name, and pipelines can store different pieces of
-    related text on a single processing event using multiple documents. An example would be storing
-    the text of one language on one document, and a translation on another, or storing the
-    rtf or html encoding on one document, and the parsed plaintext on another document.
+    Documents are keyed by their name, and pipelines can store different
+    pieces of related text on a single processing event using multiple
+    documents. An example would be storing the text of one language on one
+    document, and a translation on another, or storing the rtf or html
+    encoding on one document (or as a binary in :method:`Event.binaries`, and
+    the parsed plaintext on another document.
 
-    Both the document text and any added label indices are immutable. This is to enable
-    parallelization and distribution of processing, and to prevent changes to the dependency graph
-    of label indices and text, which can make debugging difficult.
+    Both the document text and any added label indices are immutable. This is
+    to enable parallelization and distribution of processing, and because other
+    label indices might be downstream dependents on the earlier created labels.
 
     Args:
-        document_name (str): The document name identifier.
-
-    Keyword Args:
-        text (~typing.Optional[str]):
-            The document text, can be omitted if this is an existing document and text needs to be
-            retrieved from the events service.
-        event (~typing.Optional[Event]):
-            The parent event of this document. If the event has a client, then that client will be
-            used to share changes to this document with all other clients of the Events service. In
-            that case, text should only be specified if it is the known existing text of the
+        document_name: The document name identifier.
+        text: The document text, can be omitted if this is an existing
+            document and text needs to be retrieved from the events service.
+        event: The parent event of this document. If the event has a client,
+            then that client will be used to share changes to this document
+            with all other clients of the Events service. In that case, text
+            should only be specified if it is the known existing text of the
             document.
 
     Examples:
@@ -253,35 +299,77 @@ class Document:
 
         Existing distributed object:
 
-        >>> with EventsClient(address='localhost:8080') as client, \\
-        >>>      Event(event_id='1', client=client) as event:
+        >>> with EventsClient(address='localhost:8080') as client, \
+        >>>      Event(event_id='1',
+        >>>            event_service_instance_id='events_sid',
+        >>>            client=client) as event:
         >>>     document = event.documents['plaintext']
         >>>     document.text
         'Some document text fetched from the server.'
 
         New distributed object:
 
-        >>> with EventsClient(address='localhost:8080') as client, \\
+        >>> with EventsClient(address='localhost:8080') as client, \
         >>>      Event(event_id='1', client=client) as event:
         >>>     document = Document('plaintext', text='Some document text.')
         >>>     event.add_document(document)
 
         or
 
-        >>> with EventsClient(address='localhost:8080') as client, \\
+        >>> with EventsClient(address='localhost:8080') as client, \
         >>>      Event(event_id='1', client=client) as event:
-        >>>     document = event.create_document('plaintext', text='Some document text.')
+        >>>     document = event.create_document('plaintext',
+        >>>                                      text='Some document text.')
 
     """
-    __slots__ = ('_document_name', '_event', '_client', '_event_id', '_text', '_labelers',
-                 '_created_indices', '_waiting_indices', 'default_adapters', '_labels')
+    __slots__ = (
+        '_document_name',
+        '_event',
+        '_client',
+        '_event_id',
+        '_text',
+        '_labelers',
+        '_created_indices',
+        '_waiting_indices',
+        'label_adapters',
+        '_labels',
+    )
 
-    def __init__(self,
-                 document_name: str,
-                 *,
-                 text: Optional[str] = None,
-                 event: Optional[Event] = None,
-                 default_adapters: Optional[Mapping[str, 'data.ProtoLabelAdapter']] = None):
+    @overload
+    def __init__(
+            self,
+            document_name: str,
+            *, text: str,
+            label_adapters: Optional[LabelAdapters] = None
+    ):
+        ...
+
+    @overload
+    def __init__(
+            self,
+            document_name: str,
+            *, event: Event,
+            label_adapters: Optional[LabelAdapters] = None
+    ):
+        pass
+
+    @overload
+    def __init__(
+            self,
+            document_name: str,
+            *, text: str,
+            event: Event,
+            label_adapters: Optional[LabelAdapters] = None
+    ):
+        pass
+
+    def __init__(
+            self,
+            document_name: str,
+            *, text: Optional[str] = None,
+            event: Optional[Event] = None,
+            label_adapters: Optional[LabelAdapters] = None
+    ):
         if not isinstance(document_name, str):
             raise TypeError('Document name is not string.')
         self._document_name = document_name
@@ -295,76 +383,89 @@ class Document:
         self._labelers = []
         self._created_indices = []
         self._waiting_indices = []
-        self.default_adapters = default_adapters or {}
+        self.label_adapters = label_adapters or {}
         if self._client is None and text is None:
-            raise ValueError('Document without text or an event with a client to fetch the text '
-                             'from.')
+            raise ValueError(
+                'Document must either be an existing document (event.client '
+                'is not None) or must have the text parameter specified.'
+            )
 
     @property
     def event(self) -> Event:
-        """Event: The parent event of this document."""
+        """The parent event of this document."""
         return self._event
 
     @property
     def document_name(self) -> str:
-        """str: The unique identifier for this document on the event."""
+        """The unique identifier for this document on the event."""
         return self._document_name
 
     @property
     def text(self):
-        """str: The document text."""
+        """The document text."""
         if self._text is None and self._client is not None:
-            self._text = self._client.get_document_text(self._event_id, self._document_name)
+            self._text = self._client.get_document_text(self._event_id,
+                                                        self._document_name)
         return self._text
 
     @property
     def created_indices(self) -> List[str]:
-        """~typing.List[str]: A list of all of the label index names that have created on this
-                document using a labeler either locally or by remote pipeline components invoked on
-                this document."""
+        """A list of all the label index names that have been created on this
+        document using a labeler either locally or by remote pipeline
+        components invoked on this document."""
         return list(self._created_indices)
 
     @property
-    def labels(self) -> Mapping[str, 'data.LabelIndex']:
+    def labels(self) -> 'Mapping[str, data.LabelIndex]':
+        return self._label_indices
+
+    @property
+    def _label_indices(self) -> '_LabelIndices':
         try:
             return self._labels
         except AttributeError:
             self._labels = _LabelIndices(self)
             return self._labels
 
-    def get_label_index(self,
-                        label_index_name: str) -> 'data.LabelIndex[Union[mtap.GenericLabel, L]]':
+    def get_label_index(
+            self,
+            label_index_name: str
+    ) -> 'data.LabelIndex':
         """Gets the document's label index with the specified key.
 
-        Will fetch from the events service if it is not cached locally if the document has an event
-        with a client. Uses the `label_adapter` argument to perform unmarshalling from the proto
-        message if specified.
+        Will fetch from the events service if it is not cached locally if the
+        document has an event with a client. Uses the `label_adapter` argument
+        to perform unmarshalling from the proto message if specified.
 
         Args:
-            label_index_name (str): The name of the label index to get.
+            label_index_name: The name of the label index to get.
 
         Returns:
-            LabelIndex: The requested label index.
+            The requested label index.
         """
         return self.labels[label_index_name]
 
-    def get_labeler(self,
-                    label_index_name: str,
-                    *, distinct: Optional[bool] = None):
+    def get_labeler(
+            self,
+            label_index_name: str,
+            *, distinct: Optional[bool] = None
+    ) -> 'Callable[[Any, ...], mtap.GenericLabel]':
         """Creates a function that can be used to add labels to a label index.
 
         Args:
-            label_index_name (str): A document-unique identifier for the label index to be created.
-            distinct (~typing.Optional[bool]):
-                Optional, if using generic labels, whether to use distinct generic labels or
-                non-distinct generic labels, will default to False.
+            label_index_name: An identifying name for the label index.
+            distinct: Optional, if using generic labels, whether to use
+                distinct generic labels or non-distinct generic labels, will
+                default to False. Distinct labels are non-overlapping and
+                can use faster binary search indices.
 
         Returns:
-            Labeler: A callable when used in conjunction with the 'with' keyword will automatically
-            handle uploading any added labels to the server.
+            A callable when used in conjunction with the 'with' keyword will
+            automatically handle uploading any added labels to the server.
 
         Examples:
-            >>> with document.get_labeler('sentences', distinct=True) as labeler:
+            >>> with document.get_labeler('sentences',
+            >>>                           distinct=True) as labeler:
             >>>     labeler(0, 25, sentence_type='STANDARD')
             >>>     sentence = labeler(26, 34)
             >>>     sentence.sentence_type = 'FRAGMENT'
@@ -379,45 +480,59 @@ class Document:
 
     def add_labels(self,
                    label_index_name: str,
-                   labels: Sequence[Union['data.Label', L]],
+                   labels: 'Sequence[L]',
                    *, distinct: Optional[bool] = None,
-                   label_adapter: Optional['data.ProtoLabelAdapter'] = None):
-        """Skips using a labeler and adds the sequence of labels as a new label index.
+                   label_adapter: 'Optional[ProtoLabelAdapter]' = None):
+        """Skips using a labeler and adds the sequence of labels as a new
+        label index.
 
         Args:
-            label_index_name (str): The name of the label index.
-            labels (~typing.Sequence[Label]): The labels to add.
-            distinct (~typing.Optional[bool]):
-                Whether the index is distinct or non-distinct.
-            label_adapter (mtap.label_adapters.ProtoLabelAdapter): A label adapter to use.
+            label_index_name: The name of the label index.
+            labels: The labels to add.
+            distinct: Whether the index is distinct or non-distinct.
+            label_adapter: A label adapter to use.
 
         Returns:
             LabelIndex: The new label index created from the labels.
         """
         if label_index_name in self.labels:
-            raise KeyError("Label index already exists with name: " + label_index_name)
+            raise KeyError(
+                "Label index already exists with name: " + label_index_name)
         if label_adapter is None:
             if distinct is None:
                 distinct = False
-            label_adapter = self.get_default_adapter(label_index_name, distinct)
-        labels, waiting_on = _labels._staticize(labels, self, label_index_name)
+            label_adapter = self.get_default_adapter(label_index_name,
+                                                     distinct)
+        labels = sorted(labels, key=lambda x: x.location)
+        waiting_on = set()
+        for i, lbl in enumerate(labels):
+            lbl.document = self
+            lbl.identifier = i
+            lbl.label_index_name = label_index_name
+        for lbl in labels:
+            lbl.collect_floating_references(waiting_on)
         if len(self._waiting_indices) > 0:
             label_ids = {id(label) for label in labels}
             self._check_waiting_indices(label_ids)
 
         if len(waiting_on) > 0:
-            self._waiting_indices.append((label_index_name, labels, label_adapter, waiting_on))
+            self._waiting_indices.append(
+                (label_index_name, labels, label_adapter, waiting_on))
         else:
             self._finalize_labels(label_adapter, label_index_name, labels)
 
     def _check_waiting_indices(self, updated_ids):
         waiting_indices = []
-        for label_index_name, labels, label_adapter, waiting_on in self._waiting_indices:
+        for (label_index_name,
+             labels,
+             label_adapter,
+             waiting_on) in self._waiting_indices:
             still_waiting = waiting_on.difference(updated_ids)
             if len(still_waiting) == 0:
                 self._finalize_labels(label_adapter, label_index_name, labels)
             else:
-                waiting_indices.append((label_index_name, labels, label_adapter, still_waiting))
+                waiting_indices.append(
+                    (label_index_name, labels, label_adapter, still_waiting))
         self._waiting_indices = waiting_indices
 
     def _finalize_labels(self, label_adapter, label_index_name, labels):
@@ -430,17 +545,20 @@ class Document:
                                     adapter=label_adapter)
         self._created_indices.append(label_index_name)
         index = label_adapter.create_index(labels)
-        self.labels.add_to_cache(label_index_name, index)
+        self._label_indices.add_to_cache(label_index_name, index)
         return index
 
-    def get_default_adapter(self, label_index_name: str,
-                            distinct: Optional[bool] = None) -> Optional['data.ProtoLabelAdapter']:
+    def get_default_adapter(
+            self,
+            label_index_name: str,
+            distinct: Optional[bool] = None
+    ) -> 'Optional[data.ProtoLabelAdapter]':
         try:
-            return self.default_adapters[label_index_name]
+            return self.label_adapters[label_index_name]
         except KeyError:
             pass
         try:
-            return self.event.default_adapters[label_index_name]
+            return self.event.label_adapters[label_index_name]
         except (AttributeError, KeyError):
             return _label_adapters.DISTINCT_GENERIC_ADAPTER if distinct \
                 else _label_adapters.GENERIC_ADAPTER
@@ -452,11 +570,18 @@ class Document:
 
 
 class Labeler(Generic[L], ContextManager['Labeler']):
-    """Object provided by :func:`~'mtap.Document'.get_labeler` which is responsible for adding labels
-    to a label index on a document.
+    """Object provided by :func:`~'mtap.Document'.get_labeler` which is
+    responsible for adding labels to a label index on a document.
     """
-    __slots__ = ('_client', '_document', '_label_index_name', '_label_adapter', 'is_done',
-                 '_current_labels', '_lock')
+    __slots__ = (
+        '_client',
+        '_document',
+        '_label_index_name',
+        '_label_adapter',
+        'is_done',
+        '_current_labels',
+        '_lock'
+    )
 
     def __init__(self,
                  client: 'mtap.EventsClient',
@@ -472,7 +597,8 @@ class Labeler(Generic[L], ContextManager['Labeler']):
         self._lock = threading.Lock()
 
     def __call__(self, *args, **kwargs) -> L:
-        """Calls the constructor for the label type adding it to the list of labels to be uploaded.
+        """Calls the constructor for the label type adding it to the list of
+        labels to be uploaded.
 
         Args:
             args: Arguments passed to the label type's constructor.
@@ -483,9 +609,12 @@ class Labeler(Generic[L], ContextManager['Labeler']):
 
         Examples:
             >>> labeler(0, 25, some_field='some_value', x=3)
-            GenericLabel(start_index=0, end_index=25, some_field='some_value', x=3)
+            GenericLabel(start_index=0, end_index=25, some_field='some_value',
+                         x=3)
         """
-        label = self._label_adapter.create_label(*args, document=self._document, **kwargs)
+        label = self._label_adapter.create_label(*args,
+                                                 document=self._document,
+                                                 **kwargs)
         self._current_labels.append(label)
         return label
 
@@ -498,29 +627,52 @@ class Labeler(Generic[L], ContextManager['Labeler']):
         self.done()
 
     def done(self):
-        """Finalizes the label index, uploads the added labels to the events service.
+        """Finalizes the label index, uploads the added labels to the events
+        service.
 
-        Normally called automatically on exit from a context manager block, but can be manually
-        invoked if the labeler is not used in a context manager block."""
+        Normally called automatically on exit from a context manager block,
+        but can be manually invoked if the labeler is not used in a context
+        manager block."""
         with self._lock:
             if self.is_done:
                 return
             self.is_done = True
-            self._document.add_labels(self._label_index_name, self._current_labels,
+            self._document.add_labels(self._label_index_name,
+                                      self._current_labels,
                                       label_adapter=self._label_adapter)
 
 
 def create_channel(address):
     config = _config.Config()
     options = config.get('grpc.events_options', {})
-    channel = grpc.insecure_channel(address, options=list(options.items()))
+    try:
+        channel = grpc.insecure_channel(address, options=list(options.items()))
 
-    health = health_pb2_grpc.HealthStub(channel)
-    hcr = health.Check(health_pb2.HealthCheckRequest(service=constants.EVENTS_SERVICE_NAME),
-                       metadata=[('service-name', constants.EVENTS_SERVICE_NAME)])
+        from grpc_health.v1 import health_pb2_grpc, health_pb2
+        health = health_pb2_grpc.HealthStub(channel)
+        hcr = health.Check(health_pb2.HealthCheckRequest(
+            service=constants.EVENTS_SERVICE_NAME),
+            metadata=[('service-name',
+                       constants.EVENTS_SERVICE_NAME)])
+    except grpc.RpcError as e:
+        if e.code() == grpc.StatusCode.UNAVAILABLE:
+            raise FailedToConnectToEventsServiceException(address) from e
+        raise e
     if hcr.status != health_pb2.HealthCheckResponse.SERVING:
-        raise ValueError('Failed to connect to events service. Status:')
+        raise FailedToConnectToEventsServiceException(address)
     return channel
+
+
+class FailedToConnectToEventsServiceException(Exception):
+    def __init__(self, address):
+        self.address = address
+        self.msg = f"Failed to connect to the events service at: '{address}'"
+
+    def __repr__(self):
+        return f"FailedToConnectToEventsServiceException({self.address})"
+
+    def __str__(self):
+        return self.msg
 
 
 class _ClientPool:
@@ -528,9 +680,10 @@ class _ClientPool:
 
     def __init__(self, channel_factory, addresses):
         self._ptr = 0
-        self.clients = [EventsClient(address=addresses, channel_factory=channel_factory,
-                                     _pool=self, _channel=channel_factory(a))
-                        for a in addresses]
+        self.clients = [
+            EventsClient(address=addresses, channel_factory=channel_factory,
+                         _pool=self, _channel=channel_factory(a))
+            for a in addresses]
         self.instance_id_to_delegate = {d.instance_id: d for d in self.clients}
 
     def get_instance(self, instance_id):
@@ -548,37 +701,60 @@ class _ClientPool:
 class EventsClient:
     """A client object for interacting with the events service.
 
-    Normally, users shouldn't have to use any of the methods on this object, as they are invoked by
-    the globally distributed object classes of :obj:`Event`, :obj:`Document`, and :obj:`~data.Labeler`.
+    Normally, users shouldn't have to use any of the methods on this object,
+    as they are invoked by the globally distributed object classes of
+    :obj:`Event`, :obj:`Document`, and :obj:`~data.Labeler`.
 
-    Keyword Args:
-        address (~typing.Optional[str]): The events service target e.g. 'localhost:9090' or
-            omit/None to use service discovery.
-        stub (~typing.Optional[~mtap.api.v1.events_pb2_grpc.EventsStub]): An existing events service
-            client gRPC stub to use.
+    Args:
+        address: The events service target e.g. 'localhost:9090' or omit/None
+            to use service discovery.
+        channel_factory: Callable used to create a grpc channel from an
+            address.
 
     Examples:
         >>> with EventsClient(address='localhost:50000') as client, \\
         >>>      Event(event_id='1', client=client) as event:
-        >>>     document = event.create_document(document_name='plaintext',
-        >>>                                      text='The quick brown fox jumps over the lazy dog.')
+        >>>     document = event.create_document(
+        >>>         document_name='plaintext',
+        >>>         text='The quick brown fox jumps over the lazy dog.'
+        >>>     )
     """
-    __slots__ = ('addresses', 'channel_factory', '_pool', '_channel', 'stub', '_instance_id',
-                 '_is_open')
+    __slots__ = (
+        'addresses',
+        'channel_factory',
+        '_pool',
+        '_channel',
+        'stub',
+        '_instance_id',
+        '_is_open'
+    )
 
-    def __init__(self, address: Optional[Union[str, Iterable[str]]],
-                 channel_factory: Callable[[str], grpc.Channel] = None,
+    def __init__(self, address: EventsAddressLike,
+                 *, channel_factory: Callable[[str], grpc.Channel] = None,
                  _pool: Optional[_ClientPool] = None,
                  _channel: Optional[grpc.Channel] = None):
-        if address is None or (isinstance(address, Iterable) and len(address) == 0):
-            discovery = _discovery.Discovery(_config.Config())
-            address = discovery.discover_events_service('v1')
         if isinstance(address, str):
             self.addresses = [address]
-        elif isinstance(address, Iterable):
+        elif isinstance(address, list):
+            self.addresses = address
+        elif isinstance(address, Iterable) or hasattr(address, '__iter__'):
             self.addresses = list(address)
+        elif address is None:
+            self.addresses = []
         else:
-            raise ValueError("Unrecognized address type: " + str(type(address)))
+            raise ValueError(
+                "Unrecognized address type: " + str(type(address))
+            )
+
+        if len(self.addresses) == 0:
+            from mtap.discovery import DiscoveryMechanism
+            discovery = DiscoveryMechanism()
+            self.addresses = discovery.discover_events_service('v1')
+
+        if len(self.addresses) == 0:
+            raise ValueError("No addresses for the events service even after "
+                             "attempting discovery.")
+
         self.channel_factory = channel_factory
         if channel_factory is None:
             self.channel_factory = create_channel
@@ -588,7 +764,8 @@ class EventsClient:
         self._channel = _channel
         if self._channel is not None:
             self.stub = events_pb2_grpc.EventsStub(self._channel)
-            r = self.stub.GetEventsInstanceId(events_pb2.GetEventsInstanceIdRequest())
+            r = self.stub.GetEventsInstanceId(
+                events_pb2.GetEventsInstanceIdRequest())
             self._instance_id = r.instance_id
             self._is_open = True
 
@@ -613,13 +790,16 @@ class EventsClient:
             raise ValueError("Client to events service is not open")
 
     def open_event(self, event_id: str, only_create_new: bool):
-        request = events_pb2.OpenEventRequest(event_id=event_id, only_create_new=only_create_new)
+        request = events_pb2.OpenEventRequest(event_id=event_id,
+                                              only_create_new=only_create_new)
         try:
             response = self.stub.OpenEvent(request)
             assert response is not None
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             if e.code() == grpc.StatusCode.ALREADY_EXISTS:
                 raise ValueError("Event already exists") from e
             raise e
@@ -630,7 +810,9 @@ class EventsClient:
             response = self.stub.CloseEvent(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response is not None
 
@@ -640,17 +822,22 @@ class EventsClient:
             response = self.stub.GetAllMetadata(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response.metadata
 
     def add_metadata(self, event_id, key, value):
-        request = events_pb2.AddMetadataRequest(event_id=event_id, key=key, value=value)
+        request = events_pb2.AddMetadataRequest(event_id=event_id, key=key,
+                                                value=value)
         try:
             response = self.stub.AddMetadata(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response is not None
 
@@ -660,30 +847,41 @@ class EventsClient:
             response = self.stub.GetAllBinaryDataNames(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return list(response.binary_data_names)
 
-    def add_binary_data(self, event_id: str, binary_data_name: str, binary_data: bytes):
-        request = events_pb2.AddBinaryDataRequest(event_id=event_id,
-                                                  binary_data_name=binary_data_name,
-                                                  binary_data=binary_data)
+    def add_binary_data(self, event_id: str, binary_data_name: str,
+                        binary_data: bytes):
+        request = events_pb2.AddBinaryDataRequest(
+            event_id=event_id,
+            binary_data_name=binary_data_name,
+            binary_data=binary_data
+        )
         try:
             response = self.stub.AddBinaryData(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response is not None
 
     def get_binary_data(self, event_id: str, binary_data_name: str) -> bytes:
-        request = events_pb2.GetBinaryDataRequest(event_id=event_id,
-                                                  binary_data_name=binary_data_name)
+        request = events_pb2.GetBinaryDataRequest(
+            event_id=event_id,
+            binary_data_name=binary_data_name
+        )
         try:
             response = self.stub.GetBinaryData(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response.binary_data
 
@@ -693,7 +891,9 @@ class EventsClient:
             response = self.stub.GetAllDocumentNames(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return list(response.document_names)
 
@@ -705,31 +905,43 @@ class EventsClient:
             response = self.stub.AddDocument(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response is not None
 
     def get_document_text(self, event_id, document_name):
-        request = events_pb2.GetDocumentTextRequest(event_id=event_id,
-                                                    document_name=document_name)
+        request = events_pb2.GetDocumentTextRequest(
+            event_id=event_id,
+            document_name=document_name
+        )
         try:
             response = self.stub.GetDocumentText(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response.text
 
-    def get_label_index_info(self,
-                             event_id: str,
-                             document_name: str) -> List['data.LabelIndexInfo']:
-        request = events_pb2.GetLabelIndicesInfoRequest(event_id=event_id,
-                                                        document_name=document_name)
+    def get_label_index_info(
+            self,
+            event_id: str,
+            document_name: str
+    ) -> 'List[data.LabelIndexInfo]':
+        request = events_pb2.GetLabelIndicesInfoRequest(
+            event_id=event_id,
+            document_name=document_name
+        )
         try:
             response = self.stub.GetLabelIndicesInfo(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         result = []
         for index in response.label_index_infos:
@@ -743,7 +955,8 @@ class EventsClient:
         return result
 
     def add_labels(self, event_id, document_name, index_name, labels, adapter):
-        request = events_pb2.AddLabelsRequest(event_id=event_id, document_name=document_name,
+        request = events_pb2.AddLabelsRequest(event_id=event_id,
+                                              document_name=document_name,
                                               index_name=index_name,
                                               no_key_validation=True)
         adapter.add_to_message(labels, request)
@@ -751,7 +964,9 @@ class EventsClient:
             response = self.stub.AddLabels(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return response is not None
 
@@ -763,7 +978,9 @@ class EventsClient:
             response = self.stub.GetLabels(request)
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.UNAVAILABLE:
-                raise ConnectionError("Failed to connect to events service on addresses: {}".format(self.addresses))
+                raise ConnectionError(
+                    f"Failed to connect to events service on addresses: "
+                    f"{self.addresses}")
             raise e
         return adapter.create_index_from_response(response)
 
@@ -831,7 +1048,11 @@ class _Documents(MutableMapping[str, Document]):
             document_names = self.client.get_all_document_names(self.event_id)
             for name in document_names:
                 if name not in self.documents:
-                    document = Document(name, event=self.event)
+                    document = Document(
+                        name,
+                        event=self.event,
+                        label_adapters=self.event.label_adapters
+                    )
                     self.documents[name] = document
 
 
@@ -882,7 +1103,7 @@ class _Metadata(MutableMapping[str, str]):
             self._metadata.update(response)
 
 
-class _Binaries(collections.abc.MutableMapping):
+class _Binaries(MutableMapping[str, bytes]):
     __slots__ = ('_client', '_event', '_event_id', '_names', '_binaries')
 
     def __init__(self, event: Event, client: Optional[EventsClient] = None):
@@ -913,7 +1134,8 @@ class _Binaries(collections.abc.MutableMapping):
         except KeyError:
             pass
         if self._client is not None:
-            b = self._client.get_binary_data(event_id=self._event_id, binary_data_name=key)
+            b = self._client.get_binary_data(event_id=self._event_id,
+                                             binary_data_name=key)
             self._names.add(b)
             self._binaries[key] = b
         return self._binaries[key]
@@ -936,7 +1158,9 @@ class _Binaries(collections.abc.MutableMapping):
 
 
 class _LabelIndices(Mapping[str, 'data.LabelIndex']):
-    __slots__ = ('_document', '_document_name', '_event_id', '_client', '_cache', '_names_cache')
+    __slots__ = (
+        '_document', '_document_name', '_event_id', '_client', '_cache',
+        '_names_cache')
 
     def __init__(self, document: Document):
         self._document = document
@@ -963,7 +1187,8 @@ class _LabelIndices(Mapping[str, 'data.LabelIndex']):
             label_adapter = self._document.get_default_adapter(k)
             if label_adapter is None:
                 label_adapter = data.GENERIC_ADAPTER
-            index = self._client.get_labels(self._event_id, self._document_name, k,
+            index = self._client.get_labels(self._event_id,
+                                            self._document_name, k,
                                             adapter=label_adapter)
             for label in index:
                 label.label_index_name = k
@@ -988,7 +1213,8 @@ class _LabelIndices(Mapping[str, 'data.LabelIndex']):
 
     def _refresh_names(self):
         if self._client is not None:
-            infos = self._client.get_label_index_info(self._event_id, self._document_name)
+            infos = self._client.get_label_index_info(self._event_id,
+                                                      self._document_name)
             for info in infos:
                 self._names_cache.add(info.index_name)
 

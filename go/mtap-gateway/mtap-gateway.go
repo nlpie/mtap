@@ -40,11 +40,6 @@ import (
 
 func run() error {
 	glog.V(1).Infoln("Starting MTAP API Gateway")
-	err := viper.ReadInConfig() // Find and read the config file
-	if err != nil {             // Handle errors reading the config file
-		// will use sensible defaults
-		err = nil
-	}
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -64,7 +59,7 @@ func run() error {
 	}
 
 	var manualProcessors []processors.ManualProcessor
-	err = viper.UnmarshalKey("gateway.processors", &manualProcessors)
+	err := viper.UnmarshalKey("gateway.processors", &manualProcessors)
 	if err != nil {
 		err = nil
 	} else {
@@ -130,8 +125,10 @@ func run() error {
 
 func main() {
 	var mtapConfigFlag string
+	var port int
 	flag.StringVar(&mtapConfigFlag, "mtap-config", "",
 		"The path to the mtap configuration file")
+	flag.IntVar(&port, "port", -1, "The port to use")
 	flag.Parse()
 	viper.SetDefault("consul.host", "localhost")
 	viper.SetDefault("consul.port", 8500)
@@ -154,6 +151,16 @@ func main() {
 		viper.AddConfigPath(".")
 		viper.AddConfigPath("$HOME/.mtap")
 		viper.AddConfigPath("/etc/mtap")
+	}
+
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		// will use sensible defaults
+		err = nil
+	}
+
+	if port != -1 {
+		viper.Set("gateway.port", port)
 	}
 
 	defer glog.Flush()
