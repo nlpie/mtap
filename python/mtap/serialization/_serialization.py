@@ -19,7 +19,7 @@ import logging
 from abc import ABC, abstractmethod
 from os import PathLike
 from pathlib import Path
-from typing import Union, Dict, Any, Optional, TextIO, Callable, Final
+from typing import Union, Dict, Any, Optional, TextIO, Callable
 
 import mtap
 from mtap import data, processing
@@ -183,7 +183,7 @@ class Serializer(ABC):
 
 SerializerFactory = Callable[[Dict[str, Any]], Serializer]
 
-registry: Final[Dict[str, SerializerFactory]] = {}
+registry: Dict[str, SerializerFactory] = {}
 
 
 class SerializerRegistry:

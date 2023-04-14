@@ -71,7 +71,6 @@ from typing import (
     Any,
     TYPE_CHECKING,
     Callable,
-    Final,
     Dict,
     Optional,
     Union,
@@ -285,7 +284,7 @@ class ProcessingErrorHandler(abc.ABC):
 
 ErrorHandlerFactory = Callable[[Dict[str, Any]], ProcessingErrorHandler]
 
-registry: Final[Dict[str, ErrorHandlerFactory]] = {}
+registry: Dict[str, ErrorHandlerFactory] = {}
 
 
 class ErrorHandlerRegistry:
