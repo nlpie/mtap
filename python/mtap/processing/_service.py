@@ -12,27 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import argparse
-import concurrent.futures.thread as thread
 import logging
 import signal
 import threading
 import traceback
 import typing
 import uuid
+from concurrent.futures import thread
 from logging.handlers import QueueListener
-from typing import Any, Dict, Tuple, Sequence, Optional, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-import google.protobuf.empty_pb2 as empty_pb2
 import grpc
-import grpc_health.v1.health as health
-import grpc_health.v1.health_pb2_grpc as health_pb2_grpc
+from grpc_health.v1 import health, health_pb2_grpc
+from grpc_status import rpc_status
 
-from mtap import _config
-from mtap import _structs
-from mtap import data
-from mtap import utilities
+from mtap import _config, _structs, data, utilities
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
-from mtap.processing import _base, _runners, _timing
+from mtap.processing import _base, _runners, _pipeline_results
+from mtap.processing._error_handling import ProcessingException
 
 if typing.TYPE_CHECKING:
     import mtap
@@ -46,19 +43,21 @@ def run_processor(proc: 'mtap.EventProcessor',
                   options: Optional[argparse.Namespace] = None,
                   args: Optional[Sequence[str]] = None,
                   mp_context=None):
-    """Runs the processor as a GRPC service, blocking until an interrupt signal is received.
+    """Runs the processor as a GRPC service, blocking until an interrupt signal 
+    is received.
 
     Args:
-        proc (EventProcessor): The processor to host.
-        mp (bool): If true, will create instances of ``proc`` on multiple forked processes to
-            process events. This is useful if the processor is computationally intensive and would
-            run into Python GIL issues on a single process.
-        options (~typing.Optional[~argparse.Namespace]): The parsed arguments from the parser
-            returned by :func:`processor_parser`.
-        args (~typing.Optional[~typing.Sequence[str]]): Arguments to parse server settings from if
-            ``namespace`` was not supplied.
-        mp_context: A multiprocessing context that gets passed to the process pool executor in the
-            case of mp = True.
+        proc: The processor to host.
+        mp: If true, will create instances of ``proc`` on multiple
+            forked processes to process events. This is useful if the processor 
+            is computationally intensive and would run into Python GIL issues 
+            on a single process.
+        options: The parsed arguments
+            from the parser returned by :func:`processor_parser`.
+        args: Arguments to parse
+            server settings from if ``namespace`` was not supplied.
+        mp_context: A multiprocessing context that gets passed to the process 
+            pool executor in the case of mp = True.
 
     Examples:
         Will automatically parse arguments:
@@ -68,15 +67,16 @@ def run_processor(proc: 'mtap.EventProcessor',
         Manual arguments:
 
         >>> run_processor(MyProcessor(), args=['-p', '8080'])
-
-
     """
     from mtap import EventProcessor
     if not isinstance(proc, EventProcessor):
-        raise ValueError("Processor must be instance of EventProcessor class.")
+        print("Processor must be instance of EventProcessor class.")
+        exit(1)
 
     if options is None:
-        processors_parser = argparse.ArgumentParser(parents=[processor_parser()])
+        processors_parser = argparse.ArgumentParser(
+            parents=[processor_parser()]
+        )
         processors_parser.add_help = True
         options = processors_parser.parse_args(args)
 
@@ -96,7 +96,8 @@ def run_processor(proc: 'mtap.EventProcessor',
 
         enable_http_proxy = options.grpc_enable_http_proxy
         if enable_http_proxy is not None:
-            c['grpc.events_channel_options.grpc.enable_http_proxy'] = enable_http_proxy
+            c['grpc.events_channel_options.grpc.enable_http_proxy'] \
+                = enable_http_proxy
         if mp:
             runner = MpProcessorRunner(proc=proc,
                                        workers=options.workers,
@@ -105,10 +106,8 @@ def run_processor(proc: 'mtap.EventProcessor',
                                        mp_context=mp_context,
                                        log_level=options.log_level)
         else:
-            client = data.EventsClient(address=events_addresses)
-            runner = _runners.ProcessorRunner(proc, client=client,
-                                              processor_name=name,
-                                              params=None)
+            runner = _runners.LocalRunner(proc,
+                                          events_address=events_addresses)
         server = ProcessorServer(runner=runner,
                                  sid=sid,
                                  host=options.host,
@@ -137,7 +136,10 @@ _mp_processor = ...  # EventProcessor
 _mp_client = ...  # EventClient
 
 
-def _mp_initialize(proc: 'mtap.EventProcessor', events_address, config, log_queue):
+def _mp_initialize(proc: 'mtap.EventProcessor',
+                   events_address,
+                   config,
+                   log_queue):
     global _mp_processor
     global _mp_client
 
@@ -155,7 +157,8 @@ def _mp_call_process(event_id, event_service_instance_id, params):
     global _mp_processor
     global _mp_client
     with _base.Processor.enter_context() as c, \
-            data.Event(event_id=event_id, event_service_instance_id=event_service_instance_id,
+            data.Event(event_id=event_id,
+                       event_service_instance_id=event_service_instance_id,
                        client=_mp_client) as event:
         with _base.Processor.started_stopwatch('process_method'):
             result = _mp_processor.process(event, params)
@@ -163,7 +166,13 @@ def _mp_call_process(event_id, event_service_instance_id, params):
 
 
 class MpProcessorRunner:
-    __slots__ = ('pool', 'metadata', 'processor_name', 'component_id', 'log_listener')
+    __slots__ = (
+        'pool',
+        'metadata',
+        'processor_name',
+        'component_id',
+        'log_listener',
+    )
 
     def __init__(self,
                  proc: 'mtap.EventProcessor',
@@ -184,22 +193,27 @@ class MpProcessorRunner:
         self.log_listener = QueueListener(log_queue, handler)
         self.log_listener.start()
 
-        self.pool = mp_context.Pool(workers,
-                                    initializer=_mp_initialize,
-                                    initargs=(proc, events_address, dict(config), log_queue))
+        self.pool = mp_context.Pool(
+            workers,
+            initializer=_mp_initialize,
+            initargs=(proc, events_address, dict(config), log_queue)
+        )
         self.metadata = proc.metadata
         self.processor_name = processor_name
         self.component_id = component_id or processor_name
 
-    def call_process(self,
-                     event_id: str,
-                     event_service_instance_id: str,
-                     params: Optional[Dict[str, Any]]) -> Tuple[Dict, Dict, Dict]:
+    def call_process(
+            self,
+            event_id: str,
+            event_service_instance_id: str,
+            params: Optional[Dict[str, Any]]
+    ) -> Tuple[Dict, Dict, Dict]:
         p = dict()
         if params is not None:
             p.update(params)
 
-        return self.pool.apply(_mp_call_process, args=(event_id, event_service_instance_id, p))
+        return self.pool.apply(_mp_call_process,
+                               args=(event_id, event_service_instance_id, p))
 
     def close(self):
         self.pool.terminate()
@@ -208,11 +222,11 @@ class MpProcessorRunner:
 
 
 def processor_parser() -> argparse.ArgumentParser:
-    """An :class:`~argparse.ArgumentParser` that can be used to parse the settings for
-    :func:`run_processor`.
+    """An :class:`~argparse.ArgumentParser` that can be used to parse the 
+    settings for :func:`run_processor`.
 
     Returns:
-        ~argparse.ArgumentParser: A parser containing server settings.
+        A parser containing server settings.
 
     Examples:
         Using this as a parent parser:
@@ -226,34 +240,70 @@ def processor_parser() -> argparse.ArgumentParser:
 
     """
     processors_parser = argparse.ArgumentParser(add_help=False)
-    processors_parser.add_argument('--host', '--address', '-a', default="127.0.0.1", metavar="HOST",
-                                   help='the address to serve the service on')
-    processors_parser.add_argument('--port', '-p', type=int, default=0, metavar="PORT",
-                                   help='the port to serve the service on')
-    processors_parser.add_argument('--workers', '-w', type=int, default=10,
-                                   help='number of worker threads to handle requests')
-    processors_parser.add_argument('--register', '-r', action='store_true',
-                                   help='whether to register the service with the configured '
-                                        'service discovery')
-    processors_parser.add_argument("--mtap-config", default=None,
-                                   help="path to MTAP config file")
-    processors_parser.add_argument('--events-addresses', '--events-address', '--events', '-e',
-                                   default=None,
-                                   help='address of the events service to use, '
-                                        'omit to use discovery')
-    processors_parser.add_argument('--name', '-n',
-                                   help="Optional override service name, defaults to the processor annotation")
-    processors_parser.add_argument('--sid',
-                                   help="A unique identifier for this instance of the processor service.")
-    processors_parser.add_argument('--write-address', action='store_true',
-                                   help='If set, will write the server address ')
-    processors_parser.add_argument('--log-level', type=str, default='INFO',
-                                   help="Sets the python log level.")
-    processors_parser.add_argument('--grpc-enable-http-proxy', action='store_true',
-                                   help="If set, will enable usage of http_proxy by grpc.")
-    processors_parser.add_argument('--mp-spawn-method',
-                                   choices=['spawn', 'fork', 'forkserver', None],
-                                   help="A multiprocessing spawn method to use.")
+    processors_parser.add_argument(
+        '--host', '--address', '-a',
+        default="127.0.0.1",
+        metavar="HOST",
+        help='the address to serve the service on'
+    )
+    processors_parser.add_argument(
+        '--port', '-p',
+        type=int,
+        default=0,
+        metavar="PORT",
+        help='the port to serve the service on'
+    )
+    processors_parser.add_argument(
+        '--workers', '-w',
+        type=int,
+        default=10,
+        help='number of worker threads to handle requests'
+    )
+    processors_parser.add_argument(
+        '--register', '-r',
+        action='store_true',
+        help='whether to register the service with the configured service '
+             'discovery'
+    )
+    processors_parser.add_argument(
+        "--mtap-config",
+        default=None,
+        help="path to MTAP config file"
+    )
+    processors_parser.add_argument(
+        '--events-addresses', '--events-address', '--events', '-e',
+        default=None,
+        help='address of the events service to use, omit to use discovery'
+    )
+    processors_parser.add_argument(
+        '--name', '-n',
+        help="Optional override service name, defaults to the processor "
+             "annotation"
+    )
+    processors_parser.add_argument(
+        '--sid',
+        help="A unique identifier for this instance of the processor service."
+    )
+    processors_parser.add_argument(
+        '--write-address', action='store_true',
+        help='If set, will write the server address '
+    )
+    processors_parser.add_argument(
+        '--log-level',
+        type=str,
+        default='INFO',
+        help="Sets the python log level."
+    )
+    processors_parser.add_argument(
+        '--grpc-enable-http-proxy',
+        action='store_true',
+        help="If set, will enable usage of http_proxy by grpc."
+    )
+    processors_parser.add_argument(
+        '--mp-spawn-method',
+        choices=['spawn', 'fork', 'forkserver', 'None'],
+        help="A multiprocessing spawn method to use."
+    )
     return processors_parser
 
 
@@ -272,13 +322,12 @@ def _label_index_meta_to_proto(d, message):
 
 class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
-                 config: 'mtap.Config',
                  address: str,
                  sid: str,
                  runner: '_base.ProcessingComponent',
                  health_servicer: health.HealthServicer,
                  register: bool = False):
-        self.config = config
+        self.config = _config.Config()
         self.address = address
         self.sid = sid
         self._runner = runner
@@ -295,13 +344,15 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
         self.health_servicer.set(self._runner, 'SERVING')
 
         if self.register:
-            from mtap._discovery import Discovery
-            service_registration = Discovery(config=self.config)
-            self._deregister = service_registration.register_processor_service(self._runner.processor_name,
-                                                                               self.sid,
-                                                                               self.address,
-                                                                               port,
-                                                                               'v1')
+            from mtap.discovery import DiscoveryMechanism
+            d = DiscoveryMechanism()
+            self._deregister = d.register_processor_service(
+                self._runner.processor_name,
+                self.sid,
+                self.address,
+                port,
+                'v1'
+            )
 
     def shutdown(self):
         self.health_servicer.set(self._runner.processor_name, 'NOT_SERVING')
@@ -327,7 +378,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
             if result is not None:
                 _structs.copy_dict_to_struct(result, response.result, [])
 
-            _timing.add_times(self._times_map, times)
+            _pipeline_results.add_times(self._times_map, times)
             for k, l in times.items():
                 response.timing_info[k].FromTimedelta(l)
             for document_name, l in added_indices.items():
@@ -336,17 +387,17 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
                     created_index.document_name = document_name
                     created_index.index_name = index_name
             return response
-        except Exception as e:
+        except ProcessingException as e:
             logger.error(str(e))
             logger.error(traceback.format_exc())
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
-            return empty_pb2.Empty()
+            context.abort_with_status(rpc_status.to_status(e.to_rpc_status()))
 
     def GetStats(self, request, context):
         r = processing_pb2.GetStatsResponse(processed=self.processed,
                                             failures=self.failure_count)
-        for k, v in _timing.create_timer_stats(self._times_map, self._runner.component_id).items():
+        tsd = _pipeline_results.create_timer_stats(self._times_map,
+                                                   self._runner.component_id)
+        for k, v in tsd.items():
             ts = r.timing_stats[k]
             ts.mean.FromTimedelta(v.mean)
             ts.std.FromTimedelta(v.std)
@@ -364,51 +415,49 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
 class ProcessorServer:
     """Host a MTAP processor as a service.
 
-    Args:
-        proc (EventProcessor): The event processor to host.
-        host (str): The address / hostname / IP to host the server on.
-        port (int): The port to host the server on, or 0 to use a random port.
+    Normally should not need to use this class as :func:`run_processor` should
+    be sufficient for ordinary needs.
 
-    Keyword Args:
-        register (~typing.Optional[bool]): Whether to register the processor with service discovery.
-        events_address (~typing.Optional[str]):
-            The address of the events server, or omitted / None if the events service should be
-            discovered.
-        processor_name (~typing.Optional[str]):
-            The identifier to register the processor under, if omitted the processor name will be
-            used.
-        workers (~typing.Optional[int]):
-            The number of workers that should handle requests. Defaults to 10.
-        params (~typing.Optional[~typing.Mapping[str, ~typing.Any]):
-            A set of default parameters that will be passed to the processor every time it runs.
-        grpc_enable_http_proxy (bool):
-            Enables or disables the grpc channel to the event service using http_proxy or
-            https_proxy environment variables.
+    Args:
+        runner: A processing component runner to host.
+        port: The port to host the server on, or 0 to use a random port.
+        register: Whether to register the processor with service discovery.
+        workers: The number of workers that should handle requests. Defaults
+            to 10.
+
+    Attributes:
+        host: The address / hostname / IP to host the server on.
+        processor_name: The processor's service name.
+        sid: The service instance unique identifier for the processor.
+        write_address: Whether to store this processor's address in a file
+            named based on its pid in the biomedicus home directory. This is
+            useful for when the processor has a randomly assigned port.
+
+
     """
+    host: str
+    processor_name: str
+    sid: str
+    write_address: bool
 
     def __init__(self,
                  runner: 'mtap.processing.ProcessingComponent',
                  host: str,
                  port: int = 0,
                  *,
-                 sid: Optional[None] = None,
+                 sid: Optional[str] = None,
                  register: bool = False,
                  workers: Optional[int] = None,
-                 write_address: bool = False,
-                 config: 'Optional[mtap.Config]' = None):
+                 write_address: bool = False):
         self.host = host
         self.processor_name = runner.processor_name
         self.sid = sid or str(uuid.uuid4())
         self.write_address = write_address
 
-        if config is None:
-            config = _config.Config()
-
         self._health_servicer = health.HealthServicer()
         self._health_servicer.set('', 'SERVING')
         self._health_servicer.set(self.processor_name, 'SERVING')
         self._servicer = _ProcessorServicer(
-            config=config,
             address=host,
             sid=self.sid,
             runner=runner,
@@ -417,11 +466,15 @@ class ProcessorServer:
         )
         workers = workers or 10
         thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
+        config = _config.Config()
         options = config.get("grpc.processor_options", {})
         self._server = grpc.server(thread_pool, options=list(options.items()))
-        health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer, self._server)
-        processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer, self._server)
-        self._port = self._server.add_insecure_port("{}:{}".format(self.host, port))
+        health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer,
+                                                     self._server)
+        processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer,
+                                                            self._server)
+        self._port = self._server.add_insecure_port("{}:{}".format(self.host,
+                                                                   port))
         if port != 0 and self._port != port:
             raise ValueError(f"Unable to bind on port {port}, likely in use.")
         self._stopped_event = threading.Event()
@@ -429,7 +482,7 @@ class ProcessorServer:
 
     @property
     def port(self) -> int:
-        """int: Port the hosted server is bound to.
+        """Port the hosted server is bound to.
         """
         return self._port
 
@@ -439,28 +492,34 @@ class ProcessorServer:
         self._server.start()
         self._servicer.start(self.port)
         if self.write_address:
-            self._address_file = utilities.write_address_file('{}:{}'.format(self.host, self.port), self.sid)
-        logger.info('Started processor server with name: "%s"  on address: "%s:%d"',
-                    self.processor_name, self.host, self.port)
+            self._address_file = utilities.write_address_file(
+                '{}:{}'.format(self.host, self.port), self.sid)
+        logger.info(
+            'Started processor server with name: "%s"  on address: "%s:%d"',
+            self.processor_name, self.host, self.port)
 
     def stop(self, *, grace: Optional[float] = None) -> threading.Event:
-        """De-registers (if registered with service discovery) the service and immediately stops
-        accepting requests, completely stopping the service after a specified `grace` time.
+        """De-registers (if registered with service discovery) the service and
+        immediately stops accepting requests, completely stopping the service
+        after a specified `grace` time.
 
-        During the grace period the server will continue to process existing requests, but it will
-        not accept any new requests. This function is idempotent, multiple calls will shutdown
-        the server after the soonest grace to expire, calling the shutdown event for all calls to
+        During the grace period the server will continue to process existing
+        requests, but it will not accept any new requests. This function is
+        idempotent, multiple calls will shut down the server after the soonest
+        grace to expire, calling the shutdown event for all calls to
         this function.
 
-        Keyword Args:
-            grace (~typing.Optional[float]):
-                The grace period that the server should continue processing requests for shutdown.
+        Args:
+            grace: The grace period that the server should continue processing
+                requests or ``None`` if it should shut down immediately.
 
         Returns:
-            threading.Event: A shutdown event for the server.
+            A shutdown event for the server.
         """
-        print('Shutting down processor server with name: "{}"  on address: "{}:{}"'.format(
-            self.processor_name, self.host, self.port))
+        print(
+            f'Shutting down processor server with name: '
+            f'"{self.processor_name}" on address: "{self.host}:{self.port}"'
+        )
         if self._address_file is not None:
             self._address_file.unlink()
         self._servicer.shutdown()

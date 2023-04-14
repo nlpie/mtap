@@ -13,25 +13,55 @@
 # limitations under the License.
 
 from mtap.processing._base import (
-    AggregateTimingInfo,
-    ComponentDescriptor,
     DocumentProcessor,
     EventProcessor,
-    PipelineResult,
     Processor,
     ProcessorContext,
     ProcessingComponent,
-    ProcessingError,
-    ProcessingResult,
     Stopwatch,
+)
+from mtap.processing._exc import ProcessingError
+
+from mtap.processing._error_handling import (
+    StopProcessing,
+    SuppressError,
+    ErrorOrigin,
+    ErrorInfo,
+    ProcessingErrorHandler,
+    SimpleErrorHandler,
+    TerminationErrorHandler,
+    LoggingErrorHandler,
+    ErrorsDirectoryErrorHandler,
+    SuppressAllErrorsHandler,
+    ErrorHandlerFactory,
+    ErrorHandlerRegistry,
+)
+
+from mtap.processing.descriptions import processor
+from mtap.processing._pipeline import Pipeline
+from mtap.processing._mp_config import MpConfig
+
+from mtap.processing._pipeline_components import (
+    RemoteProcessor,
+    LocalProcessor,
+    ComponentDescriptor,
+)
+
+from mtap.processing._pipeline_results import (
+    AggregateTimingInfo,
+    BatchPipelineResult,
+    PipelineResult,
+    ComponentResult,
     TimerStats,
 )
-from mtap.processing.descriptions import processor
-from mtap.processing._pipeline import (
+
+from mtap.processing._sources import (
     FilesInDirectoryProcessingSource,
-    LocalProcessor,
-    Pipeline,
     ProcessingSource,
-    RemoteProcessor,
 )
-from mtap.processing._service import processor_parser, ProcessorServer, run_processor
+
+from mtap.processing._service import (
+    processor_parser,
+    ProcessorServer,
+    run_processor,
+)

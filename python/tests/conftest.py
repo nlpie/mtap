@@ -72,7 +72,7 @@ def _listen(process: subprocess.Popen):
     return process.wait()
 
 
-@pytest.fixture(name='processor_watcher')
+@pytest.fixture(name='processor_watcher', scope="session")
 def fixture_processor_watcher():
     def func(address, process, timeout=20.0):
         listener = Thread(target=_listen, args=(process,))
@@ -97,7 +97,7 @@ def fixture_processor_watcher():
     return func
 
 
-@pytest.fixture(name='java_exe')
+@pytest.fixture(name='java_exe', scope="session")
 def fixture_java_exe():
     import pathlib
     try:

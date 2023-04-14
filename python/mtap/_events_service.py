@@ -46,8 +46,10 @@ class EventsServer:
         config (mtap.Config): An optional mtap config.
     """
 
-    def __init__(self, host: str, *, port: int = 0, register: bool = False, workers: int = 10,
-                 sid: Optional[str] = None, write_address: bool = False, config: 'Optional[mtap.Config]' = None):
+    def __init__(self, host: str, *, port: int = 0, register: bool = False,
+                 workers: int = 10,
+                 sid: Optional[str] = None, write_address: bool = False,
+                 config: 'Optional[mtap.Config]' = None):
         if host is None:
             host = '127.0.0.1'
         if port is None:
@@ -83,7 +85,8 @@ class EventsServer:
     def start(self):
         """Starts the service.
         """
-        logger.info(f'Starting events server (%s) on address: "%s:%d"', self.sid, self._address, self._port)
+        logger.info(f'Starting events server (%s) on address: "%s:%d"',
+                    self.sid, self._address, self._port)
         self._server.start()
         if self.write_address:
             self._address_file = utilities.write_address_file(
@@ -91,12 +94,14 @@ class EventsServer:
                 self.sid
             )
         if self._register:
-            from mtap._discovery import Discovery
-            service_registration = Discovery(config=self._config)
-            self._deregister = service_registration.register_events_service(self.sid,
-                                                                            self._address,
-                                                                            self._port,
-                                                                            'v1')
+            from mtap.discovery import DiscoveryMechanism
+            service_registration = DiscoveryMechanism()
+            self._deregister = service_registration.register_events_service(
+                self.sid,
+                self._address,
+                self._port,
+                'v1'
+            )
 
     def stop(self, *, grace: Optional[float] = None):
         """De-registers (if registered with service discovery) the service and immediately stops
@@ -115,7 +120,8 @@ class EventsServer:
         Returns:
             threading.Event: A shutdown event for the server.
         """
-        print("Shutting down events server on address: {}:{}".format(self._address, self._port))
+        print("Shutting down events server on address: {}:{}".format(
+            self._address, self._port))
         if self._address_file is not None:
             self._address_file.unlink()
         try:
@@ -148,14 +154,16 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             document = event.documents[document_name]
         except KeyError as e:
             _set_error_context(context, grpc.StatusCode.NOT_FOUND,
-                               "Event: '{}' does not have document: '{}'".format(event_id,
-                                                                                 document_name))
+                               "Event: '{}' does not have document: '{}'".format(
+                                   event_id,
+                                   document_name))
             raise e
         return document
 
     def GetEventsInstanceId(self, request, context):
         logger.debug("GetEventsInstanceId")
-        return events_pb2.GetEventsInstanceIdResponse(instance_id=self.instance_id)
+        return events_pb2.GetEventsInstanceIdResponse(
+            instance_id=self.instance_id)
 
     def OpenEvent(self, request, context=None):
         logger.debug("OpenEvent: %s", request.event_id)
@@ -220,7 +228,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         except KeyError:
             return empty_pb2.Empty()
         names = list(event.binaries.keys())
-        return events_pb2.GetAllBinaryDataNamesResponse(binary_data_names=names)
+        return events_pb2.GetAllBinaryDataNamesResponse(
+            binary_data_names=names)
 
     def AddBinaryData(self, request, context):
         try:
@@ -245,7 +254,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             msg = 'binary_data_name cannot be null or empty'
             _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
             return empty_pb2.Empty()
-        return events_pb2.GetBinaryDataResponse(binary_data=event.binaries[name])
+        return events_pb2.GetBinaryDataResponse(
+            binary_data=event.binaries[name])
 
     def AddDocument(self, request, context=None):
         logger.debug("AddDocument: %s", request.event_id)
@@ -262,7 +272,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         with event.d_lock:
             if document_name in event.documents:
                 msg = "Document '{}' already exists.".format(document_name)
-                _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
+                _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS,
+                                   msg)
                 return empty_pb2.Empty()
             event.documents[document_name] = _Document(request.text)
 
@@ -312,20 +323,27 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             index_name = request.index_name
             if index_name == '':
                 msg = 'No index_name was set.'
-                _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT, msg)
+                _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
+                                   msg)
                 return empty_pb2.Empty()
             labels = (labels_field, getattr(request, labels_field))
         if labels_field == 'generic_labels' and not request.no_key_validation:
             for label in labels[1].labels:
                 for key in label.fields:
-                    if key in ["document", "location", "text", "id", "label_index_name"]:
-                        _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: {}".format(key))
+                    if key in ["document", "location", "text", "id",
+                               "label_index_name"]:
+                        _set_error_context(context,
+                                           grpc.StatusCode.INVALID_ARGUMENT,
+                                           "Label included a reserved key: {}".format(
+                                               key))
                         return empty_pb2.Empty()
                 for key in label.reference_ids:
-                    if key in ["document", "location", "text", "id", "id", "label_index_name"]:
-                        _set_error_context(context, grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: {}".format(key))
+                    if key in ["document", "location", "text", "id", "id",
+                               "label_index_name"]:
+                        _set_error_context(context,
+                                           grpc.StatusCode.INVALID_ARGUMENT,
+                                           "Label included a reserved key: {}".format(
+                                               key))
                         return empty_pb2.Empty()
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()

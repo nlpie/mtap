@@ -6,8 +6,6 @@ events_address: 127.0.0.1:10100  # The address for the events service
 #   - 127.0.0.1:10102
 #   - 127.0.0.1:10103
 mp_config:
-  # The maximum number of document failures before stopping processing.
-  max_failures: 0
   # Whether to print a progress bar in the console
   show_progress: True
   # Concurrent workers / documents being processed at once (on the pipeline side).
@@ -16,6 +14,11 @@ mp_config:
   read_ahead: 2
   # Whether to close events that are handed off from the source to the pipeline.
   close_events: True
+error_handlers:
+  - name: simple
+  - name: termination
+    params:
+      max_failures: 0
 components:
   - name: mtap-example-processor-python # The processor's identifier
     address: localhost:10101 # The address of the processor, null to use service discovery

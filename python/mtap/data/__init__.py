@@ -12,20 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """Module for MTAP's Data Model
-
-Attributes:
-    GENERIC_ADAPTER (~mtap.data.ProtoLabelAdapter): label adapter used for standard
-        (non-distinct) :obj:`~mtap.GenericLabel`.
-    DISTINCT_GENERIC_ADAPTER (~mtap.data.ProtoLabelAdapter): label adapter used for distinct
-        (non-overlapping) :obj:`~mtap.GenericLabel`.
 """
 
 from mtap.data._base import LabelIndexType, LabelIndexInfo
 from mtap.data._events import (
     Document,
     Event,
+    EventsAddressLike,
     EventsClient,
     Labeler,
+    LabelAdapters,
+    FailedToConnectToEventsServiceException,
 )
 from mtap.data._label_adapters import (
     GENERIC_ADAPTER,

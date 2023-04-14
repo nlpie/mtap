@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
-import signal
 import sys
 import tempfile
 import time
@@ -30,7 +29,7 @@ except ImportError:
 from requests import RequestException
 
 import mtap
-from mtap import RemoteProcessor, EventsClient, Event
+from mtap import EventsClient, Event, RemoteProcessor
 from mtap.utilities import subprocess_events_server, find_free_port
 
 os.environ['no_proxy'] = '127.0.0.1,localhost'
@@ -45,16 +44,19 @@ def fixture_python_events():
 @pytest.fixture(name='python_processor')
 def fixture_python_processor(python_events, processor_watcher):
     port = str(find_free_port())
-    p = Popen([sys.executable, '-m', 'mtap.examples.example_processor', '-p', port,
-               '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+    p = Popen(
+        [sys.executable, '-m', 'mtap.examples.example_processor', '-p', port,
+         '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="java_processor")
 def fixture_java_processor(java_exe, python_events, processor_watcher):
     port = str(find_free_port())
-    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
-                          '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+    p = Popen(java_exe + [
+        'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
+        '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE,
+              stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
@@ -96,7 +98,8 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
     with tempfile.NamedTemporaryFile('w', suffix='.yml') as conf_file:
         yaml.dump(config, conf_file, Dumper=Dumper)
         conf_file.flush()
-        p = Popen(['mtap-gateway', '-logtostderr', '-v=3', '-mtap-config=' + conf_file.name],
+        p = Popen(['mtap-gateway', '-logtostderr', '-v=3',
+                   '-mtap-config=' + conf_file.name],
                   stdin=PIPE, stdout=PIPE, stderr=STDOUT)
         session = requests.Session()
         session.trust_env = False
@@ -109,8 +112,10 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
                     raise ValueError("Failed to connect to go gateway")
                 try:
                     time.sleep(3)
-                    resp = session.get("http://{}/v1/processors".format(gateway), timeout=1)
-                    if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
+                    resp = session.get(
+                        "http://{}/v1/processors".format(gateway), timeout=1)
+                    if resp.status_code == 200 and len(
+                            resp.json()['Processors']) == 2:
                         break
                 except RequestException:
                     pass
@@ -140,22 +145,26 @@ how to fire phasers?"""
 
 @pytest.mark.integration
 def test_pipeline(python_events, python_processor, java_processor):
-    with EventsClient(address=python_events) as client, mtap.Pipeline(
-            RemoteProcessor('mtap-example-processor-python', address=python_processor,
-                            params={'do_work': True}),
-            RemoteProcessor('mtap-example-processor-java', address=java_processor,
-                            params={'do_work': True})
-    ) as pipeline:
+    pipeline = mtap.Pipeline(
+        RemoteProcessor('mtap-example-processor-python',
+                        address=python_processor,
+                        params={'do_work': True}),
+        RemoteProcessor('mtap-example-processor-java',
+                        address=java_processor,
+                        params={'do_work': True})
+    )
+    with EventsClient(address=python_events) as client:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
-            pipeline.run(document)
-            letter_counts = document.get_label_index('mtap.examples.letter_counts')
+            result = pipeline.run_multithread([document])
+            letter_counts = document.get_label_index(
+                'mtap.examples.letter_counts')
             a_counts = letter_counts[0]
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
-            pipeline.print_times()
+            result.print_times()
             thes = document.get_label_index("mtap.examples.word_occurrences")
             assert thes[0].start_index == 121
             assert thes[0].end_index == 124
@@ -163,7 +172,8 @@ def test_pipeline(python_events, python_processor, java_processor):
 
 @pytest.mark.integration
 @pytest.mark.gateway
-def test_api_gateway(python_events, python_processor, java_processor, api_gateway):
+def test_api_gateway(python_events, python_processor, java_processor,
+                     api_gateway):
     session = requests.Session()
     session.trust_env = False
     base_url = "http://" + api_gateway
@@ -189,7 +199,8 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'value': 'bar'
     }
-    resp = session.post(base_url + "/v1/events/1/metadata/foo", json=body, timeout=1)
+    resp = session.post(base_url + "/v1/events/1/metadata/foo", json=body,
+                        timeout=1)
     assert resp.status_code == 200
 
     resp = session.get(base_url + "/v1/events/1/metadata", timeout=1)
@@ -200,7 +211,8 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     body = {
         'text': PHASERS
     }
-    resp = session.post(base_url + "/v1/events/1/documents/plaintext", json=body, timeout=1)
+    resp = session.post(base_url + "/v1/events/1/documents/plaintext",
+                        json=body, timeout=1)
     assert resp.status_code == 200
 
     resp = session.get(base_url + "/v1/events/1/documents", timeout=1)
@@ -208,7 +220,8 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     documents = resp.json()["document_names"]
     assert documents == ['plaintext']
 
-    resp = session.get(base_url + "/v1/events/1/documents/plaintext", timeout=1)
+    resp = session.get(base_url + "/v1/events/1/documents/plaintext",
+                       timeout=1)
     assert resp.status_code == 200
     text = resp.json()['text']
     assert text == PHASERS
@@ -239,10 +252,13 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
         }
     }
     resp = session.post(
-        base_url + "/v1/events/1/documents/plaintext/labels/test-labels", json=body, timeout=1)
+        base_url + "/v1/events/1/documents/plaintext/labels/test-labels",
+        json=body, timeout=1)
     assert resp.status_code == 200
 
-    resp = session.get(base_url + "/v1/events/1/documents/plaintext/labels/test-labels", timeout=1)
+    resp = session.get(
+        base_url + "/v1/events/1/documents/plaintext/labels/test-labels",
+        timeout=1)
     assert resp.status_code == 200
     labels = resp.json()
     generic_labels = labels['generic_labels']
@@ -267,7 +283,8 @@ def test_api_gateway(python_events, python_processor, java_processor, api_gatewa
     assert python_process['result']['answer'] == 42
 
     resp = session.get(
-        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts", timeout=1
+        base_url + "/v1/events/1/documents/plaintext/labels/mtap.examples.letter_counts",
+        timeout=1
     )
     assert resp.status_code == 200
     labels = resp.json()

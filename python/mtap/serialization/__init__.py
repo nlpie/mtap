@@ -24,5 +24,7 @@ from mtap.serialization._serialization import (
     YamlSerializer,
     PickleSerializer,
     standard_serializers,
-    get_serializer
+    get_serializer,
+    SerializerRegistry,
+    SerializerFactory,
 )

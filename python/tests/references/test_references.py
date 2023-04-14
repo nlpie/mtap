@@ -18,7 +18,7 @@ from subprocess import Popen, PIPE, STDOUT
 
 import pytest
 
-from mtap import EventsClient, RemoteProcessor, Pipeline, Event, GenericLabel
+from mtap import EventsClient, Pipeline, Event, GenericLabel, RemoteProcessor
 from mtap.utilities import subprocess_events_server, find_free_port
 
 
@@ -32,70 +32,83 @@ def fixture_python_events():
 def fixture_python_references_processor(python_events, processor_watcher):
     env = dict(os.environ)
     port = str(find_free_port())
-    p = Popen([sys.executable, '-m', 'mtap.examples.example_references_processor', '-p', port,
-               '--events', python_events, '--log-level', 'DEBUG'], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    p = Popen(
+        [sys.executable, '-m', 'mtap.examples.example_references_processor',
+         '-p', port,
+         '--events', python_events, '--log-level', 'DEBUG'], stdin=PIPE,
+        stdout=PIPE, stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.fixture(name="java_references_processor")
-def fixture_java_references_processor(java_exe, python_events, processor_watcher):
+def fixture_java_references_processor(java_exe, python_events,
+                                      processor_watcher):
     env = dict(os.environ)
     port = str(find_free_port())
-    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.ReferenceLabelsExampleProcessor',
-                          '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT, env=env)
+    p = Popen(java_exe + [
+        'edu.umn.nlpie.mtap.examples.ReferenceLabelsExampleProcessor',
+        '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE,
+              stderr=STDOUT, env=env)
     yield from processor_watcher(address="127.0.0.1:" + port, process=p)
 
 
 @pytest.mark.integration
 def test_java_references(python_events, java_references_processor):
-    with EventsClient(address=python_events) as client, Pipeline(
-            RemoteProcessor('mtap-java-reference-labels-example-processor',
-                            address=java_references_processor)
-    ) as pipeline:
-        with Event(event_id='1', client=client) as event:
-            document = event.create_document('plaintext', 'abcd')
-            pipeline.run(document)
-            references = document.labels['references']
-            assert references[0].a == GenericLabel(0, 1)
-            assert references[0].b == GenericLabel(1, 2)
-            assert references[1].a == GenericLabel(2, 3)
-            assert references[1].b == GenericLabel(3, 4)
+    pipeline = Pipeline(
+        RemoteProcessor('mtap-java-reference-labels-example-processor',
+                        address=java_references_processor)
+    )
+    with EventsClient(python_events) as c, \
+            Event(event_id='1', client=c) as event:
+        document = event.create_document('plaintext', 'abcd')
+        pipeline.run(document)
+        references = document.labels['references']
+        assert references[0].a == GenericLabel(0, 1)
+        assert references[0].b == GenericLabel(1, 2)
+        assert references[1].a == GenericLabel(2, 3)
+        assert references[1].b == GenericLabel(3, 4)
 
-            map_references = document.labels['map_references']
-            assert map_references[0].ref == {
-                'a': GenericLabel(0, 1),
-                'b': GenericLabel(1, 2),
-                'c': GenericLabel(2, 3),
-                'd': GenericLabel(3, 4)
-            }
+        map_references = document.labels['map_references']
+        assert map_references[0].ref == {
+            'a': GenericLabel(0, 1),
+            'b': GenericLabel(1, 2),
+            'c': GenericLabel(2, 3),
+            'd': GenericLabel(3, 4)
+        }
 
-            list_references = document.labels['list_references']
-            assert list_references[0].ref == [GenericLabel(0, 1), GenericLabel(1, 2)]
-            assert list_references[1].ref == [GenericLabel(2, 3), GenericLabel(3, 4)]
+        list_references = document.labels['list_references']
+        assert list_references[0].ref == [GenericLabel(0, 1),
+                                          GenericLabel(1, 2)]
+        assert list_references[1].ref == [GenericLabel(2, 3),
+                                          GenericLabel(3, 4)]
 
 
 @pytest.mark.integration
 def test_python_references(python_events, python_references_processor):
-    with EventsClient(address=python_events) as client, Pipeline(
-            RemoteProcessor('mtap-python-references-example', address=python_references_processor)
-    ) as pipeline:
-        with Event(event_id='1', client=client) as event:
-            document = event.create_document('plaintext', 'abcd')
-            pipeline.run(document)
-            references = document.labels['references']
-            assert references[0].a == GenericLabel(0, 1)
-            assert references[0].b == GenericLabel(1, 2)
-            assert references[1].a == GenericLabel(2, 3)
-            assert references[1].b == GenericLabel(3, 4)
+    pipeline = Pipeline(
+        RemoteProcessor('mtap-python-references-example',
+                        address=python_references_processor)
+    )
+    with EventsClient(python_events) as client, \
+            Event(event_id='1', client=client) as event:
+        document = event.create_document('plaintext', 'abcd')
+        pipeline.run(document)
+        references = document.labels['references']
+        assert references[0].a == GenericLabel(0, 1)
+        assert references[0].b == GenericLabel(1, 2)
+        assert references[1].a == GenericLabel(2, 3)
+        assert references[1].b == GenericLabel(3, 4)
 
-            map_references = document.labels['map_references']
-            assert map_references[0].ref == {
-                'a': GenericLabel(0, 1),
-                'b': GenericLabel(1, 2),
-                'c': GenericLabel(2, 3),
-                'd': GenericLabel(3, 4)
-            }
+        map_references = document.labels['map_references']
+        assert map_references[0].ref == {
+            'a': GenericLabel(0, 1),
+            'b': GenericLabel(1, 2),
+            'c': GenericLabel(2, 3),
+            'd': GenericLabel(3, 4)
+        }
 
-            list_references = document.labels['list_references']
-            assert list_references[0].ref == [GenericLabel(0, 1), GenericLabel(1, 2)]
-            assert list_references[1].ref == [GenericLabel(2, 3), GenericLabel(3, 4)]
+        list_references = document.labels['list_references']
+        assert list_references[0].ref == [GenericLabel(0, 1),
+                                          GenericLabel(1, 2)]
+        assert list_references[1].ref == [GenericLabel(2, 3),
+                                          GenericLabel(3, 4)]

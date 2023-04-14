@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import signal
 import sys
 import time
 from pathlib import Path
@@ -23,17 +22,18 @@ import requests
 from requests import RequestException
 
 import mtap
-from mtap import RemoteProcessor, EventsClient, Event
+from mtap import EventsClient, Event, RemoteProcessor, utilities
 from mtap.utilities import subprocess_events_server
 
 
-@pytest.fixture(name='disc_python_events')
+@pytest.fixture(name='disc_python_events', scope='module')
 def fixture_disc_python_events():
-    with subprocess_events_server(cwd=Path(__file__).parents[2], register=True) as address:
+    with subprocess_events_server(cwd=Path(__file__).parents[2],
+                                  register=True) as address:
         yield address
 
 
-@pytest.fixture(name='disc_python_processor')
+@pytest.fixture(name='disc_python_processor', scope='module')
 def fixture_disc_python_processor(disc_python_events, processor_watcher):
     p = Popen([sys.executable, '-m', 'mtap.examples.example_processor',
                '-p', '50501', '--register'],
@@ -41,16 +41,24 @@ def fixture_disc_python_processor(disc_python_events, processor_watcher):
     yield from processor_watcher(address="127.0.0.1:50501", process=p)
 
 
-@pytest.fixture(name="disc_java_processor")
-def fixture_disc_java_processor(java_exe, disc_python_events, processor_watcher):
-    p = Popen(java_exe + ['edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor', '-p', '50502', '--register'],
+@pytest.fixture(name="disc_java_processor", scope='module')
+def fixture_disc_java_processor(java_exe, disc_python_events,
+                                processor_watcher):
+    p = Popen(java_exe + [
+        'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor', '-p',
+        '50502', '--register'],
               stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     yield from processor_watcher(address="127.0.0.1:50502", process=p)
 
 
-@pytest.fixture(name="disc_api_gateway")
-def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_java_processor):
-    p = Popen(['mtap-gateway', '-mtap-config',  str(Path(__file__).parent / 'integrationConfig.yaml'),
+@pytest.fixture(name="disc_api_gateway", scope='module')
+def fixture_disc_api_gateway(disc_python_events, disc_python_processor,
+                             disc_java_processor):
+    port = utilities.find_free_port()
+    address = f"127.0.0.1:{port}"
+    p = Popen(['mtap-gateway', '-mtap-config',
+               str(Path(__file__).parent / 'integrationConfig.yaml'),
+               '-port', str(port),
                '-logtostderr', '-v=3'], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
     session = requests.Session()
     session.trust_env = False
@@ -62,12 +70,14 @@ def fixture_disc_api_gateway(disc_python_events, disc_python_processor, disc_jav
                 raise ValueError("Failed to connect to go gateway")
             try:
                 time.sleep(3)
-                resp = session.get("http://127.0.0.1:50503/v1/processors", timeout=10)
-                if resp.status_code == 200 and len(resp.json()['Processors']) == 2:
+                resp = session.get(f"http://{address}/v1/processors",
+                                   timeout=10)
+                if resp.status_code == 200 and len(
+                        resp.json()['Processors']) == 2:
                     break
             except RequestException:
                 pass
-        yield
+        yield address
     finally:
         session.close()
         p.terminate()
@@ -92,23 +102,28 @@ how to fire phasers?"""
 
 
 @pytest.mark.consul
-def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_processor):
-    with EventsClient(address=disc_python_events) as client, mtap.Pipeline(
-            RemoteProcessor('mtap-example-processor-python', address='localhost:50501',
-                            params={'do_work': True}),
-            RemoteProcessor('mtap-example-processor-java', address='localhost:50502',
-                            params={'do_work': True})
-    ) as pipeline:
+def test_disc_pipeline(disc_python_events, disc_python_processor,
+                       disc_java_processor):
+    pipeline = mtap.Pipeline(
+        RemoteProcessor('mtap-example-processor-python',
+                        address='localhost:50501',
+                        params={'do_work': True}),
+        RemoteProcessor('mtap-example-processor-java',
+                        address='localhost:50502',
+                        params={'do_work': True})
+    )
+    with EventsClient(address=disc_python_events) as client:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
-            pipeline.run(document)
-            letter_counts = document.get_label_index('mtap.examples.letter_counts')
+            result = pipeline.run_multithread([document])
+            letter_counts = document.get_label_index(
+                'mtap.examples.letter_counts')
             a_counts = letter_counts[0]
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
-            pipeline.print_times()
+            result.print_times()
             thes = document.get_label_index("mtap.examples.word_occurrences")
             assert thes[0].start_index == 121
             assert thes[0].end_index == 124
@@ -118,7 +133,7 @@ def test_disc_pipeline(disc_python_events, disc_python_processor, disc_java_proc
 def test_disc_api_gateway(disc_api_gateway):
     session = requests.Session()
     session.trust_env = False
-    resp = session.get("http://localhost:50503/v1/processors", timeout=10)
+    resp = session.get(f"http://{disc_api_gateway}/v1/processors", timeout=10)
     assert resp.status_code == 200
     processors = resp.json()
     all_ids = []

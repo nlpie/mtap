@@ -65,20 +65,25 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx_rtd_theme',
 ]
+
+html_theme = 'bizstyle'
+
+autosummary_generate = True
+autodoc_default_options = {
+}
+autoclass_content = 'class'
+autodoc_typehints_format = 'short'
+autodoc_member_order = 'bysource'
+autodoc_inherit_docstrings = False
+autodoc_preserve_defaults = True
 
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-napoleon_include_special_with_doc = True
+napoleon_attr_annotations = True
 
-autodoc_default_options = {
-    'members': None,
-    'member-order': 'bysource'
-}
-
-autodoc_typehints = 'none'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -112,7 +117,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinxdoc'
+# html_theme = 'sphinxdoc'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

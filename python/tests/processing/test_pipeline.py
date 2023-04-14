@@ -18,9 +18,17 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Dict, Any
 
-from mtap import Pipeline, LocalProcessor, Event, EventsClient, processor
-from mtap.processing import EventProcessor
-from mtap.processing._pipeline import MpConfig, RemoteProcessor
+from mtap import (
+    Pipeline,
+    EventProcessor,
+    Event,
+    EventsClient,
+    processor,
+    RemoteProcessor,
+    LocalProcessor
+)
+from mtap.processing import MpConfig, SimpleErrorHandler, \
+    TerminationErrorHandler
 
 
 @processor('test-processor')
@@ -46,20 +54,25 @@ def test_time_result(mocker):
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     client.instance_id = 0
-    with Pipeline(
-            LocalProcessor(Processor(), component_id='test_processor'),
-            events_client=client
-    ) as pipeline:
+    pipeline = Pipeline(
+        LocalProcessor(Processor(),
+                       component_id='test_processor')
+    )
+    with pipeline.activate() as active:
+        active.components[0]._client = client
         event = Event()
-        result = pipeline.run(event)
-        assert result.component_results[0].timing_info['process_method'] >= timedelta(seconds=0.001)
+        result = active.run(event)
+        assert result.component_results[0].timing_info['process_method'] \
+               >= timedelta(seconds=0.001)
 
 
 def test_load_from_config():
     pipeline = Pipeline.from_yaml_file(Path(__file__).parent / 'pipeline.yml')
     assert pipeline.name == 'mtap-test-pipeline'
-    assert pipeline.events_address == 'localhost:123'
-    assert pipeline.mp_config.max_failures == 3
+    assert len(pipeline.error_handlers) == 2
+    assert type(pipeline.error_handlers[0]) == SimpleErrorHandler
+    assert type(pipeline.error_handlers[1]) == TerminationErrorHandler
+    assert pipeline.error_handlers[1].max_failures == 3
     assert not pipeline.mp_config.show_progress
     assert pipeline.mp_config.workers == 12
     assert pipeline.mp_config.read_ahead == 4
@@ -82,9 +95,7 @@ def test_serialization():
             address='localhost:5678'
         ),
         name='mtap-test-pipeline',
-        events_address='localhost:123',
         mp_config=MpConfig(
-            max_failures=3,
             show_progress=False,
             workers=12,
             read_ahead=4,
@@ -94,8 +105,6 @@ def test_serialization():
     s = pickle.dumps(p)
     r = pickle.loads(s)
     assert r.name == 'mtap-test-pipeline'
-    assert r.events_address == 'localhost:123'
-    assert r.mp_config.max_failures == 3
     assert not r.mp_config.show_progress
     assert r.mp_config.workers == 12
     assert r.mp_config.read_ahead == 4

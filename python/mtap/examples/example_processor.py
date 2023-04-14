@@ -19,10 +19,15 @@ from mtap.processing.descriptions import parameter, labels, label_property
 
 @processor('mtap-example-processor-python',
            human_name="Python Example Processor",
-           description="counts the number of times the letters a and b occur in a document",
+           description="counts the number of times the letters a and b occur "
+                       "in a document",
            parameters=[
-               parameter('do_work', required=True, data_type='bool',
-                         description="Whether the processor should do anything.")
+               parameter(
+                   'do_work',
+                   required=True,
+                   data_type='bool',
+                   description="Whether the processor should do anything."
+               )
            ],
            outputs=[
                labels('mtap.examples.letter_counts',
@@ -30,7 +35,8 @@ from mtap.processing.descriptions import parameter, labels, label_property
                                   label_property('count', data_type='int')])
            ])
 class ExampleProcessor(DocumentProcessor):
-    """Does some labeling of the counts of the letter 'a' and 'b' in a document.
+    """Does some labeling of the counts of the letter 'a' and 'b' in a
+    document.
     """
 
     def process_document(self, document, params):
@@ -41,14 +47,19 @@ class ExampleProcessor(DocumentProcessor):
             a_count = text.count('a')
             b_count = text.count('b')
 
-            with document.get_labeler('mtap.examples.letter_counts') as label_letter_count:
-                label_letter_count(start_index=0, end_index=len(document.text), letter='a',
+            with document.get_labeler('mtap.examples.letter_counts') as \
+                    label_letter_count:
+                label_letter_count(start_index=0,
+                                   end_index=len(document.text),
+                                   letter='a',
                                    count=a_count)
-                label_letter_count(start_index=0, end_index=len(document.text), letter='b',
+                label_letter_count(start_index=0,
+                                   end_index=len(document.text),
+                                   letter='b',
                                    count=b_count)
 
         return {'answer': 42}
 
 
 if __name__ == '__main__':
-    run_processor(ExampleProcessor(), mp=True)
+    run_processor(ExampleProcessor())
