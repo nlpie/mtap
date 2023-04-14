@@ -42,10 +42,6 @@ class LocalRunner(ProcessingComponent):
         '_client'
     )
 
-    processor: 'EventProcessor'
-    events_address: 'EventsAddressLike'
-    processor_name: str
-
     def __init__(self,
                  processor: 'EventProcessor',
                  events_address: 'EventsAddressLike',
@@ -83,7 +79,7 @@ class LocalRunner(ProcessingComponent):
                     event_id=event_id,
                     event_service_instance_id=event_instance_id,
                     client=self._events_client,
-                    label_adapters=self.processor.custom_label_adapters
+                    label_adapters=self._processor.custom_label_adapters
                 ) as event:
             with Processor.started_stopwatch('process_method'):
                 try:

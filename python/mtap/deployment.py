@@ -597,6 +597,9 @@ class _ActiveDeployment:
     def __init__(self):
         self._processor_listeners = []
 
+    def __enter__(self):
+        return self
+
     def __exit__(self, __exc_type, __exc_value, __traceback):
         self.shutdown()
 

@@ -158,7 +158,7 @@ class Processor:
             >>>     ...
 
         """
-        stopwatch = Stopwatch(getattr(processor_local, 'context', None), key)
+        stopwatch = Stopwatch(key, getattr(processor_local, 'context', None))
         stopwatch.start()
         return stopwatch
 
@@ -184,7 +184,7 @@ class Processor:
             >>>         ...
             >>>         stopwatch.stop()
         """
-        return Stopwatch(getattr(processor_local, 'context', None), key)
+        return Stopwatch(key, getattr(processor_local, 'context', None))
 
     @staticmethod
     @contextlib.contextmanager

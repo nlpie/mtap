@@ -60,7 +60,7 @@ def test_deployment(java_exe):
                 )
             )
             pipeline.mp_config.close_events = False
-            with EventsClient(deployment.events_deployment.addresses) as c:
+            with EventsClient(deployment.events_deployment.address) as c:
                 with mtap.Event(client=c) as e:
                     d = e.create_document('plaintext', text)
                     results = pipeline.run(d)

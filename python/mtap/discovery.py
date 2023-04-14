@@ -18,7 +18,6 @@ from typing import ClassVar, Dict, Type, Callable, TypeVar, List
 
 from mtap import constants, _config
 
-
 T = TypeVar('T', bound='DiscoveryMechanism')
 
 
@@ -114,6 +113,8 @@ class DiscoveryMechanism(abc.ABC):
 
 @DiscoveryMechanism.register('consul')
 class ConsulDiscovery(DiscoveryMechanism):
+    REQUEST_TIMEOUT: int = 10
+
     def __init__(self):
         import consul
         config = _config.Config()
@@ -135,10 +136,13 @@ class ConsulDiscovery(DiscoveryMechanism):
                                           'interval': self.interval,
                                           'status': 'passing'
                                       },
-                                      tags=[version])
+                                      tags=[version],
+                                      timeout=ConsulDiscovery.REQUEST_TIMEOUT)
 
         def deregister():
-            self.c.agent.service.deregister(service_id=sid)
+            self.c.agent.service.deregister(
+                service_id=sid
+            )
 
         return deregister
 
@@ -147,7 +151,11 @@ class ConsulDiscovery(DiscoveryMechanism):
 
         """
         name = constants.EVENTS_SERVICE_NAME
-        _, services = self.c.health.service(name, tag='v1')
+        _, services = self.c.health.service(
+            name,
+            tag='v1',
+            wait=f"{ConsulDiscovery.REQUEST_TIMEOUT}s"
+        )
         addresses = []
         if len(services) == 0:
             raise ValueError('No addresses found for events service')
@@ -167,16 +175,23 @@ class ConsulDiscovery(DiscoveryMechanism):
                                           'interval': self.interval,
                                           'status': 'passing'
                                       },
-                                      tags=[constants.PROCESSING_SERVICE_TAG])
+                                      tags=[constants.PROCESSING_SERVICE_TAG],
+                                      timeout=ConsulDiscovery.REQUEST_TIMEOUT)
 
         def deregister():
-            self.c.agent.service.deregister(service_id=sid)
+            self.c.agent.service.deregister(
+                service_id=sid
+            )
 
         return deregister
 
     def discover_processor_service(self, processor_name, version):
         tag = constants.PROCESSING_SERVICE_TAG
-        _, services = self.c.health.service(processor_name, tag=tag)
+        _, services = self.c.health.service(
+            processor_name,
+            tag=tag,
+            wait=f"{ConsulDiscovery.REQUEST_TIMEOUT}s"
+        )
         addresses = []
         for service in services:
             addresses.append("{}:{}".format(service['Node']['Address'],
