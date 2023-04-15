@@ -1,7 +1,7 @@
 <p align="center">
   <a href="https://pypi.org/project/mtap/">
     <img src="https://img.shields.io/pypi/v/mtap" /></a>
-  <a href="https://central.sonatype.com/artifact/edu.umn.nlpie/mtap/1.1.0">
+  <a href="https://central.sonatype.com/artifact/edu.umn.nlpie/mtap/1.2.0">
     <img src="https://img.shields.io/maven-central/v/edu.umn.nlpie/mtap" /></a>
 </p>
 
