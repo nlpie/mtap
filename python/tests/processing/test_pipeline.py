@@ -1,3 +1,7 @@
+
+
+
+
 #  Copyright 2021 Regents of the University of Minnesota.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -6,6 +10,8 @@
 #
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
+
+
 #  Unless required by applicable law or agreed to in writing, software
 #  distributed under the License is distributed on an "AS IS" BASIS,
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,12 +28,13 @@ from mtap import (
     Pipeline,
     EventProcessor,
     Event,
-    EventsClient,
+    events_client,
     processor,
     RemoteProcessor,
     LocalProcessor
 )
-from mtap.processing import MpConfig, SimpleErrorHandler, \
+from mtap._events_client import EventsClient
+from mtap.pipeline import MpConfig, SimpleErrorHandler, \
     TerminationErrorHandler
 
 
@@ -50,7 +57,6 @@ class Processor(EventProcessor):
 
 def test_time_result(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
     client.get_all_document_names.return_value = ['plaintext']
     client.get_all_metadata.return_value = {}
     client.instance_id = 0

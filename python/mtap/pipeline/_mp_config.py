@@ -46,7 +46,7 @@ class MpConfig:
     """The start method for multiprocessing processes see:
     :meth:`multiprocessing.get_context`."""
 
-    mp_context: 'Optional[multiprocessing]' = None
+    mp_context: Optional['multiprocessing'] = None
     """An optional mp_context. If set overrides the ``mp_start_method`` 
     attribute. If not set will use 
     ``multiprocessing.get_context(mp_start_method)``

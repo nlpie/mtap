@@ -1,4 +1,4 @@
-# Copyright 2022 Regents of the University of Minnesota.
+# Copyright 2019 Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,28 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Internal processors and pipelines functionality."""
-import contextlib
 import threading
-from abc import ABCMeta, abstractmethod, ABC
+from abc import abstractmethod, ABCMeta
+from contextlib import contextmanager
+from dataclasses import asdict
 from datetime import datetime, timedelta
-from typing import (
-    ContextManager,
-    Any,
-    Dict,
-    Optional,
-    Mapping,
-    Tuple,
-    TYPE_CHECKING,
-    MutableMapping
-)
+from typing import ClassVar, Optional, ContextManager, Mapping, Dict, Any, \
+    Callable
 
-from mtap import data
-
-if TYPE_CHECKING:
-    import mtap
-    from mtap import Event, Document
-    from mtap.data import ProtoLabelAdapter
+from mtap._document import Document
+from mtap._event import Event
+from mtap._label_adapters import ProtoLabelAdapter
+from mtap.descriptors import ProcessorDescriptor
 
 
 class ProcessorContext:
@@ -121,9 +111,19 @@ class Processor:
     """Mixin used by all processor abstract base classes that provides the
     ability to update serving status and use timers.
     """
-    __slots__ = ('_health_callback')
+    __slots__ = ('_health_callback',)
 
-    metadata = {}
+    descriptor: ClassVar[Optional['ProcessorDescriptor']] = None
+
+    _health_callback: Callable[[str], None]
+
+    @classmethod
+    def metadata(cls) -> Dict[str, Any]:
+        if cls.descriptor is None:
+            return {
+                'name': cls.__name__.casefold()
+            }
+        return asdict(cls.descriptor)
 
     def update_serving_status(self, status: str):
         """Updates the serving status of the processor for health checking.
@@ -187,10 +187,11 @@ class Processor:
         return Stopwatch(key, getattr(processor_local, 'context', None))
 
     @staticmethod
-    @contextlib.contextmanager
+    @contextmanager
     def enter_context() -> ContextManager[ProcessorContext]:
-        # Used by the MTAP framework to enter a processing context where things like timing
-        # results are stored. Users should not need to call this in normal usage.
+        # Used by the MTAP framework to enter a processing context where
+        # things like timing results are stored. Users should not need to
+        # call this in normal usage.
         try:
             old_context = processor_local.context
         except AttributeError:
@@ -216,7 +217,7 @@ class EventProcessor(Processor):
     __slots__ = ()
 
     @property
-    def custom_label_adapters(self) -> 'Mapping[str, ProtoLabelAdapter]':
+    def custom_label_adapters(self) -> Mapping[str, ProtoLabelAdapter]:
         """Optional method used to provide non-standard proto label adapters
         for specific index names. Default implementation returns an empty
         dictionary.
@@ -229,7 +230,7 @@ class EventProcessor(Processor):
     @abstractmethod
     def process(
             self,
-            event: 'Event',
+            event: Event,
             params: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
         """Performs processing on an event, implemented by the subclass.
@@ -298,42 +299,3 @@ class DocumentProcessor(EventProcessor):
     def process(self, event, params):
         document = event.documents[params['document_name']]
         return self.process_document(document, params)
-
-
-class ProcessingComponent(ABC):
-    __slots__ = ()
-
-    metadata = {}
-
-    @property
-    @abstractmethod
-    def processor_name(self) -> str:
-        ...
-
-    @property
-    @abstractmethod
-    def component_id(self) -> str:
-        ...
-
-    @abstractmethod
-    def call_process(
-            self,
-            event_id: str,
-            event_instance_id: str,
-            params: Optional[Dict[str, Any]]
-    ) -> Tuple[Dict, Dict, Dict]:
-        """Calls a processor.
-
-        Parameters
-            event_id: The event to process.
-            event_instance_id: The service instance the event is stored on.
-            params: The processor parameters.
-
-        Returns
-            A tuple of the processing result dictionary, the processor times
-            dictionary, and the "created indices" dictionary.
-        """
-        ...
-
-    def close(self):
-        ...

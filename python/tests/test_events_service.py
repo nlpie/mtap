@@ -16,7 +16,7 @@ import grpc
 import grpc_testing
 import pytest
 
-from mtap._events_service import EventsServicer
+from mtap.events_server import EventsServicer
 from mtap.api.v1 import events_pb2
 
 PHASERS = """Maybe if we felt any human loss as keenly as we feel one of those close to us, human 

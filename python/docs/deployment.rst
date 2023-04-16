@@ -1,7 +1,10 @@
+***************
 mtap.deployment
-===============
-Deployment
-----------
+***************
+
+Deploying Processors
+====================
+
 .. automodule:: mtap.deployment
 .. autoclass:: Deployment
    :members:

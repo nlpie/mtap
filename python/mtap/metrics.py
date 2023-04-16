@@ -11,10 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Provides functionality for measuring processor performance against gold standards."""
+"""Provides functionality for measuring processor performance against gold
+standards.
+"""
 import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable, Tuple, TextIO, TYPE_CHECKING
+from typing import Dict, Any, Optional, Sequence, NamedTuple, Callable, Tuple, \
+    TextIO
+
+from mtap._document import Document
+from mtap._label_indices import presorted_label_index
+from mtap.descriptors import processor
+from mtap.processing import DocumentProcessor
+from mtap.types import LabelIndex, Label
+from mtap.utilities import tokenization
 
 __all__ = [
     'Metric',
@@ -26,14 +36,6 @@ __all__ = [
     'FirstTokenConfusion'
 ]
 
-from mtap.data import presorted_label_index
-from mtap.processing import DocumentProcessor, processor
-from mtap.utilities import tokenization
-
-if TYPE_CHECKING:
-    import mtap
-    from mtap import data
-
 
 class Metric(ABC):
     """Base class for metrics.
@@ -43,36 +45,36 @@ class Metric(ABC):
 
     @abstractmethod
     def update(self,
-               document: 'mtap.Document',
-               tested_index: 'data.LabelIndex', target_index: 'data.LabelIndex') -> Any:
+               document: Document,
+               tested_index: LabelIndex, target_index: LabelIndex) -> Any:
         ...
 
 
 @processor('mtap-metrics')
 class Metrics(DocumentProcessor):
-    """A document process that computes a set of metrics.
+    """A document processor that computes a set of metrics.
 
-    Args
-    ---
-    tested (str): The name of the index to use as the hypothesis / predictions.
-    target (str): The name of the index to use as the ground truth / gold standard.
-    tested_filter (~typing.Callable[[Label], bool]): A filter to apply to the tested index.
-    target_filter (~typing.Callable[[Label], bool]): A filter to apply to the target index.
+    Args:
+        tested: The name of the index to use as the hypothesis / predictions.
+        target: The name of the index to use as the ground truth / gold
+            standard.
+        tested_filter: A filter to apply to the tested index.
+        target_filter: A filter to apply to the target index.
 
     """
 
     def __init__(self, *metrics: Metric,
                  tested: str,
                  target: str,
-                 tested_filter: Callable[['data.Label'], bool] = None,
-                 target_filter: Callable[['data.Label'], bool] = None):
+                 tested_filter: Callable[[Label], bool] = None,
+                 target_filter: Callable[[Label], bool] = None):
         self.tested = tested
         self.target = target
         self.metrics = metrics
         self.tested_filter = tested_filter
         self.target_filter = target_filter
 
-    def process_document(self, document: 'mtap.Document',
+    def process_document(self, document: Document,
                          params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         tested = document.labels[self.tested]
         if self.tested_filter is not None:
@@ -95,20 +97,20 @@ def print_overlapping(document, target_label, tested_index):
         print('"', overlap.text(document.text), '"')
 
 
-def fields_match_test(fields: Optional[Sequence[str]] = ...):
-    """Creates an equivalence test that tests whether the specified fields are equal on both labels.
+def fields_match_test(fields: Optional[Sequence[str]] = None):
+    """Creates an equivalence test that tests whether the specified fields are
+    equal on both labels.
 
-    Parameters
-    ----------
-    fields: Optional[Sequence[str]]
-        The fields to test or ... if all fields should be tested.
+    Args:
+        fields: The fields to test or `None` if all fields should be tested.
 
     """
 
-    def fields_match(tested_label: 'data.Label', target_label: 'data.Label') -> bool:
+    def fields_match(tested_label: Label, target_label: Label) -> bool:
         if fields is not ...:
             return all(
-                getattr(tested_label, field) == getattr(target_label, field) for field in fields)
+                getattr(tested_label, field) == getattr(target_label, field)
+                for field in fields)
         else:
             return tested_label.shallow_fields_equal(target_label)
 
@@ -116,35 +118,33 @@ def fields_match_test(fields: Optional[Sequence[str]] = ...):
 
 
 class Accuracy(Metric):
+    """An accuracy metric with several options for equivalence.
+
+    Args:
+        name: An identifier for the metric.
+        mode: 'equals' - counts as a hit if there is one and only one
+            label at the same location in the tested index as the target
+            index, and it has the same values for its fields.
+            'location' - counts as a hit if there is one and only one
+            label at the same location in the tested index as the target
+            index.
+            'any' - counts as a hit if there is one or more labels at the
+            same location with the same values for its fields.
+        print_debug: If true will print debug information about the misses.
+        boundary_fuzz: How different the target label boundaries can be from
+            the tested boundaries before it doesn't count as a match.
+        equivalence_test: callable
+            A function which takes two argument labels, and returns true if
+            the labels are equivalent for the purpose of the test.
+    """
     def __init__(self,
                  name: str = 'accuracy',
                  mode: str = 'equals',
                  print_debug: bool = False,
                  boundary_fuzz: int = 0,
                  fields: Optional[Sequence[str]] = ...,
-                 equivalence_test: Optional[Callable[[Any, Any], bool]] = fields_match_test(...)):
-        """An accuracy metric with several options for equivalence.
-
-        Parameters
-        ----------
-        name: str
-            An identifier for the metric.
-        mode: str
-            'equals' - counts as a hit if there is one and only one label at the same location in
-            the tested index as the target index and it has the same values for its fields
-            'location' - counts as a hit if there is one and only one label at the same location in
-            the tested index as the target index.
-            'any' - counts as a hit if there is one or more labels at the same location with the
-            same values for its fields.
-        print_debug: bool
-            If true will print debug information about the misses.
-        boundary_fuzz: int
-            How different the target label boundaries can be from the tested boundaries before it
-            doesn't count as a match.
-        equivalence_test: callable
-            A function which takes two argument labels, and returns true if the labels are
-            equivalent for the purpose of the test.
-        """
+                 equivalence_test: Optional[
+                     Callable[[Any, Any], bool]] = fields_match_test(...)):
         self.correct = 0
         self.total = 0
         self.name = name
@@ -161,8 +161,8 @@ class Accuracy(Metric):
         return self.correct / self.total if self.total > 0 else 1.
 
     def find_candidates(self,
-                        tested_index: 'data.LabelIndex',
-                        target_label: 'data.Label') -> 'data.LabelIndex':
+                        tested_index: LabelIndex,
+                        target_label: Label) -> LabelIndex:
         if self.boundary_fuzz == 0:
             index = tested_index.at(target_label)
         else:
@@ -175,17 +175,20 @@ class Accuracy(Metric):
             )
         return index
 
-    def has_match(self, candidates: 'data.LabelIndex', target_label: 'data.Label') -> bool:
+    def has_match(self, candidates: LabelIndex, target_label: Label) -> bool:
         if self.mode == 'equals':
-            return len(candidates) == 1 and self.equivalence_test(candidates[0], target_label)
+            return len(candidates) == 1 and self.equivalence_test(
+                candidates[0], target_label)
         elif self.mode == 'location':
             return len(candidates) > 0
         elif self.mode == 'any':
-            return any(self.equivalence_test(candidate, target_label) for candidate in candidates)
+            return any(
+                self.equivalence_test(candidate, target_label) for candidate in
+                candidates)
 
-    def update(self, document: 'mtap.Document',
-               tested_index: 'data.LabelIndex',
-               target_index: 'data.LabelIndex') -> Any:
+    def update(self, document: Document,
+               tested_index: LabelIndex,
+               target_index: LabelIndex) -> Any:
         correct = 0
         total = 0
         for target_label in target_index:
@@ -205,7 +208,8 @@ def _collect_tokens(index, return_insides=True):
     begins = set()
     insides = set()
     for label in index:
-        for i, token in enumerate(tokenization.word_tokenize(label.text, label.start_index)):
+        for i, token in enumerate(
+                tokenization.word_tokenize(label.text, label.start_index)):
             if i == 0:
                 begins.add(token)
                 if not return_insides:
@@ -216,33 +220,22 @@ def _collect_tokens(index, return_insides=True):
     return begins, insides
 
 
-class ConfusionMatrix(NamedTuple('ConfusionMatrix',
-                                 [('true_positives', float),
-                                  ('false_positives', float),
-                                  ('false_negatives', float)])):
+class ConfusionMatrix(NamedTuple):
     """A representation of a confusion matrix.
-
-    Attributes
-    ----------
-    true_positives (float): Count of true positive examples.
-    false_positives (float): Count of false positive examples.
-    false_negatives (float): Count of false negative examples.
-    precision (float): Ratio of true positives to the total number of positive predictions.
-    recall (float): Ratio of true positives to the total number of positive ground truths.
-    f1 (float): The harmonic mean of precision and recall.
-
     """
+    true_positives: float = 0
+    """Count of true positive examples."""
 
-    def __new__(cls, true_positives: float = 0,
-                false_positives: float = 0,
-                false_negatives: float = 0):
-        self = super().__new__(cls, true_positives, false_positives, false_negatives)
-        return self
+    false_positives: float = 0
+    """Count of false positive examples."""
+
+    false_negatives: float = 0
+    """Count of false negative examples."""
 
     def __add__(self, other):
-        return self.__class__(self.true_positives + other.true_positives,
-                              self.false_positives + other.false_positives,
-                              self.false_negatives + other.false_negatives)
+        return ConfusionMatrix(self.true_positives + other.true_positives,
+                               self.false_positives + other.false_positives,
+                               self.false_negatives + other.false_negatives)
 
     @property
     def precision(self):
@@ -260,43 +253,37 @@ class ConfusionMatrix(NamedTuple('ConfusionMatrix',
 
     @property
     def f1(self):
-        divisor = 2 * self.true_positives + self.false_positives + self.false_negatives
+        divisor = (2 * self.true_positives + self.false_positives
+                   + self.false_negatives)
         if divisor == 0:
             return 1
         return 2 * self.true_positives / divisor
 
 
 class FirstTokenConfusion(Metric):
-    """A metric which treats the first word token in every label as an example of the positive
-    class and calculates the precision, recall, and f1 confusion matrix metrics for that
-    positive class. Useful for evaluation of segmentation tasks.
+    """A metric which treats the first word token in every label as an example
+    of the positive class and calculates the precision, recall, and f1
+    confusion matrix metrics for that positive class. Useful for evaluation of
+    segmentation tasks.
 
     precision = true positives / (true positives + false positives)
     recall = true positives / (true positives + false negatives)
     f1 = 2 * true positives / (2 * true positives + false positives + false negatives)
 
-    Args
-    ----
-    name (str): An identifying name for the metric.
-    tested_filter (~typing.Callable[[Label], bool]): A filter to apply to the tested index.
-    target_filter (~typing.Callable[[Label], bool]): A filter to apply to the target index.
-    print_debug (str)
-        An argument to print failing examples. 'fp' prints only false positive
-        errors, 'fn' prints only false negative errors, 'all' prints both false positive and false
-        negative errors
-    debug_range (int): The range before and after the example to print.
-    debug_handle (TextIO): A text io file handle to print the debug information to.
-
-    Attributes
-    ----------
-    precision (float): Ratio of true positives to the total number of positive predictions.
-    recall (float): Ratio of true positives to the total number of positive ground truths.
-    f1 (float): The harmonic mean of precision and recall.
+    Args:
+        name: An identifying name for the metric.
+        tested_filter: A filter to apply to the tested index.
+        target_filter: A filter to apply to the target index.
+        print_debug: An argument to print failing examples. 'fp' prints only
+            false positive errors, 'fn' prints only false negative errors,
+            'all' prints both false positive and false negative errors
+        debug_range: The range before and after the example to print.
+        debug_handle: A text io file handle to print the debug information to.
     """
 
     def __init__(self, name: str = 'first_token_confusion',
-                 tested_filter: Callable[['data.Label'], bool] = None,
-                 target_filter: Callable[['data.Label'], bool] = None,
+                 tested_filter: Callable[[Label], bool] = None,
+                 target_filter: Callable[[Label], bool] = None,
                  print_debug: str = None,
                  debug_range: int = 30,
                  debug_handle: TextIO = sys.stdout):
@@ -310,20 +297,27 @@ class FirstTokenConfusion(Metric):
 
     @property
     def precision(self) -> float:
+        """Ratio of true positives to the total number of positive
+        predictions.
+        """
         return self._matrix.precision
 
     @property
     def recall(self) -> float:
+        """Ratio of true positives to the total number of positive ground
+        truths.
+        """
         return self._matrix.recall
 
     @property
     def f1(self) -> float:
+        """The harmonic mean of precision and recall."""
         return self._matrix.f1
 
     def update(self,
-               document: 'mtap.Document',
-               tested_index: 'data.LabelIndex',
-               target_index: 'data.LabelIndex') -> Any:
+               document: Document,
+               tested_index: LabelIndex,
+               target_index: LabelIndex) -> Any:
         if self.tested_filter is not None:
             tested_index = tested_index.filter(self.tested_filter)
         if self.target_filter is not None:
@@ -335,12 +329,14 @@ class FirstTokenConfusion(Metric):
         if self.print_debug in ('fp', 'all'):
             self.debug_handle.write('False Positives\n')
             for false_positive in false_positives:
-                _print_example(document.text, false_positive, self.debug_range, self.debug_handle)
+                _print_example(document.text, false_positive, self.debug_range,
+                               self.debug_handle)
             self.debug_handle.write('\n')
         if self.print_debug in ('fn', 'all'):
             self.debug_handle.write('False Negatives\n')
             for false_negative in false_negatives:
-                _print_example(document.text, false_negative, self.debug_range, self.debug_handle)
+                _print_example(document.text, false_negative, self.debug_range,
+                               self.debug_handle)
             self.debug_handle.write('\n')
         local = ConfusionMatrix(
             true_positives=len(tested_tokens.intersection(target_tokens)),
@@ -362,6 +358,7 @@ def _print_example(text: str,
     start, end = token
     print_start = max(0, start - debug_range)
     print_end = min(end + debug_range, len(text))
-    text = text[print_start:start] + '{' + text[start:end] + '}' + text[end:print_end]
+    text = text[print_start:start] + '{' + text[start:end] + '}' + text[
+                                                                   end:print_end]
     text = text.replace('\n', ' ') + '\n'
     debug_handle.write(text)

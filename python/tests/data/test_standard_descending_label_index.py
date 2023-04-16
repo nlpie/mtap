@@ -16,7 +16,7 @@
 import pytest
 
 from mtap import GenericLabel, Location, Document
-from mtap.data._label_indices import presorted_label_index
+from mtap._label_indices import presorted_label_index
 
 
 document = Document('plaintext', text='blah')

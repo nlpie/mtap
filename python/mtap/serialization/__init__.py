@@ -23,8 +23,5 @@ from mtap.serialization._serialization import (
     JsonSerializer,
     YamlSerializer,
     PickleSerializer,
-    standard_serializers,
-    get_serializer,
     SerializerRegistry,
-    SerializerFactory,
 )

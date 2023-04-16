@@ -16,19 +16,23 @@ flattened python dictionary representations of events.
 """
 import io
 import logging
-from abc import ABC, abstractmethod
+import os
+from abc import abstractmethod, ABCMeta
 from os import PathLike
-from pathlib import Path
-from typing import Union, Dict, Any, Optional, TextIO, Callable
+from typing import Union, Dict, Any, Optional, TextIO, Type, ClassVar, IO, \
+    BinaryIO
 
-import mtap
-from mtap import data, processing
-from mtap.processing.descriptions import *
+from mtap._document import Document
+from mtap._event import Event
+from mtap._events_client import EventsClient
+from mtap._label_adapters import GENERIC_ADAPTER
+from mtap.descriptors import processor, parameter
+from mtap.processing import EventProcessor, Processor
 
 logger = logging.getLogger('mtap.serialization')
 
 
-def event_to_dict(event: mtap.Event, *,
+def event_to_dict(event: Event, *,
                   include_label_text: bool = False) -> Dict:
     """A helper method that turns an event into a python dictionary.
 
@@ -56,7 +60,7 @@ def event_to_dict(event: mtap.Event, *,
     return d
 
 
-def document_to_dict(document: mtap.Document, *,
+def document_to_dict(document: Document, *,
                      include_label_text: bool = False) -> Dict:
     """A helper method that turns a document into a python dictionary.
 
@@ -76,7 +80,7 @@ def document_to_dict(document: mtap.Document, *,
     for index_name, index in document.labels.items():
         adapter = index.adapter
         if adapter is None:
-            adapter = data.GENERIC_ADAPTER
+            adapter = GENERIC_ADAPTER
         d['label_indices'][index_name] = adapter.pack(
             index,
             include_label_text=include_label_text
@@ -85,7 +89,7 @@ def document_to_dict(document: mtap.Document, *,
 
 
 def dict_to_event(d: Dict, *,
-                  client: Optional[mtap.EventsClient] = None) -> mtap.Event:
+                  client: Optional[EventsClient] = None) -> Event:
     """Turns a serialized dictionary into an Event.
 
     Args:
@@ -97,7 +101,7 @@ def dict_to_event(d: Dict, *,
     Returns:
         The deserialized event object.
     """
-    event = mtap.Event(event_id=d['event_id'], client=client)
+    event = Event(event_id=d['event_id'], client=client)
     for k, v in d['metadata'].items():
         event.metadata[k] = v
     for k, v in d['documents'].items():
@@ -107,7 +111,7 @@ def dict_to_event(d: Dict, *,
 
 def dict_to_document(document_name: str,
                      d: Dict,
-                     *, event: Optional[mtap.Event] = None) -> mtap.Document:
+                     *, event: Optional[Event] = None) -> Document:
     """Turns a serialized dictionary into a Document.
 
     Args:
@@ -121,52 +125,67 @@ def dict_to_document(document_name: str,
         The deserialized Document object.
 
     """
-    document = mtap.Document(document_name=document_name, text=d['text'])
+    document = Document(document_name=document_name, text=d['text'])
     if event is not None:
         event.add_document(document)
     for k, v in d['label_indices'].items():
-        adapter = document.get_default_adapter(k)
+        adapter = document.default_adapter(k)
         index = adapter.unpack(v, k, document=document)
         document.add_labels(k, index, distinct=index.distinct)
 
     return document
 
 
-class Serializer(ABC):
+class SerializerRegistry(ABCMeta):
+    REGISTRY: ClassVar[dict[str, Type['Serializer']]] = {}
+
+    def __init__(cls: Type['Serializer'], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        SerializerRegistry.REGISTRY[cls.name()] = cls
+
+    @staticmethod
+    def create(name: str) -> Type['Serializer']:
+        return SerializerRegistry.REGISTRY[name]
+
+
+class Serializer(metaclass=SerializerRegistry):
     """Abstract base class for a serializer of MTAP events.
     """
 
-    @property
-    @abstractmethod
-    def extension(self) -> str:
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__.casefold()
+
+    @classmethod
+    def extension(cls) -> str:
         """str: Filename extension, including period. Ex: ``'.json'``."""
         ...
 
+    @classmethod
     @abstractmethod
     def event_to_file(
-            self,
-            event: mtap.Event,
-            f: Union[str, bytes, PathLike, TextIO],
+            cls,
+            event: Event,
+            f: Union[str, bytes, PathLike, IO],
             *, include_label_text: bool = False
     ):
         """Writes the event to a file.
 
         Args:
-            event (Event): The event object to serialize.
-            f (~typing.Union[~pathlib.Path, str, ~io.IOBase]):
-                A file or a path to a file to write the event to.
-            include_label_text (bool):
-                Whether, when serializing, to include the text that each label
-                covers with the rest of the label.
+            event: The event object to serialize.
+            f: A file or a path to a file to write the event to.
+            include_label_text: Whether, when serializing, to include the text
+            that each label covers with the rest of the label.
         """
         ...
 
+    @classmethod
     @abstractmethod
     def file_to_event(
-            self,
-            f: Union[str, bytes, PathLike, TextIO], *,
-            client: Optional[mtap.EventsClient] = None
-    ) -> mtap.Event:
+            cls,
+            f: Union[str, bytes, PathLike, IO],
+            *, client: Optional[EventsClient] = None
+    ) -> Event:
         """Loads an event from a serialized file.
 
         Args:
@@ -181,35 +200,7 @@ class Serializer(ABC):
         ...
 
 
-SerializerFactory = Callable[[Dict[str, Any]], Serializer]
-
-registry: Dict[str, SerializerFactory] = {}
-
-
-class SerializerRegistry:
-    @staticmethod
-    def register(
-            name: str
-    ) -> Callable[[SerializerFactory], SerializerFactory]:
-        def decorate(f: SerializerFactory) -> SerializerFactory:
-            registry[name] = f
-            return f
-
-        return decorate
-
-    @staticmethod
-    def create(name: str,
-               params: Optional[Dict[str, Any]] = None) -> Serializer:
-        return registry[name](**params)
-
-    @staticmethod
-    def from_dict(conf: Dict[str, Any]):
-        name = conf['name']
-        params = conf.get('params', {})
-        return SerializerRegistry.create(name, params)
-
-
-@mtap.processing.processor(
+@processor(
     'mtap-serializer',
     description='Serializes events to a specific directory',
     parameters=[
@@ -221,7 +212,7 @@ class SerializerRegistry:
         )
     ]
 )
-class SerializationProcessor(mtap.EventProcessor):
+class SerializationProcessor(EventProcessor):
     """An MTAP :obj:`EventProcessor` that serializes events to a specific
     directory.
 
@@ -242,155 +233,154 @@ class SerializationProcessor(mtap.EventProcessor):
             include_label_text: bool = False
     ):
         self.serializer = serializer
-        self.output_dir = output_dir
+        self.output_dir = os.path.abspath(output_dir)
         self.include_label_text = include_label_text
-        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
+        os.makedirs(self.output_dir, exist_ok=True)
 
-    def process(self, event: mtap.Event, params: Dict[str, Any]):
+    def process(self, event: Event, params: Dict[str, Any]):
         name = params.get('filename',
-                          event.event_id + self.serializer.extension)
-        path = Path(self.output_dir, name)
+                          event.event_id + self.serializer.extension())
+        path = os.path.join(self.output_dir, name)
         self.serializer.event_to_file(
-            event, path, include_label_text=self.include_label_text)
+            event,
+            path,
+            include_label_text=self.include_label_text
+        )
 
 
-@SerializerRegistry.register('json')
-class _JsonSerializer(Serializer):
+class JsonSerializer(Serializer):
     """Serializer implementation that performs serialization to JSON.
     """
-    @property
-    def extension(self) -> str:
+
+    @classmethod
+    def name(cls) -> str:
+        return 'json'
+
+    @classmethod
+    def extension(cls) -> str:
         return '.json'
 
-    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO], *,
+    @classmethod
+    def event_to_file(cls,
+                      event: Event,
+                      f: Union[str, bytes, PathLike, IO], *,
                       include_label_text: bool = False):
         import json
-        with processing.Processor.started_stopwatch('transform'):
+        with Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
-        with processing.Processor.started_stopwatch('io'):
+        with Processor.started_stopwatch('io'):
             try:
                 json.dump(d, f)
             except AttributeError:
-                f = Path(f)
-                f.parent.mkdir(parents=True, exist_ok=True)
-                with f.open('w') as f:
+                os.makedirs(os.path.dirname(f), exist_ok=True)
+                with open(f, 'w') as f:
                     json.dump(d, f)
 
-    def file_to_event(self, f: Union[Path, str, TextIO],
-                      client: Optional[
-                          mtap.EventsClient] = None) -> mtap.Event:
+    @classmethod
+    def file_to_event(cls,
+                      f: Union[str, bytes, PathLike, IO],
+                      client: Optional[EventsClient] = None) -> Event:
         import json
-        with processing.Processor.started_stopwatch('io'):
+        with Processor.started_stopwatch('io'):
             try:
                 d = json.load(f)
             except AttributeError:
-                if isinstance(f, str):
-                    f = Path(f)
-                with f.open('r') as f:
+                with open(f, 'r') as f:
                     d = json.load(f)
-        with processing.Processor.started_stopwatch('transform'):
+        with Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
 
 
-@SerializerRegistry.register('yaml')
-class _YamlSerializer(Serializer):
+class YamlSerializer(Serializer):
     """Serializer implementation that performs serialization to YAML.
     """
-    @property
-    def extension(self) -> str:
+
+    @classmethod
+    def name(cls) -> str:
+        return 'yaml'
+
+    @classmethod
+    def extension(cls) -> str:
         return '.yml'
 
-    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO], *,
+    @classmethod
+    def event_to_file(cls, event: Event,
+                      f: Union[str, bytes, PathLike, IO], *,
                       include_label_text: bool = False):
         import yaml
         try:
             from yaml import CDumper as Dumper
         except ImportError:
             from yaml import Dumper
-        with processing.Processor.started_stopwatch('transform'):
+        with Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
-        with processing.Processor.started_stopwatch('io'):
-            if isinstance(f, io.IOBase):
+        with Processor.started_stopwatch('io'):
+            try:
                 yaml.dump(d, f, Dumper=Dumper)
-            else:
-                f = Path(f)
-                with f.open('w') as f:
+            except AttributeError:
+                os.makedirs(os.path.dirname(f), exist_ok=True)
+                with open(f, 'w') as f:
                     yaml.dump(d, f, Dumper=Dumper)
 
-    def file_to_event(self, f: Union[Path, str, TextIO], *,
-                      client: Optional[
-                          mtap.EventsClient] = None) -> mtap.Event:
+    @classmethod
+    def file_to_event(cls,
+                      f: Union[str, bytes, PathLike, TextIO],
+                      *, client: Optional[EventsClient] = None) -> Event:
         import yaml
         try:
             from yaml import CLoader as Loader
         except ImportError:
             from yaml import Loader
-        with processing.Processor.started_stopwatch('io'):
+        with Processor.started_stopwatch('io'):
             if isinstance(f, io.IOBase):
                 d = yaml.load(f, Loader=Loader)
             else:
-                with Path(f).open() as f:
+                with open(f) as f:
                     d = yaml.load(f, Loader=Loader)
-        with processing.Processor.started_stopwatch('transform'):
+        with Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
 
 
-@SerializerRegistry.register('pickle')
-class _PickleSerializer(Serializer):
+class PickleSerializer(Serializer):
     """Serializer implementation that performs serialization to .pickle.
     """
-    @property
-    def extension(self) -> str:
+
+    @classmethod
+    def name(cls) -> str:
+        return 'pickle'
+
+    @classmethod
+    def extension(cls) -> str:
         return '.pickle'
 
-    def event_to_file(self, event: mtap.Event, f: Union[Path, str, TextIO], *,
+    @classmethod
+    def event_to_file(cls,
+                      event: Event,
+                      f: Union[str, bytes, PathLike, BinaryIO], *,
                       include_label_text: bool = False):
         import pickle
-        with processing.Processor.started_stopwatch('transform'):
+        with Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
-        with processing.Processor.started_stopwatch('io'):
+        with Processor.started_stopwatch('io'):
             try:
                 pickle.dump(d, f)
             except TypeError:
-                with Path(f).open('wb') as f:
+                os.makedirs(os.path.dirname(f), exist_ok=True)
+                with open(f, 'wb') as f:
                     pickle.dump(d, f)
 
-    def file_to_event(self, f: Union[Path, str, TextIO], *,
-                      client: Optional[
-                          mtap.EventsClient] = None) -> mtap.Event:
+    @classmethod
+    def file_to_event(
+            cls,
+            f: Union[str, bytes, PathLike, BinaryIO], *,
+            client: Optional[EventsClient] = None
+    ) -> Event:
         import pickle
-        with processing.Processor.started_stopwatch('io'):
+        with Processor.started_stopwatch('io'):
             try:
                 d = pickle.load(f)
-            except TypeError:
-                with Path(f).open('rb') as f:
+            except AttributeError:
+                with open(f, 'rb') as f:
                     d = pickle.load(f)
-        with processing.Processor.started_stopwatch('transform'):
+        with Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
-
-
-JsonSerializer: Serializer = _JsonSerializer()
-
-YamlSerializer: Serializer = _YamlSerializer()
-
-PickleSerializer: Serializer = _PickleSerializer()
-
-standard_serializers = {
-    'json': JsonSerializer,
-    'yml': YamlSerializer,
-    'pickle': PickleSerializer
-}
-
-
-def get_serializer(identifier: str) -> Serializer:
-    """Returns a serializer by its identifier.
-
-    Options are: ``json``, ``yml``, and ``pickle``.
-
-    Parameters:
-        identifier: The serializer identifier.
-
-    Returns:
-        The specified serializer.
-    """
-    return standard_serializers[identifier]

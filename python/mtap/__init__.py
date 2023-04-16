@@ -14,28 +14,29 @@
 """Public API and access points for the MTAP Framework."""
 
 from mtap._config import Config
-from mtap._events_service import EventsServer
-from mtap.data import (
-    Document,
-    Event,
-    EventsClient,
-    GenericLabel,
-    label,
-    label_index,
-    Location,
-)
+from mtap._document import Document
+from mtap._event import Event
+from mtap._events_client import events_client
+from mtap._labels import GenericLabel, label, Location
+from mtap._label_indices import label_index
+
 from mtap.processing import (
     DocumentProcessor,
     EventProcessor,
-    Pipeline,
-    ProcessorServer,
-    descriptions,
-    processor,
     processor_parser,
-    run_processor,
-    RemoteProcessor,
-    LocalProcessor,
+    run_processor
 )
+
+from mtap.descriptors import (
+    processor
+)
+
+from mtap.pipeline import (
+    Pipeline,
+    LocalProcessor,
+    RemoteProcessor,
+)
+
 from mtap.version import (
     __version__,
     __version_tuple__,

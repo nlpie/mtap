@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Union, Optional, ContextManager, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import mtap
-    from mtap import Event, Document, processing
+    from mtap import Document, Event
+    from mtap.types import EventsClient
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -27,7 +27,7 @@ class ProcessingSource(ContextManager, ABC):
     Also has functionality for receiving results.
 
     """
-    __slots__ = ('_total')
+    __slots__ = ('_total',)
 
     @property
     def total(self) -> Optional[int]:
@@ -48,12 +48,12 @@ class ProcessingSource(ContextManager, ABC):
         self._total = count
 
     @abstractmethod
-    def provide(
+    def produce(
             self,
             consume: 'Callable[[Union[Document, Event]], None]'
     ):
-        """The method which provides documents for the multithreaded runner.
-        This method provides documents or events to the pipeline.
+        """The method which provides documents or events to the pipeline
+        to batch process.
 
         Args:
             consume: The consumer method to pass documents or events to
@@ -63,32 +63,15 @@ class ProcessingSource(ContextManager, ABC):
             Example implementation for processing text documents:
 
             >>> ...
-            >>> def provide(self, consume):
+            >>> def produce(self, consume):
             >>>     for file in Path(".").glob("*.txt"):
             >>>         with file.open('r') as fio:
             >>>             txt = fio.read()
-            >>>         event = Event()
-            >>>         doc = event.create_document('plaintext', txt)
-            >>>         consume(doc)
+            >>>         with Event(client=client) as e:
+            >>>             doc = event.create_document('plaintext', txt)
+            >>>             consume(doc)
         """
         ...
-
-    def receive_result(self,
-                       result: 'processing.PipelineResult',
-                       event: 'mtap.Event'):
-        """Optional method: Asynchronous callback which returns the results of
-        processing.
-
-        This method is called on a processing worker thread.
-        Default behavior is to do nothing.
-
-        Args:
-            result: The result of processing using the
-                pipeline.
-            event: The event processed.
-
-        """
-        pass
 
     def close(self):
         """Optional method: called to clean up after processing is complete.
@@ -118,8 +101,12 @@ class IterableProcessingSource(ProcessingSource):
         # Using a for-in loop we're not guaranteed, which can cause zombie
         # unclosed events on the event service.
         self.it = iter(source)
+        try:
+            self.total = len(source)
+        except (AttributeError, TypeError):
+            pass
 
-    def provide(self, consume):
+    def produce(self, consume):
         while True:
             try:
                 target = next(self.it)
@@ -167,7 +154,7 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
         'total'
     )
 
-    def __init__(self, client: 'mtap.EventsClient',
+    def __init__(self, client: 'EventsClient',
                  directory: Union[str, bytes, PathLike],
                  *, document_name: str = 'plaintext',
                  extension_glob: str = '*.txt',
@@ -186,7 +173,7 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
             self.total = sum(1 for _
                              in Path(directory).rglob(self.extension_glob))
 
-    def provide(self, consume):
+    def produce(self, consume):
         for path in Path(self.directory).rglob(self.extension_glob):
             with path.open('r', errors=self.errors) as f:
                 txt = f.read()

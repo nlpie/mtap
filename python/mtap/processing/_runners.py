@@ -13,20 +13,19 @@
 # limitations under the License.
 import copy
 import logging
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import Optional, Dict, Any
 
 import grpc
+from grpc import insecure_channel
 
-from mtap import _structs, Config
-from mtap import data
-from mtap.api.v1 import processing_pb2, processing_pb2_grpc
-from mtap.data import FailedToConnectToEventsServiceException
-from mtap.processing._base import ProcessingComponent, Processor
-from mtap.processing._error_handling import ProcessingException
-
-if TYPE_CHECKING:
-    from mtap import EventProcessor, EventsClient
-    from mtap.data import EventsAddressLike
+from mtap import Config
+from mtap._event import Event
+from mtap._events_client import events_client, EventsAddressLike, EventsClient
+from mtap._structs import copy_dict_to_struct, copy_struct_to_dict
+from mtap.api.v1 import processing_pb2_grpc, processing_pb2
+from mtap.processing._exc import ProcessingException
+from mtap.processing._processing_component import ProcessingComponent
+from mtap.processing._processor import Processor, EventProcessor
 
 logger = logging.getLogger('mtap.processing')
 
@@ -43,16 +42,16 @@ class LocalRunner(ProcessingComponent):
     )
 
     def __init__(self,
-                 processor: 'EventProcessor',
-                 events_address: 'EventsAddressLike',
+                 processor: EventProcessor,
+                 events_address: EventsAddressLike,
                  component_id: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self._processor = processor
         self._events_address = events_address
-        self._processor_name = processor.metadata['name']
+        self._processor_name = processor.metadata()['name']
         self._component_id = component_id or self.processor_name
         self._params = params or {}
-        self.metadata = processor.metadata
+        self.metadata = processor.metadata()
         self._client = None
 
     @property
@@ -64,9 +63,9 @@ class LocalRunner(ProcessingComponent):
         return self._component_id
 
     @property
-    def _events_client(self) -> 'EventsClient':
+    def _events_client(self) -> EventsClient:
         if self._client is None:
-            self._client = data.EventsClient(self._events_address)
+            self._client = events_client(self._events_address)
         return self._client
 
     def call_process(self, event_id, event_instance_id, params):
@@ -75,7 +74,7 @@ class LocalRunner(ProcessingComponent):
             p.update(params)
 
         with Processor.enter_context() as c, \
-                data.Event(
+                Event(
                     event_id=event_id,
                     event_service_instance_id=event_instance_id,
                     client=self._events_client,
@@ -84,10 +83,6 @@ class LocalRunner(ProcessingComponent):
             with Processor.started_stopwatch('process_method'):
                 try:
                     result = self._processor.process(event, p)
-                except FailedToConnectToEventsServiceException as e:
-                    raise ProcessingException.from_local_exception(
-                        e, self.component_id, e.msg
-                    )
                 except KeyError as e:
                     if e.args[0] == 'document_name':
                         raise ProcessingException.from_local_exception(
@@ -96,12 +91,12 @@ class LocalRunner(ProcessingComponent):
                             "to run an event through a document processor. "
                             "Either call the pipeline with a document or "
                             "set the 'document_name' processor parameter."
-                        )
+                        ) from e
                     raise e
                 except Exception as e:
                     raise ProcessingException.from_local_exception(
                         e, self.component_id
-                    )
+                    ) from e
             return result, c.times, event.created_indices
 
     def close(self):
@@ -143,7 +138,7 @@ class RemoteRunner(ProcessingComponent):
             address = discovery.discover_processor_service(processor_name,
                                                            'v1')
         channel_options = config.get('grpc.processor_options', {})
-        self._channel = grpc.insecure_channel(address, options=list(
+        self._channel = insecure_channel(address, options=list(
             channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
 
@@ -169,7 +164,7 @@ class RemoteRunner(ProcessingComponent):
                 event_id=event_id,
                 event_service_instance_id=event_instance_id
             )
-            _structs.copy_dict_to_struct(p, request.params, [p])
+            copy_dict_to_struct(p, request.params, [p])
             with Processor.started_stopwatch('remote_call'):
                 try:
                     response = self._stub.Process(
@@ -186,14 +181,14 @@ class RemoteRunner(ProcessingComponent):
                         )
                     raise ProcessingException.from_rpc_error(
                         e, self.component_id, self._address
-                    )
+                    ) from e
                 except Exception as e:
                     raise ProcessingException.from_local_exception(
                         e, self.component_id
-                    )
+                    ) from e
 
             r = {}
-            _structs.copy_struct_to_dict(response.result, r)
+            copy_struct_to_dict(response.result, r)
 
             timing_info = response.timing_info
             for k, v in timing_info.items():

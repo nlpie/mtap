@@ -15,17 +15,17 @@
 import sys
 
 if __name__ == '__main__':
-    from mtap import Document, Event, Pipeline, EventsClient
-    from mtap.processing import RemoteProcessor
+    from mtap import Document, Event, Pipeline, events_client
+    from mtap import RemoteProcessor
 
-    with EventsClient(sys.argv[1]) as client:
-        pipeline = Pipeline(
-            RemoteProcessor(processor_name='hello', address=sys.argv[2]),
-        )
+    pipeline = Pipeline(
+        RemoteProcessor(processor_name='hello', address=sys.argv[2]),
+    )
+    with events_client(sys.argv[1]) as client:
         with Event(event_id='1', client=client) as event:
             document = Document(document_name='name', text='YOUR NAME')
             event.add_document(document)
             pipeline.run(document)
-            index = document.get_label_index('hello')
+            index = document.labels['hello']
             for label in index:
                 print(label.response)

@@ -14,7 +14,7 @@
 """An example document processor."""
 
 from mtap import DocumentProcessor, processor, run_processor
-from mtap.processing.descriptions import parameter, labels, label_property
+from mtap.descriptors import parameter, labels, label_property
 
 
 @processor('mtap-example-processor-python',

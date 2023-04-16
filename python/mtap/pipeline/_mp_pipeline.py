@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import copy
 import logging
 import multiprocessing
 import signal
@@ -20,29 +19,23 @@ from logging.handlers import QueueListener
 from threading import Condition, Lock
 from typing import Optional, TYPE_CHECKING
 
+from grpc import RpcError
 from tqdm import tqdm
 
-from mtap import Config
-from mtap.processing import _pipeline_results
-from mtap.processing._error_handling import (
+from mtap._config import Config
+from mtap.pipeline._common import event_and_params
+from mtap.pipeline._error_handling import StopProcessing, SuppressError
+from mtap.pipeline._results import BatchPipelineResult
+from mtap.pipeline._sources import ProcessingSource, IterableProcessingSource
+from mtap.processing import (
     ProcessingException,
-    SuppressError,
-    StopProcessing,
-)
-from mtap.processing._pipeline import (
-    event_and_params,
-    ProcessingSourceLike, ActivePipeline
-)
-from mtap.processing._sources import (
-    ProcessingSource,
-    IterableProcessingSource
 )
 
 if TYPE_CHECKING:
-    from mtap import Pipeline
-    from mtap.processing import BatchPipelineResult
+    from mtap.pipeline._pipeline import ActivePipeline
 
-_mp_pipeline: Optional[ActivePipeline] = None
+
+_mp_pipeline: Optional['ActivePipeline'] = None
 
 
 def _mp_process_init(config, pipeline, queue, log_level):
@@ -81,7 +74,7 @@ def _mp_process_event(event_id, event_service_instance_id, params):
     return event_id, result, None
 
 
-class ActiveRun:
+class ActiveMpRun:
     __slots__ = (
         'pipeline',
         'config',
@@ -92,13 +85,13 @@ class ActiveRun:
         'pool',
         'active_events',
         'log_listener',
-        'stop'
+        'stop',
+        'result',
+        'handler_states',
+        'callback'
     )
 
-    def __init__(self,
-                 pipeline: 'Pipeline',
-                 source: 'ProcessingSourceLike',
-                 total: Optional[int] = None):
+    def __init__(self, pipeline, source, total=None, callback=None):
         self.pipeline = pipeline
         self.config = pipeline.mp_config
         self.targets_cond = Condition(Lock())
@@ -144,6 +137,12 @@ class ActiveRun:
         self.active_targets = 0
         self.active_events = {}
         self.stop = False
+        self.result = BatchPipelineResult(
+            self.pipeline.name,
+            [component.component_id for component in self.pipeline]
+        )
+        self.handler_states = [{} for _ in self.pipeline.error_handlers]
+        self.callback = callback
 
     @property
     def max_targets(self):
@@ -178,78 +177,65 @@ class ActiveRun:
         self.stop = True
         self.pool.terminate()
 
-    def run(self) -> 'BatchPipelineResult':
-        br = _pipeline_results.BatchPipelineResult(
-            self.pipeline.name,
-            [component.component_id for component in self.pipeline]
-        )
-        error_handlers = copy.deepcopy(self.pipeline.error_handlers)
-        handler_states = [{} for _ in error_handlers]
-
-        def result_handler(result):
-            event_id, result, error = result
-            event = self.active_events[event_id]
-            if result is not None:
-                br.add_result_times(result)
-                self.source.receive_result(result, event)
-            else:
-                for handler, state in zip(error_handlers, handler_states):
-                    try:
-                        handler.handle_error(event, error, state)
-                    except StopProcessing:
-                        self.stop_processing()
-                    except SuppressError:
-                        break
-                    except Exception:
-                        print("An error handler raised an exception")
-                        traceback.print_exc()
-
-            self.task_completed()
-            if self.config.close_events:
-                event.release_lease()
-
-        def error_handler(error):
-            for handler, state in zip(error_handlers, handler_states):
+    def handle_result(self, result):
+        event_id, result, error = result
+        event = self.active_events[event_id]
+        if result is not None:
+            self.result.add_result_times(result)
+            if self.callback:
+                self.callback(result, event)
+        else:
+            for handler, state in zip(self.pipeline.error_handlers,
+                                      self.handler_states):
                 try:
-                    handler.handle_exception('unknown', error, state)
+                    handler.handle_error(event, error, state)
                 except StopProcessing:
                     self.stop_processing()
                 except SuppressError:
                     break
-                except Exception:
-                    print("An error handler raised an exception")
+                except Exception as e:
+                    print("An error handler raised an exception: ", e)
                     traceback.print_exc()
 
-        def consume(target):
-            if self.stop:
-                raise StopIteration
-            event, params = event_and_params(target, self.config.params)
-            try:
-                event.lease()
-                event_id = event.event_id
-                self.active_events[event_id] = event
-                self.pool.apply_async(_mp_process_event,
-                                      args=(event_id,
-                                            event.event_service_instance_id,
-                                            params),
-                                      callback=result_handler,
-                                      error_callback=error_handler)
-                self.increment_active_tasks()
-            except BaseException as e:
-                # here we failed sometime between taking a new lease and adding
-                # the done callback to the future, meaning the lease will never
-                # get freed.
-                event.release_lease()
-                raise e
-            self.wait_to_read()
+        self.task_completed()
+        if self.config.close_events:
+            event.release_lease()
+        self.active_events.pop(event_id)
 
+    def consume(self, target):
+        if self.stop:
+            raise StopIteration
+        event, params = event_and_params(target, self.config.params)
+        try:
+            event.lease()
+            event_id = event.event_id
+            self.active_events[event_id] = event
+            self.pool.apply_async(_mp_process_event,
+                                  args=(event_id,
+                                        event.event_service_instance_id,
+                                        params),
+                                  callback=self.handle_result)
+            self.increment_active_tasks()
+        except BaseException as e:
+            # here we failed (or exited) sometime between taking a new
+            # lease and adding the done callback to the future,
+            # meaning the lease will never get freed.
+            try:
+                event.release_lease()
+            except RpcError:
+                # Client might already be closed, we tried our best
+                pass
+            raise e
+        self.wait_to_read()
+
+    def run(self):
         try:
             with self.source:
-                self.source.provide(consume)
+                self.source.produce(self.consume)
             self.wait_tasks_completed()
         except KeyboardInterrupt:
             print('Pipeline terminated by user (KeyboardInterrupt).')
-        return br
+        return self.result
 
     def __enter__(self):
         return self

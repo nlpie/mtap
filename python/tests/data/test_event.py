@@ -13,12 +13,13 @@
 # limitations under the License.
 import pytest
 
-from mtap.data._events import EventsClient, Event, Document
+from mtap import Event, Document
+from mtap.types import EventsClient
 
 
 def test_add_document(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     event = Event(event_id='1', client=client)
     document = Document('plaintext',
                         text="“You're no help,” he told the lime. "
@@ -27,11 +28,13 @@ def test_add_document(mocker):
                              "It was doing the best it could.")
     event.add_document(document)
     assert event.documents['plaintext'] == document
-    client.add_document.assert_called_once_with('1', 'plaintext',
-                                                "“You're no help,” he told the lime. "
-                                                "This was unfair. It was only a lime; "
-                                                "there was nothing special about it at all. "
-                                                "It was doing the best it could.")
+    client.add_document.assert_called_once_with(
+        '0', '1', 'plaintext',
+        "“You're no help,” he told the lime. "
+        "This was unfair. It was only a lime; "
+        "there was nothing special about it at all. "
+        "It was doing the best it could."
+    )
 
 
 def test_add_document_no_client():
@@ -47,32 +50,37 @@ def test_add_document_no_client():
 
 def test_create_document(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     event = Event(event_id='1', client=client)
-    document = event.create_document('plaintext', "“You're no help,” he told the lime. "
-                                                  "This was unfair. It was only a lime; "
-                                                  "there was nothing special about it at all. "
-                                                  "It was doing the best it could.")
+    document = event.create_document(
+        'plaintext',
+        "“You're no help,” he told the lime. "
+        "This was unfair. It was only a lime; "
+        "there was nothing special about it at all. "
+        "It was doing the best it could.")
     assert event.documents['plaintext'] == document
-    client.add_document.assert_called_once_with('1', 'plaintext',
-                                                "“You're no help,” he told the lime. "
-                                                "This was unfair. It was only a lime; "
-                                                "there was nothing special about it at all. "
-                                                "It was doing the best it could.")
+    client.add_document.assert_called_once_with(
+        '0', '1', 'plaintext',
+        "“You're no help,” he told the lime. "
+        "This was unfair. It was only a lime; "
+        "there was nothing special about it at all. "
+        "It was doing the best it could.")
 
 
 def test_create_document_no_client():
     event = Event(event_id='1')
-    document = event.create_document('plaintext', "“You're no help,” he told the lime. "
-                                                  "This was unfair. It was only a lime; "
-                                                  "there was nothing special about it at all. "
-                                                  "It was doing the best it could.")
+    document = event.create_document(
+        'plaintext',
+        "“You're no help,” he told the lime. "
+        "This was unfair. It was only a lime; "
+        "there was nothing special about it at all. "
+        "It was doing the best it could.")
     assert event.documents['plaintext'] == document
 
 
 def test_get_document(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_all_document_names.return_value = ['plaintext']
     event = Event(event_id='1', client=client)
     document = event.documents['plaintext']
@@ -81,7 +89,7 @@ def test_get_document(mocker):
 
 def test_get_document_missing(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_all_document_names.return_value = ['plaintext']
     event = Event(event_id='1', client=client)
     with pytest.raises(KeyError):
@@ -96,7 +104,7 @@ def test_get_document_missing_no_client():
 
 def test_iter_documents(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_all_document_names.return_value = ['plaintext', 'two', 'three']
     event = Event(event_id='1', client=client)
     documents = {document for document in event.documents}
@@ -105,7 +113,7 @@ def test_iter_documents(mocker):
 
 def test_contains_documents(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_all_document_names.return_value = ['plaintext', 'two', 'three']
     event = Event(event_id='1', client=client)
     assert 'plaintext' in event.documents
@@ -115,7 +123,7 @@ def test_contains_documents(mocker):
 
 def test_documents_len(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_all_document_names.return_value = ['plaintext', 'two', 'three']
     event = Event(event_id='1', client=client)
     assert len(event.documents) == 3

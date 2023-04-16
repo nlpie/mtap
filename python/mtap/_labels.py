@@ -13,7 +13,7 @@
 #  limitations under the License.
 """Labels functionality."""
 import threading
-from abc import ABC, abstractmethod, ABCMeta
+from abc import abstractmethod, ABCMeta
 from queue import Queue
 from typing import (
     TYPE_CHECKING,
@@ -32,7 +32,9 @@ if TYPE_CHECKING:
     )
 
 
-LocationLike = 'Union[Location, Label, int]'
+LocationLike = Union['Location', 'Label']
+HasStart = Union['Location', 'Label', float]
+HasEnd = Union['Location', 'Label', float]
 
 
 class Location(NamedTuple):
@@ -47,7 +49,7 @@ class Location(NamedTuple):
     end_index: float
     """The end index exclusive of the location in text."""
 
-    def covers(self, other: 'Union[Location, Label]'):
+    def covers(self, other: LocationLike):
         """Whether the span of text covered by this label completely overlaps
         the span of text covered by the ``other`` label or location.
 
@@ -61,7 +63,7 @@ class Location(NamedTuple):
         return self.start_index <= other.start_index \
             and self.end_index >= other.end_index
 
-    def relative_to(self, location: LocationLike) -> 'Location':
+    def relative_to(self, location: HasStart) -> 'Location':
         """Creates a location relative to the same origin as ``location``
         and makes it relative to ``location``.
 
@@ -89,7 +91,7 @@ class Location(NamedTuple):
         return Location(self.start_index - start_index,
                         self.end_index - start_index)
 
-    def offset_by(self, location: LocationLike) -> 'Location':
+    def offset_by(self, location: HasStart) -> 'Location':
         """Creates a location by offsetting this location by an integer or the
         ``start_index`` of a location / label. De-relativizes this location.
 
@@ -118,7 +120,7 @@ class Location(NamedTuple):
                         self.end_index + start_index)
 
 
-class Label(ABC, metaclass=ABCMeta):
+class Label(metaclass=ABCMeta):
     """An abstract base class for a label of attributes on text.
     """
 
@@ -180,7 +182,8 @@ class Label(ABC, metaclass=ABCMeta):
     @property
     @abstractmethod
     def end_index(self) -> int:
-        """The index after the last character of the text covered by this label.
+        """The index after the last character of the text covered by this
+        label.
         """
         ...
 
@@ -466,8 +469,9 @@ def _is_referential(o: Any, parents=None) -> bool:
                 map_is_ref = x
             elif x != map_is_ref:
                 raise TypeError(
-                    'Label dictionaries cannot have mixes of references to labels'
-                    'and primitive types.')
+                    'Label dictionaries cannot have mixes of references to '
+                    'labels and primitive types.'
+                )
         return map_is_ref
     elif isinstance(o, Sequence):
         seq_is_ref = None

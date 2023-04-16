@@ -16,7 +16,6 @@ import logging
 import signal
 import threading
 import traceback
-import typing
 import uuid
 from concurrent.futures import thread
 from logging.handlers import QueueListener
@@ -25,19 +24,21 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc
 from grpc_status import rpc_status
+from mtap._event import Event
 
-from mtap import _config, _structs, data, utilities
+from mtap.processing._processing_component import ProcessingComponent
+
+from mtap.processing._exc import ProcessingException
+
+from mtap import _config, _structs, utilities
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
-from mtap.processing import _base, _runners, _pipeline_results
-from mtap.processing._error_handling import ProcessingException
-
-if typing.TYPE_CHECKING:
-    import mtap
+from mtap.processing import _runners, Processor, EventProcessor
+from mtap.processing.results import add_times, create_timer_stats
 
 logger = logging.getLogger('mtap.processing')
 
 
-def run_processor(proc: 'mtap.EventProcessor',
+def run_processor(proc: EventProcessor,
                   *,
                   mp: bool = False,
                   options: Optional[argparse.Namespace] = None,
@@ -68,7 +69,6 @@ def run_processor(proc: 'mtap.EventProcessor',
 
         >>> run_processor(MyProcessor(), args=['-p', '8080'])
     """
-    from mtap import EventProcessor
     if not isinstance(proc, EventProcessor):
         print("Processor must be instance of EventProcessor class.")
         exit(1)
@@ -91,7 +91,7 @@ def run_processor(proc: 'mtap.EventProcessor',
         if options.mtap_config is not None:
             c.update_from_yaml(options.mtap_config)
         # instantiate runner
-        name = options.name or proc.metadata['name']
+        name = options.name or proc.metadata()['name']
         sid = options.sid
 
         enable_http_proxy = options.grpc_enable_http_proxy
@@ -136,7 +136,7 @@ _mp_processor = ...  # EventProcessor
 _mp_client = ...  # EventClient
 
 
-def _mp_initialize(proc: 'mtap.EventProcessor',
+def _mp_initialize(proc: EventProcessor,
                    events_address,
                    config,
                    log_queue):
@@ -150,17 +150,20 @@ def _mp_initialize(proc: 'mtap.EventProcessor',
 
     _config.Config(config)
     _mp_processor = proc
-    _mp_client = data.EventsClient(address=events_address)
+    from mtap import events_client
+    _mp_client = events_client(address=events_address)
 
 
 def _mp_call_process(event_id, event_service_instance_id, params):
     global _mp_processor
     global _mp_client
-    with _base.Processor.enter_context() as c, \
-            data.Event(event_id=event_id,
-                       event_service_instance_id=event_service_instance_id,
-                       client=_mp_client) as event:
-        with _base.Processor.started_stopwatch('process_method'):
+    with Processor.enter_context() as c, \
+            Event(
+                event_id=event_id,
+                event_service_instance_id=event_service_instance_id,
+                client=_mp_client
+            ) as event:
+        with Processor.started_stopwatch('process_method'):
             result = _mp_processor.process(event, params)
         return result, c.times, event.created_indices
 
@@ -175,11 +178,11 @@ class MpProcessorRunner:
     )
 
     def __init__(self,
-                 proc: 'mtap.EventProcessor',
+                 proc: EventProcessor,
                  processor_name: str,
-                 component_id: 'Optional[str]' = None,
-                 workers: 'Optional[int]' = 8,
-                 events_address: 'Optional[Union[str, Sequence[str]]]' = None,
+                 component_id: Optional[str] = None,
+                 workers: Optional[int] = 8,
+                 events_address: Optional[Union[str, Sequence[str]]] = None,
                  mp_context=None,
                  log_level=None):
         if mp_context is None:
@@ -324,7 +327,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def __init__(self,
                  address: str,
                  sid: str,
-                 runner: '_base.ProcessingComponent',
+                 runner: ProcessingComponent,
                  health_servicer: health.HealthServicer,
                  register: bool = False):
         self.config = _config.Config()
@@ -378,7 +381,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
             if result is not None:
                 _structs.copy_dict_to_struct(result, response.result, [])
 
-            _pipeline_results.add_times(self._times_map, times)
+            add_times(self._times_map, times)
             for k, l in times.items():
                 response.timing_info[k].FromTimedelta(l)
             for document_name, l in added_indices.items():
@@ -395,8 +398,8 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
     def GetStats(self, request, context):
         r = processing_pb2.GetStatsResponse(processed=self.processed,
                                             failures=self.failure_count)
-        tsd = _pipeline_results.create_timer_stats(self._times_map,
-                                                   self._runner.component_id)
+        tsd = create_timer_stats(self._times_map,
+                                 self._runner.component_id)
         for k, v in tsd.items():
             ts = r.timing_stats[k]
             ts.mean.FromTimedelta(v.mean)
@@ -441,7 +444,7 @@ class ProcessorServer:
     write_address: bool
 
     def __init__(self,
-                 runner: 'mtap.processing.ProcessingComponent',
+                 runner: ProcessingComponent,
                  host: str,
                  port: int = 0,
                  *,

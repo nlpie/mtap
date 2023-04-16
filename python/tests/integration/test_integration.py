@@ -29,7 +29,7 @@ except ImportError:
 from requests import RequestException
 
 import mtap
-from mtap import EventsClient, Event, RemoteProcessor
+from mtap import events_client, Event, RemoteProcessor
 from mtap.utilities import subprocess_events_server, find_free_port
 
 os.environ['no_proxy'] = '127.0.0.1,localhost'
@@ -153,19 +153,18 @@ def test_pipeline(python_events, python_processor, java_processor):
                         address=java_processor,
                         params={'do_work': True})
     )
-    with EventsClient(address=python_events) as client:
+    with events_client(address=python_events) as client:
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
             result = pipeline.run_multithread([document])
-            letter_counts = document.get_label_index(
-                'mtap.examples.letter_counts')
+            letter_counts = document.labels['mtap.examples.letter_counts']
             a_counts = letter_counts[0]
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
             result.print_times()
-            thes = document.get_label_index("mtap.examples.word_occurrences")
+            thes = document.labels["mtap.examples.word_occurrences"]
             assert thes[0].start_index == 121
             assert thes[0].end_index == 124
 

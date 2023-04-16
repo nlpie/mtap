@@ -16,7 +16,8 @@ from datetime import timedelta
 
 import pytest
 
-from mtap.processing import PipelineResult, ComponentResult
+from mtap.processing.results import ComponentResult
+from mtap.pipeline import PipelineResult
 
 
 def test_component_result():

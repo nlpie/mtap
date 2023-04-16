@@ -12,30 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mtap import Event, EventsClient, Document, GenericLabel
-from mtap.data import DISTINCT_GENERIC_ADAPTER, GENERIC_ADAPTER
+from mtap import Event, Document, GenericLabel
+from mtap._label_adapters import GENERIC_ADAPTER, DISTINCT_GENERIC_ADAPTER
+from mtap.types import EventsClient
 
 
 def test_add_labels_not_distinct(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.', event=event)
+                        text='The quick brown fox jumped over the lazy dog.',
+                        event=event)
     labels = [
         GenericLabel(0, 10, document=document, x=1),
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
     document.add_labels('index', labels)
-    client.add_labels.assert_called_with(
-        event_id='1',
-        document_name='plaintext',
-        index_name='index',
-        labels=labels,
-        adapter=mocker.ANY
-    )
+    client.add_labels.assert_called_with('0', '1', 'plaintext',
+                                         index_name='index',
+                                         labels=labels,
+                                         adapter=mocker.ANY
+                                         )
     l2 = document.labels['index']
     assert l2 == labels
     assert not l2.distinct
@@ -43,24 +43,23 @@ def test_add_labels_not_distinct(mocker):
 
 def test_add_labels_distinct(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.', event=event)
+                        text='The quick brown fox jumped over the lazy dog.',
+                        event=event)
     labels = [
         GenericLabel(0, 10, document=document, x=1),
         GenericLabel(11, 15, document=document, x=2),
         GenericLabel(16, 20, document=document, x=3)
     ]
     document.add_labels('index', labels, distinct=True)
-    client.add_labels.assert_called_with(
-        event_id='1',
-        document_name='plaintext',
-        index_name='index',
-        labels=labels,
-        adapter=mocker.ANY
-    )
+    client.add_labels.assert_called_with('0', '1', 'plaintext',
+                                         index_name='index',
+                                         labels=labels,
+                                         adapter=mocker.ANY
+                                         )
     l2 = document.labels['index']
     assert l2 == labels
     assert l2.distinct
@@ -68,11 +67,12 @@ def test_add_labels_distinct(mocker):
 
 def test_labeler_not_distinct_default(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.', event=event)
+                        text='The quick brown fox jumped over the lazy dog.',
+                        event=event)
     with document.get_labeler('index') as add_generic_label:
         add_generic_label(0, 10, x=1)
         add_generic_label(11, 15, x=2)
@@ -83,23 +83,22 @@ def test_labeler_not_distinct_default(mocker):
         GenericLabel(16, 20, document=document, x=3)
     ]
     label_adapter = GENERIC_ADAPTER
-    client.add_labels.assert_called_with(
-        event_id='1',
-        document_name='plaintext',
-        index_name='index',
-        labels=labels,
-        adapter=label_adapter
-    )
+    client.add_labels.assert_called_with('0', '1', 'plaintext',
+                                         index_name='index',
+                                         labels=labels,
+                                         adapter=label_adapter
+                                         )
     assert document.labels['index'] == labels
 
 
 def test_labeler_distinct(mocker):
     client = mocker.Mock(EventsClient)
-    client.get_local_instance.return_value = client
+    client.open_event.return_value = '0'
     client.get_label_index_info.return_value = []
     event = Event(event_id='1', client=client)
     document = Document(document_name='plaintext',
-                        text='The quick brown fox jumped over the lazy dog.', event=event)
+                        text='The quick brown fox jumped over the lazy dog.',
+                        event=event)
     with document.get_labeler('index', distinct=True) as add_generic_label:
         add_generic_label(0, 10, x=1)
         add_generic_label(11, 15, x=2)
@@ -110,11 +109,9 @@ def test_labeler_distinct(mocker):
         GenericLabel(16, 20, document=document, x=3)
     ]
     label_adapter = DISTINCT_GENERIC_ADAPTER
-    client.add_labels.assert_called_with(
-        event_id='1',
-        document_name='plaintext',
-        index_name='index',
-        labels=labels,
-        adapter=label_adapter
-    )
+    client.add_labels.assert_called_with('0', '1', 'plaintext',
+                                         index_name='index',
+                                         labels=labels,
+                                         adapter=label_adapter
+                                         )
     assert document.labels['index'] == labels

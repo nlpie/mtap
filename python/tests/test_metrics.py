@@ -13,10 +13,9 @@
 # limitations under the License.
 import io
 
-import serialization
-
 from mtap import Event
-from mtap.metrics import Accuracy, Metrics, FirstTokenConfusion, ConfusionMatrix
+from mtap.metrics import Accuracy, Metrics, FirstTokenConfusion, \
+    ConfusionMatrix
 
 
 def test_accuracy():

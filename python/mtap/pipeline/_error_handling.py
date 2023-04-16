@@ -58,117 +58,29 @@ below.
 
 New error handlers can be registered to be loaded in this fashion using
 :meth:`~mtap.processing.ErrorHandlerRegistry.register`
-
 """
-import abc
 import dataclasses
 import logging
 import os.path
-import traceback
-from enum import Enum, auto
+from abc import abstractmethod, ABCMeta
 from os import PathLike
 from typing import (
     Any,
-    TYPE_CHECKING,
     Callable,
     Dict,
     Optional,
     Union,
-    List
+    Type,
+    ClassVar
 )
 
-import grpc
-from google.rpc import error_details_pb2, status_pb2
-from grpc_status import rpc_status
-
-if TYPE_CHECKING:
-    import mtap
-    from mtap import Event
-    from mtap.serialization import Serializer
+from mtap._event import Event
+from mtap.processing import ErrorInfo
+from mtap.serialization import Serializer
 
 LOGGER = logging.getLogger('mtap.processing')
 
-
-class ProcessingException(Exception):
-    """An exception that occurred in a processing component.
-
-    Attributes
-        error_info (ErrorInfo): Information about the error.
-
-    """
-
-    def __init__(self, error_info: 'ErrorInfo'):
-        self.error_info = error_info
-
-    def to_rpc_status(self):
-        info = self.error_info
-        status = status_pb2.Status()
-        status.code = grpc.StatusCode.UNKNOWN.value[0]
-
-        error_info = error_details_pb2.ErrorInfo()
-        error_info.reason = "PROCESSING_FAILURE"
-        error_info.domain = "mtap.nlpie.umn.edu"
-        error_info.metadata['lang'] = info.lang
-        error_info.metadata['errorType'] = info.error_type
-        error_info.metadata['errorRepr'] = info.error_repr
-        error_info_any = status.details.add()
-        error_info_any.Pack(error_info)
-
-        debug_info = error_details_pb2.DebugInfo()
-        debug_info.stack_entries.extend(info.stack_trace)
-        debug_info_any = status.details.add()
-        debug_info_any.Pack(debug_info)
-
-        localized_message = error_details_pb2.LocalizedMessage()
-        localized_message.locale = info.locale
-        localized_message.message = info.localized_msg
-        localized_message_any = status.details.add()
-        localized_message_any.Pack(localized_message)
-        return status
-
-    @staticmethod
-    def from_local_exception(exc, component_id, message=None):
-        error_info = ErrorInfo(
-            origin=ErrorOrigin.LOCAL,
-            component_id=component_id,
-            lang='python',
-            error_type=str(type(exc)),
-            error_repr=repr(exc),
-            localized_msg=message or "An internal error occurred while "
-                                     "attempting to process an Event. "
-                                     "This is potentially a bug, contact the "
-                                     "developer of the component.",
-            locale="en-US",
-            stack_trace=list(traceback.format_exception(exc))
-        )
-        return ProcessingException(error_info)
-
-    @staticmethod
-    def from_rpc_error(rpc_error, component_id, address):
-
-        status = rpc_status.from_call(rpc_error)
-        if status is None:
-            return ProcessingException.from_local_exception(rpc_error,
-                                                            component_id)
-        info = error_details_pb2.ErrorInfo()
-        debug_info = error_details_pb2.DebugInfo()
-        localized_message = error_details_pb2.LocalizedMessage()
-        for detail in status.details:
-            for target in [info, debug_info, localized_message]:
-                if detail.Is(target.DESCRIPTOR):
-                    detail.Unpack(target)
-        error_info = ErrorInfo(
-            origin=ErrorOrigin.REMOTE,
-            component_id=component_id,
-            lang=info.metadata['lang'],
-            error_type=info.metadata['errorType'],
-            error_repr=info.metadata['errorRepr'],
-            localized_msg=localized_message.message,
-            locale=localized_message.locale,
-            stack_trace=list(debug_info.stack_entries),
-            address=address,
-        )
-        return ProcessingException(error_info)
+ErrorHandlerFactory = Callable[..., 'ProcessingErrorHandler']
 
 
 class StopProcessing(Exception):
@@ -184,51 +96,58 @@ class SuppressError(Exception):
     pass
 
 
-class ErrorOrigin(Enum):
-    """Where the error occurred.
+class ErrorHandlerRegistry(ABCMeta):
+    """Registry for error handlers so that they can be instantiated from
+    configuration.
+
+    Classes implementing :class:`ProcessingErrorHandler` will automatically
+    be added by their name but can override that by overriding the
+    :meth:`mtap.pipeline.ProcessingErrorHandler.name` method.
     """
-    #: Error occurred locally to this process.
-    LOCAL = auto()
-    #: Error occurred on a remote component.
-    REMOTE = auto()
+    registry: ClassVar[Dict[str, ErrorHandlerFactory]] = {}
+
+    def __init__(cls: Type['ProcessingErrorHandler'], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        ErrorHandlerRegistry.registry[cls.name()] = cls
+
+    @staticmethod
+    def from_dict(conf: Optional[Dict[str, Any]]) -> 'ProcessingErrorHandler':
+        """Creates an error handler from its dictionary representation.
+
+        Args:
+            conf: The dictionary representation of the error handler.
+
+        Returns:
+            The instantiated error handler.
+
+        """
+        return ErrorHandlerRegistry.registry[conf['name']](
+            **conf.get('params', {})
+        )
 
 
-@dataclasses.dataclass
-class ErrorInfo:
-    """Information about an error.
-
-    Attributes:
-        origin: The source of the error.
-        component_id: The id of the processing component that
-            the error occurred in.
-        lang: What language did the error occur in?
-        error_type: The type of the error.
-        error_repr: The string representation of the error.
-        localized_msg: A localized, user-friendly message.
-        locale: The locale of the message.
-        stack_trace: The stack trace of the message.
-        address: The remote address.
-    """
-    origin: 'mtap.processing.ErrorOrigin'
-    component_id: str
-    lang: str
-    error_type: str
-    error_repr: str
-    localized_msg: str
-    locale: str
-    stack_trace: List[str]
-    address: Optional[str] = None
-
-
-class ProcessingErrorHandler(abc.ABC):
+class ProcessingErrorHandler(metaclass=ErrorHandlerRegistry):
     """Base class for an error handler that is included in a pipeline to
     report and decide action for errors / exceptions that occur during
-    processing."""
+    processing.
 
-    @abc.abstractmethod
+    Note that you should not store any state on the error handler since it may
+    be reused across multiple runs of the same pipeline, instead store stateful
+    information in the state dictionary.
+    """
+
+    @classmethod
+    def name(cls):
+        """Optional method that returns the name the error handler should be
+        loaded into the registry with, by default will just use the full path
+        name.
+        """
+        return '.'.join([cls.__module__, cls.__name__])
+
+    @abstractmethod
     def handle_error(
             self,
-            event: 'Event',
+            event: Event,
             error_info: 'ErrorInfo',
             state: Dict[Any, Any]
     ):
@@ -253,81 +172,7 @@ class ProcessingErrorHandler(abc.ABC):
         """
         raise NotImplementedError()
 
-    @abc.abstractmethod
-    def handle_exception(
-            self,
-            event: 'Event',
-            exc: 'Exception',
-            state: Dict[Any, Any]
-    ):
-        """Handles an exception that was not caught by the processing logic,
-        for example one that occurred in the MTAP pipeline or component logic.
 
-        Args:
-            event:
-                The event that was being processed when the exception was
-                thrown.
-            exc: The exception thrown.
-            state:
-                A dictionary that is preserved in-between calls to the
-                error handler that the handler can use to store state local
-                to the current run of processing.
-
-        Raises:
-            StopProcessing: The pipeline should immediately stop processing.
-            SuppressError: The error should be suppressed and not passed to
-                any downstream error handlers (later in the pipeline's list of
-                error handlers).
-        """
-        raise NotImplementedError()
-
-
-ErrorHandlerFactory = Callable[[Dict[str, Any]], ProcessingErrorHandler]
-
-registry: Dict[str, ErrorHandlerFactory] = {}
-
-
-class ErrorHandlerRegistry:
-    """Registry for error handlers so that they can be instantiated from
-    configuration.
-    """
-
-    @staticmethod
-    def register(
-            name: str
-    ) -> Callable[[ErrorHandlerFactory], ErrorHandlerFactory]:
-        """Registers an error handler.
-
-        Args:
-            name: The unique identifier
-
-        Returns:
-            A decorator that adds the factory to the registry.
-
-        """
-        def decorate(f: ErrorHandlerFactory) -> ErrorHandlerFactory:
-            if name in registry:
-                raise ValueError('Duplicate name for ErrorHandler: ' + name)
-            registry[name] = f
-            return f
-
-        return decorate
-
-    @staticmethod
-    def from_dict(conf: Optional[Dict[str, Any]]) -> ProcessingErrorHandler:
-        """Creates an error handler from its dictionary representation.
-
-        Args:
-            conf: The dictionary representation of the error handler.
-
-        Returns:
-            The instantiated error handler.
-
-        """
-        return registry[conf['name']](**conf.get('params', {}))
-
-
-@ErrorHandlerRegistry.register('simple')
 class SimpleErrorHandler(ProcessingErrorHandler):
     """Prints a simple helpful explanation of the error info.
     """
@@ -340,7 +185,12 @@ class SimpleErrorHandler(ProcessingErrorHandler):
                 "debug behavior."
         )
 
+    @classmethod
+    def name(cls):
+        return 'simple'
+
     def handle_error(self, event, error_info, state):
+        from mtap.processing import ErrorOrigin
         if error_info.origin == ErrorOrigin.REMOTE:
             print(
                 f"An error occurred while processing an event with id "
@@ -357,14 +207,7 @@ class SimpleErrorHandler(ProcessingErrorHandler):
                 f"It had the following message: {error_info.localized_msg}\n"
                 f"{self.more_help}")
 
-    def handle_exception(self, event, exc, state):
-        print(
-            f"An error occurred while processing an event with id "
-            f"'{event.event_id}': '{repr(exc)}'\n"
-            f"{self.more_help}")
 
-
-@ErrorHandlerRegistry.register('termination')
 class TerminationErrorHandler(ProcessingErrorHandler):
     """Terminates the pipeline after more than :attr:`max_failures`
     number of errors occurs.
@@ -379,7 +222,11 @@ class TerminationErrorHandler(ProcessingErrorHandler):
     def __init__(self, max_failures: int = 0):
         self.max_failures = max_failures
 
-    def _increment_and_check(self, state):
+    @classmethod
+    def name(cls):
+        return 'termination'
+
+    def handle_error(self, _1, _2, state):
         try:
             state['failures'] += 1
         except KeyError:
@@ -390,14 +237,7 @@ class TerminationErrorHandler(ProcessingErrorHandler):
                   f"and is terminating.")
             raise StopProcessing()
 
-    def handle_error(self, _1, _2, state):
-        self._increment_and_check(state)
 
-    def handle_exception(self, _1, _2, state):
-        self._increment_and_check(state)
-
-
-@ErrorHandlerRegistry.register('logging')
 class LoggingErrorHandler(ProcessingErrorHandler):
     """Logs errors to a specified :class:`logging.Logger` object.
 
@@ -416,6 +256,10 @@ class LoggingErrorHandler(ProcessingErrorHandler):
             logger = logging.getLogger(logger)
         self.logger = (logger or logging.getLogger('mtap.processing'))
 
+    @classmethod
+    def name(cls):
+        return 'logging'
+
     def handle_error(self, event, error_info, state):
         self.logger.error(
             f"An error occurred while processing an event with id "
@@ -426,15 +270,7 @@ class LoggingErrorHandler(ProcessingErrorHandler):
             + ''.join(error_info.stack_trace)
         )
 
-    def handle_exception(self, event, exc, state):
-        self.logger.error(
-            f"An error occurred while processing an event with id "
-            f"'{event.event_id}': {exc}\n"
-            + ''.join(traceback.format_exception(exc))
-        )
 
-
-@ErrorHandlerRegistry.register('directory')
 class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
     """Built-in Error Handler which handles failures in pipeline processing by 
     writing files containing the error info, stack trace, and serialized event.
@@ -454,17 +290,21 @@ class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
 
     def __init__(self,
                  output_directory: 'Union[str, bytes, PathLike]',
-                 serializer: 'Union[Serializer, Dict[str, Any], None]' = None):
+                 serializer: 'Union[Serializer, str, None]' = None):
         self.output_directory = output_directory
         if serializer is None:
             from mtap.serialization import SerializerRegistry
             serializer = SerializerRegistry.create('json')
         if not isinstance(serializer, Serializer):
             from mtap.serialization import SerializerRegistry
-            serializer = SerializerRegistry.from_dict(serializer)
+            serializer = SerializerRegistry.create(serializer)
         self.serializer = serializer
 
-    def _write_out(self, event, error_info):
+    @classmethod
+    def name(cls):
+        return 'to_directory'
+
+    def handle_error(self, event, error_info, _):
         d = os.path.join(self.output_directory, event.event_id)
         os.makedirs(d, exist_ok=True)
         print(f"Writing error information to: "
@@ -472,33 +312,13 @@ class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
         import json
         with open(os.path.join(d, 'info.json'), 'w') as f:
             json.dump(dataclasses.asdict(error_info), f, default=str)
-        ser_path = os.path.join(d, 'event' + self.serializer.extension)
+        ser_path = os.path.join(d, 'event' + self.serializer.extension())
         self.serializer.event_to_file(event, ser_path)
         with open(os.path.join(d, 'trace.txt'), 'w') as f:
             for line in error_info.stack_trace:
                 f.write(line)  # The lines already have builtin line breaks
 
-    def handle_error(self, event, error_info, _):
-        self._write_out(event, error_info)
 
-    def handle_exception(self, event, exc, _):
-        error_info = ErrorInfo(
-            ErrorOrigin.LOCAL,
-            'pipeline',
-            'python',
-            str(type(exc)),
-            repr(exc),
-            'en-US',
-            'An exception occurred in the pipeline.',
-            traceback.format_exception(exc),
-        )
-        self._write_out(event, error_info)
-
-
-@ErrorHandlerRegistry.register('suppress')
 class SuppressAllErrorsHandler(ProcessingErrorHandler):
     def handle_error(self, *_args, **_kwargs):
-        raise SuppressError()
-
-    def handle_exception(self, *_args, **_kwargs):
         raise SuppressError()
