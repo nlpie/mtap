@@ -164,7 +164,7 @@ def test_pipeline(python_events, python_processor, java_processor):
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
-            result.print_times()
+            result.print()
             thes = document.labels["mtap.examples.word_occurrences"]
             assert thes[0].start_index == 120
             assert thes[0].end_index == 123
