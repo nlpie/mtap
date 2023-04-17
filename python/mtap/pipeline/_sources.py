@@ -15,11 +15,11 @@ import os
 from abc import ABC, abstractmethod
 from os import PathLike
 from pathlib import Path
-from typing import Union, Optional, ContextManager, Callable, TYPE_CHECKING
+from typing import Union, Optional, ContextManager, Callable
 
-if TYPE_CHECKING:
-    from mtap import Document, Event
-    from mtap.types import EventsClient
+from mtap._document import Document
+from mtap._event import Event
+from mtap._events_client import EventsClient
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -27,7 +27,11 @@ class ProcessingSource(ContextManager, ABC):
     Also has functionality for receiving results.
 
     """
-    __slots__ = ('_total',)
+    __slots__ = (
+        '_total',
+    )
+
+    _total: Optional[int] = None
 
     @property
     def total(self) -> Optional[int]:
@@ -38,10 +42,7 @@ class ProcessingSource(ContextManager, ABC):
             known.
 
         """
-        try:
-            return self._total
-        except AttributeError:
-            return None
+        return self._total
 
     @total.setter
     def total(self, count: Optional[int]):
@@ -50,7 +51,7 @@ class ProcessingSource(ContextManager, ABC):
     @abstractmethod
     def produce(
             self,
-            consume: 'Callable[[Union[Document, Event]], None]'
+            consume: Callable[[Union[Document, Event]], None]
     ):
         """The method which provides documents or events to the pipeline
         to batch process.
@@ -154,7 +155,7 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
         'total'
     )
 
-    def __init__(self, client: 'EventsClient',
+    def __init__(self, client: EventsClient,
                  directory: Union[str, bytes, PathLike],
                  *, document_name: str = 'plaintext',
                  extension_glob: str = '*.txt',
