@@ -16,7 +16,7 @@ import shutil
 from argparse import ArgumentParser
 from pathlib import Path
 
-import mtap
+from mtap import events_client
 from mtap.serialization import SerializationProcessor, JsonSerializer
 from mtap.pipeline import (
     FilesInDirectoryProcessingSource,
@@ -38,9 +38,9 @@ def run_pipeline(conf):
             or Path(__file__).parent / 'examplePipelineConfiguration.yml'
     )
     pipeline = Pipeline.from_yaml_file(pipeline_conf)
-
-    with mtap.EventsClient(address=conf.events_address) as client:
-        pipeline.events_client = client
+    events_address = conf.events_address or pipeline.events_address
+    pipeline.events_address = events_address
+    with events_client(address=events_address) as events:
         pipeline.append(
             LocalProcessor(
                 processor=SerializationProcessor(
@@ -51,7 +51,7 @@ def run_pipeline(conf):
             )
         )
         source = FilesInDirectoryProcessingSource(directory=conf.directory,
-                                                  client=client)
+                                                  client=events)
         pipeline.run_multithread(source=source, workers=conf.threads,
                                  max_failures=conf.max_failures,
                                  read_ahead=conf.read_ahead)
