@@ -13,7 +13,7 @@
 # limitations under the License.
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 
 
 class ProcessingComponent(ABC):
@@ -37,7 +37,7 @@ class ProcessingComponent(ABC):
             event_id: str,
             event_instance_id: str,
             params: Optional[Dict[str, Any]]
-    ) -> Tuple[Dict[str, Any], Dict[str, timedelta], Dict[str, list[str]]]:
+    ) -> Tuple[Dict[str, Any], Dict[str, timedelta], Dict[str, List[str]]]:
         """Calls a processor.
 
         Parameters
