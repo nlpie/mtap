@@ -468,7 +468,7 @@ def _is_referential(o: Any, parents=None) -> bool:
     elif isinstance(o, Mapping):
         return _mapping_is_ref(o, parents)
     elif isinstance(o, Sequence):
-        _sequence_is_ref(o)
+        return _sequence_is_ref(o, parents)
     else:
         raise TypeError('Unrecognized type')
 

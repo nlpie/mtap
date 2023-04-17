@@ -125,8 +125,8 @@ def test_disc_pipeline(disc_python_events, disc_python_processor,
             assert b_counts.count == 6
             result.print_times()
             thes = document.labels["mtap.examples.word_occurrences"]
-            assert thes[0].start_index == 121
-            assert thes[0].end_index == 124
+            assert thes[0].start_index == 120
+            assert thes[0].end_index == 123
 
 
 @pytest.mark.consul

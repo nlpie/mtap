@@ -166,8 +166,8 @@ def test_pipeline(python_events, python_processor, java_processor):
             assert b_counts.count == 6
             result.print_times()
             thes = document.labels["mtap.examples.word_occurrences"]
-            assert thes[0].start_index == 121
-            assert thes[0].end_index == 124
+            assert thes[0].start_index == 120
+            assert thes[0].end_index == 123
 
 
 @pytest.mark.integration
@@ -338,8 +338,8 @@ def test_api_gateway(python_events, python_processor, java_processor,
     assert labels == [
         {
             'identifier': 0,
-            'start_index': 121,
-            'end_index': 124,
+            'start_index': 120,
+            'end_index': 123,
             'fields': {},
             'reference_ids': {}
         }

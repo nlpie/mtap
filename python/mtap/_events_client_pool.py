@@ -11,10 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import ContextManager
+
 from mtap._events_client import EventsClient
 
 
-class EventsClientPool:
+class EventsClientPool(ContextManager[EventsClient]):
     __slots__ = ('_ptr', '_clients', '_map')
 
     def __init__(self, clients):
