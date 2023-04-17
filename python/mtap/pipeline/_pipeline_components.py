@@ -62,7 +62,7 @@ class LocalProcessor(ComponentDescriptor):
                  *, component_id: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = processor
-        self.component_id = component_id or self.processor.metadata['name']
+        self.component_id = component_id or self.processor.metadata()['name']
         self.params = params or {}
 
     def __reduce__(self):
@@ -71,7 +71,11 @@ class LocalProcessor(ComponentDescriptor):
             self.component_id,
             self.params
         )
-        return LocalProcessor, params
+        return LocalProcessor._reconstructor, params
+
+    @staticmethod
+    def _reconstructor(processor, component_id, params):
+        return LocalProcessor(processor, component_id=component_id, params=params)
 
     def create_pipeline_component(
             self,
@@ -132,6 +136,24 @@ class RemoteProcessor(ComponentDescriptor):
         self.component_id = component_id or self.processor_name
         self.params = params or {}
         self.enable_proxy = enable_proxy
+
+    def __reduce__(self):
+        params = (
+            self.processor_name,
+            self.address,
+            self.component_id,
+            self.params,
+        )
+        return RemoteProcessor._reconstructor, params
+
+    @staticmethod
+    def _reconstructor(processor_name, address, component_id, params,
+                       enable_proxy):
+        return RemoteProcessor(processor_name=processor_name,
+                               address=address,
+                               component_id=component_id,
+                               params=params,
+                               enable_proxy=enable_proxy)
 
     def create_pipeline_component(
             self,
