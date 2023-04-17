@@ -61,7 +61,7 @@ def add_result_times(times_map: TimesMap,
     for component_id, _, component_times, _ in result.component_results:
         times.update({component_id + ':' + k: v for k, v in
                       component_times.items()})
-    times[pipeline_name + '_total'] = result.elapsed_time
+    times[pipeline_name + ':total'] = result.elapsed_time
     add_times(times_map, times)
 
 
@@ -126,8 +126,8 @@ class PipelineTimes:
         for component_id in self.component_ids:
             aggregates = create_timer_stats(self._times_map,
                                             component_id + ':')
-            aggregates = {k[(len(component_id) + 1):]: v for k, v in
-                          aggregates.items()}
+            aggregates = {k[(len(component_id) + 1):]: v
+                          for k, v in aggregates.items()}
             timing_infos.append(
                 AggregateTimingInfo(identifier=component_id,
                                     timing_info=aggregates))
@@ -143,17 +143,18 @@ class PipelineTimes:
 
         """
         aggregates = create_timer_stats(self._times_map, self.name)
-        aggregates = {k[len(self.name):]: v for k, v in aggregates.items()}
+        aggregates = {k[(len(self.name) + 1):]: v
+                      for k, v in aggregates.items()}
         return AggregateTimingInfo(identifier=self.name,
                                    timing_info=aggregates)
 
-    def print_times(self):
+    def print(self):
         """Prints all the times collected during this pipeline using
         :func:`print`.
         """
-        self.aggregate_timer_stats().print_times()
+        self.aggregate_timer_stats().print()
         for pipeline_timer in self.processor_timer_stats():
-            pipeline_timer.print_times()
+            pipeline_timer.print()
 
     def add_result_times(self, result: PipelineResult):
         """Adds the times from the result to these times.

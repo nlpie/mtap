@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 from abc import abstractmethod, ABC
 from typing import overload, Iterable, ContextManager, Union, List, cast
 
 EventsAddressLike = Union[str, List[str], None]
+
+logger = logging.getLogger("mtap.events_client")
 
 
 @overload
@@ -55,6 +58,7 @@ def events_client() -> 'EventsClient':
 
 
 def events_client(address: EventsAddressLike = None) -> 'EventsClient':
+    logger.debug(f"Creating events client with address: {address}")
     from mtap._events_client_grpc import GrpcEventsClient
     if address is None or not isinstance(address, str) and len(address) == 0:
         from mtap.discovery import DiscoveryMechanism

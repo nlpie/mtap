@@ -78,7 +78,7 @@ class AggregateTimingInfo(NamedTuple):
     aggregated duration statistics.
     """
 
-    def print_times(self):
+    def print(self):
         """Prints the aggregate timing info for all processing components
         using ``print``.
         """

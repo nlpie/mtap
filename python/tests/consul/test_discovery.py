@@ -117,13 +117,13 @@ def test_disc_pipeline(disc_python_events, disc_python_processor,
         with Event(event_id='1', client=client) as event:
             event.metadata['a'] = 'b'
             document = event.create_document('plaintext', PHASERS)
-            result = pipeline.run_multithread([document])
+            times = pipeline.run_multithread([document])
             letter_counts = document.labels['mtap.examples.letter_counts']
             a_counts = letter_counts[0]
             assert a_counts.count == 23
             b_counts = letter_counts[1]
             assert b_counts.count == 6
-            result.print_times()
+            times.print()
             thes = document.labels["mtap.examples.word_occurrences"]
             assert thes[0].start_index == 120
             assert thes[0].end_index == 123

@@ -66,17 +66,6 @@ def _cancel_callback(event, read_ahead, cd, close_events):
     return fn
 
 
-def _create_pipeline(name: Optional[str] = None,
-                     mp_config: Optional[MpConfig] = None,
-                     error_handlers: Optional[ProcessingErrorHandler] = None,
-                     *components: ComponentDescriptor):
-    pipeline = Pipeline(*components)
-    pipeline.name = name
-    pipeline.mp_config = mp_config
-    pipeline.error_handlers = error_handlers
-    return pipeline
-
-
 class ActivePipeline:
     __slots__ = (
         'components'
@@ -204,11 +193,22 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
     def __reduce__(self):
         params = (
             self.name,
+            self.events_address,
             self.mp_config,
             self.error_handlers,
         )
-        params += tuple(self)
-        return _create_pipeline, params
+
+        return Pipeline._reconstruct, params, None, iter(self)
+
+    @staticmethod
+    def _reconstruct(name, events_address, mp_config, error_handlers):
+        pipeline = Pipeline(
+            name=name,
+            events_address=events_address,
+            mp_config=mp_config,
+            error_handlers=error_handlers
+        )
+        return pipeline
 
     @staticmethod
     def from_yaml_file(conf_path: Union[str, bytes, PathLike]) -> 'Pipeline':
