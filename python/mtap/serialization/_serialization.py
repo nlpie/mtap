@@ -137,7 +137,7 @@ def dict_to_document(document_name: str,
 
 
 class SerializerRegistry(ABCMeta):
-    REGISTRY: ClassVar[dict[str, Type['Serializer']]] = {}
+    REGISTRY: ClassVar[Dict[str, Type['Serializer']]] = {}
 
     def __init__(cls: Type['Serializer'], *args, **kwargs):
         super().__init__(*args, **kwargs)
