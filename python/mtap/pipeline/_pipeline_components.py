@@ -75,7 +75,8 @@ class LocalProcessor(ComponentDescriptor):
 
     @staticmethod
     def _reconstructor(processor, component_id, params):
-        return LocalProcessor(processor, component_id=component_id, params=params)
+        return LocalProcessor(processor, component_id=component_id,
+                              params=params)
 
     def create_pipeline_component(
             self,
@@ -143,6 +144,7 @@ class RemoteProcessor(ComponentDescriptor):
             self.address,
             self.component_id,
             self.params,
+            self.enable_proxy
         )
         return RemoteProcessor._reconstructor, params
 
