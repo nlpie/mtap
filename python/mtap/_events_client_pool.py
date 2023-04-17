@@ -18,7 +18,7 @@ class EventsClientPool:
     __slots__ = ('_ptr', '_clients', '_map')
 
     def __init__(self, clients):
-        if clients == None or len(clients) == 0:
+        if clients is None or len(clients) == 0:
             raise ValueError(
                 "Trying to start a client pool with no clients"
             )

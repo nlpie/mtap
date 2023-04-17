@@ -98,7 +98,10 @@ def test_boundary_fuzz_equals():
 
 def test_begin_token_precision_recall_f1():
     with Event() as event:
-        doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+        doc = event.create_document(
+            'test',
+            'The quick brown fox jumps over the lazy dog.'
+        )
         with doc.get_labeler('tested') as label_tested:
             label_tested(0, 9)
             label_tested(10, 19)
@@ -134,7 +137,8 @@ def test_bin_classification_iadd():
 
 def test_print_debug_fn():
     event = Event()
-    doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+    doc = event.create_document('test',
+                                'The quick brown fox jumps over the lazy dog.')
     with doc.get_labeler('target') as label_target:
         label_target(16, 19)
     with doc.get_labeler('tested') as label_tested:
@@ -143,12 +147,15 @@ def test_print_debug_fn():
     string_io = io.StringIO()
     metric = FirstTokenConfusion(print_debug='fn', debug_handle=string_io)
     metric.update(doc, doc.labels['tested'], doc.labels['target'])
-    assert string_io.getvalue() == 'False Negatives\nThe quick brown {fox} jumps over the lazy dog.\n\n'
+    expected = 'False Negatives\nThe quick brown {fox} jumps over the lazy ' \
+               'dog.\n\n'
+    assert (string_io.getvalue() == expected)
 
 
 def test_print_debug_fp():
     event = Event()
-    doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+    doc = event.create_document('test',
+                                'The quick brown fox jumps over the lazy dog.')
     with doc.get_labeler('target') as label_target:
         label_target(16, 19)
     with doc.get_labeler('tested') as label_tested:
@@ -157,12 +164,14 @@ def test_print_debug_fp():
     string_io = io.StringIO()
     metric = FirstTokenConfusion(print_debug='fp', debug_handle=string_io)
     metric.update(doc, doc.labels['tested'], doc.labels['target'])
-    assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox jumps over the lazy dog.\n\n'
+    assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox ' \
+                                   'jumps over the lazy dog.\n\n'
 
 
 def test_print_debug_all():
     event = Event()
-    doc = event.create_document('test', 'The quick brown fox jumps over the lazy dog.')
+    doc = event.create_document('test',
+                                'The quick brown fox jumps over the lazy dog.')
     with doc.get_labeler('target') as label_target:
         label_target(16, 19)
     with doc.get_labeler('tested') as label_tested:
@@ -171,4 +180,7 @@ def test_print_debug_all():
     string_io = io.StringIO()
     metric = FirstTokenConfusion(print_debug='all', debug_handle=string_io)
     metric.update(doc, doc.labels['tested'], doc.labels['target'])
-    assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox jumps over the lazy dog.\n\nFalse Negatives\nThe quick brown {fox} jumps over the lazy dog.\n\n'
+    assert string_io.getvalue() == 'False Positives\nThe quick {brown} fox ' \
+                                   'jumps over the lazy dog.\n\nFalse ' \
+                                   'Negatives\nThe quick brown {fox} jumps ' \
+                                   'over the lazy dog.\n\n'

@@ -31,7 +31,6 @@ if TYPE_CHECKING:
         Document
     )
 
-
 LocationLike = Union['Location', 'Label']
 HasStart = Union['Location', 'Label', float]
 HasEnd = Union['Location', 'Label', float]
@@ -231,6 +230,20 @@ L = TypeVar('L', bound=Label)
 _repr_local = threading.local()
 
 
+def _collect_refs_from_item(o, queue, s):
+    if isinstance(o, Label):
+        if o.identifier is None:
+            s.add(id(o))
+    elif isinstance(o, Mapping):
+        for _, v in o.items():
+            if v is not None:
+                queue.put(v)
+    elif isinstance(o, Sequence):
+        for v in o:
+            if v is not None:
+                queue.put(v)
+
+
 class GenericLabel(Label):
     """Default implementation of the Label class which uses a dictionary to
     store attributes.
@@ -414,22 +427,15 @@ class GenericLabel(Label):
 
     def collect_floating_references(self, s):
         queue = Queue()
+        self._populate_queue(queue)
+        while not queue.empty():
+            o = queue.get_nowait()
+            _collect_refs_from_item(o, queue, s)
+
+    def _populate_queue(self, queue):
         for k, v in self.reference_cache.items():
             if v is not None:
                 queue.put(v)
-        while not queue.empty():
-            o = queue.get_nowait()
-            if isinstance(o, Label):
-                if o.identifier is None:
-                    s.add(id(o))
-            elif isinstance(o, Mapping):
-                for _, v in o.items():
-                    if v is not None:
-                        queue.put(v)
-            elif isinstance(o, Sequence):
-                for v in o:
-                    if v is not None:
-                        queue.put(v)
 
 
 def label(start_index: int,
@@ -460,34 +466,42 @@ def _is_referential(o: Any, parents=None) -> bool:
     elif isinstance(o, Label):
         return True
     elif isinstance(o, Mapping):
-        map_is_ref = None
-        for v in o.values():
-            if id(v) in parents:
-                raise ValueError('Recursive loop')
-            x = _is_referential(v, parents + [id(v)])
-            if map_is_ref is None:
-                map_is_ref = x
-            elif x != map_is_ref:
-                raise TypeError(
-                    'Label dictionaries cannot have mixes of references to '
-                    'labels and primitive types.'
-                )
-        return map_is_ref
+        return _mapping_is_ref(o, parents)
     elif isinstance(o, Sequence):
-        seq_is_ref = None
-        for v in o:
-            if id(v) in parents:
-                raise ValueError('Recursive loop')
-            x = _is_referential(v, parents + [id(v)])
-            if seq_is_ref is None:
-                seq_is_ref = x
-            elif x != seq_is_ref:
-                raise TypeError(
-                    'Label lists cannot have mixes of references to labels'
-                    'and primitive types.')
-        return seq_is_ref
+        _sequence_is_ref(o)
     else:
         raise TypeError('Unrecognized type')
+
+
+def _mapping_is_ref(o: Mapping, parents) -> bool:
+    map_is_ref = None
+    for v in o.values():
+        if id(v) in parents:
+            raise ValueError('Recursive loop')
+        x = _is_referential(v, parents + [id(v)])
+        if map_is_ref is None:
+            map_is_ref = x
+        elif x != map_is_ref:
+            raise TypeError(
+                'Label dictionaries cannot have mixes of references to '
+                'labels and primitive types.'
+            )
+    return map_is_ref
+
+
+def _sequence_is_ref(o: Sequence, parents) -> bool:
+    seq_is_ref = None
+    for v in o:
+        if id(v) in parents:
+            raise ValueError('Recursive loop')
+        x = _is_referential(v, parents + [id(v)])
+        if seq_is_ref is None:
+            seq_is_ref = x
+        elif x != seq_is_ref:
+            raise TypeError(
+                'Label lists cannot have mixes of references to labels'
+                'and primitive types.')
+    return seq_is_ref
 
 
 def _dereference(o: Any, document: 'Document') -> Any:

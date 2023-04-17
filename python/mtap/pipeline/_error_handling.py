@@ -272,7 +272,7 @@ class LoggingErrorHandler(ProcessingErrorHandler):
 
 
 class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
-    """Built-in Error Handler which handles failures in pipeline processing by 
+    """Built-in Error Handler which handles failures in pipeline processing by
     writing files containing the error info, stack trace, and serialized event.
 
     Args:

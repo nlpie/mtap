@@ -13,7 +13,6 @@
 # limitations under the License.
 import logging
 import os
-import signal
 import subprocess
 from threading import Thread
 

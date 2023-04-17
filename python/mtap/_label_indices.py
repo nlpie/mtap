@@ -84,7 +84,7 @@ class LabelIndex(Sequence[L], Generic[L]):
         use a binary search method on the sorted index.
 
         Args:
-            fn: A filter function, returns ``true`` if the label should be 
+            fn: A filter function, returns ``true`` if the label should be
                 included, ``false`` if it should not be included
 
         Returns:

@@ -154,11 +154,11 @@ def test_set_document():
 
 
 def test_try_assign_reserved():
-    l = GenericLabel(0, 0)
+    label = GenericLabel(0, 0)
     with pytest.raises(ValueError):
-        l.location = 10
+        label.location = 10
     with pytest.raises(ValueError):
-        l.text = 'blah'
+        label.text = 'blah'
 
 
 def test_construct_with_reserved():

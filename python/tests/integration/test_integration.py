@@ -136,11 +136,12 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
 
 
 PHASERS = """
-Maybe if we felt any human loss as keenly as we feel one of those close to us, human history would 
-be far less bloody. The Enterprise computer system is controlled by three primary main processor 
-cores, cross-linked with a redundant melacortz ramistat, fourteen kiloquad interface modules. Our 
-neural pathways have become accustomed to your sensory input patterns. Mr. Worf, you do remember 
-how to fire phasers?"""
+Maybe if we felt any human loss as keenly as we feel one of those close to us,
+human history would be far less bloody. The Enterprise computer system is
+controlled by three primary main processor cores, cross-linked with a redundant
+melacortz ramistat, fourteen kiloquad interface modules. Our
+neural pathways have become accustomed to your sensory input patterns. Mr.
+Worf, you do remember how to fire phasers?"""
 
 
 @pytest.mark.integration

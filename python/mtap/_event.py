@@ -16,11 +16,10 @@ from typing import ContextManager, Dict, MutableMapping, Optional, Iterator, \
     List, Mapping, TYPE_CHECKING, cast
 
 from mtap._document import Document
+from mtap._events_client import EventsClient
 
 if TYPE_CHECKING:
-    from mtap.types import EventsClient
-
-LabelAdapters = Mapping[str, 'ProtoLabelAdapter']
+    from mtap._label_adapters import ProtoLabelAdapter
 
 
 class Event(ContextManager['Event']):
@@ -74,13 +73,13 @@ class Event(ContextManager['Event']):
                  '_documents_cache', '_metadata_cache', '_binaries_cache',
                  '_event_service_instance_id')
 
-    label_adapters: LabelAdapters
+    label_adapters: Mapping[str, 'ProtoLabelAdapter']
 
     def __init__(
             self, event_id: Optional[str] = None,
             *, client: Optional['EventsClient'] = None,
             only_create_new: bool = False,
-            label_adapters: Optional[LabelAdapters] = None,
+            label_adapters: Optional[Mapping[str, 'ProtoLabelAdapter']] = None,
             event_service_instance_id: Optional[str] = None,
     ):
         self._event_id = event_id or str(uuid.uuid4())

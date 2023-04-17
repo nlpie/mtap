@@ -16,11 +16,10 @@ from typing import Generic, Iterable, List, Any, Optional, Sequence, TypeVar
 
 from mtap import _structs
 from mtap._document import Document
-from mtap._label_indices import presorted_label_index, label_index
+from mtap._label_indices import presorted_label_index, label_index, LabelIndex
 from mtap._labels import Label, GenericLabel
 from mtap._structs import copy_dict_to_struct
 from mtap.api.v1 import events_pb2
-from mtap.types import LabelIndex
 
 L = TypeVar('L', bound=Label)
 

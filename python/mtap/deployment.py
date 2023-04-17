@@ -87,7 +87,7 @@ class GlobalSettings:
     """Settings shared by event service and all processors.
     """
     host: Optional[str] = None
-    """The global host override, forces all services to use a specific host 
+    """The global host override, forces all services to use a specific host
     name."""
 
     mtap_config: Optional[str] = None
@@ -120,7 +120,7 @@ class SharedProcessorConfig:
     """
 
     events_addresses: Optional[List[str]] = None
-    """An optional GRPC-compatible target for the events service to be used by 
+    """An optional GRPC-compatible target for the events service to be used by
     all processors.
     """
 
@@ -128,7 +128,7 @@ class SharedProcessorConfig:
     """The default number of worker threads which will perform processing."""
 
     additional_args: Optional[List[str]] = None
-    """A list of additional arguments that should be appended to every 
+    """A list of additional arguments that should be appended to every
     processor.
     """
 
@@ -145,7 +145,7 @@ class SharedProcessorConfig:
     """The default startup timeout for processors."""
 
     mp_spawn_method: Optional[str] = None
-    """A :meth:`multiprocessing.get_context` argument to create the 
+    """A :meth:`multiprocessing.get_context` argument to create the
     multiprocessing context.
     """
 
@@ -330,7 +330,7 @@ class ProcessorDeployment:
     """The number of worker threads per instance."""
 
     register: Optional[bool] = None
-    """Whether the processor should register with the discovery service 
+    """Whether the processor should register with the discovery service
     specified in the MTAP config file.
     """
 
@@ -344,13 +344,13 @@ class ProcessorDeployment:
     """An optional service name override to use for registration."""
 
     sid: Union[str, List[str], None] = None
-    """An optional service instance unique identifier. If instances is 1 this 
-    should be a string, if instances is more than 1 this should be a list of 
+    """An optional service instance unique identifier. If instances is 1 this
+    should be a string, if instances is more than 1 this should be a list of
     strings, one for each instance.
     """
 
     pre_args: Optional[List[str]] = None
-    """Arguments that occur prior to the MTAP service arguments (like host, 
+    """Arguments that occur prior to the MTAP service arguments (like host,
     port, etc).
     """
 
@@ -394,52 +394,55 @@ def _create_processor_calls(
     else:
         ports = list(range(depl.port, depl.port + depl.instances))
     for port in ports:
-        if depl.implementation == 'python':
-            call = [PYTHON_EXE, '-m', depl.entry_point]
-        elif depl.implementation == 'java':
-            call = [str(JAVA_EXE)]
-            if shared_config.jvm_args is not None:
-                call.extend(shared_config.jvm_args)
-            if shared_config.java_classpath is not None:
-                call.extend(['-cp', shared_config.java_classpath])
-            call.append(depl.entry_point)
-        else:
-            raise ValueError(
-                'Unrecognized implementation: ' + depl.implementation)
+        yield from _create_processor_call(depl, global_settings, port,
+                                          service_deployment, shared_config)
 
-        if depl.pre_args is not None:
-            call.extend(depl.pre_args)
 
-        service_args, sid = service_deployment.service_args(
-            host=depl.host,
-            port=port,
-            sid=depl.sid,
-            register_default=global_settings.register,
-            global_host=global_settings.host,
-            mtap_config_default=global_settings.mtap_config,
-            log_level_default=global_settings.log_level,
-            workers_default=shared_config.workers
-        )
-        call.extend(service_args)
+def _create_processor_call(depl, global_settings, port, service_deployment,
+                           shared_config):
+    call = _implementation_args(depl, shared_config)
+    if depl.pre_args is not None:
+        call.extend(depl.pre_args)
+    service_args, sid = service_deployment.service_args(
+        host=depl.host,
+        port=port,
+        sid=depl.sid,
+        register_default=global_settings.register,
+        global_host=global_settings.host,
+        mtap_config_default=global_settings.mtap_config,
+        log_level_default=global_settings.log_level,
+        workers_default=shared_config.workers
+    )
+    call.extend(service_args)
+    if depl.name is not None:
+        call.extend(['--name', depl.name])
+    events_addresses = shared_config.events_addresses
+    if events_addresses is not None:
+        call.extend(['--events', ','.join(events_addresses)])
+    if depl.additional_args is not None:
+        call.extend(depl.additional_args)
+    if shared_config.additional_args is not None:
+        call.extend(shared_config.additional_args)
+    if (depl.implementation == 'java'
+            and shared_config.java_additional_args is not None):
+        call.extend(shared_config.java_additional_args)
+    yield call, sid
 
-        if depl.name is not None:
-            call.extend(['--name', depl.name])
 
-        events_addresses = shared_config.events_addresses
-        if events_addresses is not None:
-            call.extend(['--events', ','.join(events_addresses)])
-
-        if depl.additional_args is not None:
-            call.extend(depl.additional_args)
-
-        if shared_config.additional_args is not None:
-            call.extend(shared_config.additional_args)
-
-        if (depl.implementation == 'java'
-                and shared_config.java_additional_args is not None):
-            call.extend(shared_config.java_additional_args)
-
-        yield call, sid
+def _implementation_args(depl, shared_config):
+    if depl.implementation == 'python':
+        call = [PYTHON_EXE, '-m', depl.entry_point]
+    elif depl.implementation == 'java':
+        call = [str(JAVA_EXE)]
+        if shared_config.jvm_args is not None:
+            call.extend(shared_config.jvm_args)
+        if shared_config.java_classpath is not None:
+            call.extend(['-cp', shared_config.java_classpath])
+        call.append(depl.entry_point)
+    else:
+        raise ValueError(
+            'Unrecognized implementation: ' + depl.implementation)
+    return call
 
 
 @dataclass

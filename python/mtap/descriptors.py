@@ -13,8 +13,7 @@
 # limitations under the License.
 """Descriptors for processor functionality."""
 from dataclasses import dataclass
-from typing import NamedTuple, Optional, List, Dict, Any, TYPE_CHECKING, \
-    Type, Callable
+from typing import Optional, List, Dict, Any, TYPE_CHECKING, Type, Callable
 
 if TYPE_CHECKING:
     from mtap.processing import EventProcessor
@@ -103,7 +102,7 @@ class ProcessorDescriptor:
     name: str
     """Identifying service name both for launching via command line and
     for service registration.
-    
+
     Should be a mix of alphanumeric characters and dashes so that it
     plays nice with the DNS name requirements of service discovery
     tools like Consul.
@@ -146,7 +145,7 @@ class ParameterDescriptor:
     """A short description of the property and what it does."""
 
     data_type: Optional[str] = None
-    """The data type of the parameter. str, float, or bool; List[T] 
+    """The data type of the parameter. str, float, or bool; List[T]
     or Mapping[T1, T2] of those."""
 
     required: bool = False
@@ -171,7 +170,7 @@ class LabelIndexDescriptor:
     Example: "sentence-detector/sentences"."""
 
     name_from_parameter: Optional[str] = None
-    """If the label index gets its name from a parameter of the processor, 
+    """If the label index gets its name from a parameter of the processor,
     specify that name here."""
 
     optional: bool = False
@@ -199,8 +198,8 @@ class LabelPropertyDescriptor:
     """A short description of the property."""
 
     data_type: Optional[str] = None
-    """The data type of the property. Options are ``"str"``, ``"float"``, or 
-    ``"bool"``; ``"List[T]"`` or ``"Mapping[str, T]"`` where ``T`` is 
+    """The data type of the property. Options are ``"str"``, ``"float"``, or
+    ``"bool"``; ``"List[T]"`` or ``"Mapping[str, T]"`` where ``T`` is
     one of those types."""
 
     nullable: bool = False

@@ -27,21 +27,17 @@ from typing import (
     List,
     MutableSequence,
     Iterable,
-    TYPE_CHECKING,
 )
 
 from mtap._events_client import EventsAddressLike
 from mtap.pipeline._common import event_and_params, EventLike
-
 from mtap.pipeline._error_handling import (
     ErrorHandlerRegistry,
     ProcessingErrorHandler,
     SimpleErrorHandler,
     TerminationErrorHandler,
 )
-
 from mtap.pipeline._mp_config import MpConfig
-
 from mtap.pipeline._pipeline_components import (
     RemoteProcessor,
     ComponentDescriptor,
@@ -54,7 +50,6 @@ from mtap.pipeline._results import (
 from mtap.pipeline._sources import ProcessingSource
 from mtap.processing import ProcessingComponent
 from mtap.processing.results import ComponentResult
-
 
 logger = logging.getLogger('mtap.processing')
 

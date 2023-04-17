@@ -13,7 +13,6 @@
 # limitations under the License.
 import argparse
 import logging
-import signal
 import threading
 import traceback
 import uuid
@@ -24,15 +23,14 @@ from typing import Any, Dict, Optional, Sequence, Tuple, Union
 import grpc
 from grpc_health.v1 import health, health_pb2_grpc
 from grpc_status import rpc_status
-from mtap._event import Event
-
-from mtap.processing._processing_component import ProcessingComponent
-
-from mtap.processing._exc import ProcessingException
 
 from mtap import _config, _structs, utilities
+from mtap._common import run_server_forever
+from mtap._event import Event
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
 from mtap.processing import _runners, Processor, EventProcessor
+from mtap.processing._exc import ProcessingException
+from mtap.processing._processing_component import ProcessingComponent
 from mtap.processing.results import add_times, create_timer_stats
 
 logger = logging.getLogger('mtap.processing')
@@ -44,20 +42,20 @@ def run_processor(proc: EventProcessor,
                   options: Optional[argparse.Namespace] = None,
                   args: Optional[Sequence[str]] = None,
                   mp_context=None):
-    """Runs the processor as a GRPC service, blocking until an interrupt signal 
+    """Runs the processor as a GRPC service, blocking until an interrupt signal
     is received.
 
     Args:
         proc: The processor to host.
         mp: If true, will create instances of ``proc`` on multiple
-            forked processes to process events. This is useful if the processor 
-            is computationally intensive and would run into Python GIL issues 
+            forked processes to process events. This is useful if the processor
+            is computationally intensive and would run into Python GIL issues
             on a single process.
         options: The parsed arguments
             from the parser returned by :func:`processor_parser`.
         args: Arguments to parse
             server settings from if ``namespace`` was not supplied.
-        mp_context: A multiprocessing context that gets passed to the process 
+        mp_context: A multiprocessing context that gets passed to the process
             pool executor in the case of mp = True.
 
     Examples:
@@ -116,20 +114,7 @@ def run_processor(proc: EventProcessor,
                                  workers=options.workers,
                                  write_address=options.write_address)
 
-        e = threading.Event()
-
-        def do_stop(*_):
-            e.set()
-
-        signal.signal(signal.SIGINT, do_stop)
-        signal.signal(signal.SIGTERM, do_stop)
-
-        server.start()
-        try:
-            e.wait()
-        except KeyboardInterrupt:
-            pass
-        server.stop()
+        run_server_forever(server)
 
 
 _mp_processor = ...  # EventProcessor
@@ -225,7 +210,7 @@ class MpProcessorRunner:
 
 
 def processor_parser() -> argparse.ArgumentParser:
-    """An :class:`~argparse.ArgumentParser` that can be used to parse the 
+    """An :class:`~argparse.ArgumentParser` that can be used to parse the
     settings for :func:`run_processor`.
 
     Returns:

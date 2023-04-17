@@ -14,12 +14,13 @@
 import threading
 from typing import Generic, ContextManager, TypeVar, TYPE_CHECKING
 
+from mtap._labels import Label
 
 if TYPE_CHECKING:
     from mtap import Document
     from mtap.types import ProtoLabelAdapter
 
-L = TypeVar('L', bound='Label')
+L = TypeVar('L', bound=Label)
 
 
 class Labeler(Generic[L], ContextManager['Labeler']):

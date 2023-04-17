@@ -14,14 +14,14 @@
 from typing import overload, Optional, Mapping, Iterator, \
     Iterable, Sequence, TypeVar, List, TYPE_CHECKING
 
-from mtap._label_adapters import GENERIC_ADAPTER, DISTINCT_GENERIC_ADAPTER
 from mtap._labeler import Labeler
+from mtap._labels import Label
 
 if TYPE_CHECKING:
     from mtap import Event, GenericLabel
     from mtap.types import EventsClient, ProtoLabelAdapter, LabelIndex
 
-L = TypeVar('L', bound='Label')
+L = TypeVar('L', bound=Label)
 LabelAdapters = Mapping[str, 'ProtoLabelAdapter']
 
 
@@ -33,7 +33,7 @@ class Document:
     pieces of related text on a single processing event using multiple
     documents. An example would be storing the text of one language on one
     document, and a translation on another, or storing the rtf or html
-    encoding on one document (or as a binary in :method:`Event.binaries`), and
+    encoding on one document (or as a binary in :meth:`Event.binaries`), and
     the parsed plaintext on another document.
 
     Both the document text and any added label indices are immutable. This is
@@ -305,6 +305,8 @@ class Document:
         try:
             return self.event.label_adapters[label_index_name]
         except (AttributeError, KeyError):
+            from mtap._label_adapters import DISTINCT_GENERIC_ADAPTER
+            from mtap._label_adapters import GENERIC_ADAPTER
             return DISTINCT_GENERIC_ADAPTER if distinct else GENERIC_ADAPTER
 
     def add_created_indices(self, created_indices: Iterable[str]):
@@ -335,6 +337,7 @@ class _LabelIndices(Mapping[str, 'LabelIndex']):
         if event_client(self.document) is not None:
             label_adapter = self.document.default_adapter(k)
             if label_adapter is None:
+                from mtap._label_adapters import GENERIC_ADAPTER
                 label_adapter = GENERIC_ADAPTER
             index = event_client(self.document).get_labels(
                 *ids(self.document),

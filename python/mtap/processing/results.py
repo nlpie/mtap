@@ -74,7 +74,7 @@ class AggregateTimingInfo(NamedTuple):
     """The ID of the processor with respect to the pipeline."""
 
     timing_info: 'Dict[str, TimerStats]'
-    """A map from all the timer keys for the processor to the 
+    """A map from all the timer keys for the processor to the
     aggregated duration statistics.
     """
 

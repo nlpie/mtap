@@ -19,11 +19,14 @@ import pytest
 from mtap.events_server import EventsServicer
 from mtap.api.v1 import events_pb2
 
-PHASERS = """Maybe if we felt any human loss as keenly as we feel one of those close to us, human 
-history would be far less bloody. The Enterprise computer system is controlled by three primary 
-main processor cores, cross-linked with a redundant melacortz ramistat, fourteen kiloquad interface 
-modules. Our neural pathways have become accustomed to your sensory input patterns. Mr. Worf, you 
-do remember how to fire phasers?"""
+
+PHASERS = """
+Maybe if we felt any human loss as keenly as we feel one of those close to us,
+human history would be far less bloody. The Enterprise computer system is
+controlled by three primary main processor cores, cross-linked with a redundant
+melacortz ramistat, fourteen kiloquad interface modules. Our
+neural pathways have become accustomed to your sensory input patterns. Mr.
+Worf, you do remember how to fire phasers?"""
 
 
 @pytest.fixture(name='events_server')

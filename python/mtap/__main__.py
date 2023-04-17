@@ -13,8 +13,6 @@
 # limitations under the License.
 import argparse
 import logging
-import signal
-import threading
 
 
 def run_events_server(args):
@@ -37,20 +35,8 @@ def run_events_server(args):
             write_address=args.write_address
         )
 
-        e = threading.Event()
-
-        def do_stop(*_):
-            e.set()
-
-        signal.signal(signal.SIGINT, do_stop)
-        signal.signal(signal.SIGTERM, do_stop)
-
-        server.start()
-        try:
-            e.wait()
-        except KeyboardInterrupt:
-            pass
-        server.stop()
+        from mtap._common import run_server_forever
+        run_server_forever(server)
 
 
 def main(args=None):
