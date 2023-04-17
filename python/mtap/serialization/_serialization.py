@@ -271,7 +271,7 @@ class JsonSerializer(Serializer):
         with Processor.started_stopwatch('io'):
             try:
                 json.dump(d, f)
-            except AttributeError:
+            except (AttributeError, TypeError):
                 os.makedirs(os.path.dirname(f), exist_ok=True)
                 with open(f, 'w') as f:
                     json.dump(d, f)
@@ -284,7 +284,7 @@ class JsonSerializer(Serializer):
         with Processor.started_stopwatch('io'):
             try:
                 d = json.load(f)
-            except AttributeError:
+            except (AttributeError, TypeError):
                 with open(f, 'r') as f:
                     d = json.load(f)
         with Processor.started_stopwatch('transform'):
@@ -317,7 +317,7 @@ class YamlSerializer(Serializer):
         with Processor.started_stopwatch('io'):
             try:
                 yaml.dump(d, f, Dumper=Dumper)
-            except AttributeError:
+            except (AttributeError, TypeError):
                 os.makedirs(os.path.dirname(f), exist_ok=True)
                 with open(f, 'w') as f:
                     yaml.dump(d, f, Dumper=Dumper)
@@ -332,9 +332,9 @@ class YamlSerializer(Serializer):
         except ImportError:
             from yaml import Loader
         with Processor.started_stopwatch('io'):
-            if isinstance(f, io.IOBase):
+            try:
                 d = yaml.load(f, Loader=Loader)
-            else:
+            except (AttributeError, TypeError):
                 with open(f) as f:
                     d = yaml.load(f, Loader=Loader)
         with Processor.started_stopwatch('transform'):
@@ -364,7 +364,7 @@ class PickleSerializer(Serializer):
         with Processor.started_stopwatch('io'):
             try:
                 pickle.dump(d, f)
-            except TypeError:
+            except (AttributeError, TypeError):
                 os.makedirs(os.path.dirname(f), exist_ok=True)
                 with open(f, 'wb') as f:
                     pickle.dump(d, f)
@@ -379,7 +379,7 @@ class PickleSerializer(Serializer):
         with Processor.started_stopwatch('io'):
             try:
                 d = pickle.load(f)
-            except AttributeError:
+            except (AttributeError, TypeError):
                 with open(f, 'rb') as f:
                     d = pickle.load(f)
         with Processor.started_stopwatch('transform'):
