@@ -12,20 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 from abc import ABC, abstractmethod
-from typing import Generic, Iterable, List, Any, Optional, Sequence, TypeVar, \
-    TYPE_CHECKING
+from typing import Generic, Iterable, List, Any, Optional, Sequence, TypeVar
 
 from mtap import _structs
+from mtap._document import Document
 from mtap._label_indices import presorted_label_index, label_index
 from mtap._labels import Label, GenericLabel
 from mtap._structs import copy_dict_to_struct
+from mtap.api.v1 import events_pb2
+from mtap.types import LabelIndex
 
-if TYPE_CHECKING:
-    from mtap.api.v1 import events_pb2
-    from mtap import Document
-    from mtap.types import LabelIndex
-
-L = TypeVar('L', bound='data.Label')
+L = TypeVar('L', bound=Label)
 
 
 class ProtoLabelAdapter(ABC, Generic[L]):
@@ -53,8 +50,8 @@ class ProtoLabelAdapter(ABC, Generic[L]):
     @abstractmethod
     def create_index_from_response(
             self,
-            response: 'events_pb2.GetLabelsResponse'
-    ) -> 'LabelIndex[L]':
+            response: events_pb2.GetLabelsResponse
+    ) -> LabelIndex[L]:
         """Creates a LabelIndex from the response from an events service.
 
         Args:
@@ -80,7 +77,7 @@ class ProtoLabelAdapter(ABC, Generic[L]):
     @abstractmethod
     def add_to_message(self,
                        labels: Iterable[L],
-                       request: 'events_pb2.AddLabelsRequest'):
+                       request: events_pb2.AddLabelsRequest):
         """Adds labels to an ``AddLabelsRequest``.
 
         Args:
@@ -91,7 +88,7 @@ class ProtoLabelAdapter(ABC, Generic[L]):
 
     @abstractmethod
     def pack(self,
-             index: 'LabelIndex[L]', *,
+             index: LabelIndex[L], *,
              include_label_text: bool = False) -> Any:
         """Prepares to serialize a label index by transforming the label index
         into a representation that can be dumped to json, yml, pickle, etc.
@@ -112,8 +109,8 @@ class ProtoLabelAdapter(ABC, Generic[L]):
             self,
             packed: Any,
             label_index_name: str,
-            *, document: Optional['Document'] = None
-    ) -> 'LabelIndex[L]':
+            *, document: Optional[Document] = None
+    ) -> LabelIndex[L]:
         """Takes a packed, serializable object and turns it into a full label
         index.
 
@@ -187,7 +184,7 @@ class _GenericLabelAdapter(ProtoLabelAdapter[GenericLabel]):
                                 [label])
 
     def pack(self,
-             index: 'LabelIndex[GenericLabel]',
+             index: LabelIndex[GenericLabel],
              *, include_label_text: bool = False) -> Any:
         d = {
             'labels': [_label_to_dict(label, include_label_text) for label in
@@ -199,7 +196,7 @@ class _GenericLabelAdapter(ProtoLabelAdapter[GenericLabel]):
     def unpack(self, packed: Any,
                label_index_name: str,
                *, document: Optional[
-                'Document'] = None) -> 'LabelIndex[L]':
+                Document] = None) -> LabelIndex[GenericLabel]:
         return label_index(
             [_dict_to_label(d, label_index_name, document) for d in
              packed['labels']],
