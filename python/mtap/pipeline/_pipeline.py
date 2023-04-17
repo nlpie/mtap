@@ -403,9 +403,18 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
         for item in other:
             self._check_for_duplicates(item)
 
-    def create_times(self, existing: Optional[PipelineTimes] = None):
-        if existing:
-            return copy.copy(existing)
+    def create_times(self) -> PipelineTimes:
+        """Creates a timing object that can be used to store run times.
+
+        Returns:
+            A timing object.
+
+        Examples:
+
+        >>> times = pipeline.create_times()
+        >>> result = pipeline.run(document)
+        >>> times.add_result_times(result)
+        """
         return PipelineTimes(
             self.name,
             [component.component_id for component in self]

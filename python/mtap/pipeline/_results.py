@@ -156,4 +156,9 @@ class PipelineTimes:
             pipeline_timer.print_times()
 
     def add_result_times(self, result: PipelineResult):
+        """Adds the times from the result to these times.
+
+        Args:
+            result: A pipeline result.
+        """
         add_result_times(self._times_map, result, self.name)
