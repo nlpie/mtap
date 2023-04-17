@@ -144,7 +144,7 @@ class SerializerRegistry(ABCMeta):
         SerializerRegistry.REGISTRY[cls.name()] = cls
 
     @staticmethod
-    def create(name: str) -> Type['Serializer']:
+    def get(name: str) -> Type['Serializer']:
         return SerializerRegistry.REGISTRY[name]
 
 

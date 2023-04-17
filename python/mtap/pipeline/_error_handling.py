@@ -76,7 +76,7 @@ from typing import (
 
 from mtap._event import Event
 from mtap.processing import ErrorInfo
-from mtap.serialization import Serializer
+from mtap.serialization import Serializer, SerializerRegistry
 
 LOGGER = logging.getLogger('mtap.processing')
 
@@ -148,7 +148,7 @@ class ProcessingErrorHandler(metaclass=ErrorHandlerRegistry):
     def handle_error(
             self,
             event: Event,
-            error_info: 'ErrorInfo',
+            error_info: ErrorInfo,
             state: Dict[Any, Any]
     ):
         """Handles an error that was caught by processing logic and
@@ -286,18 +286,16 @@ class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
 
     """
     output_directory: Union[str, bytes, PathLike]
-    serializer: 'Serializer'
+    serializer: Serializer
 
     def __init__(self,
-                 output_directory: 'Union[str, bytes, PathLike]',
-                 serializer: 'Union[Serializer, str, None]' = None):
+                 output_directory: Union[str, bytes, PathLike],
+                 serializer: Union[Serializer, str, None] = None):
         self.output_directory = output_directory
         if serializer is None:
-            from mtap.serialization import SerializerRegistry
-            serializer = SerializerRegistry.create('json')
+            serializer = SerializerRegistry.get('json')
         if not isinstance(serializer, Serializer):
-            from mtap.serialization import SerializerRegistry
-            serializer = SerializerRegistry.create(serializer)
+            serializer = SerializerRegistry.get(serializer)
         self.serializer = serializer
 
     @classmethod
