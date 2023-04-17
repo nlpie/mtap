@@ -54,7 +54,9 @@ def copy_list_to_list_value(lst, list_value, parents):
 def _check_for_reference_cycle(o, parents):
     for parent in parents:
         if o is parent:
-            raise ValueError("Reference cycle while preparing for serialization.")
+            raise ValueError(
+                "Reference cycle while preparing for serialization."
+            )
 
 
 def copy_list_value_to_list(list_value, lst):

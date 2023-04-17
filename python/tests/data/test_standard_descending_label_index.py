@@ -16,7 +16,7 @@
 import pytest
 
 from mtap import GenericLabel, Location, Document
-from mtap.data._label_indices import presorted_label_index
+from mtap._label_indices import presorted_label_index
 
 
 document = Document('plaintext', text='blah')
@@ -373,8 +373,8 @@ def test_contains_false_not_label(tested):
 
 
 def test_reversed(tested):
-    l = list(reversed(tested))
-    assert l == [
+    rev = list(reversed(tested))
+    assert rev == [
         GenericLabel(0, 5, document=document, i=7),
         GenericLabel(0, 7, document=document, i=6),
         GenericLabel(2, 6, document=document, i=5),

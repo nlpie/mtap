@@ -12,15 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
-import typing
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
 
-from mtap.data import EventsAddressLike
-from mtap.processing import _runners
-
-if typing.TYPE_CHECKING:
-    from mtap import EventProcessor, processing
+from mtap._events_client import EventsAddressLike
+from mtap.processing import ProcessingComponent, EventProcessor, LocalRunner, \
+    RemoteRunner
 
 
 class ComponentDescriptor(ABC):
@@ -38,7 +35,7 @@ class ComponentDescriptor(ABC):
     def create_pipeline_component(
             self,
             events_address: EventsAddressLike
-    ) -> 'processing.ProcessingComponent':
+    ) -> ProcessingComponent:
         pass
 
 
@@ -56,16 +53,16 @@ class LocalProcessor(ComponentDescriptor):
     """
     __slots__ = ('processor', 'component_id', 'params')
 
-    processor: 'EventProcessor'
+    processor: EventProcessor
     component_id: str
     params: Dict[str, Any]
 
     def __init__(self,
-                 processor: 'EventProcessor',
+                 processor: EventProcessor,
                  *, component_id: Optional[str] = None,
                  params: Optional[Dict[str, Any]] = None):
         self.processor = processor
-        self.component_id = component_id or self.processor.metadata['name']
+        self.component_id = component_id or self.processor.metadata()['name']
         self.params = params or {}
 
     def __reduce__(self):
@@ -74,16 +71,21 @@ class LocalProcessor(ComponentDescriptor):
             self.component_id,
             self.params
         )
-        return LocalProcessor, params
+        return LocalProcessor._reconstructor, params
+
+    @staticmethod
+    def _reconstructor(processor, component_id, params):
+        return LocalProcessor(processor, component_id=component_id,
+                              params=params)
 
     def create_pipeline_component(
             self,
             events_address: EventsAddressLike
-    ) -> 'processing.ProcessingComponent':
-        runner = _runners.LocalRunner(processor=self.processor,
-                                      events_address=events_address,
-                                      component_id=self.component_id,
-                                      params=copy.deepcopy(self.params))
+    ) -> ProcessingComponent:
+        runner = LocalRunner(processor=self.processor,
+                             events_address=events_address,
+                             component_id=self.component_id,
+                             params=copy.deepcopy(self.params))
         return runner
 
     def __repr__(self):
@@ -136,15 +138,34 @@ class RemoteProcessor(ComponentDescriptor):
         self.params = params or {}
         self.enable_proxy = enable_proxy
 
+    def __reduce__(self):
+        params = (
+            self.processor_name,
+            self.address,
+            self.component_id,
+            self.params,
+            self.enable_proxy
+        )
+        return RemoteProcessor._reconstructor, params
+
+    @staticmethod
+    def _reconstructor(processor_name, address, component_id, params,
+                       enable_proxy):
+        return RemoteProcessor(processor_name=processor_name,
+                               address=address,
+                               component_id=component_id,
+                               params=params,
+                               enable_proxy=enable_proxy)
+
     def create_pipeline_component(
             self,
             events_address: EventsAddressLike
-    ) -> 'processing.ProcessingComponent':
-        runner = _runners.RemoteRunner(processor_name=self.processor_name,
-                                       component_id=self.component_id,
-                                       address=self.address,
-                                       params=copy.deepcopy(self.params),
-                                       enable_proxy=self.enable_proxy)
+    ) -> ProcessingComponent:
+        runner = RemoteRunner(processor_name=self.processor_name,
+                              component_id=self.component_id,
+                              address=self.address,
+                              params=copy.deepcopy(self.params),
+                              enable_proxy=self.enable_proxy)
         return runner
 
     def __repr__(self):

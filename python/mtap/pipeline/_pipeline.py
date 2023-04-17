@@ -25,50 +25,35 @@ from typing import (
     Any,
     Union,
     List,
-    TYPE_CHECKING, MutableSequence,
+    MutableSequence,
+    Iterable,
 )
 
-from mtap.data import Event, EventsAddressLike
-from mtap.processing import _pipeline_components
-from mtap.processing import (
-    _pipeline_results,
-    _mp_config,
-)
-from mtap.processing._error_handling import (
+from mtap._events_client import EventsAddressLike
+from mtap.pipeline._common import EventLike, event_and_params
+from mtap.pipeline._error_handling import (
+    ErrorHandlerRegistry,
+    ProcessingErrorHandler,
     SimpleErrorHandler,
     TerminationErrorHandler,
-    ErrorHandlerRegistry
 )
-
-if TYPE_CHECKING:
-    from mtap import (
-        Document,
-        Event,
-    )
-    from mtap.processing import (
-        MpConfig,
-        ProcessingErrorHandler,
-        PipelineResult,
-        ProcessingComponent,
-        BatchPipelineResult,
-        ComponentDescriptor,
-    )
+from mtap.pipeline._mp_config import MpConfig
+from mtap.pipeline._pipeline_components import (
+    RemoteProcessor,
+    ComponentDescriptor,
+)
+from mtap.pipeline._results import (
+    PipelineResult,
+    PipelineTimes,
+    PipelineCallback,
+)
+from mtap.pipeline._sources import ProcessingSource
+from mtap.processing import ProcessingComponent
+from mtap.processing.results import ComponentResult
 
 logger = logging.getLogger('mtap.processing')
 
-ProcessingSourceLike = "Union[Iterable[Union[Document, Event]], " \
-                       "ProcessingSource]"
-
-
-def event_and_params(target, params):
-    try:
-        document_name = target.document_name
-        params = dict(params or {})
-        params['document_name'] = document_name
-        event = target.event
-    except AttributeError:
-        event = target
-    return event, params
+ProcessingSourceLike = Union[Iterable[EventLike], ProcessingSource]
 
 
 def _cancel_callback(event, read_ahead, cd, close_events):
@@ -81,25 +66,14 @@ def _cancel_callback(event, read_ahead, cd, close_events):
     return fn
 
 
-def _create_pipeline(name: Optional[str] = None,
-                     mp_config: 'Optional[MpConfig]' = None,
-                     error_handlers: 'Optional[ProcessingErrorHandler]' = None,
-                     *components: 'ComponentDescriptor'):
-    pipeline = Pipeline(*components)
-    pipeline.name = name
-    pipeline.mp_config = mp_config
-    pipeline.error_handlers = error_handlers
-    return pipeline
-
-
 class ActivePipeline:
     __slots__ = (
         'components'
     )
 
-    components: 'List[ProcessingComponent]'
+    components: List[ProcessingComponent]
 
-    def __init__(self, components: 'List[ProcessingComponent]'):
+    def __init__(self, components: List[ProcessingComponent]):
         self.components = components
 
     def run_by_event_id(
@@ -114,7 +88,7 @@ class ActivePipeline:
             d, ti, ci = component.call_process(event_id,
                                                event_service_instance_id,
                                                params)
-            pr = _pipeline_results.ComponentResult(
+            pr = ComponentResult(
                 identifier=component.component_id,
                 result_dict=d,
                 timing_info=ti,
@@ -124,25 +98,24 @@ class ActivePipeline:
 
         total = datetime.now() - start
         logger.debug('Finished processing event_id: %s', event_id)
-        return _pipeline_results.PipelineResult(results, total)
+        return PipelineResult(results, total)
 
     def run(
             self,
-            target: 'Union[Event, Document]',
+            target: EventLike,
             *, params: Optional[Dict[str, Any]] = None
-    ) -> 'PipelineResult':
+    ) -> PipelineResult:
         event, params = event_and_params(target, params)
         event_id = event.event_id
 
-        return self.run_by_event_id(event_id,
-                                    event.event_service_instance_id,
-                                    params)
+        return self.run_by_event_id(
+            event_id,
+            event.event_service_instance_id,
+            params
+        )
 
 
-class Pipeline(
-    list,
-    MutableSequence[_pipeline_components.ComponentDescriptor]
-):
+class Pipeline(list, MutableSequence[ComponentDescriptor]):
     """An object which can be used to build and run a pipeline of remote and
     local processors.
 
@@ -153,11 +126,10 @@ class Pipeline(
     Args:
         *components: Component descriptors created using
             :class:`RemoteProcessor` or :class:`LocalProcessor`.
-        mp_config: Optional multiprocessing configuration for the pipeline.
 
     Attributes:
         name: The pipeline's name.
-        events_address: The events address.
+        events_address: Optional events address.
         mp_config: The multiprocessing configuration for the pipeline.
         error_handlers: The error handlers to use when running the pipeline.
 
@@ -200,19 +172,19 @@ class Pipeline(
 
     name: str
     events_address: EventsAddressLike
-    mp_config: 'MpConfig'
-    error_handlers: 'List[ProcessingErrorHandler]'
+    mp_config: MpConfig
+    error_handlers: List[ProcessingErrorHandler]
 
     def __init__(self,
-                 *components: 'ComponentDescriptor',
+                 *components: ComponentDescriptor,
                  name: Optional[str] = None,
                  events_address: EventsAddressLike = None,
-                 mp_config: 'Optional[MpConfig]' = None,
-                 error_handlers: 'List[ProcessingErrorHandler]' = None):
+                 mp_config: Optional[MpConfig] = None,
+                 error_handlers: List[ProcessingErrorHandler] = None):
         super().__init__(components)
         self.name = name or 'pipeline'
         self.events_address = events_address
-        self.mp_config = mp_config or _mp_config.MpConfig()
+        self.mp_config = mp_config or MpConfig()
         self.error_handlers = error_handlers or [
             SimpleErrorHandler(),
             TerminationErrorHandler()
@@ -221,11 +193,22 @@ class Pipeline(
     def __reduce__(self):
         params = (
             self.name,
+            self.events_address,
             self.mp_config,
             self.error_handlers,
         )
-        params += tuple(self)
-        return _create_pipeline, params
+
+        return Pipeline._reconstruct, params, None, iter(self)
+
+    @staticmethod
+    def _reconstruct(name, events_address, mp_config, error_handlers):
+        pipeline = Pipeline(
+            name=name,
+            events_address=events_address,
+            mp_config=mp_config,
+            error_handlers=error_handlers
+        )
+        return pipeline
 
     @staticmethod
     def from_yaml_file(conf_path: Union[str, bytes, PathLike]) -> 'Pipeline':
@@ -292,7 +275,7 @@ class Pipeline(
                 )
                 conf_component['name'] = conf_component['processor_id']
             components.append(
-                _pipeline_components.RemoteProcessor(
+                RemoteProcessor(
                     processor_name=conf_component['name'],
                     address=conf_component.get('address', None),
                     component_id=conf_component.get('component_id', None),
@@ -304,18 +287,22 @@ class Pipeline(
         for conf_error_handler in conf_error_handlers:
             handler = ErrorHandlerRegistry.from_dict(conf_error_handler)
             error_handlers.append(handler)
-        mp_config = _mp_config.MpConfig.from_configuration(
-            conf.get('mp_config', {})
+        mp_config = MpConfig.from_configuration(conf.get('mp_config', {}))
+        return Pipeline(
+            *components,
+            name=name,
+            mp_config=mp_config,
+            error_handlers=error_handlers,
+            events_address=events_address
         )
-        return Pipeline(*components, name=name, mp_config=mp_config,
-                        error_handlers=error_handlers)
 
     def run_multithread(
             self,
             source: ProcessingSourceLike,
             *, total: Optional[int] = None,
+            callback: Optional[PipelineCallback] = None,
             **kwargs,
-    ) -> 'BatchPipelineResult':
+    ) -> PipelineTimes:
         """Runs this pipeline on a source which provides multiple
         documents / events.
 
@@ -325,60 +312,55 @@ class Pipeline(
         Args:
             source: The processing source.
             total: Total documents in the processing source.
+            callback: A callback that receives events and their associated
+                results from the finished pipeline.
             kwargs: Override for any of the :class:`MpConfig` attributes.
 
         Examples:
             >>> docs = list(pathlib.Path('abc/').glob('*.txt'))
+            >>>
             >>> def document_source():
             >>>     for path in docs:
             >>>         with path.open('r') as f:
             >>>             txt = f.read()
-            >>>         with Event(event_id=path.name, client=pipeline.events_client) as event:
+            >>>         with Event(event_id=path.name,
+            >>>                    client=pipeline.events_client) as event:
             >>>             doc = event.create_document('plaintext', txt)
             >>>             yield doc
             >>>
             >>> pipeline.run_multithread(document_source(), total=len(docs))
-
         """
-        from mtap.processing._mp_pipeline import ActiveRun
+        from mtap.pipeline._mp_pipeline import ActiveMpRun
         pipeline = copy.deepcopy(self)
         mp = dataclasses.asdict(pipeline.mp_config)
         mp.update(kwargs)
-        pipeline.mp_config = _mp_config.MpConfig(**mp)
-        with ActiveRun(pipeline, source, total) as runner:
+        pipeline.mp_config = MpConfig(**mp)
+        with ActiveMpRun(pipeline, source, total, callback) as runner:
             result = runner.run()
         return result
 
     def run(
             self,
-            target: 'Union[Event, Document]',
+            target: EventLike,
             *, params: Optional[Dict[str, Any]] = None
-    ) -> 'PipelineResult':
+    ) -> PipelineResult:
         """Processes the event/document using all the processors in the
         pipeline.
 
         Args:
-            target (~typing.Union[Event, Document]):
-                Either an event or a document to process.
-            params (dict[str, ~typing.Any]):
-                Json object containing params specific to processing this
+            target: Either an event or a document to process.
+            params: Json object containing params specific to processing this
                 event, the existing params dictionary defined in
                 :func:`~PipelineBuilder.add_processor` will be updated with
                 the contents of this dict.
 
         Returns:
-            list[ProcessingResult]:
-                The results of all the processors in the pipeline.
+            The results of all the processors in the pipeline.
 
         Examples:
             >>> e = mtap.Event()
             >>> document = mtap.Document('plaintext', text="...", event=e)
-            >>> with Pipeline(...) as pipeline:
-            >>>     pipeline.run(document)
-
-            The 'document_name' param is used to indicate to
-            :obj:`~mtap.DocumentProcessor` which document on the event
-            to process.
+            >>> pipeline.run(document)
         """
         with self.activate() as active:
             return active.run(target, params=params)
@@ -420,3 +402,20 @@ class Pipeline(
         super().extend(other)
         for item in other:
             self._check_for_duplicates(item)
+
+    def create_times(self) -> PipelineTimes:
+        """Creates a timing object that can be used to store run times.
+
+        Returns:
+            A timing object.
+
+        Examples:
+
+        >>> times = pipeline.create_times()
+        >>> result = pipeline.run(document)
+        >>> times.add_result_times(result)
+        """
+        return PipelineTimes(
+            self.name,
+            [component.component_id for component in self]
+        )

@@ -18,7 +18,7 @@ from subprocess import Popen, PIPE, STDOUT
 
 import pytest
 
-from mtap import EventsClient, Pipeline, Event, GenericLabel, RemoteProcessor
+from mtap import events_client, Pipeline, Event, GenericLabel, RemoteProcessor
 from mtap.utilities import subprocess_events_server, find_free_port
 
 
@@ -58,7 +58,7 @@ def test_java_references(python_events, java_references_processor):
         RemoteProcessor('mtap-java-reference-labels-example-processor',
                         address=java_references_processor)
     )
-    with EventsClient(python_events) as c, \
+    with events_client(python_events) as c, \
             Event(event_id='1', client=c) as event:
         document = event.create_document('plaintext', 'abcd')
         pipeline.run(document)
@@ -89,7 +89,7 @@ def test_python_references(python_events, python_references_processor):
         RemoteProcessor('mtap-python-references-example',
                         address=python_references_processor)
     )
-    with EventsClient(python_events) as client, \
+    with events_client(python_events) as client, \
             Event(event_id='1', client=client) as event:
         document = event.create_document('plaintext', 'abcd')
         pipeline.run(document)

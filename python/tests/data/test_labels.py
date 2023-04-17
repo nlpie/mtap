@@ -25,8 +25,8 @@ def test_text_from_document():
 
 
 def test_label_location():
-    l = GenericLabel(0, 10)
-    assert l.location == Location(0, 10)
+    label = GenericLabel(0, 10)
+    assert label.location == Location(0, 10)
 
 
 def test_location_relative_to():

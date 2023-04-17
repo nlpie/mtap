@@ -11,31 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import signal
+import threading
 
-from mtap.processing._exc import (
-    ProcessingException,
-    ErrorInfo,
-    ErrorOrigin,
-)
 
-from mtap.processing._processor import (
-    Processor,
-    EventProcessor,
-    DocumentProcessor,
-    Stopwatch,
-)
+def run_server_forever(server):
+    e = threading.Event()
 
-from mtap.processing._processing_component import (
-    ProcessingComponent
-)
+    def do_stop(*_):
+        e.set()
 
-from mtap.processing._runners import (
-    LocalRunner,
-    RemoteRunner
-)
-
-from mtap.processing._service import (
-    processor_parser,
-    ProcessorServer,
-    run_processor,
-)
+    signal.signal(signal.SIGINT, do_stop)
+    signal.signal(signal.SIGTERM, do_stop)
+    server.start()
+    try:
+        e.wait()
+    except KeyboardInterrupt:
+        pass
+    server.stop()

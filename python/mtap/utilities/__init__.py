@@ -14,13 +14,9 @@
 import contextlib
 import os
 import pathlib
-import signal
 import subprocess
 import sys
 import typing
-
-import grpc
-
 
 __all__ = [
     'find_free_port',
@@ -71,6 +67,8 @@ def subprocess_events_server(port: typing.Optional[int] = None,
         The address that the events server us running on.
 
     """
+    import grpc
+
     if cwd is None:
         cwd = pathlib.Path.cwd()
     env = dict(os.environ)

@@ -13,8 +13,7 @@
 #  limitations under the License.
 import pytest
 
-import mtap
-from mtap import RemoteProcessor, EventsClient
+from mtap import RemoteProcessor, Pipeline, events_client, Event
 from mtap.deployment import Deployment, ProcessorDeployment
 
 text = """
@@ -45,27 +44,24 @@ def test_deployment(java_exe):
         deployment = Deployment.from_yaml_file(deployment_f)
         deployment.global_settings.log_level = 'DEBUG'
         deployment.shared_processor_config.java_classpath = java_exe[-1]
-        deployment.shared_processor_config.jvm_args = ["-Dorg.slf4j.simpleLogger.log.edu.umn.nlpie.mtap=debug"]
+        deployment.shared_processor_config.jvm_args = [
+            "-Dorg.slf4j.simpleLogger.log.edu.umn.nlpie.mtap=debug"
+        ]
         deployment.processors.append(ProcessorDeployment(
             implementation='python',
             entry_point='mtap.examples.tutorial.hello',
             port=10103
         ))
         with deployment.run_servers():
-            pipeline = mtap.Pipeline.from_yaml_file(run_f)
+            pipeline = Pipeline.from_yaml_file(run_f)
             pipeline.append(
                 RemoteProcessor(
                     processor_name='hello',
                     address='127.0.0.1:10103'
                 )
             )
-            pipeline.mp_config.close_events = False
-            with EventsClient(deployment.events_deployment.address) as c:
-                with mtap.Event(client=c) as e:
-                    d = e.create_document('plaintext', text)
-                    results = pipeline.run(d)
-                    assert results is not None
-                with mtap.Event(client=c) as e:
+            with events_client(deployment.events_deployment.address) as c:
+                with Event(client=c) as e:
                     d = e.create_document('plaintext', text)
 
                     def source():

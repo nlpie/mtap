@@ -5,11 +5,8 @@ mtap
 
 .. contents::
 
-Command-Line Utility
---------------------
-
 Running Events Service
-^^^^^^^^^^^^^^^^^^^^^^
+======================
 
 usage:
 
@@ -30,28 +27,25 @@ usage:
   --config CONFIG, -c CONFIG
                         path to config file
 
-API Documentation
-=================
 
 Events service client, documents
---------------------------------
-.. autoclass:: EventsClient
+================================
+.. autofunction:: events_client
+.. autoclass:: mtap.types.EventsClient
+   :show-inheritance:
+   :members:
 .. autoclass:: Event
    :members:
 .. autoclass:: Document
    :members:
-.. autoclass:: mtap.data.Labeler
-   :members:
-.. autoclass:: mtap.data.LabelIndexInfo
-   :members:
-.. autoclass:: mtap.data.LabelIndexType
+.. autoclass:: mtap.types.Labeler
    :members:
 
 Labels
-------
-.. autoclass:: mtap.data.Label
+======
+.. autoclass:: mtap.types.Label
    :members:
-.. autoclass:: mtap.data.Location
+.. autoclass:: Location
    :members:
 .. autofunction:: label
 .. autoclass:: GenericLabel
@@ -59,107 +53,16 @@ Labels
    :show-inheritance:
 
 Label Indices
--------------
+=============
+Label indices are normally retrieved via the :attr:`~mtap.Document.labels` property, but
+they can be created independently of documents as well.
+
 .. autofunction:: label_index
-.. autoclass:: mtap.data.LabelIndex
+.. autoclass:: mtap.types.LabelIndex
    :members:
-
-Custom Label Types
-------------------
-.. autoclass:: mtap.data.ProtoLabelAdapter
-   :members:
-
-Creating Processors
--------------------
-.. autoclass:: mtap.processing.Processor
-   :members:
-.. autoclass:: EventProcessor
-   :members:
-   :show-inheritance:
-.. autoclass:: DocumentProcessor
-   :members:
-   :show-inheritance:
-.. autoclass:: mtap.processing.Stopwatch
-   :members:
-
-Processor Description Decorators
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autofunction:: processor
-.. automodule:: mtap.processing.descriptions
-   :members:
-   :no-inherited-members:
-   :exclude-members: processor
-
-Running Services
-----------------
-.. module:: mtap
-   :noindex:
-.. autofunction:: processor_parser
-.. autofunction:: run_processor
-
-Running a pipeline
-------------------
-.. autoclass:: Pipeline
-   :members:
-   :show-inheritance:
-.. autoclass:: mtap.processing.MpConfig
-   :members:
-.. autoclass:: mtap.processing.ComponentDescriptor
-.. autoclass:: RemoteProcessor
-   :show-inheritance:
-.. autoclass:: LocalProcessor
-   :show-inheritance:
-
-Pipeline Document Sources
-^^^^^^^^^^^^^^^^^^^^^^^^^
-.. module:: mtap.processing
-   :noindex:
-.. autoclass:: ProcessingSource
-   :members:
-.. autoclass:: FilesInDirectoryProcessingSource
-   :members:
-   :show-inheritance:
-
-Pipeline Results
-^^^^^^^^^^^^^^^^
-.. autoclass:: BatchPipelineResult
-.. autoclass:: PipelineResult
-.. autoclass:: ComponentResult
-.. autoclass:: TimerStats
-.. autoclass:: AggregateTimingInfo
-   :members:
-
-Pipeline Error Handling
-^^^^^^^^^^^^^^^^^^^^^^^
-.. automodule:: mtap.processing._error_handling
-   :no-members:
-.. module:: mtap.processing
-.. autoclass:: ProcessingErrorHandler
-.. autoclass:: ErrorInfo
-.. autoclass:: ErrorOrigin
-   :members:
-.. autoclass:: StopProcessing
-.. autoclass:: SuppressError
-.. autoclass:: ErrorHandlerRegistry
-   :members:
-.. autoclass:: SimpleErrorHandler
-   :members:
-   :show-inheritance:
-.. autoclass:: TerminationErrorHandler
-   :members:
-   :show-inheritance:
-.. autoclass:: LoggingErrorHandler
-   :members:
-   :show-inheritance:
-.. autoclass:: ErrorsDirectoryErrorHandler
-   :members:
-   :show-inheritance:
-.. autoclass:: SuppressAllErrorsHandler
-   :members:
-   :show-inheritance:
 
 Configuration
--------------
+=============
 .. module:: mtap
    :noindex:
 .. autoclass:: Config

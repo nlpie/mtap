@@ -18,7 +18,7 @@ from pathlib import Path
 
 import mtap
 from mtap.serialization import SerializationProcessor, JsonSerializer
-from mtap.processing import (
+from mtap.pipeline import (
     FilesInDirectoryProcessingSource,
     Pipeline,
     LocalProcessor,

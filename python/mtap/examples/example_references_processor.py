@@ -14,7 +14,7 @@
 from typing import Dict, Any
 
 import mtap
-from mtap.processing.descriptions import labels
+from mtap.descriptors import labels
 
 
 @mtap.processor(

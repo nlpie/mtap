@@ -1,4 +1,4 @@
-# Copyright 2019 Regents of the University of Minnesota.
+# Copyright 2023 Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,31 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Union, Optional, Dict, Any
 
-from mtap.processing._exc import (
-    ProcessingException,
-    ErrorInfo,
-    ErrorOrigin,
-)
+from mtap._document import Document
+from mtap._event import Event
 
-from mtap.processing._processor import (
-    Processor,
-    EventProcessor,
-    DocumentProcessor,
-    Stopwatch,
-)
+EventLike = Union[Event, Document]
 
-from mtap.processing._processing_component import (
-    ProcessingComponent
-)
 
-from mtap.processing._runners import (
-    LocalRunner,
-    RemoteRunner
-)
-
-from mtap.processing._service import (
-    processor_parser,
-    ProcessorServer,
-    run_processor,
-)
+def event_and_params(target: EventLike, params: Optional[Dict[str, Any]]):
+    try:
+        document_name = target.document_name
+        params = {} if params is None else dict(params)
+        params['document_name'] = document_name
+        event = target.event
+    except AttributeError:
+        event = target
+    return event, params

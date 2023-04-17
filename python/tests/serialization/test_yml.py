@@ -13,11 +13,6 @@
 #  limitations under the License.
 from tempfile import TemporaryFile
 
-try:
-    from yaml import CLoader as Loader, CDumper as Dumper
-except ImportError:
-    from yaml import Loader, Dumper
-
 from mtap import Event, Document, label
 from mtap.serialization import YamlSerializer
 

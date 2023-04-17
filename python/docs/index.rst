@@ -6,8 +6,11 @@ Welcome to MTAP's documentation!
    :caption: Contents:
 
    mtap
+   processing
    deployment
+   pipeline
    serialization
+   metrics
 
 Overview
 ========

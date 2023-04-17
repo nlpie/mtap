@@ -85,8 +85,7 @@ class EventsServer:
     def start(self):
         """Starts the service.
         """
-        logger.info(f'Starting events server (%s) on address: "%s:%d"',
-                    self.sid, self._address, self._port)
+        logger.info(f'Starting events server {self.sid} on address: "{self._address}:{self._port}"')
         self._server.start()
         if self.write_address:
             self._address_file = utilities.write_address_file(
@@ -129,6 +128,27 @@ class EventsServer:
         except AttributeError:
             pass
         return self._server.stop(grace=grace)
+
+
+def _validate_generic_labels(labels, context):
+    for label in labels[1].labels:
+        for key in label.fields:
+            if key in ["document", "location", "text", "id",
+                       "label_index_name"]:
+                _set_error_context(context,
+                                   grpc.StatusCode.INVALID_ARGUMENT,
+                                   "Label included a reserved key: {}".format(
+                                       key))
+                return False
+        for key in label.reference_ids:
+            if key in ["document", "location", "text", "id", "id",
+                       "label_index_name"]:
+                _set_error_context(context,
+                                   grpc.StatusCode.INVALID_ARGUMENT,
+                                   "Label included a reserved key: {}".format(
+                                       key))
+                return False
+    return True
 
 
 class EventsServicer(events_pb2_grpc.EventsServicer):
@@ -328,23 +348,8 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
                 return empty_pb2.Empty()
             labels = (labels_field, getattr(request, labels_field))
         if labels_field == 'generic_labels' and not request.no_key_validation:
-            for label in labels[1].labels:
-                for key in label.fields:
-                    if key in ["document", "location", "text", "id",
-                               "label_index_name"]:
-                        _set_error_context(context,
-                                           grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: {}".format(
-                                               key))
-                        return empty_pb2.Empty()
-                for key in label.reference_ids:
-                    if key in ["document", "location", "text", "id", "id",
-                               "label_index_name"]:
-                        _set_error_context(context,
-                                           grpc.StatusCode.INVALID_ARGUMENT,
-                                           "Label included a reserved key: {}".format(
-                                               key))
-                        return empty_pb2.Empty()
+            if not _validate_generic_labels(labels, context):
+                return None
         document.labels[request.index_name] = labels
         return events_pb2.AddLabelsResponse()
 

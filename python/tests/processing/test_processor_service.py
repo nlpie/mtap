@@ -20,7 +20,7 @@ import pytest
 from mtap import processor, Document, DocumentProcessor
 from mtap.api.v1 import processing_pb2
 from mtap.processing import _runners
-from mtap.processing.descriptions import parameter, labels, label_property
+from mtap.descriptors import parameter, labels, label_property
 from mtap.processing._service import _ProcessorServicer
 
 
