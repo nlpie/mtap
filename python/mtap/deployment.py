@@ -648,7 +648,7 @@ class _ActiveDeployment:
                     raise ServiceDeploymentException(
                         f'Failed to launch, timed out waiting: {name}'
                     )
-                future.result(timeout=timeout)
+                future.times(timeout=timeout)
             except grpc.FutureTimeoutError:
                 raise ServiceDeploymentException(
                     f'Failed to launch, unresponsive: {name}'

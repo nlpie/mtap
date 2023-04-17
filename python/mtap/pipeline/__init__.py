@@ -42,5 +42,5 @@ from mtap.pipeline._sources import (
 )
 from mtap.pipeline._results import (
     PipelineResult,
-    BatchPipelineResult,
+    PipelineTimes,
 )

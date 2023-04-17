@@ -119,7 +119,7 @@ class AggregateTimingInfo(NamedTuple):
                                                   stats.sum)
 
 
-TimesMap = 'Dict[str, TimerStatsAggregator]'
+TimesMap = Dict[str, 'TimerStatsAggregator']
 
 
 def add_times(times_map: TimesMap, times: Dict[str, timedelta]):
@@ -147,6 +147,16 @@ class TimerStatsAggregator:
     mean: float = 0.0
     sse: float = 0.0
     sum: timedelta = field(default_factory=lambda: timedelta(seconds=0))
+
+    def merge(self, other: 'TimerStatsAggregator'):
+        self.min = min(other.min, self.min)
+        self.max = max(other.max, self.max)
+        count = self.count + other.count
+        self.sum += other.sum
+        self.mean = self.mean * self.count / count
+        self.mean += other.mean * other.count / count
+        self.count = count
+        self.sse += other.sse
 
     def add_time(self, time: timedelta):
         if time < self.min:

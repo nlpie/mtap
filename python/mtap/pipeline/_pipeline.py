@@ -30,7 +30,7 @@ from typing import (
 )
 
 from mtap._events_client import EventsAddressLike
-from mtap.pipeline._common import event_and_params, EventLike
+from mtap.pipeline._common import EventLike, event_and_params
 from mtap.pipeline._error_handling import (
     ErrorHandlerRegistry,
     ProcessingErrorHandler,
@@ -44,7 +44,7 @@ from mtap.pipeline._pipeline_components import (
 )
 from mtap.pipeline._results import (
     PipelineResult,
-    BatchPipelineResult,
+    PipelineTimes,
     PipelineCallback,
 )
 from mtap.pipeline._sources import ProcessingSource
@@ -52,7 +52,6 @@ from mtap.processing import ProcessingComponent
 from mtap.processing.results import ComponentResult
 
 logger = logging.getLogger('mtap.processing')
-
 
 ProcessingSourceLike = Union[Iterable[EventLike], ProcessingSource]
 
@@ -120,9 +119,11 @@ class ActivePipeline:
         event, params = event_and_params(target, params)
         event_id = event.event_id
 
-        return self.run_by_event_id(event_id,
-                                    event.event_service_instance_id,
-                                    params)
+        return self.run_by_event_id(
+            event_id,
+            event.event_service_instance_id,
+            params
+        )
 
 
 class Pipeline(list, MutableSequence[ComponentDescriptor]):
@@ -301,7 +302,7 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
             *, total: Optional[int] = None,
             callback: Optional[PipelineCallback] = None,
             **kwargs,
-    ) -> BatchPipelineResult:
+    ) -> PipelineTimes:
         """Runs this pipeline on a source which provides multiple
         documents / events.
 
@@ -401,3 +402,11 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
         super().extend(other)
         for item in other:
             self._check_for_duplicates(item)
+
+    def create_times(self, existing: Optional[PipelineTimes] = None):
+        if existing:
+            return copy.copy(existing)
+        return PipelineTimes(
+            self.name,
+            [component.component_id for component in self]
+        )

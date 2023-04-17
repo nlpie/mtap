@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 from dataclasses import field, dataclass
 from datetime import timedelta
 from typing import Callable, Any, NamedTuple, List, overload
@@ -65,10 +66,26 @@ def add_result_times(times_map: TimesMap,
 
 
 @dataclass
-class BatchPipelineResult:
+class PipelineTimes:
     name: str
     component_ids: List[str]
     _times_map: TimesMap = field(default_factory=dict)
+
+    def add_other(self, other: 'PipelineTimes'):
+        """Merges all the times from the other times into this.
+
+        Args:
+            other: Another pipeline times.
+        """
+        if self.component_ids != other.component_ids:
+            raise ValueError("component_ids need to match")
+        _times_map = dict()
+        for k in self._times_map:
+            if k in other._times_map:
+                _times_map[k] = self._times_map[k].merge(other._times_map[k])
+        for k in other._times_map:
+            if k not in self._times_map:
+                _times_map[k] = copy.copy(other._times_map[k])
 
     @overload
     def processor_timer_stats(self) -> List[AggregateTimingInfo]:

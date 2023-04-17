@@ -25,7 +25,6 @@ from tqdm import tqdm
 from mtap._config import Config
 from mtap.pipeline._common import event_and_params
 from mtap.pipeline._error_handling import StopProcessing, SuppressError
-from mtap.pipeline._results import BatchPipelineResult
 from mtap.pipeline._sources import ProcessingSource, IterableProcessingSource
 from mtap.processing import (
     ProcessingException,
@@ -86,7 +85,7 @@ class ActiveMpRun:
         'active_events',
         'log_listener',
         'stop',
-        'result',
+        'times',
         'handler_states',
         'callback'
     )
@@ -137,10 +136,7 @@ class ActiveMpRun:
         self.active_targets = 0
         self.active_events = {}
         self.stop = False
-        self.result = BatchPipelineResult(
-            self.pipeline.name,
-            [component.component_id for component in self.pipeline]
-        )
+        self.times = self.pipeline.create_times()
         self.handler_states = [{} for _ in self.pipeline.error_handlers]
         self.callback = callback
 
@@ -181,7 +177,7 @@ class ActiveMpRun:
         event_id, result, error = result
         event = self.active_events[event_id]
         if result is not None:
-            self.result.add_result_times(result)
+            self.times.add_result_times(result)
             if self.callback:
                 self.callback(result, event)
         else:
@@ -235,7 +231,7 @@ class ActiveMpRun:
             self.wait_tasks_completed()
         except KeyboardInterrupt:
             print('Pipeline terminated by user (KeyboardInterrupt).')
-        return self.result
+        return self.times
 
     def __enter__(self):
         return self
