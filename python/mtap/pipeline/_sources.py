@@ -27,9 +27,7 @@ class ProcessingSource(ContextManager, ABC):
     Also has functionality for receiving results.
 
     """
-    __slots__ = (
-        '_total',
-    )
+    __slots__ = ()
 
     _total: Optional[int] = None
 
