@@ -1,49 +1,64 @@
 ---
-layout: doc
-subpage: Documentation
-title: Service Discovery Tutorial
-description: >
-  Using Consul service discovery to automatically register and discover
-  addresses and ports for MTAP services.
+layout: default
+title: Service Discovery
+parent: Tutorials
+nav_order: 3
 ---
+# Service Discovery
+
+Using Consul service discovery to automatically register and discover
+addresses and ports for MTAP services.
 
 ## Requirements
 
-- Python 3.5+
 - [Consul](https://consul.io)
-- Java JDK 8 (optional)
+
+## Pre-requisites
+
+Complement either the [Getting Started - Python]( python ) or 
+[Getting Started - Java]( java ) tutorial.
+
 
 ## Starting Services using service discovery
 
 Once consul is running, services can be started and registered to consul using
 the following commands:
 
+#### Events Service
 ```bash
 python -m mtap events --register
+```
 
-python processor.py --register
+#### Python Processor
+```bash
+python hello.py --register
+```
 
-java -cp .:mtap-all-{{ site.version }}.jar [ProcessorClass] --register
+#### Java Processor
+```
+gradle runClass -PmainClass=Hello -Pargs="--register"
 ```
 
 ## Running pipelines using service discovery
 
 Taken from the
-[Python Tutorial]({{'/docs/tutorials/python.html' | relative_url}}), we can
+[Getting Started - Python tutorial]( python ), we can
 run this pipeline using service discovery by removing the addresses:
 
 ```python
-from mtap import EventsClient, Pipeline, RemoteProcessor
+if __name__ == '__main__':
+    from mtap import Document, Event, Pipeline, events_client
+    from mtap import RemoteProcessor
 
-
-with EventsClient() as client, \
-     Pipeline(
-         RemoteProcessor(processor_id='hello')
-     ) as pipeline:
-  with Event(event_id='1', client=client) as event:
-    document = event.add_document(document_name='name', text='YOUR NAME')
-    pipeline.run(document)
-    index = document.get_label_index('hello')
-    for label in index:
-      print(label.response)
+    pipeline = Pipeline(
+        RemoteProcessor(processor_name='helloprocessor'),
+    )
+    with events_client() as client:
+        with Event(event_id='1', client=client) as event:
+            document = Document(document_name='name', text='YOUR NAME')
+            event.add_document(document)
+            pipeline.run(document)
+            index = document.labels['hello']
+            for label in index:
+                print(label.response)
 ```

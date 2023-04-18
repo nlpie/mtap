@@ -1,15 +1,40 @@
 title: MTAP
-email: nlp-ie@umn.edu
-description: >- # this means to ignore newlines until "baseurl:"
-  Microservice Text Analysis Platform
-baseurl: "/mtap" # the subpath of your site, e.g. /blog
-url: "https://nlpie.github.io" # the base hostname & protocol for your site, e.g. http://example.com
-version: 0.3.0
-python_version: 0.3.0
+description: A framework for developing text analysis pipelines.
+theme: just-the-docs
 
-# Build settings
-markdown: kramdown
-sass:
-   sass_dir: _sass
-   style: compressed
-highlighter: rouge
+url: https://nlpie.github.io/mtap
+
+aux_links:
+  GitHub: https://github.com/nlpie/mtap
+
+nav_external_links:
+  - title: Python API Documentation
+    url: https://mtap.readthedocs.io/en/stable/
+  - title: Java API Documentation
+    url: https://www.javadoc.io/doc/edu.umn.nlpie/mtap/latest/index.html
+  - title: BioMedICUS
+    url: https://nlpie.github.io/biomedicus
+  - title: NLP-IE Group
+    url: https://nlpie.github.io/
+
+
+callouts_level: quiet # or loud
+callouts:
+  highlight:
+    color: yellow
+  important:
+    title: Important
+    color: blue
+  new:
+    title: New
+    color: green
+  note:
+    title: Note
+    color: purple
+  warning:
+    title: Warning
+    color: red
+
+min_python: 3.7
+min_java: 8
+version: 1.2.1

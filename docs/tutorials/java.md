@@ -1,35 +1,36 @@
 ---
-layout: doc
-subpage: Documentation
-title: Java Tutorial
-description: Getting started using the MTAP Java SDK.
+layout: default
+title: "Getting Started - Java"
+parent: Tutorials
+nav_order: 2
 ---
 
 ## Requirements
 
-- Python 3.5 or later
-- Oracle or OpenJDK JDK 8
+- Python {{ site.min_python }}+
+- Java JDK {{ site.min_java }}+
 
 ## Installing MTAP
 
-The Java SDK for MTAP does not need to be installed; it is distributed as
-a Jar found [here](https://github.com/nlpie/mtap/releases).
+To install mtap you will need to using something that supports Maven dependency
+management. We use the [Gradle Build Tool](https://gradle.org/). See their
+[getting started guide](https://docs.gradle.org/current/samples/sample_building_java_applications.html)
+and [MTAP on Maven Central](https://mvnrepository.com/artifact/edu.umn.nlpie/mtap).
 
 We will need to install the MTAP Python SDK, which includes the events
-service necessary to run our processor.
+service and pipeline necessary to run our processor.
 
 ```bash
 pip install mtap
 ```
-
 
 ## Creating a processor
 
 We will be creating a document processor which simply writes a "hello world"
 label to a document.
 
-To start, create a file named ``Hello.java``, this file will contain our
-processor:
+To start, create a file named ``Hello.java`` in the main source folder
+(``src/main/java`` in gradle), thi file will contain our processor:
 
 ```java
 import edu.umn.nlpie.mtap.common.*;
@@ -77,48 +78,63 @@ cause the labeler to upload any added labels to the events service when exited.
 
 ## Compiling the processor
 
-To compile the processor, run:
+To compile the processor, check the documentation for your build system, in 
+gradle it's:
 
-```bash
-javac -cp mtap-all-{{ site.version }}.jar Hello.java
+```
+gradle build
 ```
 
+## Creating a task for running the processor
+
+In gradle, a task for running the processor can be created by adding the 
+following to the build.gradle file
+
+```groovy
+task runClass(type: JavaExec) {
+  classpath = sourceSets.main.runtimeClasspath
+
+  mainClass findProperty('mainClass')
+
+  // arguments to pass to the application
+  args findProperty('args')
+}
+```
 
 ## Running the processor
 
 First, we will need to launch the python events service.
 
 ```bash
-python -m mtap events -p 9090
-```
-
-Now we can deploy our Java processor. In another terminal run:
-
-```bash
-java -cp .:mtap-all-{{ site.version }}.jar Hello -p 9092 -e localhost:9090
+python -m mtap events -p 9090 &
+gradle runClass -PmainClass=Hello -Pargs="-p 9091 -e localhost:9090
 ```
 
 To perform processing you will either need to create a python pipeline file, or
-use the [API Gateway]({{ '/docs/tutorials/api-gateway.html' | relative_url }})
+use the [API Gateway]( api-gateway ).
 
 ### Creating python pipeline file
 
 To perform processing, create another file ``pipeline.py``:
 
 ```python
-from mtap import Document, Event, EventsClient, Pipeline, RemoteProcessor
+import sys
 
-with EventsClient(address='localhost:9090') as client, \
-     Pipeline(
-         RemoteProcessor(processor_id='hello', address='localhost:9092')
-     ) as pipeline:
-  with Event(event_id='1', client=client) as event:
-    document = Document(document_name='name', text='YOUR NAME')
-    event.add_document(document)
-    pipeline.run(document)
-    index = document.get_label_index('hello')
-    for label in index:
-      print(label.response)
+if __name__ == '__main__':
+    from mtap import Document, Event, Pipeline, events_client
+    from mtap import RemoteProcessor
+
+    pipeline = Pipeline(
+        RemoteProcessor(processor_name='helloprocessor', address=sys.argv[2]),
+    )
+    with events_client(sys.argv[1]) as client:
+        with Event(event_id='1', client=client) as event:
+            document = Document(document_name='name', text='YOUR NAME')
+            event.add_document(document)
+            pipeline.run(document)
+            index = document.labels['hello']
+            for label in index:
+                print(label.response)
 ```
 
 To run this pipeline type
@@ -135,4 +151,4 @@ parameters to instantiate the ``Document`` object that gets passed to your
 processor. This ``Document`` object is your interface to the events service.
 
 For more information about the methods that are available, see the
-[API Documentation]({{'/api/javadoc/edu/umn/nlpie/mtap/Document.html' | relative_url }}).
+[API Documentation](https://mtap.readthedocs.io/en/stable/mtap.html#mtap.Document).
