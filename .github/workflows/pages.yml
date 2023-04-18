@@ -1,1 +1,4 @@
+name: Deploy Jekyll site to Pages
 
+on:
+  workflow_dispatch:
