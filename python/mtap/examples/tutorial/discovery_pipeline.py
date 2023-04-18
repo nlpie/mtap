@@ -1,4 +1,4 @@
-# Copyright 2019 Regents of the University of Minnesota.
+# Copyright 2023 Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,21 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Hello world tutorial pipeline.
+"""Example of running a pipeline using service discovery.
 
 This example is on the MTAP documentation website, if it stops working please update the associated documentation file
-at ``docs/tutorials/python.md``.
+at ``docs/tutorials/service-discovery.md``.
 """
-import sys
 
 if __name__ == '__main__':
     from mtap import Document, Event, Pipeline, events_client
     from mtap import RemoteProcessor
 
     pipeline = Pipeline(
-        RemoteProcessor(processor_name='helloprocessor', address=sys.argv[2]),
+        RemoteProcessor(processor_name='helloprocessor'),
     )
-    with events_client(sys.argv[1]) as client:
+    with events_client() as client:
         with Event(event_id='1', client=client) as event:
             document = Document(document_name='name', text='YOUR NAME')
             event.add_document(document)

@@ -189,13 +189,11 @@ class Serializer(metaclass=SerializerRegistry):
         """Loads an event from a serialized file.
 
         Args:
-            f (~typing.Union[~pathlib.Path, str, ~io.IOBase]):
-                The file to load from.
-            client (~typing.Optional[EventsClient]):
-                The events service to load the event into.
+            f: The file to load from.
+            client: The events service to load the event into.
 
         Returns:
-            Event: The loaded event object.
+            The loaded event object.
         """
         ...
 
@@ -217,7 +215,7 @@ class SerializationProcessor(EventProcessor):
     directory.
 
     Attributes:
-        serializer: The serializer to use.
+        serializer (~mtap.serialization.Serializer): The serializer to use.
         output_dir: The output directory.
         include_label_text: Whether to attach the covered text to labels.
 

@@ -105,6 +105,7 @@ Worf, you do remember how to fire phasers?"""
 @pytest.mark.consul
 def test_disc_pipeline(disc_python_events, disc_python_processor,
                        disc_java_processor):
+
     pipeline = mtap.Pipeline(
         RemoteProcessor('mtap-example-processor-python',
                         address='localhost:50501',
