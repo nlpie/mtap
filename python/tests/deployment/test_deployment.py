@@ -44,9 +44,6 @@ def test_deployment(java_exe):
         deployment = Deployment.from_yaml_file(deployment_f)
         deployment.global_settings.log_level = 'DEBUG'
         deployment.shared_processor_config.java_classpath = java_exe[-1]
-        deployment.shared_processor_config.jvm_args = [
-            "-Dorg.slf4j.simpleLogger.log.edu.umn.nlpie.mtap=debug"
-        ]
         deployment.processors.append(ProcessorDeployment(
             implementation='python',
             entry_point='mtap.examples.tutorial.hello',

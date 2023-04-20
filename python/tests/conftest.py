@@ -109,7 +109,7 @@ def fixture_java_exe():
             mtap_jar = next(java_libs.glob('*-all.jar'))
         except (FileNotFoundError, StopIteration):
             raise ValueError('MTAP_JAR not found, is required for tests')
-    cp = ['-cp', str(mtap_jar) + ':' + str(pathlib.Path(__file__).parent / 'slf4j-simple-2.0.3.jar')]
+    cp = ['-cp', str(mtap_jar)]
     try:
         return [str(pathlib.Path(os.environ['JAVA_HOME']) / 'bin' / 'java')] + cp
     except KeyError:
