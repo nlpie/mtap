@@ -6,6 +6,9 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
+/**
+ * Builds a version number from the latest git tag.
+ */
 def gitVersion = { ->
     def stdout = new ByteArrayOutputStream()
     def execResult = exec {
@@ -161,6 +164,7 @@ task printVersion() {
     printf(version)
 }
 
+// shadow jar creates a "fat jar" that we can use to easily test
 shadowJar {
     manifest {
         attributes 'Implementation-Title': 'MTAP',
@@ -241,15 +245,15 @@ javadoc {
     }
 }
 
-tasks.withType(Sign) {
+tasks.withType(Sign).configureEach {
     onlyIf { isReleaseVersion }
 }
 
-tasks.withType(GenerateModuleMetadata) {
+tasks.withType(GenerateModuleMetadata).configureEach {
     enabled = false
 }
 
-task execute(type: JavaExec) {
+tasks.register('execute', JavaExec) {
     classpath = sourceSets.withLogBinding.runtimeClasspath
-    setMainClass project.hasProperty('mainClass') ? project.getProperties().get('mainClass') : null
+    mainClass findProperty('mainClass')
 }

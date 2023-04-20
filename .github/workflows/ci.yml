@@ -20,6 +20,9 @@ jobs:
             python-version: 'x'
           - java-version: 'x'
             python-version: '3.7'
+
+    name: ${{ matrix.os }}, py${{ matrix.python-version }}, java${{ matrix.java-version }}
+
     steps:
       - uses: actions/checkout@v3
 

@@ -11,12 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tutorial hello world processor."""
-import mtap
+"""Tutorial hello world processor.
+
+This example is on the MTAP documentation website, if it stops working please update the associated documentation file
+at ``docs/tutorials/python.md``.
+"""
+from mtap import DocumentProcessor, run_processor
 
 
-@mtap.processor('hello')
-class HelloProcessor(mtap.DocumentProcessor):
+class HelloProcessor(DocumentProcessor):
     def process_document(self, document, params):
         with document.get_labeler('hello') as add_hello:
             text = document.text
@@ -24,4 +27,4 @@ class HelloProcessor(mtap.DocumentProcessor):
 
 
 if __name__ == '__main__':
-    mtap.run_processor(HelloProcessor())
+    run_processor(HelloProcessor())
