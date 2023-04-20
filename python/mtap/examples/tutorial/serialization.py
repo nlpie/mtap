@@ -50,5 +50,6 @@ def deserialize():
     from mtap.serialization import JsonSerializer
 
     for test_file in Path("/path/to/jsons").glob('**/*.json'):
-        with JsonSerializer.file_to_event(test_file) as event:
-            pass  # do what you need with the even
+
+        with JsonSerializer.file_to_event(test_file) as event:  # noqa: F841
+            pass  # do what you need with the event

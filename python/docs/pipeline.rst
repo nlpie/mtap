@@ -16,6 +16,7 @@ Running a pipeline
    :show-inheritance:
 .. autoclass:: LocalProcessor
    :show-inheritance:
+.. autoclass:: PipelineTerminated
 
 Pipeline Document Sources
 =========================

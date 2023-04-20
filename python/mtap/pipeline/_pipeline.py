@@ -316,6 +316,9 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
                 results from the finished pipeline.
             kwargs: Override for any of the :class:`MpConfig` attributes.
 
+        Raises:
+            PipelineTerminated: If an error handler terminates the pipeline before it is completed.
+
         Examples:
             >>> docs = list(pathlib.Path('abc/').glob('*.txt'))
             >>>
