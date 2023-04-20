@@ -1,4 +1,15 @@
+# Placeholder to allow manually triggering site deployment.
+# The real workflow is on the gh-pages branch.
+
 name: Deploy Jekyll site to Pages
 
 on:
   workflow_dispatch:
+
+jobs:
+  nothing:
+    runs-on: ubuntu-latest
+    if: false
+    steps:
+      - id: fail
+        run: exit 1
