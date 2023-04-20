@@ -25,6 +25,7 @@ from tqdm import tqdm
 from mtap._config import Config
 from mtap.pipeline._common import event_and_params
 from mtap.pipeline._error_handling import StopProcessing, SuppressError
+from mtap.pipeline._exc import PipelineTerminated
 from mtap.pipeline._sources import ProcessingSource, IterableProcessingSource
 from mtap.processing import (
     ProcessingException,
@@ -228,9 +229,12 @@ class ActiveMpRun:
         try:
             with self.source:
                 self.source.produce(self.consume)
+            if self.stop:
+                raise PipelineTerminated("Pipeline terminated by an error handler.")
             self.wait_tasks_completed()
-        except KeyboardInterrupt:
+        except KeyboardInterrupt as e:
             print('Pipeline terminated by user (KeyboardInterrupt).')
+            raise e
         return self.times
 
     def __enter__(self):

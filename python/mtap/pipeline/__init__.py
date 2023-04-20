@@ -13,6 +13,7 @@
 # limitations under the License.
 """Functionality for creating and running pipelines."""
 
+from mtap.pipeline._exc import PipelineTerminated
 from mtap.pipeline._error_handling import (
     ErrorHandlerRegistry,
     ProcessingErrorHandler,
