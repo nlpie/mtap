@@ -14,7 +14,6 @@
 """Serialization, serializers, and helper methods for going to and from
 flattened python dictionary representations of events.
 """
-import io
 import logging
 import os
 from abc import abstractmethod, ABCMeta
