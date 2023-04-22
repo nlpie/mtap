@@ -7,7 +7,7 @@ on:
 jobs:
   set-milestone:
     runs-on: ubuntu-latest
-    if: ${{ github.issue.state_reason == 'completed' }}
+    if: ${{ github.event.issue.state_reason == 'completed' }}
     steps:
       - name: Set milestone on issue 
         id: set-milestone
