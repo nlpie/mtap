@@ -1,0 +1,17 @@
+name: Add the Next Release milestone to closed issues.
+
+on:
+  issues:
+    type: ['closed']
+
+jobs:
+  set-milestone:
+    runs-on: ubuntu-latest
+    if: ${{ github.issue.state_reason == 'completed' }}
+    steps:
+      - name: Set milestone on issue 
+        id: set-milestone
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.html_url }}
+        run: gh issue edit $ISSUE --milestone "Next Release"
