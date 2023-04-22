@@ -56,13 +56,13 @@ below.
   components:
     ...
 
-New error handlers can be registered to be loaded in this fashion using
-:meth:`~mtap.processing.ErrorHandlerRegistry.register`
+New error handlers can be registered to be loaded in this fashion by overriding the ``name`` method or using the
+module-qualified full class name.
 """
 import dataclasses
 import logging
 import os.path
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod
 from os import PathLike
 from typing import (
     Any,
@@ -70,13 +70,12 @@ from typing import (
     Dict,
     Optional,
     Union,
-    Type,
-    ClassVar
+    ClassVar, Type
 )
 
 from mtap._event import Event
 from mtap.processing import ErrorInfo
-from mtap.serialization import Serializer, SerializerRegistry
+from mtap.serialization import Serializer
 
 LOGGER = logging.getLogger('mtap.processing')
 
@@ -96,37 +95,7 @@ class SuppressError(Exception):
     pass
 
 
-class ErrorHandlerRegistry(ABCMeta):
-    """Registry for error handlers so that they can be instantiated from
-    configuration.
-
-    Classes implementing :class:`ProcessingErrorHandler` will automatically
-    be added by their name but can override that by overriding the
-    :meth:`mtap.pipeline.ProcessingErrorHandler.name` method.
-    """
-    registry: ClassVar[Dict[str, ErrorHandlerFactory]] = {}
-
-    def __init__(cls: Type['ProcessingErrorHandler'], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        ErrorHandlerRegistry.registry[cls.name()] = cls
-
-    @staticmethod
-    def from_dict(conf: Optional[Dict[str, Any]]) -> 'ProcessingErrorHandler':
-        """Creates an error handler from its dictionary representation.
-
-        Args:
-            conf: The dictionary representation of the error handler.
-
-        Returns:
-            The instantiated error handler.
-
-        """
-        return ErrorHandlerRegistry.registry[conf['name']](
-            **conf.get('params', {})
-        )
-
-
-class ProcessingErrorHandler(metaclass=ErrorHandlerRegistry):
+class ProcessingErrorHandler:
     """Base class for an error handler that is included in a pipeline to
     report and decide action for errors / exceptions that occur during
     processing.
@@ -135,6 +104,24 @@ class ProcessingErrorHandler(metaclass=ErrorHandlerRegistry):
     be reused across multiple runs of the same pipeline, instead store stateful
     information in the state dictionary.
     """
+    _REGISTRY: ClassVar[Dict[str, ErrorHandlerFactory]] = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        ProcessingErrorHandler._REGISTRY[cls.name()] = cls
+
+    @staticmethod
+    def from_dict(conf: Optional[Dict[str, Any]]) -> 'ProcessingErrorHandler':
+        """Creates an error handler from its dictionary representation.
+
+        Args:
+            conf: The dictionary representation of the error handler. Should have at minimum a ``name`` key with ``str``
+                value, can also have a dictionary of params that will be passed to the constructor of the serializer.
+
+        Returns:
+            The instantiated error handler.
+        """
+        return ProcessingErrorHandler._REGISTRY[conf['name']](**conf.get('params', {}))
 
     @classmethod
     def name(cls):
@@ -286,16 +273,16 @@ class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
 
     """
     output_directory: Union[str, bytes, PathLike]
-    serializer: Serializer
+    serializer: Type[Serializer]
 
     def __init__(self,
-                 output_directory: Union[str, bytes, PathLike],
-                 serializer: Union[Serializer, str, None] = None):
-        self.output_directory = output_directory
+                 output_directory: Union[str, bytes, PathLike, None] = None,
+                 serializer: Union[Type[Serializer], str, None] = None):
+        self.output_directory = 'errors' if output_directory is None else output_directory
         if serializer is None:
-            serializer = SerializerRegistry.get('json')
-        if not isinstance(serializer, Serializer):
-            serializer = SerializerRegistry.get(serializer)
+            serializer = Serializer.get('json')
+        if not issubclass(serializer, Serializer):
+            serializer = Serializer.get(serializer)
         self.serializer = serializer
 
     @classmethod
@@ -318,5 +305,9 @@ class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
 
 
 class SuppressAllErrorsHandler(ProcessingErrorHandler):
+    @classmethod
+    def name(cls):
+        return 'suppress'
+
     def handle_error(self, *_args, **_kwargs):
         raise SuppressError()

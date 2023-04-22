@@ -14,7 +14,7 @@
 from tempfile import TemporaryFile
 
 from mtap import Event, Document, label
-from mtap.serialization import YamlSerializer
+from mtap.serialization import YamlSerializer, Serializer
 
 
 def test_yml_serializer():
@@ -51,3 +51,7 @@ def test_yml_serializer():
     index_three = d.labels['three']
     assert index_three == [label(start_index=0, end_index=10, foo=True),
                            label(start_index=11, end_index=15, foo=False)]
+
+
+def test_registered():
+    assert Serializer.get('yaml') is YamlSerializer

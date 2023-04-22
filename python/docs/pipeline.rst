@@ -53,8 +53,6 @@ Pipeline Error Handling
    :members:
 .. autoclass:: StopProcessing
 .. autoclass:: SuppressError
-.. autoclass:: ErrorHandlerRegistry
-   :members:
 .. autoclass:: SimpleErrorHandler
    :members:
    :show-inheritance:

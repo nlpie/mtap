@@ -28,7 +28,7 @@
 from tempfile import TemporaryFile
 
 from mtap import Event, Document, label
-from mtap.serialization import PickleSerializer
+from mtap.serialization import PickleSerializer, Serializer
 
 
 def test_pickle_serializer():
@@ -65,3 +65,7 @@ def test_pickle_serializer():
     index_three = d.labels['three']
     assert index_three == [label(start_index=0, end_index=10, foo=True),
                            label(start_index=11, end_index=15, foo=False)]
+
+
+def test_registered():
+    assert Serializer.get('pickle') is PickleSerializer

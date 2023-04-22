@@ -31,7 +31,6 @@ from typing import (
 from mtap._events_client import EventsAddressLike
 from mtap.pipeline._common import EventLike, event_and_params
 from mtap.pipeline._error_handling import (
-    ErrorHandlerRegistry,
     ProcessingErrorHandler,
     SimpleErrorHandler,
     TerminationErrorHandler,
@@ -270,7 +269,7 @@ class Pipeline(List[ComponentDescriptor]):
         error_handlers = []
         conf_error_handlers = conf.get('error_handlers', [])
         for conf_error_handler in conf_error_handlers:
-            handler = ErrorHandlerRegistry.from_dict(conf_error_handler)
+            handler = ProcessingErrorHandler.from_dict(conf_error_handler)
             error_handlers.append(handler)
 
         mp_config = MpConfig.from_dict(conf.get('mp_config', {}))
