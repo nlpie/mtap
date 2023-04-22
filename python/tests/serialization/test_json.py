@@ -15,7 +15,7 @@ from tempfile import TemporaryFile
 
 import mtap
 from mtap import Event, Document
-from mtap.serialization import JsonSerializer
+from mtap.serialization import JsonSerializer, Serializer
 
 
 def test_json_serializer():
@@ -52,3 +52,7 @@ def test_json_serializer():
     index_three = d.labels['three']
     assert index_three == [mtap.GenericLabel(start_index=0, end_index=10, foo=True),
                            mtap.GenericLabel(start_index=11, end_index=15, foo=False)]
+
+
+def test_registered():
+    assert Serializer.get('json') is JsonSerializer

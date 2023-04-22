@@ -135,21 +135,18 @@ def dict_to_document(document_name: str,
     return document
 
 
-class SerializerRegistry(ABCMeta):
-    REGISTRY: ClassVar[Dict[str, Type['Serializer']]] = {}
+class Serializer:
+    """Abstract base class for a serializer of MTAP events.
+    """
+    _REGISTRY: ClassVar[Dict[str, Type['Serializer']]] = {}
 
-    def __init__(cls: Type['Serializer'], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        SerializerRegistry.REGISTRY[cls.name()] = cls
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        Serializer._REGISTRY[cls.name()] = cls
 
     @staticmethod
     def get(name: str) -> Type['Serializer']:
-        return SerializerRegistry.REGISTRY[name]
-
-
-class Serializer(metaclass=SerializerRegistry):
-    """Abstract base class for a serializer of MTAP events.
-    """
+        return Serializer._REGISTRY[name]
 
     @classmethod
     def name(cls) -> str:
