@@ -80,12 +80,6 @@ class LocalProcessor(ComponentDescriptor):
         if self.component_id is DEFAULT_COMPONENT_ID:
             self.component_id = self.processor.metadata['name']
 
-    @property
-    def component_id_with_fallback(self) -> str:
-        if self.component_id is None:
-            return self.processor.metadata['name']
-        return self.component_id
-
     def create_pipeline_component(
             self,
             events_address: EventsAddressLike
@@ -95,7 +89,7 @@ class LocalProcessor(ComponentDescriptor):
         runner = LocalRunner(processor=self.processor,
                              events_address=events_address,
                              component_id=self.component_id,
-                             params=self.params)
+                             params=copy.deepcopy(self.params))
         return runner
 
 
