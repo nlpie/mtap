@@ -25,7 +25,6 @@ from typing import (
     Any,
     Union,
     List,
-    MutableSequence,
     Iterable,
 )
 
@@ -115,7 +114,7 @@ class ActivePipeline:
         )
 
 
-class Pipeline(list, MutableSequence[ComponentDescriptor]):
+class Pipeline(List[ComponentDescriptor]):
     """An object which can be used to build and run a pipeline of remote and
     local processors.
 
@@ -126,13 +125,6 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
     Args:
         *components: Component descriptors created using
             :class:`RemoteProcessor` or :class:`LocalProcessor`.
-
-    Attributes:
-        name: The pipeline's name.
-        events_address: Optional events address.
-        mp_config: The multiprocessing configuration for the pipeline.
-        error_handlers: The error handlers to use when running the pipeline.
-
     Examples:
         Remote pipeline with name discovery:
 
@@ -167,13 +159,19 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
         'events_address',
         'mp_config',
         'error_handlers',
-        '_provided_events_client',
     )
 
     name: str
+    """The pipeline's name."""
+
     events_address: EventsAddressLike
+    """Optional events address. Required if using local processors."""
+
     mp_config: MpConfig
+    """The multiprocessing configuration for the pipeline."""
+
     error_handlers: List[ProcessingErrorHandler]
+    """The error handlers to use when running the pipeline."""
 
     def __init__(self,
                  *components: ComponentDescriptor,
@@ -229,10 +227,10 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
             from yaml import Loader
         with conf_path.open('rb') as f:
             conf = load(f, Loader=Loader)
-        return Pipeline.load_configuration(conf)
+        return Pipeline.from_dict(conf)
 
     @staticmethod
-    def load_configuration(conf: Dict) -> 'Pipeline':
+    def from_dict(conf: Dict) -> 'Pipeline':
         """Creates a pipeline from a pipeline configuration dictionary.
 
         Args:
@@ -246,26 +244,19 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
                     k not in ['name', 'events_addresses', 'events_address',
                               'components', 'mp_config', 'error_handlers']]
         if len(bad_keys) > 0:
-            raise ValueError(
-                'Unrecognized keys in pipeline configuration: {}'.format(
-                    bad_keys))
+            raise ValueError('Unrecognized keys in pipeline configuration: {}'.format(bad_keys))
+
         name = conf.get('name', None)
+
         if 'events_address' in conf.keys() \
                 and 'events_addresses' in conf.keys():
             raise ValueError("Only one of 'events_address' and "
                              "'events_addresses' should be specified.")
-        events_address = conf.get('events_address', None) or conf.get(
-            'events_addresses', None)
+        events_address = conf.get('events_address', None) or conf.get('events_addresses', None)
+
         components = []
         conf_components = conf.get('components', [])
         for conf_component in conf_components:
-            bad_keys = [k for k in conf_component.keys()
-                        if k not in ['processor_id', 'name', 'component_id',
-                                     'address', 'params']]
-            if len(bad_keys) > 0:
-                raise ValueError(
-                    'Unrecognized pipeline component key(s) {}'.format(
-                        bad_keys))
             if 'processor_id' in conf_component:
                 logger.warning(
                     "The 'processor_id' field has been renamed to 'name' "
@@ -274,26 +265,22 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
                     "in a future version"
                 )
                 conf_component['name'] = conf_component['processor_id']
-            components.append(
-                RemoteProcessor(
-                    processor_name=conf_component['name'],
-                    address=conf_component.get('address', None),
-                    component_id=conf_component.get('component_id', None),
-                    params=dict(conf_component.get('params', {}))
-                )
-            )
+            components.append(RemoteProcessor(**conf_component))
+
         error_handlers = []
         conf_error_handlers = conf.get('error_handlers', [])
         for conf_error_handler in conf_error_handlers:
             handler = ErrorHandlerRegistry.from_dict(conf_error_handler)
             error_handlers.append(handler)
-        mp_config = MpConfig.from_configuration(conf.get('mp_config', {}))
+
+        mp_config = MpConfig.from_dict(conf.get('mp_config', {}))
+
         return Pipeline(
             *components,
             name=name,
+            events_address=events_address,
             mp_config=mp_config,
             error_handlers=error_handlers,
-            events_address=events_address
         )
 
     def run_multithread(
@@ -375,17 +362,16 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
             components = [
                 component.create_pipeline_component(
                     self.events_address
-                ) for component in self
+                ) for component in self if component.enabled
             ]
             yield ActivePipeline(components)
         finally:
             for component in components:
                 component.close()
 
-    def _check_for_duplicates(self, component):
+    def _check_for_duplicates(self, component: ComponentDescriptor):
         component_id = component.component_id
-        i = sum(int(x.component_id == component_id) for x in self)
-        if i > 1:
+        if any(x.component_id == component_id for x in self if x != component):
             raise ValueError(f"Attempted to insert a duplicate component_id: "
                              f"{component_id}")
 
@@ -420,5 +406,5 @@ class Pipeline(list, MutableSequence[ComponentDescriptor]):
         """
         return PipelineTimes(
             self.name,
-            [component.component_id for component in self]
+            [component.component_id for component in self if component.enabled]
         )

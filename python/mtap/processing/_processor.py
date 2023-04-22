@@ -111,19 +111,17 @@ class Processor:
     """Mixin used by all processor abstract base classes that provides the
     ability to update serving status and use timers.
     """
-    __slots__ = ('_health_callback',)
+    __slots__ = ('_health_callback', 'metadata')
 
     descriptor: ClassVar[Optional['ProcessorDescriptor']] = None
 
     _health_callback: Callable[[str], None]
 
-    @classmethod
-    def metadata(cls) -> Dict[str, Any]:
-        if cls.descriptor is None:
-            return {
-                'name': cls.__name__.casefold()
-            }
-        return asdict(cls.descriptor)
+    def __init_subclass__(cls, **kwargs):
+        cls.metadata = {
+            'name': cls.__name__.casefold()
+        }
+        super().__init_subclass__(**kwargs)
 
     def update_serving_status(self, status: str):
         """Updates the serving status of the processor for health checking.

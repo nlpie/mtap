@@ -22,11 +22,12 @@ error_handlers:
 components:
   - name: mtap-example-processor-python # The processor's identifier
     address: localhost:10101 # The address of the processor, null to use service discovery
-    component_id: null
     params:
       do_work: yes
   - name: mtap-example-processor-java
     address: localhost:10102
-    component_id: null
     params:
       do_work: yes
+  - name: not-enabled-processor
+    address: localhost:10000
+    enabled: no  # This processor will not be run

@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Descriptors for processor functionality."""
-from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, TYPE_CHECKING, Type, Callable
+from dataclasses import dataclass, asdict
+from typing import Optional, List, Dict, Any, TYPE_CHECKING, Type, Callable, TypeVar
 
 if TYPE_CHECKING:
     from mtap.processing import EventProcessor
@@ -30,20 +30,11 @@ __all__ = [
 ]
 
 
-def processor(
-        name: str,
-        *args,
-        **kwargs
-) -> Callable[[Type['EventProcessor']], Type['EventProcessor']]:
+@dataclass
+class ProcessorDescriptor:
     """Decorator which attaches a service name and metadata to a processor.
     Which then can be used for runtime reflection of how the processor works.
 
-    Args:
-        name: The required arg of
-        *args: Arbitrary args accepted by
-            :class:`~mtap.descriptors.ProcessorDescriptor`.
-        **kwargs: Arbitrary args accepted by
-            :class:`~mtap.descriptors.ProcessorDescriptor`.
 
     Returns:
         A decorator to be applied to instances of EventProcessor or
@@ -90,15 +81,6 @@ def processor(
         >>>     ...
     """
 
-    def decorator(cls: 'Type[EventProcessor]'):
-        cls.descriptor = ProcessorDescriptor(name, *args, **kwargs)
-        return cls
-
-    return decorator
-
-
-@dataclass
-class ProcessorDescriptor:
     name: str
     """Identifying service name both for launching via command line and
     for service registration.
@@ -133,11 +115,19 @@ class ProcessorDescriptor:
     processor's metadata, should be serializable to yaml and json.
     """
 
+    def __call__(self, cls: Type['EventProcessor']) -> Type['EventProcessor']:
+        cls.metadata.update(asdict(self))
+        return cls
+
+
+processor: Callable[..., ProcessorDescriptor] = ProcessorDescriptor
+
 
 @dataclass
 class ParameterDescriptor:
     """A description of one of the processor's parameters.
     """
+
     name: str
     """The parameter name / key."""
 
@@ -160,6 +150,7 @@ parameter: Callable[..., ParameterDescriptor] = ParameterDescriptor
 class LabelIndexDescriptor:
     """A description for a label type.
     """
+
     name: str
     """The label index name."""
 
@@ -191,6 +182,7 @@ labels: Callable[..., 'LabelIndexDescriptor'] = LabelIndexDescriptor
 class LabelPropertyDescriptor:
     """Creates a description for a property on a label.
     """
+
     name: str
     """The property's name."""
 
@@ -206,6 +198,5 @@ class LabelPropertyDescriptor:
     """Whether the property can have a valid value of null."""
 
 
-label_property: Callable[..., 'LabelPropertyDescriptor'] \
-    = LabelPropertyDescriptor
+label_property: Callable[..., LabelPropertyDescriptor] = LabelPropertyDescriptor
 """Alias for :class:`~mtap.descriptors.LabelPropertyDescriptor`."""

@@ -53,7 +53,7 @@ def test_deployment(java_exe):
             pipeline = Pipeline.from_yaml_file(run_f)
             pipeline.append(
                 RemoteProcessor(
-                    processor_name='hello',
+                    name='hello',
                     address='127.0.0.1:10103'
                 )
             )
@@ -64,6 +64,7 @@ def test_deployment(java_exe):
                     def source():
                         yield d
 
-                    pipeline.run_multithread(source(), total=1, log_level='DEBUG')
+                    times = pipeline.run_multithread(source(), total=1, log_level='DEBUG')
                     assert len(d.labels['mtap.examples.letter_counts']) > 0
                     assert len(d.labels['mtap.examples.word_occurrences']) > 0
+                    assert len(times.component_ids) == 3

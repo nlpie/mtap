@@ -13,11 +13,15 @@
 # limitations under the License.
 import copy
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 
 from mtap._events_client import EventsAddressLike
 from mtap.processing import ProcessingComponent, EventProcessor, LocalRunner, \
     RemoteRunner
+
+
+DEFAULT_COMPONENT_ID = 'pipeline_component'
 
 
 class ComponentDescriptor(ABC):
@@ -29,6 +33,16 @@ class ComponentDescriptor(ABC):
     @property
     @abstractmethod
     def component_id(self) -> str:
+        """How the processor's results will be identified locally.
+        Will be modified to be unique if it is not unique relative to other
+        components in the pipeline.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def enabled(self) -> bool:
+        """Whether the processor is enabled and should be run in the pipeline."""
         ...
 
     @abstractmethod
@@ -36,140 +50,101 @@ class ComponentDescriptor(ABC):
             self,
             events_address: EventsAddressLike
     ) -> ProcessingComponent:
+        """Turns the descriptor into a component that can be used during processing."""
         pass
 
 
+@dataclass
 class LocalProcessor(ComponentDescriptor):
-    """A configuration of a locally-invoked processor.
-
-    Attributes:
-        processor: The processor instance to run with the pipeline.
-        component_id: How the processor's results will be identified locally.
-            Will be modified to be unique if it is not unique relative to other
-            components in the pipeline.
-        params: An optional parameter dictionary that will be passed to the
-            processor as parameters with every event or document processed.
-            Values should be json-serializable.
-    """
-    __slots__ = ('processor', 'component_id', 'params')
+    """A configuration of a locally-invoked processor."""
 
     processor: EventProcessor
-    component_id: str
-    params: Dict[str, Any]
+    """The processor instance to run with the pipeline."""
 
-    def __init__(self,
-                 processor: EventProcessor,
-                 *, component_id: Optional[str] = None,
-                 params: Optional[Dict[str, Any]] = None):
-        self.processor = processor
-        self.component_id = component_id or self.processor.metadata()['name']
-        self.params = params or {}
+    component_id: str = DEFAULT_COMPONENT_ID
+    """How the processor's results will be identified locally.
+    Will be modified to be unique if it is not unique relative to other
+    components in the pipeline.
+    """
 
-    def __reduce__(self):
-        params = (
-            self.processor,
-            self.component_id,
-            self.params
-        )
-        return LocalProcessor._reconstructor, params
+    params: Dict[str, Any] = field(default_factory=dict)
+    """An optional parameter dictionary that will be passed to the
+    processor as parameters with every event or document processed.
+    Values should be json-serializable.
+    """
 
-    @staticmethod
-    def _reconstructor(processor, component_id, params):
-        return LocalProcessor(processor, component_id=component_id,
-                              params=params)
+    enabled: bool = True
+    """Whether the processor is enabled and should be run in the pipeline."""
+
+    def __post_init__(self):
+        if self.component_id is DEFAULT_COMPONENT_ID:
+            self.component_id = self.processor.metadata['name']
+
+    @property
+    def component_id_with_fallback(self) -> str:
+        if self.component_id is None:
+            return self.processor.metadata['name']
+        return self.component_id
 
     def create_pipeline_component(
             self,
             events_address: EventsAddressLike
     ) -> ProcessingComponent:
+        if not self.enabled:
+            raise ValueError("Cannot create pipeline component for processor that is not enabled.")
         runner = LocalRunner(processor=self.processor,
                              events_address=events_address,
                              component_id=self.component_id,
-                             params=copy.deepcopy(self.params))
+                             params=self.params)
         return runner
 
-    def __repr__(self):
-        return (f"LocalProcessor(proc={self.processor}, "
-                f"component_id={self.component_id}, "
-                f"params={self.params}")
 
-
+@dataclass
 class RemoteProcessor(ComponentDescriptor):
-    """A remote processor in a pipeline.
+    """A remote processor in a pipeline."""
 
-    Attributes:
-        processor_name: The identifier used for health checking and
-            discovery.
-        address: Optionally an address to use, will use service discovery
-            configuration to locate the processor if this is ``None`` or
-            omitted.
-        component_id: How the processor's results will be identified locally.
-            Will be modified to be unique if it is not unique relative to other
-            components in a pipeline.
-        params: A parameter dictionary that will be passed to the
-            processor as parameters with every event or document processed.
-            Values should be json-serializable.
-        enable_proxy: Whether the grpc channel used to connect to the service
-            should respect the ``http_proxy`` environment variable.
+    name: str
+    """The processor service name used for health checking and discovery."""
+
+    address: Optional[str] = None
+    """Optionally an address to use, will use service discovery
+    configuration to locate the processor if this is ``None`` or
+    omitted.
     """
-    __slots__ = (
-        'processor_name',
-        'address',
-        'component_id',
-        'params',
-        'enable_proxy'
-    )
 
-    processor_name: str
-    address: Optional[str]
-    component_id: str
-    params: Dict[str, Any]
-    enable_proxy: bool
+    component_id: str = DEFAULT_COMPONENT_ID
+    """How the processor's results will be identified locally.
+    Will be modified to be unique if it is not unique relative to other
+    components in a pipeline.
+    """
 
-    def __init__(self,
-                 processor_name: str,
-                 *, address: Optional[str] = None,
-                 component_id: Optional[str] = None,
-                 params: Optional[Dict[str, Any]] = None,
-                 enable_proxy: bool = False):
-        self.processor_name = processor_name
-        self.address = address
-        self.component_id = component_id or self.processor_name
-        self.params = params or {}
-        self.enable_proxy = enable_proxy
+    params: Dict[str, Any] = field(default_factory=dict)
+    """A parameter dictionary that will be passed to the
+    processor as parameters with every event or document processed.
+    Values should be json-serializable.
+    """
 
-    def __reduce__(self):
-        params = (
-            self.processor_name,
-            self.address,
-            self.component_id,
-            self.params,
-            self.enable_proxy
-        )
-        return RemoteProcessor._reconstructor, params
+    enable_proxy: bool = False
+    """Whether the grpc channel used to connect to the service
+    should respect the ``http_proxy`` environment variable.
+    """
 
-    @staticmethod
-    def _reconstructor(processor_name, address, component_id, params,
-                       enable_proxy):
-        return RemoteProcessor(processor_name=processor_name,
-                               address=address,
-                               component_id=component_id,
-                               params=params,
-                               enable_proxy=enable_proxy)
+    enabled: bool = True
+    """Whether the processor is enabled and should be run in the pipeline."""
+
+    def __post_init__(self):
+        if self.component_id is DEFAULT_COMPONENT_ID:
+            self.component_id = self.name
 
     def create_pipeline_component(
             self,
             events_address: EventsAddressLike
     ) -> ProcessingComponent:
-        runner = RemoteRunner(processor_name=self.processor_name,
+        if not self.enabled:
+            raise ValueError("Cannot create pipeline component for processor that is not enabled.")
+        runner = RemoteRunner(processor_name=self.name,
                               component_id=self.component_id,
                               address=self.address,
                               params=copy.deepcopy(self.params),
                               enable_proxy=self.enable_proxy)
         return runner
-
-    def __repr__(self):
-        return (f"RemoteProcessor(processor_name={self.processor_name}, "
-                f"address={self.address}, "
-                f"component_id={self.component_id}, "
-                f"params={self.params})")

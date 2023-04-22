@@ -89,7 +89,7 @@ def run_processor(proc: EventProcessor,
         if options.mtap_config is not None:
             c.update_from_yaml(options.mtap_config)
         # instantiate runner
-        name = options.name or proc.metadata()['name']
+        name = options.name or proc.metadata['name']
         sid = options.sid
 
         enable_http_proxy = options.grpc_enable_http_proxy

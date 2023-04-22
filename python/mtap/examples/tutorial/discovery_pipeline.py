@@ -22,7 +22,7 @@ if __name__ == '__main__':
     from mtap import RemoteProcessor
 
     pipeline = Pipeline(
-        RemoteProcessor(processor_name='helloprocessor'),
+        RemoteProcessor(name='helloprocessor'),
     )
     with events_client() as client:
         with Event(event_id='1', client=client) as event:
