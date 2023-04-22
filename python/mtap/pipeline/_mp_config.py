@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 class MpConfig:
     """Configuration object for pipeline multiprocessing.
     """
+
     show_progress: bool = False
     """Whether progress should be displayed in the console."""
 
@@ -37,14 +38,17 @@ class MpConfig:
 
     close_events: bool = False
     """Whether any events passed from the source to the pipeline should
-    be closed when the pipeline is completed."""
+    be closed when the pipeline is completed.
+    """
 
     log_level: str = 'INFO'
-    """"""
+    """The log level to use.
+    """
 
     mp_start_method: str = "spawn"
     """The start method for multiprocessing processes see:
-    :meth:`multiprocessing.get_context`."""
+    :meth:`multiprocessing.get_context`.
+    """
 
     mp_context: Optional['multiprocessing'] = None
     """An optional mp_context. If set overrides the ``mp_start_method``
@@ -54,5 +58,5 @@ class MpConfig:
     """
 
     @staticmethod
-    def from_configuration(conf: Dict) -> 'MpConfig':
+    def from_dict(conf: Dict) -> 'MpConfig':
         return MpConfig(**conf)

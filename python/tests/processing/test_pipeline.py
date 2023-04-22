@@ -79,20 +79,20 @@ def test_load_from_config():
     assert pipeline.mp_config.read_ahead == 4
     assert not pipeline.mp_config.close_events
     assert len(pipeline) == 2
-    assert pipeline[0].processor_name == 'processor-1'
+    assert pipeline[0].name == 'processor-1'
     assert pipeline[0].address == 'localhost:1234'
-    assert pipeline[1].processor_name == 'processor-2'
+    assert pipeline[1].name == 'processor-2'
     assert pipeline[1].address == 'localhost:5678'
 
 
 def test_serialization():
     p = Pipeline(
         RemoteProcessor(
-            processor_name='processor-1',
+            name='processor-1',
             address='localhost:1234'
         ),
         RemoteProcessor(
-            processor_name='processor-2',
+            name='processor-2',
             address='localhost:5678'
         ),
         name='mtap-test-pipeline',
@@ -111,7 +111,7 @@ def test_serialization():
     assert r.mp_config.read_ahead == 4
     assert not r.mp_config.close_events
     assert len(r) == 2
-    assert r[0].processor_name == 'processor-1'
+    assert r[0].name == 'processor-1'
     assert r[0].address == 'localhost:1234'
-    assert r[1].processor_name == 'processor-2'
+    assert r[1].name == 'processor-2'
     assert r[1].address == 'localhost:5678'

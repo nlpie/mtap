@@ -48,10 +48,10 @@ class LocalRunner(ProcessingComponent):
                  params: Optional[Dict[str, Any]] = None):
         self._processor = processor
         self._events_address = events_address
-        self._processor_name = processor.metadata()['name']
+        self._processor_name = processor.metadata['name']
         self._component_id = component_id or self.processor_name
         self._params = params or {}
-        self.metadata = processor.metadata()
+        self.metadata = processor.metadata
         self._client = None
 
     @property
@@ -124,7 +124,7 @@ class RemoteRunner(ProcessingComponent):
             enable_proxy=None
     ):
         self._processor_name = processor_name
-        self._component_id = component_id
+        self._component_id = component_id or processor_name
         self._address = address
         self._params = params or {}
         address = self._address
