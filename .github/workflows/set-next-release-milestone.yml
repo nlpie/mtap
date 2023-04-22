@@ -2,7 +2,7 @@ name: Add the Next Release milestone to closed issues.
 
 on:
   issues:
-    type: ['closed']
+    types: [closed]
 
 jobs:
   set-milestone:
