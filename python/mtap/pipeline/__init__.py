@@ -15,7 +15,6 @@
 
 from mtap.pipeline._exc import PipelineTerminated
 from mtap.pipeline._error_handling import (
-    ErrorHandlerRegistry,
     ProcessingErrorHandler,
     StopProcessing,
     SuppressError,
