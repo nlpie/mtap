@@ -13,7 +13,7 @@
 # limitations under the License.
 """Descriptors for processor functionality."""
 from dataclasses import dataclass, asdict
-from typing import Optional, List, Dict, Any, TYPE_CHECKING, Type, Callable, TypeVar
+from typing import Optional, List, Dict, Any, TYPE_CHECKING, Type, Callable
 
 if TYPE_CHECKING:
     from mtap.processing import EventProcessor

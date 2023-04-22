@@ -14,7 +14,6 @@
 import threading
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager
-from dataclasses import asdict
 from datetime import datetime, timedelta
 from typing import ClassVar, Optional, ContextManager, Mapping, Dict, Any, \
     Callable
