@@ -100,7 +100,7 @@ class GlobalSettings:
     """Whether services should register with service discovery."""
 
     @staticmethod
-    def from_conf(conf: Optional[Dict[str, Any]]) -> 'GlobalSettings':
+    def from_dict(conf: Optional[Dict[str, Any]]) -> 'GlobalSettings':
         """Creates a global settings object from a configuration dictionary.
 
         Keyword Args:
@@ -141,7 +141,7 @@ class SharedProcessorConfig:
     java_additional_args: Optional[List[str]] = None
     """A list of additional arguments that is added to only Java processors."""
 
-    startup_timeout: Optional[float] = None
+    startup_timeout: float = 30
     """The default startup timeout for processors."""
 
     mp_spawn_method: Optional[str] = None
@@ -150,7 +150,7 @@ class SharedProcessorConfig:
     """
 
     @staticmethod
-    def from_conf(conf: Optional[Dict[str, Any]]) -> 'SharedProcessorConfig':
+    def from_dict(conf: Optional[Dict[str, Any]]) -> 'SharedProcessorConfig':
         """Builds a configuration from a dictionary representation.
 
         Args:
@@ -239,7 +239,7 @@ class EventsDeployment:
     """The log level for the events service."""
 
     @staticmethod
-    def from_conf(conf: Optional[Dict]) -> 'EventsDeployment':
+    def from_dict(conf: Optional[Dict]) -> 'EventsDeployment':
         """Creates the EventsDeployment configuration option from a
         configuration dictionary.
 
@@ -361,7 +361,7 @@ class ProcessorDeployment:
     """Optional override startup timeout."""
 
     @staticmethod
-    def from_conf(conf: Dict) -> 'ProcessorDeployment':
+    def from_dict(conf: Dict) -> 'ProcessorDeployment':
         """Creates an MTAP processor deployment configuration from a
         configuration dictionary.
 
@@ -369,7 +369,7 @@ class ProcessorDeployment:
             conf: The configuration dictionary.
 
         Returns:
-            ProcessorDeployment object that can be used to constuct the call
+            ProcessorDeployment object that can be used to construct the call
             for the processor.
         """
         return ProcessorDeployment(**conf)
@@ -464,7 +464,7 @@ class Deployment:
     """Configurations for individual processors."""
 
     @staticmethod
-    def load_configuration(conf: Dict) -> 'Deployment':
+    def from_dict(conf: Dict) -> 'Deployment':
         """Creates a deployment object from a configuration dictionary.
 
         Args:
@@ -474,13 +474,13 @@ class Deployment:
             Deployment object created.
 
         """
-        global_settings = GlobalSettings.from_conf(conf.get('global'))
-        events = EventsDeployment.from_conf(conf.get('events_service'))
-        shared_processor_config = SharedProcessorConfig.from_conf(
+        global_settings = GlobalSettings.from_dict(conf.get('global'))
+        events = EventsDeployment.from_dict(conf.get('events_service'))
+        shared_processor_config = SharedProcessorConfig.from_dict(
             conf.get('shared_processor_config')
         )
         proc_confs = conf.get('processors', [])
-        processors = [ProcessorDeployment.from_conf(c) for c in proc_confs]
+        processors = [ProcessorDeployment.from_dict(c) for c in proc_confs]
         return Deployment(
             global_settings,
             events,
@@ -507,10 +507,10 @@ class Deployment:
             from yaml import Loader
         with conf_path.open('rb') as f:
             conf = load(f, Loader=Loader)
-        return Deployment.load_configuration(conf)
+        return Deployment.from_dict(conf)
 
     @contextmanager
-    def run_servers(self):
+    def run_servers(self) -> Tuple[List[str], List[List[str]]]:
         """A context manager that starts all the configured services in
         subprocesses and returns.
 
@@ -526,8 +526,8 @@ class Deployment:
         >>> # servers are automatically shutdown / terminated
         """
         with _ActiveDeployment() as depl:
-            self._do_launch_all_processors(depl)
-            yield
+            addresses = self._do_launch_all_processors(depl)
+            yield addresses
 
     def run_servers_and_wait(self):
         """Starts the specified servers and blocks until KeyboardInterrupt,
@@ -571,6 +571,7 @@ class Deployment:
             self.shared_processor_config.events_addresses = events_addresses
 
         # deploy processors
+        all_processor_addresses = []
         for processor_deployment in self.processors:
             if processor_deployment.enabled:
                 calls = _create_processor_calls(
@@ -578,6 +579,7 @@ class Deployment:
                     self.global_settings,
                     self.shared_processor_config,
                 )
+                processor_addresses = []
                 for call, sid in calls:
                     logger.debug('Launching processor with call: %s', call)
                     # Start new session here because otherwise subprocesses get
@@ -586,14 +588,17 @@ class Deployment:
                             processor_deployment.startup_timeout
                             or self.shared_processor_config.startup_timeout
                     )
-                    depl.start_subprocess(
+                    address = depl.start_subprocess(
                         call,
                         processor_deployment.entry_point,
                         sid,
                         startup_timeout,
                         enable_proxy
                     )
+                    processor_addresses.append(address)
+                all_processor_addresses.append(processor_addresses)
         print('Done deploying all servers.', flush=True)
+        return events_addresses, all_processor_addresses
 
 
 class _ActiveDeployment:
@@ -635,6 +640,7 @@ class _ActiveDeployment:
                 time.sleep(1)
         if address is None:
             raise ServiceDeploymentException(
+                name,
                 f'Failed to launch, timed out waiting: {name}'
             )
         with grpc.insecure_channel(
@@ -646,11 +652,13 @@ class _ActiveDeployment:
                 timeout = deadline - time.time()
                 if timeout < 0:
                     raise ServiceDeploymentException(
+                        name,
                         f'Failed to launch, timed out waiting: {name}'
                     )
                 future.result(timeout=timeout)
             except grpc.FutureTimeoutError:
                 raise ServiceDeploymentException(
+                    name,
                     f'Failed to launch, unresponsive: {name}'
                 )
         return address
