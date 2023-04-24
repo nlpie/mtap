@@ -11,10 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import os.path
+from pathlib import Path
+
 import pytest
 
 from mtap import RemoteProcessor, Pipeline, events_client, Event
 from mtap.deployment import Deployment, ProcessorDeployment
+from mtap.utilities import find_free_port
 
 text = """
 Why, friends, you go to do you know not what:
@@ -40,31 +44,41 @@ def test_deployment(java_exe):
     from importlib_resources import files, as_file
     deployment_config = files('mtap.examples').joinpath('exampleDeploymentConfiguration.yml')
     run_config = files('mtap.examples').joinpath('examplePipelineConfiguration.yml')
-    with as_file(deployment_config) as deployment_f, as_file(run_config) as run_f:
+    with as_file(deployment_config) as deployment_f:
         deployment = Deployment.from_yaml_file(deployment_f)
-        deployment.global_settings.log_level = 'DEBUG'
-        deployment.shared_processor_config.java_classpath = java_exe[-1]
-        deployment.processors.append(ProcessorDeployment(
-            implementation='python',
-            entry_point='mtap.examples.tutorial.hello',
-            port=10103
-        ))
-        with deployment.run_servers():
-            pipeline = Pipeline.from_yaml_file(run_f)
-            pipeline.append(
-                RemoteProcessor(
-                    name='hello',
-                    address='127.0.0.1:10103'
-                )
+    with as_file(run_config) as run_f:
+        pipeline = Pipeline.from_yaml_file(run_f)
+    deployment.global_settings.log_level = 'DEBUG'
+    deployment.shared_processor_config.java_classpath = java_exe[-1]
+    deployment.processors.append(ProcessorDeployment(
+        implementation='python',
+        entry_point='mtap.examples.tutorial.hello',
+        port=10103
+    ))
+    with deployment.run_servers():
+        pipeline.append(
+            RemoteProcessor(
+                name='hello',
+                address='127.0.0.1:10103'
             )
-            with events_client(deployment.events_deployment.address) as c:
-                with Event(client=c) as e:
-                    d = e.create_document('plaintext', text)
+        )
+        with events_client(deployment.events_deployment.address) as c:
+            with Event(client=c) as e:
+                d = e.create_document('plaintext', text)
 
-                    def source():
-                        yield d
+                def source():
+                    yield d
 
-                    times = pipeline.run_multithread(source(), total=1, log_level='DEBUG')
-                    assert len(d.labels['mtap.examples.letter_counts']) > 0
-                    assert len(d.labels['mtap.examples.word_occurrences']) > 0
-                    assert len(times.component_ids) == 3
+                times = pipeline.run_multithread(source(), total=1, log_level='DEBUG')
+                assert len(d.labels['mtap.examples.letter_counts']) > 0
+                assert len(d.labels['mtap.examples.word_occurrences']) > 0
+                assert len(times.component_ids) == 3
+
+
+def test_minimal_deployment_configuration():
+    deploy_file = Path(__file__).parent / 'minimalDeploymentConfiguration.yml'
+    deployment = Deployment.from_yaml_file(deploy_file)
+    deployment.processors[0].port = find_free_port()
+    with deployment.run_servers() as (event_addresses, processor_addresses):
+        assert len(event_addresses) == 0
+        assert processor_addresses[0][0].endswith(f':{deployment.processors[0].port}')

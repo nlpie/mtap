@@ -1,0 +1,6 @@
+events_service:
+  address: 127.0.0.1:-1
+processors:
+  - implementation: python
+    entry_point: mtap.examples.example_processor
+    port: -1

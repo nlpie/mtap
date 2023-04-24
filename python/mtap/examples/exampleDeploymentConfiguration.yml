@@ -34,7 +34,7 @@ processors:
     # The processor entry point, either the python module or java class required to launch the
     # processor
     entry_point: mtap.examples.example_processor
-    # By default is "yes" when omitted, but can be specified to
+    # The default is "yes" when omitted, but can be specified to not launch the processor.
     enabled: yes
     # The number of server instances of the processor to launch
     instances: 1
