@@ -238,6 +238,9 @@ class EventsDeployment:
     log_level: Optional[str] = None
     """The log level for the events service."""
 
+    startup_timeout: int = 10
+    """The startup timeout for events deployment."""
+
     @staticmethod
     def from_dict(conf: Optional[Dict]) -> 'EventsDeployment':
         """Creates the EventsDeployment configuration option from a
@@ -559,8 +562,13 @@ class Deployment:
             for call, sid in calls:
                 # Start new session here because otherwise subprocesses
                 # get hit with signals meant for parent
-                events_address = depl.start_subprocess(call, "events", sid,
-                                                       30, enable_proxy)
+                events_address = depl.start_subprocess(
+                    call,
+                    "events",
+                    sid,
+                    self.events_deployment.startup_timeout,
+                    enable_proxy
+                )
                 events_addresses.append(events_address)
 
         # attach deployed events service addresses if it's not already
