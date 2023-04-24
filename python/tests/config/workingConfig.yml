@@ -4,3 +4,8 @@ baz:
     - 1
     - 2
     - 3
+a.group:
+  boz: bat
+b:
+  c.d: 1
+  c.e: 2

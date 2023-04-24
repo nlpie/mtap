@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import threading
 from abc import abstractmethod, ABCMeta
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 from typing import ClassVar, Optional, ContextManager, Mapping, Dict, Any, \
     Callable
@@ -35,6 +35,9 @@ class ProcessorContext:
             self.times[key] += duration
         except KeyError:
             self.times[key] = duration
+
+
+processor_ctx: ContextVar[Optional[ProcessorContext]] = ContextVar('processor_ctx', default=None)
 
 
 class Stopwatch(ContextManager, metaclass=ABCMeta):
@@ -103,9 +106,6 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
             pass
 
 
-processor_local = threading.local()
-
-
 class Processor:
     """Mixin used by all processor abstract base classes that provides the
     ability to update serving status and use timers.
@@ -135,7 +135,7 @@ class Processor:
 
     @staticmethod
     def current_context() -> 'Optional[ProcessorContext]':
-        return getattr(processor_local, 'context', None)
+        return processor_ctx.get()
 
     @staticmethod
     def started_stopwatch(key: str) -> Stopwatch:
@@ -155,7 +155,7 @@ class Processor:
             >>>     ...
 
         """
-        stopwatch = Stopwatch(key, getattr(processor_local, 'context', None))
+        stopwatch = Stopwatch(key, processor_ctx.get())
         stopwatch.start()
         return stopwatch
 
@@ -181,7 +181,7 @@ class Processor:
             >>>         ...
             >>>         stopwatch.stop()
         """
-        return Stopwatch(key, getattr(processor_local, 'context', None))
+        return Stopwatch(key, processor_ctx.get())
 
     @staticmethod
     @contextmanager
@@ -189,17 +189,12 @@ class Processor:
         # Used by the MTAP framework to enter a processing context where
         # things like timing results are stored. Users should not need to
         # call this in normal usage.
+        ctx = ProcessorContext()
+        tok = processor_ctx.set(ctx)
         try:
-            old_context = processor_local.context
-        except AttributeError:
-            old_context = None
-        try:
-            processor_local.context = ProcessorContext()
-            yield processor_local.context
+            yield ctx
         finally:
-            del processor_local.context
-            if old_context is not None:
-                processor_local.context = old_context
+            processor_ctx.reset(tok)
 
 
 class EventProcessor(Processor):

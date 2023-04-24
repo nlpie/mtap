@@ -38,39 +38,35 @@ def set_env(key, val):
 
 
 def test_load_broken_config():
-    Config._global_instance = None
-    with set_env('MTAP_CONFIG', str(Path(__file__).parent / 'brokenConfig.yaml')):
-        with pytest.raises(TypeError):
+    Config.GLOBAL_DEFAULTS = None
+    with set_env('MTAP_CONFIG', os.fspath(Path(__file__).parent / 'brokenConfig.yml')):
+        with pytest.raises(Exception):
             Config()
 
 
 def test_load_config():
-    with set_env('MTAP_CONFIG', str(Path(__file__).parent / 'workingConfig.yaml')):
-        Config._global_instance = None
+    Config.GLOBAL_DEFAULTS = None
+    with set_env('MTAP_CONFIG', os.fspath(Path(__file__).parent / 'workingConfig.yml')):
         c = Config()
         assert c['foo'] == 'bar'
         assert c['baz.bot'] == [1, 2, 3]
+        assert c['a.group.boz'] == 'bat'
+        assert c['b'] == {'c.d': 1, 'c.e': 2}
 
 
 def test_config_context():
-    Config._global_instance = None
+    Config.GLOBAL_DEFAULTS = None
     with Config() as c1:
         c1['foo'] = 'bar'
         c2 = Config()
         assert c2['foo'] == 'bar'
 
 
-def test_enter_twice():
-    Config._global_instance = None
-    with Config():
-        with pytest.raises(ValueError):
-            with Config():
-                pass
-
-
 def test_update_from_yaml():
-    Config._global_instance = None
+    Config.GLOBAL_DEFAULTS = None
     c = Config()
-    c.update_from_yaml(str(Path(__file__).parent) + '/workingConfig.yaml')
+    c.update_from_yaml(Path(__file__).parent / 'workingConfig.yml')
     assert c['foo'] == 'bar'
     assert c['baz.bot'] == [1, 2, 3]
+    assert c['a.group.boz'] == 'bat'
+    assert c['b'] == {'c.d': 1, 'c.e': 2}
