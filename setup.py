@@ -21,6 +21,8 @@ from setuptools.command.build_py import build_py as _build_py
 
 
 class protoc(Command):
+    user_options = []
+
     def initialize_options(self):
         pass
 
