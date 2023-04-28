@@ -60,7 +60,7 @@ class EventsServer:
         if config is None:
             config = _config.Config()
         options = config.get('grpc.events_options', {})
-        logger.info("Events service using options " + str(options))
+        logger.debug("Events service using options " + str(options))
         server = grpc.server(thread_pool, options=list(options.items()))
         servicer = EventsServicer(instance_id=self.sid)
         events_pb2_grpc.add_EventsServicer_to_server(servicer, server)

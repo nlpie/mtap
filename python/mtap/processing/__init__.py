@@ -36,6 +36,6 @@ from mtap.processing._runners import (
 
 from mtap.processing._service import (
     processor_parser,
-    ProcessorServer,
     run_processor,
+    serve_forever
 )

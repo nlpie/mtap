@@ -38,7 +38,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import grpc
 from importlib_resources import files, as_file
 
-from mtap import utilities, _config
 
 __all__ = [
     'Deployment',
@@ -50,6 +49,13 @@ __all__ = [
     'deployment_parser',
     'ServiceDeploymentException',
 ]
+
+from mtap import Config
+from mtap.utilities import find_free_port
+
+RANDOM_PORT = 0
+
+DEFAULT_HOST = '127.0.0.1'
 
 logger = logging.getLogger('mtap.deployment')
 
@@ -144,7 +150,7 @@ class SharedProcessorConfig:
     startup_timeout: float = 30
     """The default startup timeout for processors."""
 
-    mp_spawn_method: Optional[str] = None
+    mp_start_method: Optional[str] = None
     """A :meth:`multiprocessing.get_context` argument to create the
     multiprocessing context.
     """
@@ -160,6 +166,10 @@ class SharedProcessorConfig:
             A shared processor config object.
         """
         conf = conf or {}
+        if 'mp_spawn_method' in conf:
+            if 'mp_start_method' not in conf:
+                conf['mp_start_method'] = conf['mp_spawn_method']
+            del conf['mp_spawn_method']
         return SharedProcessorConfig(**conf)
 
 
@@ -176,14 +186,12 @@ class _ServiceDeployment:
             port: Optional[int] = None,
             sid: Optional[List[str]] = None,
             register_default: Optional[bool] = None,
-            global_host: Optional[str] = None,
             workers_default: Optional[int] = None,
             mtap_config_default: Optional[str] = None,
             log_level_default: Optional[str] = None
-    ) -> Tuple[List[str], str]:
+    ) -> List[str]:
         call = []
 
-        host = global_host or host
         if host is not None:
             call.extend(['--host', str(host)])
 
@@ -207,9 +215,7 @@ class _ServiceDeployment:
         log_level = self.log_level or log_level_default
         if log_level is not None:
             call.extend(['--log-level', log_level])
-
-        call.append('--write-address')
-        return call, sid
+        return call
 
 
 @dataclass
@@ -288,17 +294,23 @@ def _create_events_calls(
                     host = None
             else:
                 host = splits[0]
+        if global_settings.host is not None:
+            host = global_settings.host
+        if host is None:
+            host = DEFAULT_HOST
+        if port is None or port == RANDOM_PORT:
+            port = find_free_port()
+        address = f"{host}:{port}"
         call = [PYTHON_EXE, '-m', 'mtap', 'events']
-        service_args, sid = service_deployment.service_args(
+        service_args = service_deployment.service_args(
             host=host,
             port=port,
             register_default=global_settings.register,
-            global_host=global_settings.host,
             mtap_config_default=global_settings.mtap_config,
             log_level_default=global_settings.log_level
         )
         call.extend(service_args)
-        yield call, sid
+        yield call, address
 
 
 @dataclass
@@ -406,12 +418,18 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
     call = _implementation_args(depl, shared_config)
     if depl.pre_args is not None:
         call.extend(depl.pre_args)
-    service_args, sid = service_deployment.service_args(
-        host=depl.host,
+    host = depl.host
+    if global_settings.host is not None:
+        host = global_settings.host
+    if host is None:
+        host = DEFAULT_HOST
+    if port is None or port == RANDOM_PORT:
+        port = find_free_port()
+    service_args = service_deployment.service_args(
+        host=host,
         port=port,
         sid=depl.sid,
         register_default=global_settings.register,
-        global_host=global_settings.host,
         mtap_config_default=global_settings.mtap_config,
         log_level_default=global_settings.log_level,
         workers_default=shared_config.workers
@@ -429,7 +447,7 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
     if (depl.implementation == 'java'
             and shared_config.java_additional_args is not None):
         call.extend(shared_config.java_additional_args)
-    yield call, sid
+    yield call, f'{host}:{port}'
 
 
 def _implementation_args(depl, shared_config):
@@ -551,7 +569,7 @@ class Deployment:
                 pass
 
     def _do_launch_all_processors(self, depl: '_ActiveDeployment'):
-        c = _config.Config()
+        c = Config()
         enable_proxy = c.get('grpc.enable_proxy', False)
         events_addresses = []
 
@@ -559,17 +577,17 @@ class Deployment:
         if self.events_deployment.enabled:
             calls = _create_events_calls(self.events_deployment,
                                          self.global_settings)
-            for call, sid in calls:
+            for call, address in calls:
                 # Start new session here because otherwise subprocesses
                 # get hit with signals meant for parent
-                events_address = depl.start_subprocess(
+                depl.start_subprocess(
                     call,
                     "events",
-                    sid,
+                    address,
                     self.events_deployment.startup_timeout,
                     enable_proxy
                 )
-                events_addresses.append(events_address)
+                events_addresses.append(address)
 
         # attach deployed events service addresses if it's not already
         # specified or will be picked up by service disc.
@@ -588,7 +606,7 @@ class Deployment:
                     self.shared_processor_config,
                 )
                 processor_addresses = []
-                for call, sid in calls:
+                for call, address in calls:
                     logger.debug('Launching processor with call: %s', call)
                     # Start new session here because otherwise subprocesses get
                     # hit with signals meant for parent
@@ -596,10 +614,10 @@ class Deployment:
                             processor_deployment.startup_timeout
                             or self.shared_processor_config.startup_timeout
                     )
-                    address = depl.start_subprocess(
+                    depl.start_subprocess(
                         call,
                         processor_deployment.entry_point,
-                        sid,
+                        address,
                         startup_timeout,
                         enable_proxy
                     )
@@ -623,10 +641,10 @@ class _ActiveDeployment:
             self,
             call: List[str],
             name: Any,
-            sid: str,
+            address: str,
             startup_timeout: float,
             enable_proxy: bool = False
-    ) -> str:
+    ):
         # starts process and listener, stores for later cleanup, returns
         # address.
         p = subprocess.Popen(call,
@@ -638,26 +656,14 @@ class _ActiveDeployment:
         self._processor_listeners.append(
             (p, listener)
         )  # Adding early so it gets cleaned up on failure
-        address = None
-        deadline = time.time() + startup_timeout
-        while time.time() < deadline:
-            try:
-                address = utilities.read_address(sid)
-                break
-            except FileNotFoundError:
-                time.sleep(1)
-        if address is None:
-            raise ServiceDeploymentException(
-                name,
-                f'Failed to launch, timed out waiting: {name}'
-            )
+        deadline = time.monotonic() + startup_timeout
         with grpc.insecure_channel(
                 address,
                 options=[('grpc.enable_http_proxy', enable_proxy)]
         ) as channel:
             future = grpc.channel_ready_future(channel)
             try:
-                timeout = deadline - time.time()
+                timeout = deadline - time.monotonic()
                 if timeout < 0:
                     raise ServiceDeploymentException(
                         name,
@@ -669,7 +675,6 @@ class _ActiveDeployment:
                     name,
                     f'Failed to launch, unresponsive: {name}'
                 )
-        return address
 
     def shutdown(self):
         print("Shutting down all processors")

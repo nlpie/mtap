@@ -13,6 +13,7 @@
 # limitations under the License.
 import signal
 import threading
+from typing import TypeVar, Optional
 
 
 def run_server_forever(server):
@@ -29,3 +30,12 @@ def run_server_forever(server):
     except KeyboardInterrupt:
         pass
     server.stop()
+
+
+T = TypeVar('T')
+
+
+def or_default(option: Optional[T], default: T) -> T:
+    if option is None:
+        return default
+    return option

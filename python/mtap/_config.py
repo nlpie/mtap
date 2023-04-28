@@ -132,7 +132,7 @@ class Config(MutableMapping[str, Any]):
     """
     GLOBAL_DEFAULTS: ClassVar[Optional[Dict[str, Any]]] = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, data=None):
         if Config.GLOBAL_DEFAULTS is None:
             Config.GLOBAL_DEFAULTS = load_default_config()
         try:
@@ -140,7 +140,8 @@ class Config(MutableMapping[str, Any]):
         except LookupError:
             self.data = copy.deepcopy(Config.GLOBAL_DEFAULTS)
         self.token = None
-        self.data.update(kwargs)
+        if data is not None:
+            self.data.update(data)
 
     def __enter__(self) -> 'Config':
         self.enter_context()
@@ -174,7 +175,11 @@ class Config(MutableMapping[str, Any]):
         splits = k.split('.')
         ptr = self.data
         for split in splits[:-1]:
-            ptr = ptr[split]
+            try:
+                ptr = ptr[split]
+            except KeyError:
+                ptr = {}
+                ptr[split] = ptr
         ptr[splits[-1]] = v
 
     def __delitem__(self, v: str) -> None:

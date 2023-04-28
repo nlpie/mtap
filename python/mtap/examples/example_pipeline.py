@@ -50,10 +50,11 @@ def run_pipeline(conf):
                 component_id='serialization_processor'
             )
         )
-        source = FilesInDirectoryProcessingSource(directory=conf.directory,
+        if conf.max_failures is not None:
+            pipeline.error_handlers[0].max_failures = conf.max_failures
+        source = FilesInDirectoryProcessingSource(directory=conf.input_directory,
                                                   client=events)
         pipeline.run_multithread(source=source, workers=conf.threads,
-                                 max_failures=conf.max_failures,
                                  read_ahead=conf.read_ahead)
 
 

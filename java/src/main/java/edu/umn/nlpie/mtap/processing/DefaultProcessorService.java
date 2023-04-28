@@ -80,7 +80,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
             );
             discoveryMechanism.register(serviceInfo);
         }
-        logger.info("Server for processor_id: {} started on port: {}", name, port);
+        logger.info("Started processor: \"{}\" on address: {}:{}", name, host, port);
     }
 
     @Override
@@ -195,7 +195,7 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
     @Override
     public void close() throws InterruptedException {
-        System.out.println("Shutting down processor server with name: \"" + name + "\" on address: \"" + host + ":" + port + "\"");
+        System.out.println("Shutting down processor: \"" + name + "\" on address: " + host + ":" + port);
         ServiceInfo serviceInfo = new ServiceInfo(
                 name,
                 sid,

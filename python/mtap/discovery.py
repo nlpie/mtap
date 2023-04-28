@@ -14,6 +14,7 @@
 """Internal service discovery magic."""
 
 import abc
+from contextlib import contextmanager
 from typing import ClassVar, Dict, Type, Callable, TypeVar, List
 
 from mtap import constants, _config
@@ -95,6 +96,7 @@ class DiscoveryMechanism(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    @contextmanager
     def register_processor_service(self, name, sid, address, port, version):
         raise NotImplementedError
 
@@ -164,6 +166,7 @@ class ConsulDiscovery(DiscoveryMechanism):
                                             service['Service']['Port']))
         return addresses
 
+    @contextmanager
     def register_processor_service(self, name, sid, address, port, version):
         self.c.agent.service.register(name,
                                       service_id=sid,
@@ -177,13 +180,10 @@ class ConsulDiscovery(DiscoveryMechanism):
                                       },
                                       tags=[constants.PROCESSING_SERVICE_TAG],
                                       timeout=ConsulDiscovery.REQUEST_TIMEOUT)
-
-        def deregister():
-            self.c.agent.service.deregister(
-                service_id=sid
-            )
-
-        return deregister
+        try:
+            yield
+        finally:
+            self.c.agent.service.deregister(service_id=sid)
 
     def discover_processor_service(self, processor_name, version):
         tag = constants.PROCESSING_SERVICE_TAG
