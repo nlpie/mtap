@@ -47,6 +47,7 @@ class ProcessorOptions:
     name: Optional[str] = None
     sid: Optional[str] = None
     log_level: Optional[str] = None
+    mp: Optional[bool] = None
     mp_start_method: Optional[str] = None
     grpc_enable_http_proxy: Optional[bool] = None
     mp_context: Optional[multiprocessing.get_context] = None
@@ -120,6 +121,11 @@ def processor_parser() -> ArgumentParser:
         '--grpc-enable-http-proxy',
         action='store_true',
         help="If set, will enable usage of http_proxy by grpc."
+    )
+    processors_parser.add_argument(
+        '--mp',
+        action='store_true',
+        help="If set, will use a process pool executor to run the processor code."
     )
     processors_parser.add_argument(
         '--mp-start-method',

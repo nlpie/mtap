@@ -25,7 +25,6 @@ from mtap._event import Event
 from mtap._events_client import EventsClient, events_client, EventsAddressLike
 from mtap._structs import copy_dict_to_struct, copy_struct_to_dict
 from mtap.api.v1 import processing_pb2_grpc, processing_pb2
-from mtap.api.v1.processing_pb2 import ProcessResponse
 from mtap.processing import ProcessingException, Processor
 from mtap.processing._processor import EventProcessor
 from mtap.processing.results import create_timer_stats, add_times
