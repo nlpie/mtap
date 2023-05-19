@@ -14,9 +14,8 @@
 import copy
 from dataclasses import field, dataclass
 from datetime import timedelta
-from typing import Callable, Any, NamedTuple, List, overload
+from typing import NamedTuple, List, overload
 
-from mtap._event import Event
 from mtap.processing.results import (
     add_times,
     create_timer_stats,
@@ -24,8 +23,6 @@ from mtap.processing.results import (
     ComponentResult,
     TimesMap,
 )
-
-PipelineCallback = Callable[[Event, 'PipelineResult'], Any]
 
 
 class PipelineResult(NamedTuple):

@@ -14,18 +14,21 @@
 import asyncio
 import atexit
 import logging
+import multiprocessing
 import traceback
 from concurrent.futures import Executor
 from contextvars import ContextVar
+from logging.handlers import QueueHandler
 from typing import NamedTuple
 
 from grpc_status import rpc_status
+from mtap.processing._exc import ProcessingException
 
 from mtap._event import Event
 from mtap._events_client import EventsClient, events_client, EventsAddressLike
 from mtap._structs import copy_dict_to_struct, copy_struct_to_dict
 from mtap.api.v1 import processing_pb2_grpc, processing_pb2
-from mtap.processing import ProcessingException, Processor
+from mtap.processing import Processor
 from mtap.processing._processor import EventProcessor
 from mtap.processing.results import create_timer_stats, add_times
 
@@ -41,7 +44,20 @@ class ProcessorLocal(NamedTuple):
 processor_local: ContextVar[ProcessorLocal] = ContextVar('processor_local')
 
 
-def init_local(processor: EventProcessor, events_address: EventsAddressLike, processor_name: str):
+def init_local(
+        processor: EventProcessor,
+        events_address: EventsAddressLike,
+        processor_name: str,
+        logging_queue: multiprocessing.Queue,
+        log_level: str
+):
+    # Set up worker subprocess logging via queue
+    h = QueueHandler(logging_queue)
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(log_level)
+
+    # Set up worker locals
     client = events_client(events_address)
     local = ProcessorLocal(processor, client, processor_name)
     processor_local.set(local)
@@ -64,24 +80,25 @@ def do_process(request):
                 client=client,
                 label_adapters=processor.custom_label_adapters
             ) as event:
-        with Processor.started_stopwatch('process_method'):
-            try:
-                result = processor.process(event, params)
-            except KeyError as e:
-                if e.args[0] == 'document_name':
-                    raise ProcessingException.from_local_exception(
-                        e, processor_name,
-                        "This error is likely caused by attempting "
-                        "to run an event through a document processor. "
-                        "Either call the pipeline with a document or "
-                        "set the 'document_name' processor parameter."
-                    ) from e
-                raise e
-            except Exception as e:
+        stopwatch = Processor.started_stopwatch('process_method')
+        try:
+            result = processor.process(event, params)
+        except KeyError as e:
+            if e.args[0] == 'document_name':
                 raise ProcessingException.from_local_exception(
-                    e, processor_name
+                    e, processor_name,
+                    "This error is likely caused by attempting "
+                    "to run an event through a document processor. "
+                    "Either call the pipeline with a document or "
+                    "set the 'document_name' processor parameter."
                 ) from e
+            raise e
+        except Exception as e:
+            raise ProcessingException.from_local_exception(
+                e, processor_name
+            ) from e
 
+        stopwatch.stop()
         response = processing_pb2.ProcessResponse()
         times = dict(c.times)
         for k, l in times.items():
@@ -93,8 +110,8 @@ def do_process(request):
                 created_index.document_name = document_name
                 created_index.index_name = index_name
 
-    if result is not None:
-        copy_dict_to_struct(result, response.result, [])
+        if result is not None:
+            copy_dict_to_struct(result, response.result, [])
     return response, times
 
 

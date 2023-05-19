@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import enum
 import traceback
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import List, Optional
 
 
@@ -104,13 +104,13 @@ class ProcessingException(Exception):
         return ProcessingException(error_info)
 
 
-class ErrorOrigin(Enum):
+class ErrorOrigin(enum.Enum):
     """Where the error occurred.
     """
     #: Error occurred locally to this process.
-    LOCAL = auto()
+    LOCAL = enum.auto()
     #: Error occurred on a remote component.
-    REMOTE = auto()
+    REMOTE = enum.auto()
 
 
 @dataclass
@@ -129,7 +129,7 @@ class ErrorInfo:
         stack_trace: The stack trace of the message.
         address: The remote address.
     """
-    origin: 'ErrorOrigin'
+    origin: ErrorOrigin
     component_id: str
     lang: str
     error_type: str

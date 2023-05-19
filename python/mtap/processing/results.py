@@ -42,9 +42,6 @@ class ComponentResult(NamedTuple):
     timing_info: Dict[str, timedelta]
     """A dictionary of the times taken processing this document."""
 
-    created_indices: Dict[str, List[str]]
-    """Any indices that have been added to documents by this processor."""
-
 
 class TimerStats(NamedTuple):
     """Statistics about a specific keyed measured duration recorded by a

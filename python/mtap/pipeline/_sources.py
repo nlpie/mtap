@@ -11,15 +11,41 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import asyncio
 import os
 from abc import ABC, abstractmethod
+from asyncio import get_running_loop
+from contextlib import AbstractAsyncContextManager
 from os import PathLike
 from pathlib import Path
-from typing import Union, Optional, ContextManager, Callable
+from typing import (
+    Union,
+    Optional,
+    ContextManager,
+    Callable,
+    AsyncIterable,
+    AsyncContextManager,
+    Iterable, Collection, cast, Generator
+)
 
 from mtap._document import Document
 from mtap._event import Event
 from mtap._events_client import EventsClient
+from mtap.pipeline._common import EventLike
+
+ProcessingSourceLike = Union[Iterable[EventLike], AsyncIterable[EventLike], 'ProcessingSource', 'AsyncProcessingSource']
+
+
+def to_async_source(source: ProcessingSourceLike) -> 'AsyncProcessingSource':
+    if isinstance(source, AsyncProcessingSource):
+        return source
+    if hasattr(source, '__aiter__'):
+        return AsyncIterableProcessingSource(source)
+    if hasattr(source, '__iter__'):
+        source = IterableProcessingSource(source)
+    if isinstance(source, ProcessingSource):
+        return AsyncProcessingSourceWrapper(source)
+    raise ValueError(f"Unrecognized type of source: {type(source)}")
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -79,12 +105,59 @@ class ProcessingSource(ContextManager, ABC):
         """
         pass
 
-    def __enter__(self):
-        return self
-
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+
+class AsyncProcessingSource(AbstractAsyncContextManager, ABC):
+
+    async def total(self) -> Optional[int]:
         return None
+
+    @abstractmethod
+    async def aproduce(self, queue: asyncio.Queue[EventLike]):
+        ...
+
+    async def close(self):
+        """Optional method: called to clean up after processing is complete.
+
+        Default behavior is to do nothing.
+        """
+        pass
+
+    # noinspection PyProtocol
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+
+class AsyncIterableProcessingSource(AsyncProcessingSource):
+    def __init__(self, source: Union[Collection[EventLike], AsyncIterable[EventLike]]):
+        self.source = source
+        self._total = None
+        try:
+            self._total = len(source)
+        except (AttributeError, TypeError):
+            pass
+
+    async def total(self) -> Optional[int]:
+        return self._total
+
+    async def aproduce(self, queue):
+        async for target in self.source:
+            await queue.put(target)
+
+
+class AsyncProcessingSourceWrapper(AsyncProcessingSource):
+    def __init__(self, source: ProcessingSource):
+        self.source = source
+
+    async def aproduce(self, queue):
+        loop = get_running_loop()
+
+        def consume(e: Event):
+            loop.run_until_complete(queue.put(e))
+
+        self.source.produce(consume)
 
 
 class IterableProcessingSource(ProcessingSource):
@@ -93,7 +166,7 @@ class IterableProcessingSource(ProcessingSource):
     """
     __slots__ = ('it',)
 
-    def __init__(self, source):
+    def __init__(self, source: Union[Collection[EventLike], Iterable[EventLike]]):
         # We use an iterator here to can ensure that it gets closed on
         # unexpected / early termination and any caller context managers are
         # exited before their client gets shut down.
@@ -115,7 +188,7 @@ class IterableProcessingSource(ProcessingSource):
 
     def close(self):
         try:
-            self.it.close()
+            cast(Generator, self.it).close()
         except AttributeError:
             pass
 

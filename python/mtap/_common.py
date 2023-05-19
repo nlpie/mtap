@@ -11,8 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import signal
 import threading
+from contextlib import contextmanager
+from logging.handlers import QueueListener
 from typing import TypeVar, Optional
 
 
@@ -39,3 +42,22 @@ def or_default(option: Optional[T], default: T) -> T:
     if option is None:
         return default
     return option
+
+
+@contextmanager
+def mp_logging_listener(log_level, mp_context=None):
+    if mp_context is None:
+        import multiprocessing
+        mp_context = multiprocessing
+    logging_queue = mp_context.Queue(-1)
+    handler = logging.StreamHandler()
+    f = logging.Formatter('%(asctime)s %(processName)-10s %(name)s '
+                          '%(levelname)-8s %(message)s')
+    handler.setFormatter(f)
+    handler.setLevel(log_level)
+    q_listener = QueueListener(logging_queue, handler)
+    q_listener.start()
+    try:
+        yield logging_queue
+    finally:
+        q_listener.stop()

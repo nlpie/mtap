@@ -11,12 +11,13 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import copy
 import dataclasses
 import logging
 import pathlib
 from concurrent.futures import Future
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from datetime import datetime
 from os import PathLike
 from typing import (
@@ -25,9 +26,12 @@ from typing import (
     Any,
     Union,
     List,
-    Iterable,
+    Callable,
 )
 
+from tqdm import tqdm
+
+from mtap import Event
 from mtap._events_client import EventsAddressLike
 from mtap.pipeline._common import EventLike, event_and_params
 from mtap.pipeline._error_handling import (
@@ -38,20 +42,19 @@ from mtap.pipeline._error_handling import (
 from mtap.pipeline._mp_config import MpConfig
 from mtap.pipeline._pipeline_components import (
     RemoteProcessor,
-    ComponentDescriptor,
 )
+from mtap.pipeline._remote_runner import RemoteProcessorRunner
 from mtap.pipeline._results import (
     PipelineResult,
     PipelineTimes,
-    PipelineCallback,
 )
-from mtap.pipeline._sources import ProcessingSource
-from mtap.processing import ProcessingComponent
-from mtap.processing.results import ComponentResult
+from mtap.pipeline._sources import ProcessingSourceLike, to_async_source
 
 logger = logging.getLogger('mtap.processing')
 
-ProcessingSourceLike = Union[Iterable[EventLike], ProcessingSource]
+PipelineCallback = Callable[[Event, 'PipelineResult'], Any]
+
+POISON = object()
 
 
 def _cancel_callback(event, read_ahead, cd, close_events):
@@ -64,17 +67,18 @@ def _cancel_callback(event, read_ahead, cd, close_events):
     return fn
 
 
-class ActivePipeline:
-    __slots__ = (
-        'components'
-    )
-
-    components: List[ProcessingComponent]
-
-    def __init__(self, components: List[ProcessingComponent]):
+class PipelineRunner:
+    def __init__(
+            self,
+            components: List[RemoteProcessorRunner],
+            mp_config: MpConfig,
+            loop: Optional[asyncio.BaseEventLoop] = None,
+    ):
         self.components = components
+        self.mp_config = mp_config
+        self.loop = asyncio.get_running_loop() if loop is None else loop
 
-    def run_by_event_id(
+    async def run_by_event_id(
             self,
             event_id: str,
             event_service_instance_id: str,
@@ -83,22 +87,15 @@ class ActivePipeline:
         start = datetime.now()
         results = []
         for component in self.components:
-            d, ti, ci = component.call_process(event_id,
-                                               event_service_instance_id,
-                                               params)
-            pr = ComponentResult(
-                identifier=component.component_id,
-                result_dict=d,
-                timing_info=ti,
-                created_indices=ci
-            )
-            results.append(pr)
+            cr = await component.call_process(
+                event_id, event_service_instance_id, params)
+            results.append(cr)
 
         total = datetime.now() - start
         logger.debug('Finished processing event_id: %s', event_id)
         return PipelineResult(results, total)
 
-    def run(
+    async def run(
             self,
             target: EventLike,
             *, params: Optional[Dict[str, Any]] = None
@@ -106,14 +103,55 @@ class ActivePipeline:
         event, params = event_and_params(target, params)
         event_id = event.event_id
 
-        return self.run_by_event_id(
+        return await self.run_by_event_id(
             event_id,
             event.event_service_instance_id,
             params
         )
 
+    async def mp(self,
+                 source: ProcessingSourceLike,
+                 total: Optional[int] = None,
+                 callback: Optional[PipelineCallback] = None,
+                 mp_config: MpConfig = None):
+        source = to_async_source(source)
+        total = (await source.total()) if total is None else total
+        q = asyncio.Queue(mp_config.read_ahead)
+        currently_processing = asyncio.Semaphore(mp_config.workers)
+        progress = None
+        if mp_config.show_progress:
+            progress = tqdm(total, unit='events', smoothing=0.01)
 
-class Pipeline(List[ComponentDescriptor]):
+        async def process_all():
+            async def process(e: Event):
+                result = await self.run(e)
+
+                def run_callback():
+                    try:
+                        callback(e, result)
+                    except Exception as exc:
+                        logger.error("Error in callback: ", exc)
+                    if mp_config.close_events:
+                        e.release_lease()
+                    progress.update(1)
+
+                await asyncio.to_thread(run_callback)
+                currently_processing.release()
+
+            background_tasks = set()
+            while True:
+                currently_processing.acquire()
+                event = await q.get()
+                if event is POISON:
+                    break
+                task = asyncio.create_task(process(event))
+                background_tasks.add(task)
+                task.add_done_callback(background_tasks.discard)
+
+        await asyncio.gather(source.aproduce(q), process_all())
+
+
+class Pipeline(List[RemoteProcessor]):
     """An object which can be used to build and run a pipeline of remote and
     local processors.
 
@@ -146,9 +184,9 @@ class Pipeline(List[ComponentDescriptor]):
         >>>                         address='localhost:50053'),
         >>>         RemoteProcessor('processor-3-id',
         >>>                         address='localhost:50054'),
-        >>>         events_address='localhost:50051'
+        >>>         events_address='localhost:50051')
         >>> with pipeline.events_client() as client:
-        >>>     for txt in txts:
+        >>>     for txt in texts:
         >>>         with Event(client=client) as event:
         >>>             document = event.add_document('plaintext', txt)
         >>>             results = pipeline.run(document)
@@ -173,12 +211,13 @@ class Pipeline(List[ComponentDescriptor]):
     """The error handlers to use when running the pipeline."""
 
     def __init__(self,
-                 *components: ComponentDescriptor,
+                 *components: RemoteProcessor,
                  name: Optional[str] = None,
                  events_address: EventsAddressLike = None,
                  mp_config: Optional[MpConfig] = None,
                  error_handlers: List[ProcessingErrorHandler] = None):
         super().__init__(components)
+        _check_for_duplicates(self)
         self.name = name or 'pipeline'
         self.events_address = events_address
         self.mp_config = mp_config or MpConfig()
@@ -319,77 +358,36 @@ class Pipeline(List[ComponentDescriptor]):
             >>>
             >>> pipeline.run_multithread(document_source(), total=len(docs))
         """
-        from mtap.pipeline._mp_pipeline import ActiveMpRun
+
         pipeline = copy.deepcopy(self)
         mp = dataclasses.asdict(pipeline.mp_config)
         mp.update(kwargs)
-        pipeline.mp_config = MpConfig(**mp)
-        with ActiveMpRun(pipeline, source, total, callback) as runner:
-            result = runner.run()
+        with self.activate() as runner:
+            result = runner.mp(source, total=total, callback=callback, mp_config=mp)
         return result
 
-    def run(
-            self,
-            target: EventLike,
-            *, params: Optional[Dict[str, Any]] = None
-    ) -> PipelineResult:
-        """Processes the event/document using all the processors in the
-        pipeline.
-
-        Args:
-            target: Either an event or a document to process.
-            params: Json object containing params specific to processing this
-                event, the existing params dictionary defined in
-                :func:`~PipelineBuilder.add_processor` will be updated with
-                the contents of this dict.
-
-        Returns:
-            The results of all the processors in the pipeline.
-
-        Examples:
-            >>> e = mtap.Event()
-            >>> document = mtap.Document('plaintext', text="...", event=e)
-            >>> pipeline.run(document)
-        """
-        with self.activate() as active:
-            return active.run(target, params=params)
-
     @contextmanager
-    def activate(self) -> ActivePipeline:
-        components = []
-        try:
-            components = [
-                component.create_pipeline_component(
-                    self.events_address
-                ) for component in self if component.enabled
-            ]
-            yield ActivePipeline(components)
-        finally:
-            for component in components:
-                component.close()
-
-    def _check_for_duplicates(self, component: ComponentDescriptor):
-        component_id = component.component_id
-        if any(x.component_id == component_id for x in self if x != component):
-            raise ValueError(f"Attempted to insert a duplicate component_id: "
-                             f"{component_id}")
+    def activate(self) -> PipelineRunner:
+        with ExitStack() as exit_stack:
+            components = [exit_stack.enter_context(component.create_runner(self.events_address, ))
+                          for component in self if component.enabled]
+            yield PipelineRunner(components, copy.deepcopy(self.mp_config))
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
-        self._check_for_duplicates(value)
+        _check_for_duplicates(self)
 
     def insert(self, index, item):
         super().insert(index, item)
-        self._check_for_duplicates(item)
+        _check_for_duplicates(self)
 
     def append(self, item):
         super().append(item)
-        self._check_for_duplicates(item)
+        _check_for_duplicates(self)
 
     def extend(self, other):
         super().extend(other)
-        for item in other:
-            self._check_for_duplicates(item)
+        _check_for_duplicates(self)
 
     def create_times(self) -> PipelineTimes:
         """Creates a timing object that can be used to store run times.
@@ -404,6 +402,10 @@ class Pipeline(List[ComponentDescriptor]):
         >>> times.add_result_times(result)
         """
         return PipelineTimes(
-            self.name,
-            [component.component_id for component in self if component.enabled]
-        )
+            self.name, [component.component_id for component in self if component.enabled])
+
+
+def _check_for_duplicates(seq: List[RemoteProcessor]):
+    for i, x in enumerate(seq):
+        if any(y.component_id == x.component_id for y in seq[i + 1:]):
+            raise ValueError(f"Attempted to insert a duplicate component_id: {x.component_id}")

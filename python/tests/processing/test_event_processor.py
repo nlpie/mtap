@@ -24,7 +24,7 @@ def test_started_stopwatch():
         def process(self, event: Event, params: Dict[str, Any]):
             with self.started_stopwatch('foo') as stopwatch:
                 sleep(1 / 1000)
-            return stopwatch.duration
+            return stopwatch._duration
 
     pr = TestProcessor()
     assert pr.process(None, None) >= timedelta(milliseconds=1)
@@ -38,7 +38,7 @@ def test_not_started_stopwatch():
                     stopwatch.start()
                     sleep(1 / 1000)
                     stopwatch.stop()
-            return stopwatch.duration
+            return stopwatch._duration
 
     pr = TestProcessor()
     assert pr.process(None, None) >= timedelta(milliseconds=20)

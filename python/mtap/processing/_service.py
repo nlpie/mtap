@@ -19,8 +19,10 @@ import signal
 from argparse import ArgumentParser, Namespace
 from asyncio import Future
 from concurrent.futures import ProcessPoolExecutor
-from contextlib import AsyncExitStack, contextmanager
+from contextlib import AsyncExitStack, contextmanager, asynccontextmanager
 from dataclasses import dataclass
+from multiprocessing import Process
+from multiprocessing.context import BaseContext
 from typing import Optional, Sequence, Union
 from uuid import uuid4
 
@@ -29,6 +31,7 @@ from grpc_health.v1.health import HealthServicer
 from grpc_health.v1.health_pb2_grpc import add_HealthServicer_to_server
 
 from mtap import Config
+from mtap._common import mp_logging_listener
 from mtap.api.v1.processing_pb2_grpc import add_ProcessorServicer_to_server
 from mtap.processing import EventProcessor
 from mtap.processing._servicer import ProcessorServicer, init_local
@@ -51,6 +54,27 @@ class ProcessorOptions:
     mp_start_method: Optional[str] = None
     grpc_enable_http_proxy: Optional[bool] = None
     mp_context: Optional[multiprocessing.get_context] = None
+    logging_queue: Optional[multiprocessing.Queue] = None
+
+    def get_mp_context(self) -> BaseContext:
+        if self.mp_context is not None:
+            return self.mp_context
+        mp_start_method = 'spawn' if self.mp_start_method is None else self.mp_start_method
+        return multiprocessing.get_context(mp_start_method)
+
+    @staticmethod
+    def parser() -> ArgumentParser:
+        return processor_parser()
+
+    @staticmethod
+    def from_namespace(ns: Union[Namespace, 'ProcessorOptions']) -> 'ProcessorOptions':
+        if isinstance(ns, ProcessorOptions):
+            return ns
+        new_options = ProcessorOptions()
+        for k, v in vars(ns).items():
+            if hasattr(new_options, k):
+                setattr(new_options, k, v)
+        return new_options
 
 
 def processor_parser() -> ArgumentParser:
@@ -135,9 +159,38 @@ def processor_parser() -> ArgumentParser:
     return processors_parser
 
 
+@asynccontextmanager
+async def subprocess_run_processor(processor: EventProcessor, options: ProcessorOptions):
+    mp_context = options.get_mp_context()
+    kwargs = {'proc': processor, 'options': options}
+
+    with AsyncExitStack() as exit_stack:
+        logging_queue = options.logging_queue
+        if logging_queue is None:
+            logging_queue = exit_stack.enter_context(
+                mp_logging_listener(options.log_level, mp_context))
+        kwargs['logging_queue'] = logging_queue
+        p = mp_context.Process(target=run_processor, kwargs=kwargs)
+        p.start()
+
+        async def stop():
+            p.terminate()
+            try:
+                await asyncio.to_thread(p.join, 5)
+            except TimeoutError:
+                p.kill()
+                try:
+                    await asyncio.to_thread(p.join, 5)
+                except TimeoutError:
+                    logger.warning("Failed to clean up processor hosting subprocess.")
+
+        exit_stack.push_async_callback(stop)
+        yield
+
+
 def run_processor(proc: EventProcessor,
                   *,
-                  mp: bool = False,
+                  mp: bool = None,
                   options: Union[ProcessorOptions, Namespace, None] = None,
                   args: Optional[Sequence[str]] = None,
                   mp_context=None):
@@ -146,10 +199,7 @@ def run_processor(proc: EventProcessor,
 
     Args:
         proc: The processor to host.
-        mp: If true, will create instances of ``proc`` on multiple
-            forked processes to process events. This is useful if the processor
-            is computationally intensive and would run into Python GIL issues
-            on a single process.
+        mp: Doesn't do anything.
         options: The parsed arguments
             from the parser returned by :func:`processor_parser`.
         args: Arguments to parse
@@ -166,16 +216,15 @@ def run_processor(proc: EventProcessor,
 
         >>> run_processor(MyProcessor(), args=['-p', '8080'])
     """
+    if mp is not None:
+        logger.info('The "mp" parameter for mtap.run_processor is deprecated and will be removed.')
     if options is None:
         parser = ArgumentParser(parents=[processor_parser()])
         options = parser.parse_args(args, namespace=ProcessorOptions())
+    options = ProcessorOptions.from_namespace(options)
 
-    if not isinstance(options, ProcessorOptions):
-        new_options = ProcessorOptions()
-        for k, v in vars(options).items():
-            if hasattr(new_options, k):
-                setattr(new_options, k, v)
-        options = new_options
+    log_level = 'INFO' if options.log_level is None else options.log_level
+    logging.basicConfig(level=log_level)
 
     if mp_context is not None:
         options.mp_context = mp_context
@@ -187,33 +236,38 @@ async def serve_forever(processor: EventProcessor, options: ProcessorOptions):
     if not isinstance(processor, EventProcessor):
         raise ValueError("Processor must be instance of EventProcessor class.")
 
-    log_level = 'INFO' if options.log_level is None else options.log_level
-    logging.basicConfig(level=log_level)
-
+    # Default options
     host = '127.0.0.1' if options.host is None else options.host
     port = 0 if options.port is None else options.port
     workers = 10 if options.workers is None else options.workers
     processor_name = processor.metadata['name'] if options.name is None else options.name
     sid = str(uuid4()) if options.sid is None else options.sid
-    mp_start_method = 'spawn' if options.mp_start_method is None else options.mp_start_method
     grpc_enable_http_proxy = (False if options.grpc_enable_http_proxy is None
                               else options.grpc_enable_http_proxy)
-    mp_context = (multiprocessing.get_context(mp_start_method) if options.mp_context is None
-                  else options.mp_context)
+    mp_context = options.get_mp_context()
 
     events_addresses = ([] if options.events_addresses is None
                         else options.events_addresses.split(','))
 
     async with AsyncExitStack() as exit_stack:
+        # set up logging for the multiprocess workers
+        log_level = 'INFO' if options.log_level is None else options.log_level
+        logging_queue = options.logging_queue
+        if logging_queue is None:
+            logging_queue = exit_stack.enter_context(mp_logging_listener(log_level, mp_context))
+
+        # Create the executor process pool
         executor = exit_stack.enter_context(ProcessPoolExecutor(
             max_workers=workers,
             initializer=init_local,
-            initargs=(processor, events_addresses, processor_name),
+            initargs=(processor, events_addresses, processor_name, logging_queue, log_level),
             mp_context=mp_context))
 
+        # Create the grpc servicers
         proc_servicer = ProcessorServicer(processor_name, sid, processor.metadata, executor)
         health_servicer = HealthServicer()
 
+        # Create and start the grpc server
         config = Config()
         grpc_options = config.get('grpc.processor_options', {})
         if options.grpc_enable_http_proxy:
@@ -232,6 +286,7 @@ async def serve_forever(processor: EventProcessor, options: ProcessorOptions):
         exit_stack.push_async_callback(server.stop, None)
         exit_stack.enter_context(manage_health(health_servicer, processor_name, sid))
 
+        # Register for service discovery
         if options.register:
             from mtap.discovery import DiscoveryMechanism
             disc_mech = DiscoveryMechanism()
@@ -242,6 +297,7 @@ async def serve_forever(processor: EventProcessor, options: ProcessorOptions):
                 port=actual_port,
                 version='v1'))
 
+        # Set up signal handling for termination
         loop = asyncio.get_running_loop()
         fut = loop.create_future()
         for signame in {'SIGINT', 'SIGTERM'}:
@@ -249,6 +305,7 @@ async def serve_forever(processor: EventProcessor, options: ProcessorOptions):
                 getattr(signal, signame),
                 functools.partial(ask_exit, fut, processor_name, f'{host}:{actual_port}'))
 
+        # Run forever
         try:
             await fut
         except asyncio.CancelledError:

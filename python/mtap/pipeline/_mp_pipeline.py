@@ -32,10 +32,10 @@ from mtap.processing import (
 )
 
 if TYPE_CHECKING:
-    from mtap.pipeline._pipeline import ActivePipeline
+    from mtap.pipeline._pipeline import PipelineRunner
 
 
-_mp_pipeline: Optional['ActivePipeline'] = None
+_mp_pipeline: Optional['PipelineRunner'] = None
 
 
 def _mp_process_init(config, pipeline, queue, log_level):

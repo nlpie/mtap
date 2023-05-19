@@ -31,7 +31,6 @@ from mtap.pipeline._pipeline import (
     Pipeline,
 )
 from mtap.pipeline._pipeline_components import (
-    ComponentDescriptor,
     LocalProcessor,
     RemoteProcessor,
 )

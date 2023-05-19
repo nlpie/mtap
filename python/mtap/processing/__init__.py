@@ -25,16 +25,8 @@ from mtap.processing._processor import (
     Stopwatch,
 )
 
-from mtap.processing._processing_component import (
-    ProcessingComponent
-)
-
-from mtap.processing._runners import (
-    LocalRunner,
-    RemoteRunner
-)
-
 from mtap.processing._service import (
+    ProcessorOptions,
     processor_parser,
     run_processor,
     serve_forever

@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 from abc import abstractmethod, ABCMeta
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import ClassVar, Optional, ContextManager, Mapping, Dict, Any, \
     Callable
 
@@ -25,16 +26,10 @@ from mtap.descriptors import ProcessorDescriptor
 
 
 class ProcessorContext:
-    __slots__ = ('times',)
+    times: Dict[str, timedelta]
 
     def __init__(self):
         self.times = {}
-
-    def add_time(self, key, duration):
-        try:
-            self.times[key] += duration
-        except KeyError:
-            self.times[key] = duration
 
 
 processor_ctx: ContextVar[Optional[ProcessorContext]] = ContextVar('processor_ctx', default=None)
@@ -50,7 +45,7 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
     :meth:`Processor.unstarted_stopwatch` methods.
 
     Attributes:
-        duration: The amount of time elapsed for this timer.
+        _duration: The amount of time elapsed for this timer.
 
     Examples:
 
@@ -69,30 +64,36 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
         >>>         ...
         >>>         stopwatch.stop()
     """
-    __slots__ = ('_key', '_context', '_running', 'duration', '_start')
+    __slots__ = ('_key', '_context', '_running', '_duration', '_start')
 
-    duration: timedelta
+    _duration: int
 
     def __init__(self, key: Optional[str] = None, context: Optional = None):
         self._key = key
         self._context = context
         self._running = False
-        self.duration = timedelta()
+        self._duration = 0
         self._start = None
+
+    @property
+    def duration(self) -> timedelta:
+        return timedelta(microseconds=self._duration * 1000)
 
     def start(self):
         """Starts the timer.
         """
         if not self._running:
             self._running = True
-            self._start = datetime.now()
+            self._start = time.monotonic_ns()
 
     def stop(self):
         """Stops / pauses the timer
         """
         if self._running:
             self._running = False
-            self.duration += datetime.now() - self._start
+            self._duration += time.monotonic_ns() - self._start
+        with suppress(AttributeError):
+            self._context.times[self._key] = self.duration
 
     def __enter__(self):
         return self
@@ -100,17 +101,12 @@ class Stopwatch(ContextManager, metaclass=ABCMeta):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._running:
             self.stop()
-        try:
-            self._context.add_time(self._key, self.duration)
-        except AttributeError:  # If context is None
-            pass
 
 
 class Processor:
     """Mixin used by all processor abstract base classes that provides the
     ability to update serving status and use timers.
     """
-    __slots__ = ('_health_callback', 'metadata')
 
     descriptor: ClassVar[Optional['ProcessorDescriptor']] = None
 
@@ -155,7 +151,7 @@ class Processor:
             >>>     ...
 
         """
-        stopwatch = Stopwatch(key, processor_ctx.get())
+        stopwatch = Stopwatch(key, processor_ctx.get(None))
         stopwatch.start()
         return stopwatch
 
@@ -181,7 +177,7 @@ class Processor:
             >>>         ...
             >>>         stopwatch.stop()
         """
-        return Stopwatch(key, processor_ctx.get())
+        return Stopwatch(key, processor_ctx.get(None))
 
     @staticmethod
     @contextmanager
@@ -206,8 +202,6 @@ class EventProcessor(Processor):
         ...          # do work on the event
         ...          ...
     """
-    __slots__ = ()
-
     @property
     def custom_label_adapters(self) -> Mapping[str, ProtoLabelAdapter]:
         """Optional method used to provide non-standard proto label adapters
@@ -262,8 +256,6 @@ class DocumentProcessor(EventProcessor):
         ...               ...
 
     """
-    __slots__ = ()
-
     @abstractmethod
     def process_document(self,
                          document: 'Document',
