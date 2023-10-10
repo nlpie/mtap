@@ -281,7 +281,8 @@ class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):
         self.output_directory = 'errors' if output_directory is None else output_directory
         if serializer is None:
             serializer = Serializer.get('json')
-        if not issubclass(serializer, Serializer):          serializer = Serializer.get(serializer)
+        if not issubclass(serializer, Serializer):
+            serializer = Serializer.get(serializer)
         self.serializer = serializer
 
     @classmethod
