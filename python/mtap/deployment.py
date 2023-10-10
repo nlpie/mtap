@@ -66,9 +66,9 @@ def _get_java() -> str:
 JAVA_EXE = _get_java()
 
 
-def _listen(process: subprocess.Popen) -> int:
+def _listen(process: subprocess.Popen, name: str) -> int:
     for line in process.stdout:
-        print(line.decode(), end='', flush=True)
+        print(f'{name}: {line.decode()}', end='', flush=True)
     return process.wait()
 
 
@@ -596,9 +596,14 @@ class Deployment:
                             processor_deployment.startup_timeout
                             or self.shared_processor_config.startup_timeout
                     )
+                    name = processor_deployment.name
+                    if name is None:
+                        entry_point = processor_deployment.entry_point
+                        last_period = entry_point.rfind('.')
+                        name = entry_point[last_period + 1:] if last_period > 0 else entry_point
                     address = depl.start_subprocess(
                         call,
-                        processor_deployment.entry_point,
+                        name,
                         sid,
                         startup_timeout,
                         enable_proxy
@@ -633,7 +638,8 @@ class _ActiveDeployment:
                              start_new_session=True,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
-        listener = threading.Thread(target=_listen, args=(p,))
+        logger_name = f'{name}({sid})'
+        listener = threading.Thread(target=_listen, args=(p, logger_name))
         listener.start()
         self._processor_listeners.append(
             (p, listener)
