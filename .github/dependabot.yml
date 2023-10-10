@@ -4,17 +4,23 @@ updates:
     directory: /
     schedule:
       interval: daily
+    groups:
+      grpc-deps:
+        patterns:
+          - "grpcio*"
   - package-ecosystem: gradle
     directory: /java/
     schedule:
       interval: daily
+    groups:
+      grpc-deps:
+        patterns:
+          - "io.grpc*"
   - package-ecosystem: gomod
     directory: /go/
     schedule:
       interval: daily
-groups:
-  grpc-deps:
-    patterns:
-      - "grpcio*"
-      - "io.grpc*"
-      - "google.golang.org/grpc*"
+    groups:
+      grpc-deps:
+        patterns:
+          - "google.golang.org/grpc*"
