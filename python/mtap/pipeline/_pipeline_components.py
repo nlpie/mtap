@@ -126,6 +126,9 @@ class RemoteProcessor(ComponentDescriptor):
     enabled: bool = True
     """Whether the processor is enabled and should be run in the pipeline."""
 
+    call_timeout: float = 10.0
+    """A customizable timeout for calls to the remote processor."""
+
     def __post_init__(self):
         if self.component_id is DEFAULT_COMPONENT_ID:
             self.component_id = self.name
@@ -140,5 +143,6 @@ class RemoteProcessor(ComponentDescriptor):
                               component_id=self.component_id,
                               address=self.address,
                               params=copy.deepcopy(self.params),
-                              enable_proxy=self.enable_proxy)
+                              enable_proxy=self.enable_proxy,
+                              call_timeout=self.call_timeout)
         return runner

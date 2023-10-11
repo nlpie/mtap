@@ -16,7 +16,7 @@ flattened python dictionary representations of events.
 """
 import logging
 import os
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod
 from os import PathLike
 from typing import Union, Dict, Any, Optional, TextIO, Type, ClassVar, IO, \
     BinaryIO

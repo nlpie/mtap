@@ -71,8 +71,8 @@ def test_load_from_config():
     pipeline = Pipeline.from_yaml_file(Path(__file__).parent / 'pipeline.yml')
     assert pipeline.name == 'mtap-test-pipeline'
     assert len(pipeline.error_handlers) == 2
-    assert type(pipeline.error_handlers[0]) == SimpleErrorHandler
-    assert type(pipeline.error_handlers[1]) == TerminationErrorHandler
+    assert isinstance(pipeline.error_handlers[0], SimpleErrorHandler)
+    assert isinstance(pipeline.error_handlers[1], TerminationErrorHandler)
     assert pipeline.error_handlers[1].max_failures == 3
     assert not pipeline.mp_config.show_progress
     assert pipeline.mp_config.workers == 12

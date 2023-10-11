@@ -115,8 +115,9 @@ class ProcessingErrorHandler:
         """Creates an error handler from its dictionary representation.
 
         Args:
-            conf: The dictionary representation of the error handler. Should have at minimum a ``name`` key with ``str``
-                value, can also have a dictionary of params that will be passed to the constructor of the serializer.
+            conf: The dictionary representation of the error handler. Should have at minimum a ``name`` key with
+                ``str`` value, can also have a dictionary of params that will be passed to the constructor of the
+                 serializer.
 
         Returns:
             The instantiated error handler.
