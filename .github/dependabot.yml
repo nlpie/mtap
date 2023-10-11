@@ -4,6 +4,10 @@ updates:
     directory: /
     schedule:
       interval: daily
+    ignore:
+      # importlib-resources, a non-critical dependency, version 6.+ does not support Python 3.7
+      - dependency-name: "importlib-resources"
+        versions: ["6.x"]
     groups:
       grpc-deps:
         patterns:

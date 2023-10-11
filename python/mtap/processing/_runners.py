@@ -31,16 +31,6 @@ logger = logging.getLogger('mtap.processing')
 
 
 class LocalRunner(ProcessingComponent):
-    __slots__ = (
-        '_processor',
-        '_events_address',
-        '_processor_name',
-        '_component_id',
-        '_params',
-        'metadata',
-        '_client'
-    )
-
     def __init__(self,
                  processor: EventProcessor,
                  events_address: EventsAddressLike,
@@ -106,22 +96,14 @@ class LocalRunner(ProcessingComponent):
 
 
 class RemoteRunner(ProcessingComponent):
-    __slots__ = (
-        '_processor_name',
-        '_component_id',
-        '_address',
-        '_params',
-        '_channel',
-        '_stub'
-    )
-
     def __init__(
             self,
             processor_name,
             component_id,
             address=None,
             params=None,
-            enable_proxy=None
+            enable_proxy=None,
+            call_timeout=None
     ):
         self._processor_name = processor_name
         self._component_id = component_id or processor_name
@@ -141,6 +123,7 @@ class RemoteRunner(ProcessingComponent):
         self._channel = insecure_channel(address, options=list(
             channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
+        self._call_timeout = call_timeout or 10.0
 
     @property
     def processor_name(self) -> str:
@@ -169,6 +152,7 @@ class RemoteRunner(ProcessingComponent):
                 try:
                     response = self._stub.Process(
                         request,
+                        timeout=self._call_timeout,
                         metadata=[('service-name', self.processor_name)])
                 except grpc.RpcError as e:
                     if e.code() == grpc.StatusCode.UNAVAILABLE:
@@ -178,6 +162,13 @@ class RemoteRunner(ProcessingComponent):
                             "Failed to connect to processor service, check "
                             "that the service is running and the address is "
                             "correctly configured."
+                        )
+                    if e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                        raise ProcessingException.from_local_exception(
+                            e,
+                            self.component_id,
+                            "The configured timeout for completing the "
+                            "remote processing request was exceeded."
                         )
                     raise ProcessingException.from_rpc_error(
                         e, self.component_id, self._address
