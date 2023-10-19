@@ -1,4 +1,4 @@
-//go:build tools
+// +build mtap
 
 package mtap
 
