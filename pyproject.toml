@@ -68,7 +68,7 @@ write_to = "python/mtap/version.py"
 
 [project.optional-dependencies]
 test = [
-    "pytest==7.4.2",
+    "pytest==7.4.3",
     "pytest-mock==3.12.0",
     "grpcio-testing>=1.48.2,<=1.59.0",
     "requests==2.31.0",
