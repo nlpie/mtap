@@ -5,6 +5,8 @@
     <img src="https://img.shields.io/maven-central/v/edu.umn.nlpie/mtap" /></a>
   <a href='https://mtap.readthedocs.io/en/latest/?badge=latest'>
     <img src='https://readthedocs.org/projects/mtap/badge/?version=latest' alt='Documentation Status' /></a>
+  <a href='https://github.com/nlpie/mtap/actions/workflows/ci.yml'>
+    <img src='https://github.com/nlpie/mtap/actions/workflows/ci.yml/badge.svg?branch=main' /></a>
 </p>
 
 # MTAP
