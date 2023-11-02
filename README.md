@@ -3,6 +3,8 @@
     <img src="https://img.shields.io/pypi/v/mtap" /></a>
   <a href="https://mvnrepository.com/artifact/edu.umn.nlpie/mtap">
     <img src="https://img.shields.io/maven-central/v/edu.umn.nlpie/mtap" /></a>
+  <a href='https://mtap.readthedocs.io/en/latest/?badge=latest'>
+    <img src='https://readthedocs.org/projects/mtap/badge/?version=latest' alt='Documentation Status' /></a>
 </p>
 
 # MTAP
