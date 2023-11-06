@@ -1,16 +1,3 @@
-# Copyright 2023 Regents of the University of Minnesota.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import os
 from abc import ABC, abstractmethod
 from os import PathLike
@@ -161,23 +148,19 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
                  errors: Optional[str] = None):
         self.client = client
         if not os.path.isdir(directory):
-            raise ValueError(
-                f'Invalid input directory: {self.directory}'
-            )
+            raise ValueError(f'Invalid input directory: {directory}')
         self.directory = directory
         self.document_name = document_name
         self.extension_glob = extension_glob
         self.errors = errors
         if count_total:
-            self.total = sum(1 for _
-                             in Path(directory).rglob(self.extension_glob))
+            self.total = sum(1 for _ in Path(directory).rglob(self.extension_glob))
 
     def produce(self, consume):
         for path in Path(self.directory).rglob(self.extension_glob):
             with path.open('r', errors=self.errors) as f:
                 txt = f.read()
             relative = str(path.relative_to(self.directory))
-            with Event(event_id=relative, client=self.client,
-                       only_create_new=True) as e:
+            with Event(event_id=relative, client=self.client, only_create_new=True) as e:
                 doc = e.create_document(self.document_name, txt)
                 consume(doc)
