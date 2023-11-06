@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/consul/api v1.26.1
 	github.com/spf13/cast v1.5.1
 	github.com/spf13/viper v1.17.0
-	golang.org/x/sync v0.4.0
+	golang.org/x/sync v0.5.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230913181813-007df8e322eb
 	google.golang.org/grpc v1.59.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.3.0
