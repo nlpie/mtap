@@ -1,23 +1,8 @@
-/*
- * Copyright 2019 Regents of the University of Minnesota.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"github.com/golang/glog"
@@ -31,12 +16,36 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
+	"gopkg.in/yaml.v3"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
 )
+
+type listFlag []string
+
+func (i *listFlag) String() string { return "" }
+
+func (i *listFlag) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+type PipelineConfig struct {
+	Components []PipelineProcessor
+}
+
+type PipelineProcessor struct {
+	Name    string
+	Address string
+}
+
+var processorNames listFlag
+var processorHosts listFlag
+
+var pipelineConfigs listFlag
 
 func run() error {
 	glog.V(1).Infoln("Starting MTAP API Gateway")
@@ -58,12 +67,41 @@ func run() error {
 		GrpcEnableHttpProxy: viper.GetBool("grpc.enable_proxy"),
 	}
 
-	var manualProcessors []processors.ManualProcessor
-	err := viper.UnmarshalKey("gateway.processors", &manualProcessors)
+	err := viper.UnmarshalKey("gateway.processors", &config.ManualProcessors)
 	if err != nil {
 		err = nil
-	} else {
-		config.ManualProcessors = manualProcessors
+	}
+
+	if len(processorNames) != len(processorHosts) {
+		return errors.New("unequal number of --name and --host processor flags")
+	}
+
+	for i, s := range processorNames {
+		config.ManualProcessors = append(config.ManualProcessors, processors.ManualProcessor{
+			Identifier: s,
+			Endpoint:   processorHosts[i],
+		})
+	}
+
+	for _, s := range pipelineConfigs {
+		data, err := os.ReadFile(s)
+		if err != nil {
+			glog.Errorf("Error reading pipeline config file %q: %v", s, err)
+			panic(1)
+		}
+		conf := PipelineConfig{}
+		err = yaml.Unmarshal(data, &conf)
+		if err != nil {
+			glog.Errorf("Error unmarshalling pipeline config file %q: %v", s, err)
+			panic(1)
+		}
+
+		for _, pipelineProcessor := range conf.Components {
+			config.ManualProcessors = append(config.ManualProcessors, processors.ManualProcessor{
+				Identifier: pipelineProcessor.Name,
+				Endpoint:   pipelineProcessor.Address,
+			})
+		}
 	}
 
 	server, err := processors.NewProcessorsServer(ctx, &config)
@@ -126,10 +164,18 @@ func run() error {
 func main() {
 	var mtapConfigFlag string
 	var port int
+
 	flag.StringVar(&mtapConfigFlag, "mtap-config", "",
 		"The path to the mtap configuration file")
 	flag.IntVar(&port, "port", -1, "The port to use")
+
+	flag.Var(&processorNames, "name", "The name of a processor to host.")
+	flag.Var(&processorHosts, "host", "The endpoint of a processor to host.")
+
+	flag.Var(&pipelineConfigs, "pipeline-config", "A pipeline configuration file to pull processors from.")
+
 	flag.Parse()
+
 	viper.SetDefault("consul.host", "localhost")
 	viper.SetDefault("consul.port", 8500)
 	viper.SetDefault("gateway.port", 8080)
@@ -167,5 +213,6 @@ func main() {
 
 	if err := run(); err != nil {
 		glog.Fatal(err)
+		os.Exit(1)
 	}
 }
