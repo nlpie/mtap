@@ -1,26 +1,9 @@
-/*
- * Copyright 2019 Regents of the University of Minnesota.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package edu.umn.nlpie.mtap.processing;
 
 import edu.umn.nlpie.mtap.common.Config;
 import edu.umn.nlpie.mtap.common.ConfigImpl;
 import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import edu.umn.nlpie.mtap.examples.HelloWorldExample;
 import edu.umn.nlpie.mtap.model.ChannelFactory;
 import edu.umn.nlpie.mtap.model.EventsClientPool;
 import edu.umn.nlpie.mtap.utilities.Helpers;
@@ -35,7 +18,10 @@ import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -187,7 +173,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     private boolean writeAddress = false;
 
     @Option(name = "--log-level", metaVar = "LOG_LEVEL", usage = "The log level to use.")
-    private String logLevel;
+    private String logLevel = "WARN";
 
     private ChannelFactory channelFactory;
 
@@ -457,6 +443,22 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
      * @return Object which can be used to control a server's lifecycle.
      */
     public ProcessorServer build(EventProcessor processor) {
+
+      try {
+        Class<?> logManagerClass = Class.forName("org.apache.logging.log4j.LogManager");
+        Object ctx = logManagerClass.getMethod("getContext", boolean.class).invoke(null, false);
+        Class<?> ctxClass = ctx.getClass();
+        Object config = ctxClass.getMethod("getConfiguration").invoke(ctx);
+        String rootLoggerName = (String) logManagerClass.getDeclaredField("ROOT_LOGGER_NAME").get(null);
+        Object loggerConfig = config.getClass().getMethod("getLoggerConfig", String.class)
+                .invoke(config, rootLoggerName);
+        Class<?> levelClass = Class.forName("org.apache.logging.log4j.Level");
+        Object level = levelClass.getMethod("forName", String.class, int.class).invoke(null, logLevel, 0);
+        loggerConfig.getClass().getMethod("setLevel", levelClass).invoke(loggerConfig, level);
+        ctxClass.getMethod("updateLoggers").invoke(ctx);
+      } catch (Exception e) {
+        logger.warn("Failed to set log level", e);
+      }
       Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
       String[] addresses;
       if (eventsTarget != null) {
