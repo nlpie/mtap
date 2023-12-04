@@ -1,16 +1,3 @@
-#  Copyright 2023 Regents of the University of Minnesota.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
 """Serialization, serializers, and helper methods for going to and from
 flattened python dictionary representations of events.
 """
@@ -259,30 +246,41 @@ class JsonSerializer(Serializer):
                       event: Event,
                       f: Union[str, bytes, PathLike, IO], *,
                       include_label_text: bool = False):
-        import json
         with Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
         with Processor.started_stopwatch('io'):
-            try:
-                json.dump(d, f)
-            except (AttributeError, TypeError):
-                os.makedirs(os.path.dirname(f), exist_ok=True)
-                with open(f, 'w') as f:
-                    json.dump(d, f)
+            _json_dump_file_or_path(d, f)
 
     @classmethod
     def file_to_event(cls,
                       f: Union[str, bytes, PathLike, IO],
                       client: Optional[EventsClient] = None) -> Event:
-        import json
         with Processor.started_stopwatch('io'):
-            try:
-                d = json.load(f)
-            except (AttributeError, TypeError):
-                with open(f, 'r') as f:
-                    d = json.load(f)
+            d = _json_load_file_or_path(f)
         with Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
+
+
+def _json_dump_file_or_path(d, f):
+    import json
+    try:
+        json.dump(d, f)
+        return
+    except (AttributeError, TypeError):
+        pass
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    with open(f, 'w') as f:
+        json.dump(d, f)
+
+
+def _json_load_file_or_path(f):
+    import json
+    try:
+        return json.load(f)
+    except (AttributeError, TypeError):
+        pass
+    with open(f, 'r') as f:
+        return json.load(f)
 
 
 class YamlSerializer(Serializer):
@@ -301,38 +299,49 @@ class YamlSerializer(Serializer):
     def event_to_file(cls, event: Event,
                       f: Union[str, bytes, PathLike, IO], *,
                       include_label_text: bool = False):
-        import yaml
-        try:
-            from yaml import CDumper as Dumper
-        except ImportError:
-            from yaml import Dumper
         with Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
         with Processor.started_stopwatch('io'):
-            try:
-                yaml.dump(d, f, Dumper=Dumper)
-            except (AttributeError, TypeError):
-                os.makedirs(os.path.dirname(f), exist_ok=True)
-                with open(f, 'w') as f:
-                    yaml.dump(d, f, Dumper=Dumper)
+            _yaml_dump_file_or_path(d, f)
 
     @classmethod
     def file_to_event(cls,
                       f: Union[str, bytes, PathLike, TextIO],
                       *, client: Optional[EventsClient] = None) -> Event:
-        import yaml
-        try:
-            from yaml import CLoader as Loader
-        except ImportError:
-            from yaml import Loader
         with Processor.started_stopwatch('io'):
-            try:
-                d = yaml.load(f, Loader=Loader)
-            except (AttributeError, TypeError):
-                with open(f) as f:
-                    d = yaml.load(f, Loader=Loader)
+            d = _yaml_load_file_or_path(f)
         with Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
+
+
+def _yaml_dump_file_or_path(d, f):
+    import yaml
+    try:
+        from yaml import CDumper as Dumper
+    except ImportError:
+        from yaml import Dumper
+    try:
+        yaml.dump(d, f, Dumper=Dumper)
+        return
+    except (AttributeError, TypeError):
+        pass
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    with open(f, 'w') as f:
+        yaml.dump(d, f, Dumper=Dumper)
+
+
+def _yaml_load_file_or_path(f):
+    import yaml
+    try:
+        from yaml import CLoader as Loader
+    except ImportError:
+        from yaml import Loader
+    try:
+        return yaml.load(f, Loader=Loader)
+    except (AttributeError, TypeError):
+        pass
+    with open(f) as f:
+        return yaml.load(f, Loader=Loader)
 
 
 class PickleSerializer(Serializer):
@@ -352,16 +361,10 @@ class PickleSerializer(Serializer):
                       event: Event,
                       f: Union[str, bytes, PathLike, BinaryIO], *,
                       include_label_text: bool = False):
-        import pickle
         with Processor.started_stopwatch('transform'):
             d = event_to_dict(event, include_label_text=include_label_text)
         with Processor.started_stopwatch('io'):
-            try:
-                pickle.dump(d, f)
-            except (AttributeError, TypeError):
-                os.makedirs(os.path.dirname(f), exist_ok=True)
-                with open(f, 'wb') as f:
-                    pickle.dump(d, f)
+            _pickle_dump_file_or_path(d, f)
 
     @classmethod
     def file_to_event(
@@ -369,12 +372,29 @@ class PickleSerializer(Serializer):
             f: Union[str, bytes, PathLike, BinaryIO], *,
             client: Optional[EventsClient] = None
     ) -> Event:
-        import pickle
         with Processor.started_stopwatch('io'):
-            try:
-                d = pickle.load(f)
-            except (AttributeError, TypeError):
-                with open(f, 'rb') as f:
-                    d = pickle.load(f)
+            d = _pickle_load_file_or_path(f)
         with Processor.started_stopwatch('transform'):
             return dict_to_event(d, client=client)
+
+
+def _pickle_dump_file_or_path(d, f):
+    import pickle
+    try:
+        pickle.dump(d, f)
+        return
+    except (AttributeError, TypeError):
+        pass
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    with open(f, 'wb') as f:
+        pickle.dump(d, f)
+
+
+def _pickle_load_file_or_path(f):
+    import pickle
+    try:
+        return pickle.load(f)
+    except (AttributeError, TypeError):
+        pass
+    with open(f, 'rb') as f:
+        return pickle.load(f)
