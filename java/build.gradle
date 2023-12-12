@@ -105,13 +105,6 @@ configurations {
     withLogBindingRuntimeOnly.extendsFrom runtimeOnly
 }
 
-def grpcVersion = ['1.53.0', '1.54.0']
-def protobufVersion = '3.22.3'
-def protocVersion = protobufVersion
-def junitVersion = '5.9.2'
-def sl4fjVersion = '2.0.6'
-def log4jVersion = '2.20.0'
-
 dependencies {
     api group: 'org.jetbrains', name:'annotations', version:['16.0.2', '24.0.1']
     api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: ['2.9.0','2.14.2']
@@ -120,34 +113,34 @@ dependencies {
     implementation group: 'com.google.guava', name: 'guava', version: '32.1.3-jre'
     implementation group: 'org.yaml', name: 'snakeyaml', version: ['1.33', '2.0']
     implementation group: 'com.orbitz.consul', name: 'consul-client', version: '1.5.3'
-    implementation group: 'org.slf4j', name: 'slf4j-api', version: sl4fjVersion
+    implementation group: 'org.slf4j', name: 'slf4j-api', version: '2.0.6'
 
     // start needed for grpc
-    implementation group: 'io.grpc', name: 'grpc-protobuf', version: grpcVersion
-    implementation group: 'io.grpc', name: 'grpc-stub', version: grpcVersion
-    implementation group: 'io.grpc', name: 'grpc-services', version: grpcVersion
-    implementation group: 'io.grpc', name: 'grpc-netty-shaded', version: grpcVersion
+    implementation group: 'io.grpc', name: 'grpc-protobuf', version: ['1.53.0', '1.54.0']
+    implementation group: 'io.grpc', name: 'grpc-stub', version: ['1.53.0', '1.54.0']
+    implementation group: 'io.grpc', name: 'grpc-services', version: ['1.53.0', '1.54.0']
+    implementation group: 'io.grpc', name: 'grpc-netty-shaded', version: ['1.53.0', '1.54.0']
 
-    implementation group: 'com.google.protobuf', name: 'protobuf-java', version: protobufVersion
-    implementation group: 'com.google.protobuf', name: 'protobuf-java-util', version: protobufVersion
+    implementation group: 'com.google.protobuf', name: 'protobuf-java', version: '3.22.3'
+    implementation group: 'com.google.protobuf', name: 'protobuf-java-util', version: '3.22.3'
 
     compileOnly group:'org.apache.tomcat', name: 'annotations-api', version:'6.0.53'
     // end needed for grpc
 
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.8.0'
-    testImplementation group: 'io.grpc', name: 'grpc-testing', version: grpcVersion
-    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: junitVersion
-    testRuntimeOnly group: 'org.slf4j', name: 'slf4j-simple', version: sl4fjVersion
-    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junitVersion
+    testImplementation group: 'io.grpc', name: 'grpc-testing', version: ['1.53.0', '1.54.0']
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.9.2'
+    testRuntimeOnly group: 'org.slf4j', name: 'slf4j-simple', version: '2.0.6'
+    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.9.2'
 
-    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-slf4j2-impl', version: log4jVersion
-    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: log4jVersion
+    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-slf4j2-impl', version: '2.20.0'
+    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.20.0'
 }
 
 protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:${protocVersion}" }
+    protoc { artifact = "com.google.protobuf:protoc:3.22.3" }
     plugins {
-        grpc { artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}" }
+        grpc { artifact = "io.grpc:protoc-gen-grpc-java:1.54.0" }
     }
     generateProtoTasks {
         all()*.plugins { grpc {} }
