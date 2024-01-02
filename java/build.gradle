@@ -106,7 +106,7 @@ configurations {
 }
 
 dependencies {
-    api group: 'org.jetbrains', name:'annotations', version: '24.0.1'
+    api group: 'org.jetbrains', name:'annotations', version: '24.1.0'
     api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '2.14.2'
     api group: 'args4j', name: 'args4j', version: '2.33'
 
