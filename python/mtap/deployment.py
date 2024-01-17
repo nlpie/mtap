@@ -1,16 +1,3 @@
-#  Copyright 2020 Regents of the University of Minnesota.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
 """Module for deploying a set of processing services and the events server all
 at once.
 
@@ -407,7 +394,7 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
     if depl.pre_args is not None:
         call.extend(depl.pre_args)
     service_args, sid = service_deployment.service_args(
-        host=depl.host,
+        host=depl.host or global_settings.host,
         port=port,
         sid=depl.sid,
         register_default=global_settings.register,
