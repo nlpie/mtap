@@ -1,16 +1,3 @@
-#  Copyright 2021 Regents of the University of Minnesota.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
 import copy
 import dataclasses
 import logging
@@ -124,34 +111,6 @@ class Pipeline(List[ComponentDescriptor]):
     Args:
         *components: Component descriptors created using
             :class:`RemoteProcessor` or :class:`LocalProcessor`.
-    Examples:
-        Remote pipeline with name discovery:
-
-        >>> pipeline = Pipeline(RemoteProcessor('processor-1-id'),
-        >>>                     RemoteProcessor('processor-2-id'),
-        >>>                     RemoteProcessor('processor-3-id'))
-        >>>
-        >>> with pipeline.events_client() as client:
-        >>>     for txt in [...]:
-        >>>         with Event(client=client) as event:
-        >>>             document = event.add_document('plaintext', txt)
-        >>>             results = pipeline.run(document)
-
-        Remote pipeline using addresses:
-
-        >>> pipeline = mtap.Pipeline(
-        >>>         RemoteProcessor('processor-1-name',
-        >>>                         address='localhost:50052'),
-        >>>         RemoteProcessor('processor-2-id',
-        >>>                         address='localhost:50053'),
-        >>>         RemoteProcessor('processor-3-id',
-        >>>                         address='localhost:50054'),
-        >>>         events_address='localhost:50051'
-        >>> with pipeline.events_client() as client:
-        >>>     for txt in txts:
-        >>>         with Event(client=client) as event:
-        >>>             document = event.add_document('plaintext', txt)
-        >>>             results = pipeline.run(document)
     """
     __slots__ = (
         'name',
@@ -319,12 +278,13 @@ class Pipeline(List[ComponentDescriptor]):
             >>>
             >>> pipeline.run_multithread(document_source(), total=len(docs))
         """
-        from mtap.pipeline._mp_pipeline import ActiveMpRun
+        from mtap.pipeline._mp_pipeline import MpPipelineRunner, MpPipelinePool
         pipeline = copy.deepcopy(self)
-        mp = dataclasses.asdict(pipeline.mp_config)
-        mp.update(kwargs)
-        pipeline.mp_config = MpConfig(**mp)
-        with ActiveMpRun(pipeline, source, total, callback) as runner:
+        mp_config = dataclasses.asdict(pipeline.mp_config)
+        mp_config.update(kwargs)
+        pipeline.mp_config = MpConfig(**mp_config)
+        with MpPipelinePool(pipeline) as pool:
+            runner = MpPipelineRunner(pool, source, total, callback)
             result = runner.run()
         return result
 

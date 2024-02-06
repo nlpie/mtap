@@ -1,25 +1,18 @@
-# Copyright 2023 Regents of the University of Minnesota.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 import logging
 import multiprocessing
 import signal
 import traceback
+from contextlib import ExitStack
 from logging.handlers import QueueListener
+from multiprocessing.pool import AsyncResult
+from queue import Queue, Empty
 from threading import Condition, Lock
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Tuple
 
 from grpc import RpcError
+
+from mtap._event import Event
+from mtap.pipeline._results import PipelineResult
 from tqdm import tqdm
 
 from mtap._config import Config
@@ -28,12 +21,11 @@ from mtap.pipeline._error_handling import StopProcessing, SuppressError
 from mtap.pipeline._exc import PipelineTerminated
 from mtap.pipeline._sources import ProcessingSource, IterableProcessingSource
 from mtap.processing import (
-    ProcessingException,
+    ProcessingException, ErrorInfo,
 )
 
 if TYPE_CHECKING:
     from mtap.pipeline._pipeline import ActivePipeline
-
 
 _mp_pipeline: Optional['ActivePipeline'] = None
 
@@ -49,10 +41,12 @@ def _mp_process_init(config, pipeline, queue, log_level):
 
     Config(config).enter_context()
     cm = pipeline.activate()
-    _mp_pipeline = cm.__enter__()
+    exit_stack = ExitStack()
+
+    _mp_pipeline = exit_stack.enter_context(cm)
 
     def cleanup_pipeline(*_):
-        cm.__exit__()
+        exit_stack.close()
 
     signal.signal(signal.SIGINT, cleanup_pipeline)
 
@@ -74,40 +68,12 @@ def _mp_process_event(event_id, event_service_instance_id, params):
     return event_id, result, None
 
 
-class ActiveMpRun:
-    __slots__ = (
-        'pipeline',
-        'config',
-        'targets_cond',
-        'active_targets',
-        'progress_bar',
-        'source',
-        'pool',
-        'active_events',
-        'log_listener',
-        'stop',
-        'times',
-        'handler_states',
-        'callback'
-    )
-
-    def __init__(self, pipeline, source, total=None, callback=None):
+class MpPipelinePool:
+    def __init__(self, pipeline):
         self.pipeline = pipeline
         self.config = pipeline.mp_config
+        self.active_events = {}
         self.targets_cond = Condition(Lock())
-        total = (source.total if hasattr(source, 'total') else None) or total
-        self.progress_bar = tqdm(
-            total=total,
-            unit='events',
-            smoothing=0.01
-        ) if self.config.show_progress else None
-
-        if not isinstance(source, ProcessingSource):
-            if not hasattr(source, '__iter__'):
-                raise ValueError('The source needs to either be a '
-                                 'ProcessingSource or an Iterable.')
-            source = IterableProcessingSource(source)
-        self.source = source
 
         mp_context = self.config.mp_context
         if mp_context is None:
@@ -134,108 +100,28 @@ class ActiveMpRun:
                 self.config.log_level
             )
         )
-        self.active_targets = 0
-        self.active_events = {}
-        self.stop = False
-        self.times = self.pipeline.create_times()
-        self.handler_states = [{} for _ in self.pipeline.error_handlers]
-        self.callback = callback
 
     @property
     def max_targets(self):
         return self.config.workers + self.config.read_ahead
 
-    def increment_active_tasks(self):
-        with self.targets_cond:
-            self.active_targets += 1
+    def start_task(self, event, params, callback=None) -> AsyncResult[Tuple[Event, PipelineResult, ErrorInfo]]:
+        event_id = event.event_id
+        res = self.pool.apply_async(_mp_process_event,
+                                    args=(event_id,
+                                          event.event_service_instance_id,
+                                          params),
+                                    callback=self.task_complete)
+        self.active_events[event_id] = event, callback
+        return res
 
-    def task_completed(self):
-        with self.targets_cond:
-            if self.progress_bar is not None:
-                self.progress_bar.update(1)
-            self.active_targets -= 1
-            self.targets_cond.notify()
-
-    def tasks_done(self):
-        return self.active_targets == 0
-
-    def wait_tasks_completed(self):
-        with self.targets_cond:
-            self.targets_cond.wait_for(self.tasks_done)
-
-    def read_ready(self):
-        return self.active_targets < self.max_targets
-
-    def wait_to_read(self):
-        with self.targets_cond:
-            self.targets_cond.wait_for(self.read_ready)
-
-    def stop_processing(self):
-        self.stop = True
-        self.pool.terminate()
-
-    def handle_result(self, result):
+    def task_complete(self, result):
         event_id, result, error = result
-        event = self.active_events[event_id]
-        if result is not None:
-            self.times.add_result_times(result)
-            if self.callback:
-                self.callback(result, event)
-        else:
-            for handler, state in zip(self.pipeline.error_handlers,
-                                      self.handler_states):
-                try:
-                    handler.handle_error(event, error, state)
-                except StopProcessing:
-                    self.stop_processing()
-                except SuppressError:
-                    break
-                except Exception as e:
-                    print("An error handler raised an exception: ", e)
-                    traceback.print_exc()
-
-        self.task_completed()
-        if self.config.close_events:
-            event.release_lease()
-        self.active_events.pop(event_id)
-
-    def consume(self, target):
-        if self.stop:
-            raise StopIteration
-        event, params = event_and_params(target, self.config.params)
-        try:
-            event.lease()
-            event_id = event.event_id
-            self.active_events[event_id] = event
-            self.pool.apply_async(_mp_process_event,
-                                  args=(event_id,
-                                        event.event_service_instance_id,
-                                        params),
-                                  callback=self.handle_result)
-            self.increment_active_tasks()
-        except BaseException as e:
-            # here we failed (or exited) sometime between taking a new
-            # lease and adding the done callback to the future,
-            # meaning the lease will never get freed.
-            try:
-                event.release_lease()
-            except RpcError:
-                # Client might already be closed, we tried our best
-                pass
-            raise e
-        self.wait_to_read()
-
-    def run(self):
-        try:
-            with self.source:
-                self.source.produce(self.consume)
-            if self.stop:
-                raise PipelineTerminated("Pipeline terminated by an error handler.")
-            self.wait_tasks_completed()
-        except KeyboardInterrupt as e:
-            print('Pipeline terminated by user (KeyboardInterrupt).')
-            raise e
-        return self.times
+        with self.targets_cond:
+            event, callback = self.active_events.pop(event_id)
+            self.targets_cond.notify()
+            if callback:
+                callback(event, result, error)
 
     def __enter__(self):
         return self
@@ -243,10 +129,119 @@ class ActiveMpRun:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def has_capacity(self):
+        return len(self.active_events) < self.max_targets
+
+    def wait_for_capacity(self):
+        with self.targets_cond:
+            self.targets_cond.wait_for(self.has_capacity)
+
     def close(self):
         self.pool.terminate()
         self.pool.join()
-        if self.config.close_events:
-            for event in self.active_events.values():
-                event.close()
         self.log_listener.stop()
+
+
+class MpPipelineRunner:
+    def __init__(self, pool: MpPipelinePool, source, total=None, callback=None, show_progress=False):
+        self.pool = pool
+        self.config = pool.config
+        self.pipeline = pool.pipeline
+        total = (source.total if hasattr(source, 'total') else None) or total
+        self.progress_bar = tqdm(
+            total=total,
+            unit='events',
+            smoothing=0.01
+        ) if show_progress else None
+
+        if not isinstance(source, ProcessingSource):
+            if not hasattr(source, '__iter__'):
+                raise ValueError('The source needs to either be a '
+                                 'ProcessingSource or an Iterable.')
+            source = IterableProcessingSource(source)
+        self.source = source
+        self.stop = False
+        self.times = self.pipeline.create_times()
+        self.handler_states = [{} for _ in self.pipeline.error_handlers]
+        self.callback = callback
+        self.results = Queue()
+        self.active_targets = 0
+
+    def tasks_done(self):
+        return self.active_targets == 0
+
+    def stop_processing(self):
+        self.stop = True
+
+    def run(self):
+        try:
+            with self.source:
+                it = iter(self.source.produce())
+                self.run_loop(it)
+        except KeyboardInterrupt as e:
+            print('Pipeline terminated by user (KeyboardInterrupt).')
+            raise e
+        return self.times
+
+    def run_loop(self, it):
+        while True:
+            if self.stop:
+                break
+            self.pool.wait_for_capacity()
+            try:
+                target = next(it)
+            except StopIteration:
+                break
+            event, params = event_and_params(target, self.config.params)
+            event.lease()
+            try:
+                self.pool.start_task(event, params, self.result_callback)
+                self.active_targets += 1
+            except BaseException as e:
+                # here we failed (or exited) sometime between taking a new
+                # lease and adding the done callback to the future,
+                # meaning the lease will never get freed.
+                try:
+                    event.release_lease()
+                except RpcError:
+                    # Client might already be closed, we tried our best
+                    pass
+                raise e
+            self.drain_results()
+        while self.active_targets > 0:
+            res = self.results.get()
+            self.handle_result(*res)
+        if self.stop:
+            raise PipelineTerminated("Pipeline terminated by an error handler.")
+
+    def result_callback(self, event, result, error):
+        self.results.put_nowait((event, result, error))
+
+    def drain_results(self):
+        while True:
+            try:
+                res = self.results.get_nowait()
+                self.handle_result(*res)
+            except Empty:
+                break
+
+    def handle_result(self, event, result, error):
+        self.active_targets -= 1
+        if result is not None:
+            self.times.add_result_times(result)
+            if self.callback:
+                self.callback(result, event)
+            event.release_lease()
+            return
+
+        for handler, state in zip(self.pipeline.error_handlers,
+                                  self.handler_states):
+            try:
+                handler.handle_error(event, error, state)
+            except StopProcessing:
+                self.stop_processing()
+            except SuppressError:
+                break
+            except Exception as e:
+                print("An error handler raised an exception: ", e)
+                traceback.print_exc()

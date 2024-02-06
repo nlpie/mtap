@@ -33,7 +33,7 @@ class protoc(Command):
         with importlib_resources.as_file(importlib_resources.files('google')) as api_protos, \
                 tempfile.TemporaryDirectory() as tempdir:
             shutil.copytree(os.fspath(api_protos), os.path.join(tempdir, 'google'))
-            for proto in ['events.proto', 'processing.proto']:
+            for proto in ['events.proto', 'processing.proto', 'pipeline.proto']:
                 grpc_tools.protoc.main([
                     'grpc_tools.protoc',
                     f'-I{tempdir}',

@@ -89,7 +89,7 @@ def fixture_processor_watcher():
                 listener.join(timeout=5.0)
                 if listener.is_alive():
                     process.kill()
-                    listener.join()
+                    listener.join(timeout=5.0)
                 print("processor exited with code: ", process.returncode)
             except Exception:
                 pass

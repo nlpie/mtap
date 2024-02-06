@@ -4,6 +4,7 @@ flattened python dictionary representations of events.
 import logging
 import os
 from abc import abstractmethod
+from base64 import standard_b64decode, standard_b64encode
 from os import PathLike
 from typing import Union, Dict, Any, Optional, TextIO, Type, ClassVar, IO, \
     BinaryIO
@@ -19,13 +20,15 @@ logger = logging.getLogger('mtap.serialization')
 
 
 def event_to_dict(event: Event, *,
-                  include_label_text: bool = False) -> Dict:
+                  include_label_text: bool = False,
+                  include_binaries: bool = False) -> Dict:
     """A helper method that turns an event into a python dictionary.
 
     Args:
         event: The event object.
         include_label_text: Whether to include the text labels cover with the
             labels.
+        include_binaries: Whether to serialize and include the event's binaries.
 
     Returns:
         dict: A dictionary object suitable for serialization.
@@ -43,6 +46,10 @@ def event_to_dict(event: Event, *,
             doc,
             include_label_text=include_label_text
         )
+    if include_binaries:
+        d['binaries'] = {}
+        for k, binary in event.binaries.items():
+            d[k] = standard_b64encode(binary).decode("utf-8")
     return d
 
 
@@ -88,10 +95,12 @@ def dict_to_event(d: Dict, *,
         The deserialized event object.
     """
     event = Event(event_id=d['event_id'], client=client)
-    for k, v in d['metadata'].items():
+    for k, v in d.get('metadata', {}).items():
         event.metadata[k] = v
-    for k, v in d['documents'].items():
+    for k, v in d.get('documents', {}).items():
         dict_to_document(k, v, event=event)
+    for k, v in d.get('binaries', {}).items():
+        event.binaries[k] = standard_b64decode(str.encode(v, 'utf-8'))
     return event
 
 
@@ -114,7 +123,7 @@ def dict_to_document(document_name: str,
     document = Document(document_name=document_name, text=d['text'])
     if event is not None:
         event.add_document(document)
-    for k, v in d['label_indices'].items():
+    for k, v in d.get('label_indices', {}).items():
         adapter = document.default_adapter(k)
         index = adapter.unpack(v, k, document=document)
         document.add_labels(k, index, distinct=index.distinct)

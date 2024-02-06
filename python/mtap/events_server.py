@@ -208,7 +208,9 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             msg = 'Event already exists: "{}"'.format(event_id)
             _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
             return empty_pb2.Empty()
-        event.clients += 1
+
+        with event.c_lock:
+            event.clients += 1
         return events_pb2.OpenEventResponse(created=created_event)
 
     def CloseEvent(self, request, context=None):
@@ -221,6 +223,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         with event.c_lock:
             event.clients -= 1
             if event.clients == 0:
+                logger.debug("No leases on event, deleting: %s", request.event_id)
                 del self.events[event_id]
                 deleted = True
         return events_pb2.CloseEventResponse(deleted=deleted)

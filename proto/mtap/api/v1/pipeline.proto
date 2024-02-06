@@ -1,0 +1,68 @@
+/* APIs and message types for an enclosed pipeline.
+ */
+syntax = "proto3";
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+
+package mtap.api.v1;
+
+option java_package = "edu.umn.nlpie.mtap.api.v1";
+option go_package = "mtap/api/v1";
+
+/* Request to process an event through a pipeline.
+ */
+message ProcessEventInPipelineRequest {
+  /* The name of the pipeline.
+   */
+  string pipeline_id = 1;
+
+  /* The serialized event to perform processing on.
+   */
+  google.protobuf.Struct event = 2;
+
+  /* The params to pass to the pipeline
+   */
+  google.protobuf.Struct params = 3;
+
+  /** Whether the event should be kept alive after it is finished processing. Defaults to False.
+   */
+  bool keep_after = 4;
+}
+
+/* The result of processing an event through the pipeline.
+ */
+message ProcessEventInPipelineResponse {
+
+  message ComponentResult {
+    string identifier = 1;
+    google.protobuf.Struct result_dict = 2;
+    map<string, google.protobuf.Duration> timing_info = 3;
+  }
+
+  message PipelineResult {
+    repeated ComponentResult component_results = 1;
+
+    google.protobuf.Duration elapsed_time = 2;
+  }
+
+  /* The serialized json event result of the pipeline processing
+   */
+  google.protobuf.Struct event = 1;
+
+  /* Processor-specific timings of different operations. Includes a "process"
+   * time for total time taken.
+   */
+  map<string, google.protobuf.Duration> timing_info = 2;
+
+  PipelineResult result = 3;
+}
+
+service Pipeline {
+  rpc Process (ProcessEventInPipelineRequest) returns (ProcessEventInPipelineResponse) {
+    option (google.api.http) = {
+      post: "/v1/pipeline/{pipeline_id}/process"
+      body: "*"
+    };
+  }
+}

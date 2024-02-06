@@ -76,7 +76,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       Path homeDir = Helpers.getHomeDirectory();
       addressFile = homeDir.resolve("addresses").resolve(sid + ".address");
       try (BufferedWriter writer = Files.newBufferedWriter(addressFile, StandardOpenOption.CREATE_NEW)) {
-        writer.write("" + host + ":" + port);
+        writer.write(host + ":" + port);
       }
     }
 
