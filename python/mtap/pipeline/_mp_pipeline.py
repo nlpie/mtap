@@ -4,7 +4,6 @@ import signal
 import traceback
 from contextlib import ExitStack
 from logging.handlers import QueueListener
-from multiprocessing.pool import AsyncResult
 from queue import Queue, Empty
 from threading import Condition, Lock
 from typing import Optional, TYPE_CHECKING, Tuple
@@ -105,7 +104,7 @@ class MpPipelinePool:
     def max_targets(self):
         return self.config.workers + self.config.read_ahead
 
-    def start_task(self, event, params, callback=None) -> AsyncResult[Tuple[Event, PipelineResult, ErrorInfo]]:
+    def start_task(self, event, params, callback=None):
         event_id = event.event_id
         res = self.pool.apply_async(_mp_process_event,
                                     args=(event_id,
