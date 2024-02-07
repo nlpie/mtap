@@ -1,7 +1,20 @@
+#  Copyright (c) Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import tempfile
 import time
 from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
-from threading import Thread
 
 import pytest
 import requests
@@ -335,7 +348,8 @@ def test_api_gateway_pipeline(api_gateway):
         timeout=10
     )
     resp_body = resp.json()
-    a_counts = resp_body['event']['documents']['plaintext']['label_indices']['mtap.examples.letter_counts']['labels'][0]
+    label_indices = resp_body['event']['documents']['plaintext']['label_indices']
+    a_counts = label_indices['mtap.examples.letter_counts']['labels'][0]
     assert a_counts['fields']['count'] == 23
-    word_occ = resp_body['event']['documents']['plaintext']['label_indices']['mtap.examples.word_occurrences']['labels'][0]
+    word_occ = label_indices['mtap.examples.word_occurrences']['labels'][0]
     assert word_occ is not None

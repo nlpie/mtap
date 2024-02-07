@@ -95,7 +95,8 @@ def fixture_hosted_pipeline(deployment):
                                         address=deployment['java_example']),
                         name='test-pipeline',
                         events_address=deployment['events'])
-    p: multiprocessing.Process  = mp.Process(target=run_pipeline_server, args=(pipeline, None, ['--port', str(pipeline_port)], None))
+    p: multiprocessing.Process = mp.Process(target=run_pipeline_server,
+                                            args=(pipeline, None, ['--port', str(pipeline_port)], None))
     p.start()
     try:
         addr = make_addr(pipeline_port)
@@ -111,4 +112,3 @@ def fixture_hosted_pipeline(deployment):
             p.kill()
             with suppress(multiprocessing.TimeoutError):
                 p.join(timeout=1)
-

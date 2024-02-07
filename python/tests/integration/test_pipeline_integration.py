@@ -1,3 +1,17 @@
+#  Copyright (c) Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import uuid
 
 import grpc
@@ -81,4 +95,5 @@ def test_hosted_pipeline(hosted_pipeline):
         req_doc = req_docs.get_or_create_struct('plaintext')
         req_doc['text'] = PHASERS
         resp = stub.Process(req)
-        assert resp.event['documents']['plaintext']['label_indices']['mtap.examples.letter_counts']['labels'][0]['fields']['count'] == 23
+        label_indices = resp.event['documents']['plaintext']['label_indices']
+        assert label_indices['mtap.examples.letter_counts']['labels'][0]['fields']['count'] == 23

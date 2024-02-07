@@ -1,3 +1,18 @@
+#  Copyright (c) Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+"""Host a pipeline as a service."""
+
 import argparse
 import logging
 import threading
@@ -28,6 +43,15 @@ def run_pipeline_server(pipeline: Pipeline,
                         options: Optional[argparse.Namespace] = None,
                         args: Optional[Sequence[str]] = None,
                         mp_context=None):
+    """Hosts an end-to-end pipeline as a grpc Pipeline service and blocks forever.
+
+    Args:
+        pipeline: The pipeline to host.
+        options: A namespace parsed from arguments.
+        args: A sequence of string arguments.
+        mp_context: A multiprocessing.get_context to use.
+
+    """
     if not isinstance(pipeline, Pipeline):
         raise ValueError("pipeline must be instance of the Pipeline class")
 
@@ -71,6 +95,11 @@ def run_pipeline_server(pipeline: Pipeline,
 
 
 def pipeline_parser() -> ArgumentParser:
+    """Creates an argument parser for the pipeline hosting options.
+
+    Returns: An argument parser.
+
+    """
     parser = ArgumentParser(add_help=False)
     parser.add_argument(
         '--host', '--address', '-a',
