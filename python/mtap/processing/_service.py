@@ -1,16 +1,17 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright (c) Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import argparse
 import logging
 import threading
@@ -270,11 +271,11 @@ def processor_parser() -> argparse.ArgumentParser:
     )
     processors_parser.add_argument(
         '--sid',
-        help="A unique identifier for this instance of the processor service."
+        help="A unique identifier for this instance of a processor service."
     )
     processors_parser.add_argument(
         '--write-address', action='store_true',
-        help='If set, will write the server address '
+        help="If set, will write the server address to a designated location."
     )
     processors_parser.add_argument(
         '--log-level',
@@ -309,44 +310,12 @@ def _label_index_meta_to_proto(d, message):
 
 
 class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
-    def __init__(self,
-                 address: str,
-                 sid: str,
-                 runner: ProcessingComponent,
-                 health_servicer: health.HealthServicer,
-                 register: bool = False):
-        self.config = _config.Config()
-        self.address = address
-        self.sid = sid
+    def __init__(self, runner: ProcessingComponent):
         self._runner = runner
-        self.register = register
-        self.health_servicer = health_servicer
 
         self._times_map = {}
-        self._deregister = None
         self.processed = 0
         self.failure_count = 0
-
-    def start(self, port: int):
-
-        self.health_servicer.set(self._runner, 'SERVING')
-
-        if self.register:
-            from mtap.discovery import DiscoveryMechanism
-            d = DiscoveryMechanism()
-            self._deregister = d.register_processor_service(
-                self._runner.processor_name,
-                self.sid,
-                self.address,
-                port,
-                'v1'
-            )
-
-    def shutdown(self):
-        self.health_servicer.set(self._runner.processor_name, 'NOT_SERVING')
-        if self._deregister is not None:
-            self._deregister()
-        self._runner.close()
 
     def Process(self, request, context=None):
         event_id = request.event_id
@@ -440,26 +409,24 @@ class ProcessorServer:
         self.host = host
         self.processor_name = runner.processor_name
         self.sid = sid or str(uuid.uuid4())
+        self.register = register
         self.write_address = write_address
 
-        self._health_servicer = health.HealthServicer()
-        self._health_servicer.set('', 'SERVING')
-        self._health_servicer.set(self.processor_name, 'SERVING')
-        self._servicer = _ProcessorServicer(
-            address=host,
-            sid=self.sid,
-            runner=runner,
-            health_servicer=self._health_servicer,
-            register=register
-        )
+        health_servicer = health.HealthServicer()
+        health_servicer.set('', 'SERVING')
+        health_servicer.set(self.processor_name, 'SERVING')
+        self._runner = runner
         workers = workers or 10
-        thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
+        self._thread_pool = thread.ThreadPoolExecutor(max_workers=workers)
         config = _config.Config()
         options = config.get("grpc.processor_options", {})
-        self._server = grpc.server(thread_pool, options=list(options.items()))
-        health_pb2_grpc.add_HealthServicer_to_server(self._health_servicer,
+        self._server = grpc.server(self._thread_pool, options=list(options.items()))
+        health_pb2_grpc.add_HealthServicer_to_server(health_servicer,
                                                      self._server)
-        processing_pb2_grpc.add_ProcessorServicer_to_server(self._servicer,
+        servicer = _ProcessorServicer(
+            runner=runner
+        )
+        processing_pb2_grpc.add_ProcessorServicer_to_server(servicer,
                                                             self._server)
         self._port = self._server.add_insecure_port("{}:{}".format(self.host,
                                                                    port))
@@ -467,6 +434,7 @@ class ProcessorServer:
             raise ValueError(f"Unable to bind on port {port}, likely in use.")
         self._stopped_event = threading.Event()
         self._address_file = None
+        self._deregister = None
 
     @property
     def port(self) -> int:
@@ -478,10 +446,19 @@ class ProcessorServer:
         """Starts the service.
         """
         self._server.start()
-        self._servicer.start(self.port)
         if self.write_address:
             self._address_file = utilities.write_address_file(
                 '{}:{}'.format(self.host, self.port), self.sid)
+        if self.register:
+            from mtap.discovery import DiscoveryMechanism
+            d = DiscoveryMechanism()
+            self._deregister = d.register_processor_service(
+                self.processor_name,
+                self.sid,
+                self.host,
+                self.port,
+                'v1'
+            )
         logger.info(
             'Started processor server with name: "%s"  on address: "%s:%d"',
             self.processor_name, self.host, self.port)
@@ -510,5 +487,7 @@ class ProcessorServer:
         )
         if self._address_file is not None:
             self._address_file.unlink()
-        self._servicer.shutdown()
-        return self._server.stop(grace=grace)
+        if self.register:
+            self._deregister()
+        self._thread_pool.shutdown()
+        return self._server.stop(grace)

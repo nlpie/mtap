@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright (c) Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ func run() error {
 		GrpcEnableHttpProxy: viper.GetBool("grpc.enable_proxy"),
 	}
 
-	var manualProcessors []processors.ManualProcessor
+	var manualProcessors []processors.ServiceEndpoint
 	err := viper.UnmarshalKey("gateway.processors", &manualProcessors)
 	if err != nil {
 		err = nil
@@ -66,11 +66,20 @@ func run() error {
 		config.ManualProcessors = manualProcessors
 	}
 
+	var manualPipelines []processors.ServiceEndpoint
+	err = viper.UnmarshalKey("gateway.pipelines", &manualPipelines)
+	if err != nil {
+		err = nil
+	} else {
+		config.ManualPipelines = manualPipelines
+	}
+
 	server, err := processors.NewProcessorsServer(ctx, &config)
 	if err != nil {
 		return err
 	}
 	m.PathPrefix("/v1/processors").Handler(server.Dispatcher)
+	m.PathPrefix("/v1/pipeline").Handler(server.Dispatcher)
 
 	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard,
 		&runtime.JSONPb{MarshalOptions: protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}}))
@@ -135,7 +144,8 @@ func main() {
 	viper.SetDefault("gateway.port", 8080)
 	viper.SetDefault("gateway.refresh_interval", 10)
 	viper.SetDefault("gateway.events", nil)
-	viper.SetDefault("gateway.processors", []processors.ManualProcessor{})
+	viper.SetDefault("gateway.processors", []processors.ServiceEndpoint{})
+	viper.SetDefault("gateway.pipelines", []processors.ServiceEndpoint{})
 	viper.SetDefault("grpc.enable_proxy", false)
 
 	mtapConfig, exists := os.LookupEnv("MTAP_CONFIG")

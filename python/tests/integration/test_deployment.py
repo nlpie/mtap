@@ -12,23 +12,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import sys
-from subprocess import PIPE, run
+from pathlib import Path
 
 import pytest
 
-
-@pytest.mark.integration
-def test_hello_world(deployment):
-    p = run([sys.executable, '-m', 'mtap.examples.tutorial.pipeline', deployment['events'], deployment['py_hello']],
-            stdout=PIPE)
-    p.check_returncode()
-    assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'
+from mtap.deployment import Deployment
+from mtap.utilities import find_free_port
 
 
 @pytest.mark.integration
-def test_java_hello_world(deployment):
-    p = run([sys.executable, '-m', 'mtap.examples.tutorial.pipeline', deployment['events'],
-             deployment['java_hello']], stdout=PIPE)
-    p.check_returncode()
-    assert p.stdout.decode('utf-8') == 'Hello YOUR NAME!\n'
+def test_minimal_deployment_configuration():
+    deploy_file = Path(__file__).parent / 'minimalDeploymentConfiguration.yml'
+    deployment = Deployment.from_yaml_file(deploy_file)
+    deployment.processors[0].port = find_free_port()
+    with deployment.run_servers() as (event_addresses, processor_addresses):
+        assert len(event_addresses) == 0
+        assert processor_addresses[0][0].endswith(f':{deployment.processors[0].port}')

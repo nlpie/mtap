@@ -1,4 +1,4 @@
-#  Copyright 2023 Regents of the University of Minnesota.
+#  Copyright (c) Regents of the University of Minnesota.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
 import os
 import shutil
 import tempfile
@@ -33,7 +34,7 @@ class protoc(Command):
         with importlib_resources.as_file(importlib_resources.files('google')) as api_protos, \
                 tempfile.TemporaryDirectory() as tempdir:
             shutil.copytree(os.fspath(api_protos), os.path.join(tempdir, 'google'))
-            for proto in ['events.proto', 'processing.proto']:
+            for proto in ['events.proto', 'processing.proto', 'pipeline.proto']:
                 grpc_tools.protoc.main([
                     'grpc_tools.protoc',
                     f'-I{tempdir}',

@@ -1,12 +1,26 @@
+#  Copyright (c) Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import os
 from abc import ABC, abstractmethod
 from os import PathLike
 from pathlib import Path
-from typing import Union, Optional, ContextManager, Callable
+from typing import Union, Optional, ContextManager, Generator, Iterable, Collection
 
-from mtap._document import Document
 from mtap._event import Event
 from mtap._events_client import EventsClient
+from mtap.pipeline._common import EventLike
 
 
 class ProcessingSource(ContextManager, ABC):
@@ -34,16 +48,9 @@ class ProcessingSource(ContextManager, ABC):
         self._total = count
 
     @abstractmethod
-    def produce(
-            self,
-            consume: Callable[[Union[Document, Event]], None]
-    ):
+    def produce(self) -> Generator[EventLike, None, None]:
         """The method which provides documents or events to the pipeline
         to batch process.
-
-        Args:
-            consume: The consumer method to pass documents or events to
-                process.
 
         Examples:
             Example implementation for processing text documents:
@@ -80,7 +87,7 @@ class IterableProcessingSource(ProcessingSource):
     """
     __slots__ = ('it',)
 
-    def __init__(self, source):
+    def __init__(self, source: Union[Iterable[EventLike], Collection[EventLike]]):
         # We use an iterator here to can ensure that it gets closed on
         # unexpected / early termination and any caller context managers are
         # exited before their client gets shut down.
@@ -92,13 +99,13 @@ class IterableProcessingSource(ProcessingSource):
         except (AttributeError, TypeError):
             pass
 
-    def produce(self, consume):
+    def produce(self):
         while True:
             try:
                 target = next(self.it)
             except StopIteration:
                 break
-            consume(target)
+            yield target
 
     def close(self):
         try:
@@ -156,11 +163,11 @@ class FilesInDirectoryProcessingSource(ProcessingSource):
         if count_total:
             self.total = sum(1 for _ in Path(directory).rglob(self.extension_glob))
 
-    def produce(self, consume):
+    def produce(self):
         for path in Path(self.directory).rglob(self.extension_glob):
             with path.open('r', errors=self.errors) as f:
                 txt = f.read()
             relative = str(path.relative_to(self.directory))
             with Event(event_id=relative, client=self.client, only_create_new=True) as e:
                 doc = e.create_document(self.document_name, txt)
-                consume(doc)
+                yield doc

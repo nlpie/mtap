@@ -1,0 +1,164 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "mtap/api/v1/pipeline.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "Pipeline"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/pipeline/{pipelineId}/process": {
+      "post": {
+        "operationId": "Pipeline_Process",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ProcessEventInPipelineResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pipelineId",
+            "description": "The name of the pipeline.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "event": {
+                  "type": "object",
+                  "description": "The serialized event to perform processing on."
+                },
+                "params": {
+                  "type": "object",
+                  "title": "The params to pass to the pipeline"
+                },
+                "keepAfter": {
+                  "type": "boolean",
+                  "description": "* Whether the event should be kept alive after it is finished processing."
+                }
+              },
+              "description": "Request to process an event through a pipeline."
+            }
+          }
+        ],
+        "tags": [
+          "Pipeline"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ProcessEventInPipelineResponseComponentResult": {
+      "type": "object",
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "resultDict": {
+          "type": "object"
+        },
+        "timingInfo": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ProcessEventInPipelineResponsePipelineResult": {
+      "type": "object",
+      "properties": {
+        "componentResults": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/ProcessEventInPipelineResponseComponentResult"
+          }
+        },
+        "elapsedTime": {
+          "type": "string"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "protobufNullValue": {
+      "type": "string",
+      "enum": [
+        "NULL_VALUE"
+      ],
+      "default": "NULL_VALUE",
+      "description": "`NullValue` is a singleton enumeration to represent the null value for the\n`Value` type union.\n\n The JSON representation for `NullValue` is JSON `null`.\n\n - NULL_VALUE: Null value."
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1ProcessEventInPipelineResponse": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "object",
+          "title": "The serialized json event result of the pipeline processing"
+        },
+        "timingInfo": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Processor-specific timings of different operations. Includes a \"process\"\ntime for total time taken."
+        },
+        "result": {
+          "$ref": "#/definitions/ProcessEventInPipelineResponsePipelineResult"
+        }
+      },
+      "description": "The result of processing an event through the pipeline."
+    }
+  }
+}

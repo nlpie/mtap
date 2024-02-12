@@ -1,67 +1,39 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright (c) Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-import os
-import sys
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import tempfile
 import time
-from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT, TimeoutExpired
 
 import pytest
 import requests
 import yaml
+from requests import RequestException
+
+from mtap.utilities import find_free_port
 
 try:
     from yaml import CDumper as Dumper
 except ImportError:
     from yaml import Dumper
-from requests import RequestException
-
-import mtap
-from mtap import events_client, Event, RemoteProcessor
-from mtap.utilities import subprocess_events_server, find_free_port
-
-os.environ['no_proxy'] = '127.0.0.1,localhost'
 
 
-@pytest.fixture(name='python_events')
-def fixture_python_events():
-    with subprocess_events_server(cwd=Path(__file__).parents[2]) as address:
-        yield address
-
-
-@pytest.fixture(name='python_processor')
-def fixture_python_processor(python_events, processor_watcher):
-    port = str(find_free_port())
-    p = Popen(
-        [sys.executable, '-m', 'mtap.examples.example_processor', '-p', port,
-         '--events', python_events], stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-    yield from processor_watcher(address="127.0.0.1:" + port, process=p)
-
-
-@pytest.fixture(name="java_processor")
-def fixture_java_processor(java_exe, python_events, processor_watcher):
-    port = str(find_free_port())
-    p = Popen(java_exe + [
-        'edu.umn.nlpie.mtap.examples.WordOccurrencesExampleProcessor',
-        '-p', port, '-e', python_events], stdin=PIPE, stdout=PIPE,
-              stderr=STDOUT)
-    yield from processor_watcher(address="127.0.0.1:" + port, process=p)
-
-
-@pytest.fixture(name="api_gateway")
-def fixture_api_gateway(python_events, python_processor, java_processor):
+@pytest.fixture(name="api_gateway", scope='module')
+def fixture_api_gateway(deployment, hosted_pipeline):
+    python_events = deployment['events']
+    python_processor = deployment['py_example']
+    java_processor = deployment['java_example']
     port = find_free_port()
     config = {
         'discovery': 'consul',
@@ -91,6 +63,12 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
                     'Identifier': 'mtap-example-processor-java',
                     'Endpoint': java_processor
                 }
+            ],
+            'pipelines': [
+                {
+                    'Identifier': 'test-pipeline',
+                    'Endpoint': hosted_pipeline
+                }
             ]
         }
     }
@@ -101,6 +79,7 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
         p = Popen(['mtap-gateway', '-logtostderr', '-v=3',
                    '-mtap-config=' + conf_file.name],
                   stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+
         session = requests.Session()
         session.trust_env = False
         gateway = '127.0.0.1:{}'.format(port)
@@ -130,7 +109,7 @@ def fixture_api_gateway(python_events, python_processor, java_processor):
             except TimeoutExpired:
                 print("timed out waiting for api gateway to terminate")
                 p.kill()
-                stdout, _ = p.communicate()
+                stdout, _ = p.communicate(timeout=1)
                 print("api gateway exited with code: ", p.returncode)
                 print(stdout.decode('utf-8'))
 
@@ -145,35 +124,8 @@ Worf, you do remember how to fire phasers?"""
 
 
 @pytest.mark.integration
-def test_pipeline(python_events, python_processor, java_processor):
-    pipeline = mtap.Pipeline(
-        RemoteProcessor('mtap-example-processor-python',
-                        address=python_processor,
-                        params={'do_work': True}),
-        RemoteProcessor('mtap-example-processor-java',
-                        address=java_processor,
-                        params={'do_work': True})
-    )
-    with events_client(address=python_events) as client:
-        with Event(event_id='1', client=client) as event:
-            event.metadata['a'] = 'b'
-            document = event.create_document('plaintext', PHASERS)
-            result = pipeline.run_multithread([document])
-            letter_counts = document.labels['mtap.examples.letter_counts']
-            a_counts = letter_counts[0]
-            assert a_counts.count == 23
-            b_counts = letter_counts[1]
-            assert b_counts.count == 6
-            result.print()
-            thes = document.labels["mtap.examples.word_occurrences"]
-            assert thes[0].start_index == 120
-            assert thes[0].end_index == 123
-
-
-@pytest.mark.integration
 @pytest.mark.gateway
-def test_api_gateway(python_events, python_processor, java_processor,
-                     api_gateway):
+def test_api_gateway(api_gateway):
     session = requests.Session()
     session.trust_env = False
     base_url = "http://" + api_gateway
@@ -359,3 +311,45 @@ def test_api_gateway(python_events, python_processor, java_processor,
                'index_name': 'mtap.examples.word_occurrences',
                'type': 'GENERIC'
            } in indices
+
+    resp = session.delete(
+        base_url + "/v1/events/1"
+    )
+    assert resp.status_code == 200
+
+    resp = session.get(base_url + "/v1/events/1/metadata")
+    assert resp.status_code == 404
+
+
+@pytest.mark.integration
+@pytest.mark.gateway
+def test_api_gateway_pipeline(api_gateway):
+    session = requests.Session()
+    session.trust_env = False
+    base_url = "http://" + api_gateway
+
+    body = {
+        'event': {
+            'event_id': '1.txt',
+            'documents': {
+                'plaintext': {
+                    'text': PHASERS
+                }
+            }
+        },
+        'params': {
+            'document_name': 'plaintext',
+            'do_work': True,
+        }
+    }
+    resp = session.post(
+        base_url + '/v1/pipeline/test-pipeline/process',
+        json=body,
+        timeout=10
+    )
+    resp_body = resp.json()
+    label_indices = resp_body['event']['documents']['plaintext']['label_indices']
+    a_counts = label_indices['mtap.examples.letter_counts']['labels'][0]
+    assert a_counts['fields']['count'] == 23
+    word_occ = label_indices['mtap.examples.word_occurrences']['labels'][0]
+    assert word_occ is not None

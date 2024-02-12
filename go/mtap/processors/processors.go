@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Regents of the University of Minnesota.
+ * Copyright (c) Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,7 @@ type Gateway struct {
 type Server struct {
 	Dispatcher          *mux.Router
 	processors          map[string]*Gateway
+	pipelines           map[string]*Gateway
 	t                   *time.Ticker
 	ctx                 context.Context
 	client              *api.Client
@@ -64,11 +65,12 @@ type Config struct {
 	ConsulAddress       string
 	ConsulPort          int
 	RefreshInterval     time.Duration
-	ManualProcessors    []ManualProcessor
+	ManualProcessors    []ServiceEndpoint
+	ManualPipelines     []ServiceEndpoint
 	GrpcEnableHttpProxy bool
 }
 
-type ManualProcessor struct {
+type ServiceEndpoint struct {
 	Identifier string
 	Endpoint   string
 }
@@ -77,6 +79,7 @@ func NewProcessorsServer(ctx context.Context, config *Config) (*Server, error) {
 	ps := &Server{
 		Dispatcher: mux.NewRouter(),
 		processors: make(map[string]*Gateway),
+		pipelines:  make(map[string]*Gateway),
 		t:          time.NewTicker(time.Second * config.RefreshInterval),
 		authority:  config.ConsulAddress + ":" + strconv.Itoa(config.ConsulPort),
 		ctx:        ctx,
@@ -84,6 +87,7 @@ func NewProcessorsServer(ctx context.Context, config *Config) (*Server, error) {
 	}
 	ps.Dispatcher.HandleFunc("/v1/processors", ps.handleProcessors).Methods("GET")
 	ps.Dispatcher.PathPrefix("/v1/processors/{Identifier}").HandlerFunc(ps.dispatchToProcessor)
+	ps.Dispatcher.PathPrefix("/v1/pipeline/{Identifier}").HandlerFunc(ps.dispatchToPipeline)
 
 	consulConfig := api.DefaultConfig()
 	consulConfig.Address = config.ConsulAddress + ":" + strconv.Itoa(config.ConsulPort)
@@ -100,6 +104,14 @@ func NewProcessorsServer(ctx context.Context, config *Config) (*Server, error) {
 			return nil, err
 		}
 		ps.processors[manualProcessor.Identifier] = pg
+	}
+
+	for _, manualPipeline := range config.ManualPipelines {
+		pg, err := ps.newManualPipelineGateway(manualPipeline)
+		if err != nil {
+			return nil, err
+		}
+		ps.pipelines[manualPipeline.Identifier] = pg
 	}
 
 	ps.doUpdate()
@@ -134,6 +146,18 @@ func (ps *Server) dispatchToProcessor(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	identifier := vars["Identifier"]
 	p, prs := ps.processors[identifier]
+	if prs {
+		p.mux.ServeHTTP(w, r)
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+func (ps *Server) dispatchToPipeline(w http.ResponseWriter, r *http.Request) {
+	glog.V(3).Info("Dispatching a pipeline gateway request")
+	vars := mux.Vars(r)
+	identifier := vars["Identifier"]
+	p, prs := ps.pipelines[identifier]
 	if prs {
 		p.mux.ServeHTTP(w, r)
 	} else {
@@ -249,7 +273,7 @@ func (ps *Server) doUpdate() {
 	glog.V(2).Info("Finished updating processor gateways")
 }
 
-func (ps *Server) newManualProcessorGateway(manualProcessor ManualProcessor) (*Gateway, error) {
+func (ps *Server) newManualProcessorGateway(manualProcessor ServiceEndpoint) (*Gateway, error) {
 	glog.V(2).Infof("Starting new processor gateway for service: %v with address: %v", manualProcessor.Identifier, manualProcessor.Endpoint)
 	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{MarshalOptions: protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}}))
 	ctx, cancel := context.WithCancel(ps.ctx)
@@ -293,5 +317,24 @@ func (ps *Server) newProcessorGateway(pn string) (*Gateway, error) {
 		return nil, err
 	}
 	gateway := Gateway{mux: gwmux, ctx: ctx, cancel: cancel, isManual: false}
+	return &gateway, nil
+}
+
+func (ps *Server) newManualPipelineGateway(ep ServiceEndpoint) (*Gateway, error) {
+	glog.V(2).Infof("Starting new pipeline gateway for service: %v with address: %v", ep.Identifier, ep.Endpoint)
+	gwmux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{MarshalOptions: protojson.MarshalOptions{EmitUnpopulated: true, UseProtoNames: true}}))
+	ctx, cancel := context.WithCancel(ps.ctx)
+
+	err := ApiV1.RegisterPipelineHandlerFromEndpoint(
+		ctx,
+		gwmux,
+		ep.Endpoint,
+		ps.createDialOptions())
+
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	gateway := Gateway{mux: gwmux, ctx: ctx, cancel: cancel, isManual: true}
 	return &gateway, nil
 }

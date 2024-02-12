@@ -1,17 +1,16 @@
-# Copyright 2019 Regents of the University of Minnesota.
+#  Copyright (c) Regents of the University of Minnesota.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""Internal events service client"""
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 
 import logging
 import threading
@@ -208,7 +207,9 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
             msg = 'Event already exists: "{}"'.format(event_id)
             _set_error_context(context, grpc.StatusCode.ALREADY_EXISTS, msg)
             return empty_pb2.Empty()
-        event.clients += 1
+
+        with event.c_lock:
+            event.clients += 1
         return events_pb2.OpenEventResponse(created=created_event)
 
     def CloseEvent(self, request, context=None):
@@ -221,6 +222,7 @@ class EventsServicer(events_pb2_grpc.EventsServicer):
         with event.c_lock:
             event.clients -= 1
             if event.clients == 0:
+                logger.debug("No leases on event, deleting: %s", request.event_id)
                 del self.events[event_id]
                 deleted = True
         return events_pb2.CloseEventResponse(deleted=deleted)
