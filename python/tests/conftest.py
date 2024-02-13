@@ -46,6 +46,9 @@ def pytest_addoption(parser):
     parser.addoption(
         "--gateway", action="store_true", default=False, help="runs tests that require the Go gateway"
     )
+    parser.addoption(
+        "--timeout", type=float, default=30, help="The timeout for processors"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -70,6 +73,11 @@ def _listen(process: subprocess.Popen):
     for line in process.stdout:
         print(line.decode(), end='')
     return process.wait()
+
+
+@pytest.fixture(name='processor_timeout', scope='session')
+def fixture_processor_timeout(request):
+    return request.config.getoption("--timeout")
 
 
 @pytest.fixture(name='processor_watcher', scope="session")

@@ -82,4 +82,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          pytest -s python/tests --integration --consul --gateway
+          pytest -s python/tests --integration --consul --gateway --timeout 60

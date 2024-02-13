@@ -1,3 +1,17 @@
+#  Copyright (c) Regents of the University of Minnesota.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import multiprocessing
 from contextlib import suppress
 
@@ -16,7 +30,7 @@ def make_addr(p):
 
 
 @pytest.fixture(name="deployment", scope="package")
-def fixture_deployment(java_exe):
+def fixture_deployment(java_exe, processor_timeout):
     deployment_config = files('mtap.examples').joinpath('exampleDeploymentConfiguration.yml')
     with as_file(deployment_config) as deployment_f:
         deployment = Deployment.from_yaml_file(deployment_f)
@@ -46,6 +60,7 @@ def fixture_deployment(java_exe):
     java_references_addr = make_addr(java_references_port)
 
     deployment.global_settings.log_level = 'DEBUG'
+    deployment.shared_processor_config.startup_timeout = processor_timeout
     deployment.shared_processor_config.java_classpath = java_exe[-1]
     deployment.processors.append(ProcessorDeployment(
         implementation='python',
