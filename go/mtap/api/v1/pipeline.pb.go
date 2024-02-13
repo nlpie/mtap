@@ -37,7 +37,7 @@ type ProcessEventInPipelineRequest struct {
 	Event *_struct.Struct `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 	// The params to pass to the pipeline
 	Params *_struct.Struct `protobuf:"bytes,3,opt,name=params,proto3" json:"params,omitempty"`
-	// * Whether the event should be kept alive after it is finished processing.
+	// * Whether the event should be kept alive after it is finished processing. Defaults to False.
 	KeepAfter bool `protobuf:"varint,4,opt,name=keep_after,json=keepAfter,proto3" json:"keep_after,omitempty"`
 }
 

@@ -58,7 +58,7 @@
                 },
                 "keepAfter": {
                   "type": "boolean",
-                  "description": "* Whether the event should be kept alive after it is finished processing."
+                  "description": "* Whether the event should be kept alive after it is finished processing. Defaults to False."
                 }
               },
               "description": "Request to process an event through a pipeline."
