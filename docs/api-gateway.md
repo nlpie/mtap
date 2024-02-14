@@ -152,8 +152,9 @@ curl -d '{"params": {"document_name": "plaintext"}}' -H "Content-Type: applicati
 window.onload = function() {
   window.ui = SwaggerUIBundle({
     urls: [
-        {url: "/assets/json/events.swagger.json", name: "Events"},
-        {url: "/assets/json/processing.swagger.json", name: "Processing"}
+        {url: "{{ "/assets/json/events.swagger.json" | relative_url }}", name: "Events"},
+        {url: "{{ "/assets/json/processing.swagger.json" | relative_url }}", name: "Processing"},
+        {url: "{{ "/assets/json/pipeline.swagger.json" | relative_url }}", name: "Pipeline"}
     ],
     dom_id: '#swagger-ui',
     deepLinking: true,
