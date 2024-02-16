@@ -24,7 +24,7 @@ from google.protobuf import empty_pb2
 from grpc_health.v1 import health
 from grpc_health.v1 import health_pb2_grpc
 
-from mtap import _config, constants, utilities
+from mtap import _config, constants
 from mtap.api.v1 import events_pb2, events_pb2_grpc
 
 if typing.TYPE_CHECKING:
@@ -41,20 +41,24 @@ class EventsServer:
         port (int): The port to host the server on.
         register (bool): Whether to register the service with service discovery.
         workers (int): The number of workers that should handle requests.
-        write_address (bool): Whether to write the events service address to a file.
         config (mtap.Config): An optional mtap config.
     """
 
-    def __init__(self, host: str, *, port: int = 0, register: bool = False,
+    def __init__(self, host: str,
+                 *,
+                 port: int = 0,
+                 register: bool = False,
                  workers: int = 10,
-                 sid: Optional[str] = None, write_address: bool = False,
+                 sid: Optional[str] = None,
+                 write_address: bool = False,
                  config: 'Optional[mtap.Config]' = None):
         if host is None:
             host = '127.0.0.1'
         if port is None:
             port = 0
         self.sid = sid or str(uuid.uuid4())
-        self.write_address = write_address
+        if write_address:
+            logger.warning("The write-address option is deprecated and does not do anything.")
         thread_pool = ThreadPoolExecutor(max_workers=workers)
         if config is None:
             config = _config.Config()
@@ -86,11 +90,6 @@ class EventsServer:
         """
         logger.info(f'Starting events server {self.sid} on address: "{self._address}:{self._port}"')
         self._server.start()
-        if self.write_address:
-            self._address_file = utilities.write_address_file(
-                '{}:{}'.format(self._address, self.port),
-                self.sid
-            )
         if self._register:
             from mtap.discovery import DiscoveryMechanism
             service_registration = DiscoveryMechanism()

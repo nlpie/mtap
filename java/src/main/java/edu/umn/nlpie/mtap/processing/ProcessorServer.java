@@ -22,7 +22,6 @@ import edu.umn.nlpie.mtap.discovery.Discovery;
 import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.model.ChannelFactory;
 import edu.umn.nlpie.mtap.model.EventsClientPool;
-import edu.umn.nlpie.mtap.utilities.Helpers;
 import io.grpc.Server;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -34,14 +33,12 @@ import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -61,7 +58,6 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
   private final String host;
 
   private final String sid;
-  private final boolean writeAddress;
   private boolean running = false;
   private Path addressFile = null;
 
@@ -76,7 +72,9 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     this.host = host;
     this.grpcServer = grpcServer;
     this.sid = sid;
-    this.writeAddress = writeAddress;
+    if (writeAddress) {
+      logger.warn("The writeAddress option is deprecated and does not do anything.");
+    }
   }
 
   @Override
@@ -87,14 +85,6 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
     running = true;
     grpcServer.start();
     int port = grpcServer.getPort();
-
-    if (writeAddress) {
-      Path homeDir = Helpers.getHomeDirectory();
-      addressFile = homeDir.resolve("addresses").resolve(sid + ".address");
-      try (BufferedWriter writer = Files.newBufferedWriter(addressFile, StandardOpenOption.CREATE_NEW)) {
-        writer.write(host + ":" + port);
-      }
-    }
 
     processorService.started(port);
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
@@ -185,7 +175,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
         usage = "The number of threads for GRPC workers.")
     private int workers = 10;
 
-    @Option(name = "--write-address", usage = "Writes the address to the mtap addresses directory.")
+    @Option(name = "--write-address", usage = "Deprecated.")
     private boolean writeAddress = false;
 
     @Option(name = "--log-level", metaVar = "LOG_LEVEL", usage = "The log level to use.")
@@ -528,7 +518,10 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
           .executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(processorService).build();
-      return new ProcessorServer(processorService, grpcServer, host, sid, writeAddress);
+      if (writeAddress) {
+        logger.warn("The --write-address option is deprecated and does not do anything.");
+      }
+      return new ProcessorServer(processorService, grpcServer, host, sid, false);
     }
 
     /**

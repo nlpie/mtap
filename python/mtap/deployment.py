@@ -1,4 +1,4 @@
-#  Copyright 2020 Regents of the University of Minnesota.
+#  Copyright (c) Regents of the University of Minnesota.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
 """Module for deploying a set of processing services and the events server all
 at once.
 
@@ -28,7 +29,6 @@ import signal
 import subprocess
 import sys
 import threading
-import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -38,7 +38,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import grpc
 from importlib_resources import files, as_file
 
-from mtap import utilities, _config
+from mtap import _config
 
 __all__ = [
     'Deployment',
@@ -180,7 +180,7 @@ class _ServiceDeployment:
             workers_default: Optional[int] = None,
             mtap_config_default: Optional[str] = None,
             log_level_default: Optional[str] = None
-    ) -> Tuple[List[str], str]:
+    ) -> Tuple[List[str], int]:
         call = []
 
         host = global_host or host
@@ -208,8 +208,7 @@ class _ServiceDeployment:
         if log_level is not None:
             call.extend(['--log-level', log_level])
 
-        call.append('--write-address')
-        return call, sid
+        return call, port
 
 
 @dataclass
@@ -289,7 +288,7 @@ def _create_events_calls(
             else:
                 host = splits[0]
         call = [PYTHON_EXE, '-m', 'mtap', 'events']
-        service_args, sid = service_deployment.service_args(
+        service_args, port = service_deployment.service_args(
             host=host,
             port=port,
             register_default=global_settings.register,
@@ -298,7 +297,7 @@ def _create_events_calls(
             log_level_default=global_settings.log_level
         )
         call.extend(service_args)
-        yield call, sid
+        yield call, port
 
 
 @dataclass
@@ -406,7 +405,7 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
     call = _implementation_args(depl, shared_config)
     if depl.pre_args is not None:
         call.extend(depl.pre_args)
-    service_args, sid = service_deployment.service_args(
+    service_args, port = service_deployment.service_args(
         host=depl.host,
         port=port,
         sid=depl.sid,
@@ -429,7 +428,7 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
     if (depl.implementation == 'java'
             and shared_config.java_additional_args is not None):
         call.extend(shared_config.java_additional_args)
-    yield call, sid
+    yield call, port
 
 
 def _implementation_args(depl, shared_config):
@@ -559,13 +558,13 @@ class Deployment:
         if self.events_deployment.enabled:
             calls = _create_events_calls(self.events_deployment,
                                          self.global_settings)
-            for call, sid in calls:
+            for call, port in calls:
                 # Start new session here because otherwise subprocesses
                 # get hit with signals meant for parent
                 events_address = depl.start_subprocess(
                     call,
                     "events",
-                    sid,
+                    port,
                     self.events_deployment.startup_timeout,
                     enable_proxy
                 )
@@ -588,7 +587,7 @@ class Deployment:
                     self.shared_processor_config,
                 )
                 processor_addresses = []
-                for call, sid in calls:
+                for call, port in calls:
                     logger.debug('Launching processor with call: %s', call)
                     # Start new session here because otherwise subprocesses get
                     # hit with signals meant for parent
@@ -604,7 +603,7 @@ class Deployment:
                     address = depl.start_subprocess(
                         call,
                         name,
-                        sid,
+                        port,
                         startup_timeout,
                         enable_proxy
                     )
@@ -628,7 +627,7 @@ class _ActiveDeployment:
             self,
             call: List[str],
             name: Any,
-            sid: str,
+            port: int,
             startup_timeout: float,
             enable_proxy: bool = False
     ) -> str:
@@ -638,38 +637,20 @@ class _ActiveDeployment:
                              start_new_session=True,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT)
-        logger_name = f'{name}({sid})'
+        logger_name = f'{name}'
         listener = threading.Thread(target=_listen, args=(p, logger_name))
         listener.start()
         self._processor_listeners.append(
             (p, listener)
         )  # Adding early so it gets cleaned up on failure
-        address = None
-        deadline = time.time() + startup_timeout
-        while time.time() < deadline:
-            try:
-                address = utilities.read_address(sid)
-                break
-            except FileNotFoundError:
-                time.sleep(1)
-        if address is None:
-            raise ServiceDeploymentException(
-                name,
-                f'Failed to launch, timed out waiting: {name}'
-            )
+        address = f'localhost:{port}'
         with grpc.insecure_channel(
                 address,
                 options=[('grpc.enable_http_proxy', enable_proxy)]
         ) as channel:
             future = grpc.channel_ready_future(channel)
             try:
-                timeout = deadline - time.time()
-                if timeout < 0:
-                    raise ServiceDeploymentException(
-                        name,
-                        f'Failed to launch, timed out waiting: {name}'
-                    )
-                future.result(timeout=timeout)
+                future.result(timeout=startup_timeout)
             except grpc.FutureTimeoutError:
                 raise ServiceDeploymentException(
                     name,

@@ -98,44 +98,6 @@ def subprocess_events_server(port: typing.Optional[int] = None,
         print("python events exited with code: ", p.returncode)
 
 
-def write_address_file(address: str, sid: str) -> pathlib.Path:
-    """Writes the address file (a file containing just the address for a processor). This is a file
-    used to communicate a service's port (potentially chosen randomly) back to the script that
-    launched the service.
-
-    Args:
-        address (str): The host.
-        sid (str, optional): The service unique identifier
-
-    Returns:
-        str: The path to the file.
-
-    """
-    directory = mtap_home() / 'addresses'
-    directory.mkdir(parents=True, exist_ok=True)
-    address_path = directory / '{}.address'.format(sid)
-    with address_path.open('w') as fio:
-        fio.write(address)
-    return address_path
-
-
-def read_address(sid: str) -> str:
-    """Reads the address for a service with a specified PID.
-
-    Args:
-        sid (str): The service's service identifier.
-
-    Returns:
-        str: The address.
-
-    """
-    directory = mtap_home() / 'addresses'
-    address_path = directory / '{}.address'.format(sid)
-    with address_path.open('r') as fin:
-        txt = fin.read()
-    return txt
-
-
 def mtap_home() -> pathlib.Path:
     """Provides a path to the MTAP home directory.
 
