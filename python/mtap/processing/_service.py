@@ -79,6 +79,9 @@ def run_processor(proc: EventProcessor,
         processors_parser.add_help = True
         options = processors_parser.parse_args(args)
 
+    if options.write_address:
+        logger.warning("The --write-address option is deprecated and does not do anything.")
+
     if options.log_level:
         logging.basicConfig(level=getattr(logging, options.log_level))
 
@@ -112,8 +115,7 @@ def run_processor(proc: EventProcessor,
                                  host=options.host,
                                  port=options.port,
                                  register=options.register,
-                                 workers=options.workers,
-                                 write_address=options.write_address)
+                                 workers=options.workers)
 
         run_server_forever(server)
 
@@ -386,16 +388,12 @@ class ProcessorServer:
         host: The address / hostname / IP to host the server on.
         processor_name: The processor's service name.
         sid: The service instance unique identifier for the processor.
-        write_address: Whether to store this processor's address in a file
-            named based on its pid in the biomedicus home directory. This is
-            useful for when the processor has a randomly assigned port.
 
 
     """
     host: str
     processor_name: str
     sid: str
-    write_address: bool
 
     def __init__(self,
                  runner: ProcessingComponent,
@@ -410,7 +408,8 @@ class ProcessorServer:
         self.processor_name = runner.processor_name
         self.sid = sid or str(uuid.uuid4())
         self.register = register
-        self.write_address = write_address
+        if write_address:
+            logger.warning("The write_address option is deprecated and does not do anything")
 
         health_servicer = health.HealthServicer()
         health_servicer.set('', 'SERVING')
@@ -446,9 +445,6 @@ class ProcessorServer:
         """Starts the service.
         """
         self._server.start()
-        if self.write_address:
-            self._address_file = utilities.write_address_file(
-                '{}:{}'.format(self.host, self.port), self.sid)
         if self.register:
             from mtap.discovery import DiscoveryMechanism
             d = DiscoveryMechanism()

@@ -26,7 +26,7 @@ from mtap.utilities import find_free_port
 
 
 def make_addr(p):
-    return f'127.0.0.1:{p}'
+    return f'localhost:{p}'
 
 
 @pytest.fixture(name="deployment", scope="package")
@@ -36,8 +36,8 @@ def fixture_deployment(java_exe, processor_timeout):
         deployment = Deployment.from_yaml_file(deployment_f)
 
     events_port = find_free_port()
+    deployment.events_deployment.address = f'127.0.0.1:{events_port}'
     events_address = make_addr(events_port)
-    deployment.events_deployment.address = events_address
 
     py_example_proc_port = find_free_port()
     py_example_proc_addr = make_addr(py_example_proc_port)

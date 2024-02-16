@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Regents of the University of Minnesota.
+ * Copyright (c) Regents of the University of Minnesota.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.discovery.ServiceInfo;
 import edu.umn.nlpie.mtap.processing.HSMHealthService;
 import edu.umn.nlpie.mtap.processing.HealthService;
-import edu.umn.nlpie.mtap.utilities.Helpers;
 import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
@@ -46,13 +45,11 @@ import org.kohsuke.args4j.spi.PathOptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -70,7 +67,6 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
   private final @NotNull Server grpcServer;
   private final @NotNull String host;
   private final @NotNull String sid;
-  private final boolean writeAddress;
   private final @NotNull HealthService healthService;
   private final @Nullable DiscoveryMechanism discoveryMechanism;
 
@@ -90,9 +86,11 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
     this.grpcServer = grpcServer;
     this.host = host;
     this.sid = sid;
-    this.writeAddress = writeAddress;
     this.healthService = healthService;
     this.discoveryMechanism = discoveryMechanism;
+    if (writeAddress) {
+      LOGGER.warn("The writeAddress option is deprecated and does not do anything.");
+    }
   }
 
   @Override
@@ -103,14 +101,6 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
     running = true;
     grpcServer.start();
     port = grpcServer.getPort();
-
-    if (writeAddress) {
-      Path homeDir = Helpers.getHomeDirectory();
-      addressFile = homeDir.resolve("addresses").resolve(sid + ".address");
-      try (BufferedWriter w = Files.newBufferedWriter(addressFile, StandardOpenOption.CREATE_NEW)) {
-        w.write("" + host + ":" + port);
-      }
-    }
 
     healthService.startedServing("");
     healthService.startedServing(MTAP.EVENTS_SERVICE_NAME);
@@ -723,8 +713,7 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
     private int workers = 10;
 
     @Option(name = "--write-address",
-        usage = "If set, will write the server's resolved address to a file in the MTAP home " +
-            "directory")
+        usage = "Deprecated.")
     private boolean writeAddress = false;
 
     @Option(name = "--sid", usage = "The service identifier")
@@ -860,7 +849,10 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
       Server grpcServer = builder.executor(Executors.newFixedThreadPool(workers))
           .addService(healthService.getService())
           .addService(eventsServicer).build();
-      return new EventsServer(grpcServer, hostname, sid, writeAddress, healthService, discoveryMechanism);
+      if (writeAddress) {
+        LOGGER.warn("The --write-address option is deprecated and does not do anything.");
+      }
+      return new EventsServer(grpcServer, hostname, sid, false, healthService, discoveryMechanism);
     }
   }
 
