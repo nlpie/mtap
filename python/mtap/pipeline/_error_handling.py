@@ -1,4 +1,4 @@
-# Copyright 2023 Regents of the University of Minnesota.
+# Copyright (c) Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ including:
   :class:`logging.Logger` object (name ``logging``).
 * :class:`ErrorsDirectoryErrorHandler` which for all errors that occur
   writes a set of files to disk containing the serialized event, the stack
-  trace, and the error information (name ``directory``).
+  trace, and the error information (name ``to_directory``).
 * :class:`SuppressAllErrorsHandler` which suppresses all errors
   (name ``suppress``).
 
@@ -43,11 +43,11 @@ will be passed to the registered factory method (usually the constructor).
 An example of error_handlers configuration in the pipeline file is shown
 below.
 
-.. code-block:: text
+. code-block:: text
 
   error_handlers:
   - name: logging
-  - name: directory
+  - name: to_directory
     params:
       output_directory: '/path/to/'
   - name: termination
@@ -70,9 +70,10 @@ from typing import (
     Dict,
     Optional,
     Union,
-    ClassVar, Type
+    ClassVar, Type, Tuple, Iterable
 )
 
+import mtap
 from mtap._event import Event
 from mtap.processing import ErrorInfo
 from mtap.serialization import Serializer
@@ -80,6 +81,16 @@ from mtap.serialization import Serializer
 LOGGER = logging.getLogger('mtap.processing')
 
 ErrorHandlerFactory = Callable[..., 'ProcessingErrorHandler']
+
+
+def handle_error(error_handlers: Iterable[Tuple['ProcessingErrorHandler', Dict]],
+                 event: mtap.Event,
+                 error: ErrorInfo):
+    for handler, state in error_handlers:
+        try:
+            handler.handle_error(event, error, state)
+        except SuppressError:
+            break
 
 
 class StopProcessing(Exception):
@@ -179,14 +190,19 @@ class SimpleErrorHandler(ProcessingErrorHandler):
 
     def handle_error(self, event, error_info, state):
         from mtap.processing import ErrorOrigin
+        if error_info.error_repr == "ValueError('Cannot invoke RPC on closed channel!')":
+            return
         if error_info.origin == ErrorOrigin.REMOTE:
             print(
                 f"An error occurred while processing an event with id "
                 f"'{event.event_id}' through the remote component "
                 f"'{error_info.component_id}' at address "
-                f"'{error_info.address}': {error_info.error_repr}\n"
-                f"It had the following message: {error_info.localized_msg}\n"
-                f"{self.more_help}")
+                f"'{error_info.address}': {error_info.grpc_code}")
+            if error_info.localized_msg:
+                print(
+                    f"It had the following message: {error_info.localized_msg}"
+                )
+            print(f"{self.more_help}", flush=True)
         else:
             print(
                 f"An error occurred while processing an event with id "
@@ -219,7 +235,7 @@ class TerminationErrorHandler(ProcessingErrorHandler):
             state['failures'] += 1
         except KeyError:
             state['failures'] = 1
-        if state['failures'] >= self.max_failures:
+        if state['failures'] > self.max_failures:
             print(f"Pipeline exceeded the maximum number "
                   f"of allowed failures ({self.max_failures}) "
                   f"and is terminating.")
@@ -237,26 +253,34 @@ class LoggingErrorHandler(ProcessingErrorHandler):
         logger: The logger to use.
 
     """
-    logger: logging.Logger
-
-    def __init__(self, logger: Union[str, logging.Logger, None] = None):
+    def __init__(self, logger: Union[str, logging.Logger, None] = None, level='error'):
         if isinstance(logger, str):
             logger = logging.getLogger(logger)
-        self.logger = (logger or logging.getLogger('mtap.processing'))
+        self.logger = getattr(logger or logging.getLogger('mtap.processing'), level)
 
     @classmethod
     def name(cls):
         return 'logging'
 
     def handle_error(self, event, error_info, state):
-        self.logger.error(
-            f"An error occurred while processing an event with id "
-            f"'{event.event_id}' through the remote component "
-            f"'{error_info.component_id}' at address "
-            f"'{error_info.address}': {error_info.error_repr}\n"
-            f"It had the following message: {error_info.localized_msg}\n"
-            + ''.join(error_info.stack_trace)
-        )
+        from mtap.processing import ErrorOrigin
+        if error_info.origin == ErrorOrigin.REMOTE:
+            msg = (f"An error occurred while processing an event with id "
+                   f"'{event.event_id}' through the remote component "
+                   f"'{error_info.component_id}' at address "
+                   f"'{error_info.address}': {error_info.error_repr}")
+            if error_info.localized_msg:
+                msg += f"It had the following message: {error_info.localized_msg}"
+            msg += ''.join(error_info.stack_trace)
+            self.logger(msg)
+        else:
+            self.logger(
+                f"An error occurred while processing an event with id "
+                f"'{event.event_id}' through the component "
+                f"'{error_info.component_id}': '{error_info.error_repr}'\n"
+                f"It had the following message: {error_info.localized_msg}\n"
+                + ''.join(error_info.stack_trace)
+            )
 
 
 class ErrorsDirectoryErrorHandler(ProcessingErrorHandler):

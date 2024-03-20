@@ -1,4 +1,4 @@
-# Copyright 2023 Regents of the University of Minnesota.
+# Copyright (c) Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@ import traceback
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Optional
+
+
+class NotStatusException(Exception):
+    pass
 
 
 class ProcessingException(Exception):
@@ -58,19 +62,20 @@ class ProcessingException(Exception):
         return status
 
     @staticmethod
-    def from_local_exception(exc, component_id, message=None):
+    def from_local_exception(etype, value, tb, component_id, address=None, message=None):
         error_info = ErrorInfo(
             origin=ErrorOrigin.LOCAL,
             component_id=component_id,
             lang='python',
-            error_type=str(type(exc)),
-            error_repr=repr(exc),
+            error_type=type(value).__name__,
+            error_repr=repr(value),
             localized_msg=message or "An internal error occurred while "
                                      "attempting to process an Event. "
                                      "This is potentially a bug, contact the "
                                      "developer of the component.",
             locale="en-US",
-            stack_trace=list(traceback.format_exception(exc))
+            stack_trace=list(traceback.format_exception(etype, value, tb)),
+            address=address
         )
         return ProcessingException(error_info)
 
@@ -81,8 +86,7 @@ class ProcessingException(Exception):
 
         status = rpc_status.from_call(rpc_error)
         if status is None:
-            return ProcessingException.from_local_exception(rpc_error,
-                                                            component_id)
+            raise NotStatusException()
         info = error_details_pb2.ErrorInfo()
         debug_info = error_details_pb2.DebugInfo()
         localized_message = error_details_pb2.LocalizedMessage()
@@ -99,7 +103,7 @@ class ProcessingException(Exception):
             localized_msg=localized_message.message,
             locale=localized_message.locale,
             stack_trace=list(debug_info.stack_entries),
-            address=address,
+            address=address
         )
         return ProcessingException(error_info)
 

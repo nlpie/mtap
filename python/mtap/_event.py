@@ -1,4 +1,4 @@
-# Copyright 2019 Regents of the University of Minnesota.
+# Copyright (c) Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ class Event(ContextManager['Event']):
     """
     __slots__ = ('_event_id', '_client', '_lock', 'label_adapters',
                  '_documents_cache', '_metadata_cache', '_binaries_cache',
-                 '_event_service_instance_id')
+                 '_event_service_instance_id', '_leased')
 
     label_adapters: Mapping[str, 'ProtoLabelAdapter']
 
@@ -81,6 +81,7 @@ class Event(ContextManager['Event']):
             only_create_new: bool = False,
             label_adapters: Optional[Mapping[str, 'ProtoLabelAdapter']] = None,
             event_service_instance_id: Optional[str] = None,
+            lease: bool = True
     ):
         self._event_id = event_id or str(uuid.uuid4())
         self._event_service_instance_id = event_service_instance_id
@@ -89,7 +90,8 @@ class Event(ContextManager['Event']):
         else:
             self.label_adapters = {}
         self._client = client
-        if self._client is not None:
+        self._leased = lease
+        if self._client is not None and self._leased:
             self._event_service_instance_id = self._client.open_event(
                 event_service_instance_id,
                 self._event_id,
@@ -142,14 +144,17 @@ class Event(ContextManager['Event']):
     def created_indices(self) -> Dict[str, List[str]]:
         """A mapping of document names to a list of the names of all the label
         indices that have been added to that document"""
-        return {document_name: document.created_indices
-                for document_name, document in self.documents.items()}
+        try:
+            return {document_name: document.created_indices
+                    for document_name, document in self._documents_cache.data.items()}
+        except AttributeError:
+            return {}
 
     def close(self):
         """Closes this event. Lets the event service know that we are done
         with the event, allowing to clean up the event if no other clients
         have open leases to it."""
-        if self.client is not None:
+        if self.client is not None and self._leased:
             self.release_lease()
 
     def create_document(self,
@@ -205,7 +210,8 @@ class Event(ContextManager['Event']):
         cast(_Documents, self.documents).data[name] = document
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        if exc_type is not KeyboardInterrupt:
+            self.close()
 
     def add_created_indices(self, created_indices):
         for k, v in created_indices.items():

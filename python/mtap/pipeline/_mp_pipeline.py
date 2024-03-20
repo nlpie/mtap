@@ -15,11 +15,11 @@
 import logging
 import multiprocessing
 import signal
-import traceback
+import sys
 from contextlib import ExitStack
 from logging.handlers import QueueListener
 from queue import Queue, Empty
-from threading import Condition, Lock
+from threading import BoundedSemaphore
 from typing import Optional, TYPE_CHECKING
 
 from grpc import RpcError
@@ -27,11 +27,9 @@ from tqdm import tqdm
 
 from mtap._config import Config
 from mtap.pipeline._common import event_and_params
-from mtap.pipeline._error_handling import StopProcessing, SuppressError
-from mtap.pipeline._exc import PipelineTerminated
+from mtap.pipeline._error_handling import handle_error, StopProcessing
 from mtap.pipeline._sources import ProcessingSource, IterableProcessingSource
-from mtap.processing import (
-    ProcessingException, )
+from mtap.processing import ProcessingException
 
 if TYPE_CHECKING:
     from mtap.pipeline._pipeline import ActivePipeline
@@ -70,9 +68,11 @@ def _mp_process_event(event_id, event_service_instance_id, params):
             params
         )
     except ProcessingException as e:
+        logging.debug("Exception during processing: ", e)
         return event_id, None, e.error_info
     except Exception as e:
-        ei = ProcessingException.from_local_exception(e, 'pipeline').error_info
+        logging.debug("MTAP exception during processing: ", e)
+        ei = ProcessingException.from_local_exception(*sys.exc_info(), 'pipeline').error_info
         return event_id, None, ei
     return event_id, result, None
 
@@ -82,7 +82,7 @@ class MpPipelinePool:
         self.pipeline = pipeline
         self.config = pipeline.mp_config
         self.active_events = {}
-        self.targets_cond = Condition(Lock())
+        self.sem = BoundedSemaphore(self.config.workers + self.config.read_ahead)
 
         mp_context = self.config.mp_context
         if mp_context is None:
@@ -110,11 +110,8 @@ class MpPipelinePool:
             )
         )
 
-    @property
-    def max_targets(self):
-        return self.config.workers + self.config.read_ahead
-
     def start_task(self, event, params, callback=None):
+        self.sem.acquire()
         event_id = event.event_id
         res = self.pool.apply_async(_mp_process_event,
                                     args=(event_id,
@@ -126,24 +123,16 @@ class MpPipelinePool:
 
     def task_complete(self, result):
         event_id, result, error = result
-        with self.targets_cond:
-            event, callback = self.active_events.pop(event_id)
-            self.targets_cond.notify()
-            if callback:
-                callback(event, result, error)
+        event, callback = self.active_events.pop(event_id)
+        if callback:
+            callback(event, result, error)
+        self.sem.release()
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
-
-    def has_capacity(self):
-        return len(self.active_events) < self.max_targets
-
-    def wait_for_capacity(self):
-        with self.targets_cond:
-            self.targets_cond.wait_for(self.has_capacity)
 
     def close(self):
         self.pool.terminate()
@@ -152,11 +141,13 @@ class MpPipelinePool:
 
 
 class MpPipelineRunner:
-    def __init__(self, pool: MpPipelinePool, source, total=None, callback=None, show_progress=False):
+    def __init__(self, pool: MpPipelinePool, source, total=None, callback=None, show_progress=True):
         self.pool = pool
         self.config = pool.config
         self.pipeline = pool.pipeline
-        total = (source.total if hasattr(source, 'total') else None) or total
+        total = (source.total if hasattr(source, 'total') else (len(source) if hasattr(source, '__len__') else None))
+        if pool.config.show_progress is not None:
+            show_progress = pool.config.show_progress
         self.progress_bar = tqdm(
             total=total,
             unit='events',
@@ -171,7 +162,7 @@ class MpPipelineRunner:
         self.source = source
         self.stop = False
         self.times = self.pipeline.create_times()
-        self.handler_states = [{} for _ in self.pipeline.error_handlers]
+        self.error_handlers = [(handler, {}) for handler in self.pipeline.error_handlers]
         self.callback = callback
         self.results = Queue()
         self.active_targets = 0
@@ -184,10 +175,13 @@ class MpPipelineRunner:
 
     def run(self):
         try:
-            with self.source:
+            with ExitStack() as es:
+                es.callback(self.finish_results)
                 it = iter(self.source.produce())
+                es.callback(it.close)
                 self.run_loop(it)
         except KeyboardInterrupt as e:
+            self.stop = True
             print('Pipeline terminated by user (KeyboardInterrupt).')
             raise e
         return self.times
@@ -196,7 +190,6 @@ class MpPipelineRunner:
         while True:
             if self.stop:
                 break
-            self.pool.wait_for_capacity()
             try:
                 target = next(it)
             except StopIteration:
@@ -212,19 +205,18 @@ class MpPipelineRunner:
                 # meaning the lease will never get freed.
                 try:
                     event.release_lease()
-                except RpcError:
-                    # Client might already be closed, we tried our best
-                    pass
+                except RpcError as e2:
+                    print("Failed to clean up event on termination: ", e2)
                 raise e
             self.drain_results()
-        while self.active_targets > 0:
-            res = self.results.get()
-            self.handle_result(*res)
-        if self.stop:
-            raise PipelineTerminated("Pipeline terminated by an error handler.")
 
     def result_callback(self, event, result, error):
         self.results.put_nowait((event, result, error))
+
+    def finish_results(self):
+        while self.active_targets > 0:
+            res = self.results.get()
+            self.handle_result(*res)
 
     def drain_results(self):
         while True:
@@ -236,21 +228,20 @@ class MpPipelineRunner:
 
     def handle_result(self, event, result, error):
         self.active_targets -= 1
-        if result is not None:
-            self.times.add_result_times(result)
-            if self.callback:
-                self.callback(result, event)
-            event.release_lease()
-            return
+        if self.progress_bar is not None:
+            self.progress_bar.update(1)
 
-        for handler, state in zip(self.pipeline.error_handlers,
-                                  self.handler_states):
-            try:
-                handler.handle_error(event, error, state)
-            except StopProcessing:
-                self.stop_processing()
-            except SuppressError:
-                break
-            except Exception as e:
-                print("An error handler raised an exception: ", e)
-                traceback.print_exc()
+        try:
+            if result is not None:
+                self.times.add_result_times(result)
+                if self.callback:
+                    self.callback(result, event)
+                return
+            if not self.stop:
+                try:
+                    handle_error(self.error_handlers, event, error)
+                except StopProcessing:
+                    self.stop = True
+                    raise
+        finally:
+            event.release_lease()
