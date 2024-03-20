@@ -1,4 +1,4 @@
-# Copyright 2019 Regents of the University of Minnesota.
+# Copyright (c) Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,8 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import copy
 import logging
+import sys
 from typing import Optional, Dict, Any
 
 import grpc
@@ -23,7 +25,7 @@ from mtap._event import Event
 from mtap._events_client import events_client, EventsAddressLike, EventsClient
 from mtap._structs import copy_dict_to_struct, copy_struct_to_dict
 from mtap.api.v1 import processing_pb2_grpc, processing_pb2
-from mtap.processing._exc import ProcessingException
+from mtap.processing._exc import ProcessingException, NotStatusException
 from mtap.processing._processing_component import ProcessingComponent
 from mtap.processing._processor import Processor, EventProcessor
 
@@ -35,14 +37,16 @@ class LocalRunner(ProcessingComponent):
                  processor: EventProcessor,
                  events_address: EventsAddressLike,
                  component_id: Optional[str] = None,
-                 params: Optional[Dict[str, Any]] = None):
+                 params: Optional[Dict[str, Any]] = None,
+                 client: Optional[EventsClient] = None):
         self._processor = processor
         self._events_address = events_address
         self._processor_name = processor.metadata['name']
         self._component_id = component_id or self.processor_name
         self._params = params or {}
         self.metadata = processor.metadata
-        self._client = None
+        self._client = client
+        self._client_created = False
 
     @property
     def processor_name(self) -> str:
@@ -56,6 +60,7 @@ class LocalRunner(ProcessingComponent):
     def _events_client(self) -> EventsClient:
         if self._client is None:
             self._client = events_client(self._events_address)
+            self._client_created = True
         return self._client
 
     def call_process(self, event_id, event_instance_id, params):
@@ -63,34 +68,37 @@ class LocalRunner(ProcessingComponent):
         if params is not None:
             p.update(params)
 
-        with Processor.enter_context() as c, \
-                Event(
-                    event_id=event_id,
-                    event_service_instance_id=event_instance_id,
-                    client=self._events_client,
-                    label_adapters=self._processor.custom_label_adapters
-                ) as event:
-            with Processor.started_stopwatch('process_method'):
-                try:
+        with Processor.enter_context() as c:
+            event = Event(
+                event_id=event_id,
+                event_service_instance_id=event_instance_id,
+                client=self._events_client,
+                label_adapters=self._processor.custom_label_adapters,
+                lease=False  # The client / pipeline should hold the lease.
+            )
+            try:
+                with Processor.started_stopwatch('process_method'):
                     result = self._processor.process(event, p)
-                except KeyError as e:
-                    if e.args[0] == 'document_name':
-                        raise ProcessingException.from_local_exception(
-                            e, self.component_id,
-                            "This error is likely caused by attempting "
-                            "to run an event through a document processor. "
-                            "Either call the pipeline with a document or "
-                            "set the 'document_name' processor parameter."
-                        ) from e
-                    raise e
-                except Exception as e:
+            except KeyError as e:
+                if e == KeyError('document_name'):
                     raise ProcessingException.from_local_exception(
-                        e, self.component_id
-                    ) from e
+                        *sys.exc_info(), self.component_id,
+                        message="This error is likely caused by attempting "
+                                "to run an event through a document processor. "
+                                "Either call the pipeline with a document or "
+                                "set the 'document_name' processor parameter."
+                    )
+                raise e
+            except Exception as e:
+                if e == ValueError('Cannot invoke RPC on closed channel!'):
+                    msg = "Channel was closed when trying to process."
+                raise ProcessingException.from_local_exception(
+                    *sys.exc_info(), self.component_id, msg
+                )
             return result, c.times, event.created_indices
 
     def close(self):
-        if self._client is not None:
+        if self._client_created and self._client is not None:
             self._client.close()
             self._client = None
 
@@ -103,7 +111,8 @@ class RemoteRunner(ProcessingComponent):
             address=None,
             params=None,
             enable_proxy=None,
-            call_timeout=None
+            call_timeout=None,
+            channel=None
     ):
         self._processor_name = processor_name
         self._component_id = component_id or processor_name
@@ -112,16 +121,16 @@ class RemoteRunner(ProcessingComponent):
         address = self._address
         config = Config()
         if enable_proxy is not None:
-            config['grpc.processor_options.gprc.enable_http_proxy'] \
-                = enable_proxy
+            config['grpc.processor_options.gprc.enable_http_proxy'] = enable_proxy
         if address is None:
             from mtap.discovery import DiscoveryMechanism
             discovery = DiscoveryMechanism()
             address = discovery.discover_processor_service(processor_name,
                                                            'v1')
         channel_options = config.get('grpc.processor_options', {})
-        self._channel = insecure_channel(address, options=list(
-            channel_options.items()))
+        self._channel = channel
+        if channel is None:
+            self._channel = insecure_channel(address, options=list(channel_options.items()))
         self._stub = processing_pb2_grpc.ProcessorStub(self._channel)
         self._call_timeout = call_timeout or 10.0
 
@@ -154,29 +163,30 @@ class RemoteRunner(ProcessingComponent):
                         request,
                         timeout=self._call_timeout,
                         metadata=[('service-name', self.processor_name)])
-                except grpc.RpcError as e:
-                    if e.code() == grpc.StatusCode.UNAVAILABLE:
-                        raise ProcessingException.from_local_exception(
-                            e,
-                            self.component_id,
-                            "Failed to connect to processor service, check "
+                except grpc.RpcError as rpc_error:
+                    exc_info = sys.exc_info()
+                    try:
+                        raise ProcessingException.from_rpc_error(
+                            rpc_error, self.component_id, self._address
+                        )
+                    except NotStatusException:
+                        msg = None
+                        if rpc_error.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                            msg = f'Deadline exceeded waiting for "{self.processor_name}" to process an event.'
+                        if rpc_error.code() == grpc.StatusCode.UNAVAILABLE:
+                            msg = f'Failed to connect to "{self.processor_name}", check '
                             "that the service is running and the address is "
                             "correctly configured."
-                        )
-                    if e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
                         raise ProcessingException.from_local_exception(
-                            e,
-                            self.component_id,
-                            "The configured timeout for completing the "
-                            "remote processing request was exceeded."
+                            *exc_info, self.component_id, self._address, msg
                         )
-                    raise ProcessingException.from_rpc_error(
-                        e, self.component_id, self._address
-                    ) from e
                 except Exception as e:
+                    msg = None
+                    if e == ValueError('Cannot invoke RPC on closed channel!'):
+                        msg = "Channel was closed when trying to process."
                     raise ProcessingException.from_local_exception(
-                        e, self.component_id
-                    ) from e
+                        *sys.exc_info(), self.component_id, self._address, msg
+                    )
 
             r = {}
             copy_struct_to_dict(response.result, r)

@@ -1,4 +1,4 @@
-# Copyright 2019 Regents of the University of Minnesota.
+# Copyright (c) Regents of the University of Minnesota.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -95,11 +95,6 @@ class GrpcEventsClient(EventsClient):
                                               only_create_new=only_create_new)
         self.stub.OpenEvent(request)
         return self.instance_id
-
-    def _conn_error(self):
-        return ConnectionError(
-            f"Failed to connect to events service on address: "
-            f"{self._address}")
 
     def close_event(self, instance_id, event_id):
         self._check_instance_id(instance_id)

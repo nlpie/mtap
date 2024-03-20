@@ -16,7 +16,6 @@
 import argparse
 import logging
 import threading
-import traceback
 import uuid
 from argparse import ArgumentParser
 from concurrent.futures import thread
@@ -172,13 +171,11 @@ class PipelineServicer(pipeline_pb2_grpc.PipelineServicer):
         with dict_to_event(event_dict, client=self.events) as event:
             params = {}
             copy_struct_to_dict(request.params, params)
-            self.pool.wait_for_capacity()
             res = self.pool.start_task(event, params)
             _, result, error = res.get()
             if error is not None:
                 exc = ProcessingException(error)
-                logger.error(str(exc))
-                logger.error(traceback.print_exception(exc))
+                logger.error(error)
                 context.abort_with_status(rpc_status.to_status(exc.to_rpc_status()))
                 return
             response = pipeline_pb2.ProcessEventInPipelineResponse()

@@ -362,6 +362,15 @@ class ProcessorDeployment:
     startup_timeout: Optional[float] = None
     """Optional override startup timeout."""
 
+    mp: Optional[bool] = None
+    """Whether to use the multiprocessing pool based processor server."""
+
+    mp_processes: Optional[int] = None
+    """If using multiprocessing host, the number of worker processes."""
+
+    mp_start_method: Optional[str] = None
+    """A multiprocessing.get_context start method to use."""
+
     @staticmethod
     def from_dict(conf: Dict) -> 'ProcessorDeployment':
         """Creates an MTAP processor deployment configuration from a
@@ -423,6 +432,13 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
         call.extend(['--events', ','.join(events_addresses)])
     if depl.additional_args is not None:
         call.extend(depl.additional_args)
+
+    if depl.mp:
+        call.extend(['--mp'])
+    if depl.mp_processes is not None:
+        call.extend([''])
+
+
     if shared_config.additional_args is not None:
         call.extend(shared_config.additional_args)
     if (depl.implementation == 'java'

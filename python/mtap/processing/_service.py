@@ -15,7 +15,6 @@
 import argparse
 import logging
 import threading
-import traceback
 import uuid
 from concurrent.futures import thread
 from logging.handlers import QueueListener
@@ -25,7 +24,7 @@ import grpc
 from grpc_health.v1 import health, health_pb2_grpc
 from grpc_status import rpc_status
 
-from mtap import _config, _structs, utilities
+from mtap import _config, _structs
 from mtap._common import run_server_forever
 from mtap._event import Event
 from mtap.api.v1 import processing_pb2, processing_pb2_grpc
@@ -39,7 +38,6 @@ logger = logging.getLogger('mtap.processing')
 
 def run_processor(proc: EventProcessor,
                   *,
-                  mp: bool = False,
                   options: Optional[argparse.Namespace] = None,
                   args: Optional[Sequence[str]] = None,
                   mp_context=None):
@@ -100,9 +98,9 @@ def run_processor(proc: EventProcessor,
         if enable_http_proxy is not None:
             c['grpc.events_channel_options.grpc.enable_http_proxy'] \
                 = enable_http_proxy
-        if mp:
+        if options.mp:
             runner = MpProcessorRunner(proc=proc,
-                                       workers=options.workers,
+                                       mp_processes=options.workers,
                                        events_address=events_addresses,
                                        processor_name=name,
                                        mp_context=mp_context,
@@ -169,13 +167,14 @@ class MpProcessorRunner:
                  proc: EventProcessor,
                  processor_name: str,
                  component_id: Optional[str] = None,
-                 workers: Optional[int] = 8,
+                 mp_processes: Optional[int] = 8,
                  events_address: Optional[Union[str, Sequence[str]]] = None,
                  mp_context=None,
+                 mp_start_method=None,
                  log_level=None):
         if mp_context is None:
             import multiprocessing as mp
-            mp_context = mp.get_context('spawn')
+            mp_context = mp.get_context(mp_start_method)
         config = _config.Config()
         log_queue = mp_context.Queue(-1)
         handler = logging.StreamHandler()
@@ -185,7 +184,7 @@ class MpProcessorRunner:
         self.log_listener.start()
 
         self.pool = mp_context.Pool(
-            workers,
+            mp_processes,
             initializer=_mp_initialize,
             initargs=(proc, events_address, dict(config), log_queue)
         )
@@ -291,9 +290,20 @@ def processor_parser() -> argparse.ArgumentParser:
         help="If set, will enable usage of http_proxy by grpc."
     )
     processors_parser.add_argument(
-        '--mp-spawn-method',
+        '--mp', action='store_true',
+        help="Whether to use the multiprocessing pool based processor server."
+    )
+    processors_parser.add_argument(
+        '--mp-processes',
+        type=int,
+        default=2,
+        help="If using multiprocessing host, the number of worker processes."
+    )
+    processors_parser.add_argument(
+        '--mp-start-method',
+        default='spawn',
         choices=['spawn', 'fork', 'forkserver', 'None'],
-        help="A multiprocessing spawn method to use."
+        help="A multiprocessing.get_context start method to use."
     )
     return processors_parser
 
@@ -347,8 +357,7 @@ class _ProcessorServicer(processing_pb2_grpc.ProcessorServicer):
                     created_index.index_name = index_name
             return response
         except ProcessingException as e:
-            logger.error(str(e))
-            logger.error(traceback.format_exc())
+            logger.error(e, exc_info=True)
             context.abort_with_status(rpc_status.to_status(e.to_rpc_status()))
 
     def GetStats(self, request, context):
