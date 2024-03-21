@@ -90,6 +90,7 @@ class LocalRunner(ProcessingComponent):
                     )
                 raise e
             except Exception as e:
+                msg = None
                 if e == ValueError('Cannot invoke RPC on closed channel!'):
                     msg = "Channel was closed when trying to process."
                 raise ProcessingException.from_local_exception(
