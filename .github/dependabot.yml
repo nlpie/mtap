@@ -4,10 +4,6 @@ updates:
     directory: /
     schedule:
       interval: daily
-    ignore:
-      # importlib-resources, a non-critical dependency, version 6.+ does not support Python 3.7
-      - dependency-name: "importlib-resources"
-        versions: ["6.x"]
     groups:
       grpc-deps:
         patterns:
@@ -16,6 +12,10 @@ updates:
     directory: /java/
     schedule:
       interval: daily
+    ignore:
+      # grpc-java does not support 4.x of protobuf
+      - dependency-name: "com.google.protobuf:proto*"
+        versions: ["4.x"]
     groups:
       grpc-deps:
         patterns:
