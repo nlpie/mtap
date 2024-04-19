@@ -74,7 +74,7 @@ test = [
     "requests==2.31.0",
 ]
 docs = [
-    "sphinx==7.2.6",
+    "sphinx==7.3.7",
     "sphinx-rtd-theme==2.0.0"
 ]
 consul = ["python-consul"]
