@@ -12,6 +12,7 @@ jobs:
       max-parallel: 4
       matrix:
         os: [ubuntu-latest, macos-latest]
+        arch: ['x64']
         python-version: ['3.8', '3.12']
         include:
           - java-version: '11'
