@@ -21,12 +21,14 @@ from mtap._events_client_grpc import GrpcEventsClient
 from mtap._label_indices import LabelIndexType
 from mtap.api.v1 import events_pb2
 
+EVENTS_SERVICE_DESC = events_pb2.DESCRIPTOR.services_by_name['Events']
+
 
 @pytest.fixture(name='events_channel')
 def fixture_events_channel():
     yield grpc_testing.channel(
         [
-            events_pb2.DESCRIPTOR.services_by_name['Events']
+            EVENTS_SERVICE_DESC
         ],
         grpc_testing.strict_real_time()
     )
@@ -34,9 +36,8 @@ def fixture_events_channel():
 
 @pytest.fixture(name='events_client_executor')
 def fixture_events_client_executor():
-    executor = ThreadPoolExecutor(max_workers=1)
-    yield executor
-    executor.shutdown(wait=True)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        yield executor
 
 
 def test_get_label_index_info(events_channel, events_client_executor):
@@ -48,19 +49,15 @@ def test_get_label_index_info(events_channel, events_client_executor):
 
     future = events_client_executor.submit(call)
 
-    _, req, rpc = events_channel.take_unary_unary(
-        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name[
-            'GetEventsInstanceId']
-    )
+    get_events_instance_id_method = EVENTS_SERVICE_DESC.methods_by_name['GetEventsInstanceId']
+    _, req, rpc = events_channel.take_unary_unary(get_events_instance_id_method)
     rpc.send_initial_metadata(())
     response = events_pb2.GetEventsInstanceIdResponse()
     response.instance_id = '0'
     rpc.terminate(response, None, StatusCode.OK, '')
 
-    _, req, rpc = events_channel.take_unary_unary(
-        events_pb2.DESCRIPTOR.services_by_name['Events'].methods_by_name[
-            'GetLabelIndicesInfo']
-    )
+    get_label_indices_info_method = EVENTS_SERVICE_DESC.methods_by_name['GetLabelIndicesInfo']
+    _, req, rpc = events_channel.take_unary_unary(get_label_indices_info_method)
     rpc.send_initial_metadata(())
     response = events_pb2.GetLabelIndicesInfoResponse()
     first = response.label_index_infos.add()
