@@ -6,7 +6,7 @@ require (
 	github.com/golang/glog v1.2.1
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
-	github.com/hashicorp/consul/api v1.28.3
+	github.com/hashicorp/consul/api v1.29.1
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.19.0
 	golang.org/x/sync v0.7.0
@@ -20,7 +20,6 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/hashicorp/consul/proto-public v0.6.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
