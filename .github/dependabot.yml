@@ -14,7 +14,7 @@ updates:
       interval: daily
     ignore:
       # grpc-java does not support 4.x of protobuf
-      - dependency-name: "com.google.protobuf:proto*"
+      - dependency-name: "com.google.protobuf:*"
         versions: ["4.x"]
     groups:
       grpc-deps:
