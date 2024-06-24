@@ -2,7 +2,7 @@ name: MTAP Continuous Integration
 
 on:
   pull_request:
-    branches: main
+    branches: ['main']
   schedule:
     - cron: 0 8 * * *
 jobs:
@@ -22,50 +22,28 @@ jobs:
     name: ${{ matrix.os }}, py${{ matrix.python-version }}, java${{ matrix.java-version }}
 
     steps:
-      - uses: actions/checkout@v3
-
-        # Setup
+      - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java-version }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java-version }}
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
-      # Java Build and Tests
       - name: Build with Gradle
         working-directory: java
         run: ./gradlew clean build shadowJar
-        
-      # Install Go gateway
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: '>=1.17.0'
+          go-version-file: 'go/go.mod'
+          cache-dependency-path: |
+            go/go.sum
       - name: Install mtap-gateway
         working-directory: go
         run: go install mtap-gateway/mtap-gateway.go
-
-      # Install and Start Consul for Discovery Testing
-      - name: Set up Consul
-        run: |
-          if [ $RUNNER_OS == "macOS" ]; then
-            brew install consul
-          elif [ $RUNNER_OS == "Linux" ]; then
-            curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-            sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-            sudo apt-get update
-            sudo apt-get install consul
-          else
-            echo "OS must be 'Linux' or 'macOS' not $RUNNER_OS"
-            exit 1
-          fi
-      - name: Start Consul
-        run: consul agent -dev &
-      # Python pip install
       - name: Install Python package with dependencies
         run: |
           python -m pip install --upgrade pip setuptools
@@ -82,4 +60,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          pytest -s python/tests --integration --consul --gateway --timeout 60
+          pytest -s python/tests --integration --gateway --timeout 60
