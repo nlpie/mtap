@@ -39,6 +39,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '>=1.17.0'
+          go-version-file: 'go/go.mod'
+          cache-dependency-path: |
+            go/go.sum
       - name: Install mtap-gateway
         working-directory: go
         run: go install mtap-gateway/mtap-gateway.go
