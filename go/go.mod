@@ -3,7 +3,7 @@ module github.com/nlpie/mtap/go
 go 1.20
 
 require (
-	github.com/golang/glog v1.2.1
+	github.com/golang/glog v1.2.2
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
 	github.com/hashicorp/consul/api v1.29.1
