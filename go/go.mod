@@ -6,7 +6,7 @@ require (
 	github.com/golang/glog v1.2.2
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
-	github.com/hashicorp/consul/api v1.29.2
+	github.com/hashicorp/consul/api v1.29.3
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.19.0
 	golang.org/x/sync v0.7.0
