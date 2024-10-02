@@ -31,7 +31,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	ApiV1 "github.com/nlpie/mtap/go/mtap/api/v1"
-	_ "github.com/nlpie/mtap/go/mtap/consul"
 	"github.com/nlpie/mtap/go/mtap/processors"
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
