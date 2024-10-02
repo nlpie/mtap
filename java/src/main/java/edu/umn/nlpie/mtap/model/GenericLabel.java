@@ -15,7 +15,7 @@
  */
 package edu.umn.nlpie.mtap.model;
 
-import edu.umn.nlpie.mtap.common.AbstractJsonObject;
+import edu.umn.nlpie.mtap.common.JsonObjectBuilder;
 import edu.umn.nlpie.mtap.common.JsonObject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +49,7 @@ import java.util.*;
  *   }
  * </pre>
  */
-public class GenericLabel extends AbstractJsonObject implements Label {
+public class GenericLabel extends JsonObject implements Label {
   private static final List<String> RESERVED_FIELDS = Arrays.asList(
       "document",
       "location",
@@ -95,7 +95,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
     this.endIndex = endIndex;
   }
 
-  GenericLabel(@NotNull AbstractJsonObject abstractJsonObject,
+  GenericLabel(@NotNull JsonObject abstractJsonObject,
                Map<@NotNull String, @NotNull Object> referenceCache,
                @Nullable JsonObject referenceFieldIds,
                int startIndex,
@@ -364,7 +364,7 @@ public class GenericLabel extends AbstractJsonObject implements Label {
   /**
    * A newBuilder for generic label objects. Provides all the functionality of the json object newBuilder.
    */
-  public static class Builder extends AbstractJsonObject.AbstractBuilder<Builder, GenericLabel> {
+  public static class Builder extends JsonObjectBuilder<Builder, GenericLabel> {
 
     protected final Map<@NotNull String, Object> referenceCache = new HashMap<>();
 

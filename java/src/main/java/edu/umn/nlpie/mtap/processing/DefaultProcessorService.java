@@ -8,12 +8,9 @@ import com.google.rpc.DebugInfo;
 import com.google.rpc.ErrorInfo;
 import com.google.rpc.LocalizedMessage;
 import edu.umn.nlpie.mtap.Internal;
-import edu.umn.nlpie.mtap.MTAP;
 import edu.umn.nlpie.mtap.api.v1.Processing;
 import edu.umn.nlpie.mtap.api.v1.ProcessorGrpc;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import edu.umn.nlpie.mtap.discovery.ServiceInfo;
 import edu.umn.nlpie.mtap.exc.FailedToConnectToEventsException;
 import io.grpc.Status;
 import io.grpc.protobuf.StatusProto;
@@ -24,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,7 +32,6 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
 
     private final @NotNull ProcessorRunner runner;
     private final @NotNull TimingService timingService;
-    private final @Nullable DiscoveryMechanism discoveryMechanism;
     private final @NotNull HealthService healthService;
 
     private final @NotNull String name;
@@ -51,7 +46,6 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
     public DefaultProcessorService(
             @NotNull ProcessorRunner runner,
             @NotNull TimingService timingService,
-            @Nullable DiscoveryMechanism discoveryMechanism,
             @NotNull HealthService healthService,
             @Nullable String name,
             @Nullable String sid,
@@ -59,7 +53,6 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
     ) {
         this.runner = runner;
         this.timingService = timingService;
-        this.discoveryMechanism = discoveryMechanism;
         this.healthService = healthService;
         this.name = name != null ? name : runner.getProcessor().getProcessorName();
         this.sid = sid != null ? sid : UUID.randomUUID().toString();
@@ -70,16 +63,6 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
     public void started(int port) {
         this.port = port;
         healthService.startedServing(name);
-        if (discoveryMechanism != null) {
-            ServiceInfo serviceInfo = new ServiceInfo(
-                    name,
-                    sid,
-                    host,
-                    port,
-                    Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
-            );
-            discoveryMechanism.register(serviceInfo);
-        }
         logger.info("Server for processor_id: {} started on port: {}", name, port);
     }
 
@@ -196,17 +179,6 @@ public class DefaultProcessorService extends ProcessorGrpc.ProcessorImplBase imp
     @Override
     public void close() throws InterruptedException {
         System.out.println("Shutting down processor server with name: \"" + name + "\" on address: \"" + host + ":" + port + "\"");
-        ServiceInfo serviceInfo = new ServiceInfo(
-                name,
-                sid,
-                null,
-                -1,
-                Collections.singletonList(MTAP.PROCESSOR_SERVICE_TAG)
-        );
-        healthService.stoppedServing(name);
-        if (discoveryMechanism != null) {
-            discoveryMechanism.deregister(serviceInfo);
-        }
         runner.close();
     }
 }

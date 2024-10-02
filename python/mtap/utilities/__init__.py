@@ -46,8 +46,7 @@ def find_free_port() -> int:
 @contextlib.contextmanager
 def subprocess_events_server(port: typing.Optional[int] = None,
                              cwd: typing.Optional[pathlib.Path] = None,
-                             config_path: typing.Optional[typing.Union[pathlib.Path, str]] = None,
-                             register: bool = False) -> str:
+                             config_path: typing.Optional[typing.Union[pathlib.Path, str]] = None) -> str:
     """Context manager which launches a events server on a subprocess and yields the address.
 
     Parameters
@@ -58,8 +57,6 @@ def subprocess_events_server(port: typing.Optional[int] = None,
         A current working directory to use.
     config_path: optional Path
         A path to a configuration file to use.
-    register: bool
-        Whether to register the events server with service discovery.
 
     Returns
     -------
@@ -78,8 +75,6 @@ def subprocess_events_server(port: typing.Optional[int] = None,
         port = find_free_port()
     address = '127.0.0.1:' + str(port)
     cmd = [sys.executable, '-m', 'mtap', 'events', '-p', str(port)]
-    if register:
-        cmd += ['--register']
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, cwd=str(cwd), env=env)
     try:

@@ -98,12 +98,10 @@ class RemoteProcessor(ComponentDescriptor):
     """A remote processor in a pipeline."""
 
     name: str
-    """The processor service name used for health checking and discovery."""
+    """The processor service name, currently used for health checking."""
 
     address: Optional[str] = None
-    """Optionally an address to use, will use service discovery
-    configuration to locate the processor if this is ``None`` or
-    omitted.
+    """An address to use.
     """
 
     component_id: str = DEFAULT_COMPONENT_ID

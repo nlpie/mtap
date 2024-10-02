@@ -33,7 +33,7 @@ import java.io.IOException;
 @Processor("hello")
 public class HelloWorldExample extends DocumentProcessor {
   @Override
-  protected void process(Document document, JsonObject params, JsonObjectBuilder result) {
+  protected void process(Document document, JsonObject params, JsonObjectBuilder<?, ?> result) {
     try (Labeler<GenericLabel> labeler = document.getLabeler("hello")) {
       String text = document.getText();
       labeler.add(

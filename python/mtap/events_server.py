@@ -39,7 +39,6 @@ class EventsServer:
     Args:
         host (str): The address / hostname / IP to host the server on.
         port (int): The port to host the server on.
-        register (bool): Whether to register the service with service discovery.
         workers (int): The number of workers that should handle requests.
         config (mtap.Config): An optional mtap config.
     """
@@ -47,7 +46,6 @@ class EventsServer:
     def __init__(self, host: str,
                  *,
                  port: int = 0,
-                 register: bool = False,
                  workers: int = 10,
                  sid: Optional[str] = None,
                  write_address: bool = False,
@@ -77,7 +75,6 @@ class EventsServer:
         self._server = server
         self._address = host
         self._config = _config.Config()
-        self._register = register
         self._address_file = None
 
     @property
@@ -90,19 +87,9 @@ class EventsServer:
         """
         logger.info(f'Starting events server {self.sid} on address: "{self._address}:{self._port}"')
         self._server.start()
-        if self._register:
-            from mtap.discovery import DiscoveryMechanism
-            service_registration = DiscoveryMechanism()
-            self._deregister = service_registration.register_events_service(
-                self.sid,
-                self._address,
-                self._port,
-                'v1'
-            )
 
     def stop(self, *, grace: Optional[float] = None):
-        """De-registers (if registered with service discovery) the service and immediately stops
-        accepting requests, completely stopping the service after a specified `grace` time.
+        """Stops the service, immediately stopping accepting new requests.
 
         During the grace period the server will continue to process existing requests, but it will
         not accept any new requests. This function is idempotent, multiple calls will shutdown
@@ -121,10 +108,6 @@ class EventsServer:
             self._address, self._port))
         if self._address_file is not None:
             self._address_file.unlink()
-        try:
-            self._deregister()
-        except AttributeError:
-            pass
         return self._server.stop(grace=grace)
 
 

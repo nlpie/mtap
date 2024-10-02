@@ -19,16 +19,14 @@ package edu.umn.nlpie.mtap.processing;
 import java.lang.annotation.*;
 
 /**
- * Annotation which marks a {@link EventProcessor} or {@link DocumentProcessor} as
- * available for service discovery registration.
+ * Annotation which marks a {@link EventProcessor} or {@link DocumentProcessor}.
  */
 @Documented
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Processor {
   /**
-   * The processor name. This will be the default name that the processor identifies under with
-   * service discovery. It should be a valid dns path component, i.e. only consisting of
+   * The processor name. It should be a valid dns path component, i.e. only consisting of
    * alphanumeric characters and dashes.
    *
    * @return String processor name.

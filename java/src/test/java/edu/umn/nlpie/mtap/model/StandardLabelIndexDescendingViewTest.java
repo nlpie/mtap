@@ -418,6 +418,7 @@ public class StandardLabelIndexDescendingViewTest {
     assertTrue(descending.contains(Span.of(null, 2, 6)));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void containsNotLabel() {
     assertFalse(descending.contains("this is a string"));
@@ -555,6 +556,7 @@ public class StandardLabelIndexDescendingViewTest {
     assertEquals(-1, descending.asList().indexOf(null));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void asListIndexOfNotLabel() {
     assertEquals(-1, descending.asList().indexOf("blah"));
@@ -656,6 +658,7 @@ public class StandardLabelIndexDescendingViewTest {
     assertEquals(-1, descending.asList().lastIndexOf(null));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void asListLastIndexOfNotLabel() {
     assertEquals(-1, descending.asList().lastIndexOf("blah"));

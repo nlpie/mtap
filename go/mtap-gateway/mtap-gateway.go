@@ -18,8 +18,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -31,11 +38,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"time"
 )
 
 func run() error {
@@ -63,7 +65,7 @@ func run() error {
 	if err != nil {
 		err = nil
 	} else {
-		config.ManualProcessors = manualProcessors
+		config.Processors = manualProcessors
 	}
 
 	var manualPipelines []processors.ServiceEndpoint
@@ -71,7 +73,7 @@ func run() error {
 	if err != nil {
 		err = nil
 	} else {
-		config.ManualPipelines = manualPipelines
+		config.Pipelines = manualPipelines
 	}
 
 	server, err := processors.NewProcessorsServer(ctx, &config)
@@ -89,8 +91,7 @@ func run() error {
 		eventsAddr = cast.ToString(eventsLookup)
 		glog.Infof("Using events address: %s", eventsAddr)
 	} else {
-		eventsAddr = fmt.Sprintf("consul://%s/mtap-events/v1", consulAddr)
-		glog.Info("Using consul service discovery for events: ", eventsAddr)
+		return errors.New("Missing events address.")
 	}
 	err = ApiV1.RegisterEventsHandlerFromEndpoint(
 		ctx,

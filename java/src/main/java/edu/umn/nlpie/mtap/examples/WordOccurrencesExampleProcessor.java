@@ -88,7 +88,7 @@ public class WordOccurrencesExampleProcessor extends DocumentProcessor {
   @Override
   protected void process(@NotNull Document document,
                          @NotNull JsonObject params,
-                         @NotNull JsonObjectBuilder result) {
+                         @NotNull JsonObjectBuilder<?, ?> result) {
     // Example of using process level parameters to do conditional processing
     Boolean doWork = params.getBooleanValue("do_work");
     if (doWork == null || !doWork) {

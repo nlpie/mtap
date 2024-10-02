@@ -1,6 +1,8 @@
 module github.com/nlpie/mtap/go
 
-go 1.20
+go 1.21
+
+toolchain go1.22.1
 
 require (
 	github.com/golang/glog v1.2.2

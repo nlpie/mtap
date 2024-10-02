@@ -21,7 +21,7 @@ error_handlers:
       max_failures: 0
 components:
   - name: mtap-example-processor-python # The processor's identifier
-    address: localhost:10101 # The address of the processor, null to use service discovery
+    address: localhost:10101 # The address of the processor
     call_timeout: 5.0  # A customizable timeout
     params:
       do_work: yes

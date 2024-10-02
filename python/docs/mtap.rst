@@ -22,8 +22,6 @@ usage:
   --port PORT, -p PORT  the port to serve the service on
   --workers WORKERS, -w WORKERS
                         number of worker threads to handle requests
-  --register, -r        whether to register the service with the configured
-                        service discovery
   --config CONFIG, -c CONFIG
                         path to config file
 

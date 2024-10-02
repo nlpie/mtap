@@ -36,7 +36,6 @@ def fixture_api_gateway(deployment, hosted_pipeline):
     java_processor = deployment['java_example']
     port = find_free_port()
     config = {
-        'discovery': 'consul',
         'grpc': {
             'enable_proxy': False
         },

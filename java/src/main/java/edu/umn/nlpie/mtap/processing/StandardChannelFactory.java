@@ -1,9 +1,6 @@
 package edu.umn.nlpie.mtap.processing;
 
-import edu.umn.nlpie.mtap.MTAP;
 import edu.umn.nlpie.mtap.common.Config;
-import edu.umn.nlpie.mtap.discovery.Discovery;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.model.ChannelFactory;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -25,15 +22,10 @@ public class StandardChannelFactory implements ChannelFactory {
   public ManagedChannel createChannel(String address) {
     LOGGER.debug("Creating channel with address: {}", address);
     ManagedChannel eventsChannel;
-    ManagedChannelBuilder<?> builder;
-    if (address == null) {
-      DiscoveryMechanism discoveryMechanism = Discovery.getDiscoveryMechanism(config);
-      discoveryMechanism.initializeNameResolution();
-      String target = discoveryMechanism.getServiceTarget(MTAP.EVENTS_SERVICE_NAME);
-      builder = ManagedChannelBuilder.forTarget(target);
-    } else {
-      builder = ManagedChannelBuilder.forTarget(address);
+    if (address == null || !(address instanceof String) || address.length() == 0) {
+      throw new IllegalArgumentException("Address must be nonnull, nonempty String.");
     }
+    ManagedChannelBuilder<?> builder = ManagedChannelBuilder.forTarget(address);
     Integer maxInboundMessageSize = config.getIntegerValue("grpc.events_options.grpc.max_receive_message_length");
     if (maxInboundMessageSize != null) {
       builder.maxInboundMessageSize(maxInboundMessageSize);

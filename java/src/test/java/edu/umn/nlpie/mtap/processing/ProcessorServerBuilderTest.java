@@ -39,7 +39,6 @@ class ProcessorServerBuilderTest {
     cmdLineParser.parseArgument(
         "--events",
         "localhost:8080",
-        "--register",
         "--port",
         "10",
         "--name",
@@ -49,7 +48,6 @@ class ProcessorServerBuilderTest {
         "--sid",
         "2");
     assertEquals("localhost:8080", options.getEventsTarget());
-    assertTrue(options.getRegister());
     assertEquals(10, options.getPort());
     assertEquals("blah", options.getName());
     assertEquals(Paths.get("/etc/config"), options.getConfigFile());
@@ -68,17 +66,6 @@ class ProcessorServerBuilderTest {
   void setPort() {
     options.setPort(50555);
     assertEquals(50555, options.getPort());
-  }
-
-  @Test
-  void defaultRegisterFalse() {
-    assertFalse(options.getRegister());
-  }
-
-  @Test
-  void setRegister() {
-    options.setRegister(true);
-    assertTrue(options.getRegister());
   }
 
   @Test
@@ -106,7 +93,6 @@ class ProcessorServerBuilderTest {
     parser.parseArgument(
         "--events",
         "localhost:8080",
-        "--register",
         "--port",
         "10",
         "--name",
@@ -118,7 +104,6 @@ class ProcessorServerBuilderTest {
         "--extra",
         "foo");
     assertEquals("localhost:8080", options.getEventsTarget());
-    assertTrue(options.getRegister());
     assertEquals(10, options.getPort());
     assertEquals("blah", options.getName());
     assertEquals(Paths.get("/etc/config"), options.getConfigFile());

@@ -86,7 +86,6 @@ def run_pipeline_server(pipeline: Pipeline,
                 host=options.host,
                 port=options.port,
                 sid=options.sid,
-                register=options.register,
                 workers=options.workers,
                 write_address=options.write_address
             )
@@ -118,11 +117,6 @@ def pipeline_parser() -> ArgumentParser:
         type=int,
         default=10,
         help="The number of workers threads to handle requests."
-    )
-    parser.add_argument(
-        '--register', '-r',
-        action='store_true',
-        help="Whether to register the service with configured discovery mechanism."
     )
     parser.add_argument(
         "--mtap-config",
@@ -201,13 +195,11 @@ class PipelineServer:
                  port: int = 0,
                  *,
                  sid: Optional[str] = None,
-                 register: bool = False,
                  workers: Optional[int] = None,
                  write_address: bool = False):
         self.pool = pool
         self.pipeline_name = pool.pipeline.name
         self.host = host
-        self.register = register
         self.sid = sid or str(uuid.uuid4())
         self.write_address = write_address
 

@@ -29,6 +29,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PrintProcessorMetadataTest {
+  @SuppressWarnings("rawtypes")
   @Test
   void toMap() throws IOException {
     try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("edu/umn/nlpie/mtap/ExampleMeta.yaml")) {
