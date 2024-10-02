@@ -47,16 +47,9 @@ func run() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	consulPort := viper.GetInt("consul.port")
-	consulHost := viper.GetString("consul.host")
-	consulAddr := consulHost + ":" + strconv.Itoa(consulPort)
-
 	m := mux.NewRouter()
 
 	config := processors.Config{
-		ConsulAddress:       consulHost,
-		ConsulPort:          consulPort,
-		RefreshInterval:     viper.GetDuration("gateway.refresh_interval"),
 		GrpcEnableHttpProxy: viper.GetBool("grpc.enable_proxy"),
 	}
 
@@ -91,7 +84,7 @@ func run() error {
 		eventsAddr = cast.ToString(eventsLookup)
 		glog.Infof("Using events address: %s", eventsAddr)
 	} else {
-		return errors.New("Missing events address.")
+		return errors.New("missing events address")
 	}
 	err = ApiV1.RegisterEventsHandlerFromEndpoint(
 		ctx,
@@ -140,8 +133,6 @@ func main() {
 		"The path to the mtap configuration file")
 	flag.IntVar(&port, "port", -1, "The port to use")
 	flag.Parse()
-	viper.SetDefault("consul.host", "localhost")
-	viper.SetDefault("consul.port", 8500)
 	viper.SetDefault("gateway.port", 8080)
 	viper.SetDefault("gateway.refresh_interval", 10)
 	viper.SetDefault("gateway.events", nil)
