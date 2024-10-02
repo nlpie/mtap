@@ -22,7 +22,7 @@ import java.util.Map;
  * <p>
  * {@inheritDoc}
  */
-public final class JsonObjectImpl extends AbstractJsonObject {
+public final class JsonObjectImpl extends JsonObject {
 
 
   private JsonObjectImpl(Map<String, Object> backingMap) {
@@ -34,7 +34,7 @@ public final class JsonObjectImpl extends AbstractJsonObject {
    *
    * @param jsonObject Json object to copy.
    */
-  public JsonObjectImpl(AbstractJsonObject jsonObject) {
+  public JsonObjectImpl(JsonObject jsonObject) {
     super(jsonObject);
   }
 
@@ -51,7 +51,7 @@ public final class JsonObjectImpl extends AbstractJsonObject {
   /**
    * A concrete Builder for {@link JsonObjectImpl}.
    */
-  public final static class Builder extends AbstractBuilder<Builder, JsonObjectImpl> {
+  public final static class Builder extends JsonObjectBuilder<Builder, JsonObjectImpl> {
     /**
      * Creates a {@link JsonObjectImpl}
      *

@@ -52,9 +52,9 @@ public class PrintProcessorMetadata {
   )
   private String[] classNames;
 
-  public static void dump(Path filePath, Class... processorClasses) throws IOException {
+  public static void dump(Path filePath, Class<?>... processorClasses) throws IOException {
     List<Map<String, Object>> lists = new ArrayList<>();
-    for (Class processorClass : processorClasses) {
+    for (Class<?> processorClass : processorClasses) {
       lists.add(ProcessorBase.metadataMap(processorClass));
     }
     Yaml yaml = new Yaml();
@@ -69,7 +69,7 @@ public class PrintProcessorMetadata {
   }
 
   public void dumpAll() throws ClassNotFoundException, IOException {
-    Class[] classes = new Class[classNames.length];
+    Class<?>[] classes = new Class[classNames.length];
     for (int i = 0; i < classNames.length; i++) {
       Class<?> aClass = Thread.currentThread().getContextClassLoader().loadClass(classNames[i]);
       classes[i] = aClass;

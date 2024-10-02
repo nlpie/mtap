@@ -386,3 +386,5 @@ Pipfile.lock
 # override for test logging jar
 !python/tests/slf4j-simple-*.jar
 
+# VSCode
+.vscode

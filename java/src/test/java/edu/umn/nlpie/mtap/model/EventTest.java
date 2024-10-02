@@ -143,6 +143,7 @@ class EventTest {
         () -> tested.createDocument("plaintext", "Some text."));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void containsKeyNotString() {
     assertFalse(tested.getDocuments().containsKey(3));
@@ -164,7 +165,7 @@ class EventTest {
   @Test
   void emptyEntrySetIterator() {
     when(mockClient.getAllDocumentNames("1")).thenReturn(Collections.emptyList());
-    for (Map.Entry<String, Document> ignored : tested.getDocuments().entrySet()) {
+    for (@SuppressWarnings("unused") Map.Entry<String, Document> unused : tested.getDocuments().entrySet()) {
       fail();
     }
   }

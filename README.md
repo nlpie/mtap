@@ -25,20 +25,6 @@ components in either Python or Java.
 - Optional: [Java 11+](https://adoptium.net) (_If you want to create Java Processors_) We test on Java 11 and the latest stable version of Java.
 - Optional: [Go 13+](https://golang.org) if you want to run the RESTful API Gateway.
 
-## Features
-
-### Ease of Use
-
-MTAP takes care of all the communication between different components, and provides a distributed object model for text analysis artifacts. All you have to worry about is writing the text analysis code.
-
-### Flexibility
-
-By using the microservice pattern, text analysis components can be deployed once and then mixed and matched in different pipelines. Components written in different languages can interoperate without hassle. We also provide a RESTful API gateway that lets you call components using HTTP.
-
-### Scalability
-
-MTAP is designed to bridge the gap between prototyping new ideas and deploying them into a production environment. It supports calling components locally without using any network infastructure all the way up to deploying services and using service discovery via Consul to build pipelines.
-
 ## Instructions
 
 We make getting started tutorials available on our project website for both [Python](https://nlpie.github.io/mtap/docs/tutorials/python.html) and [Java](https://nlpie.github.io/mtap/docs/tutorials/java.html).

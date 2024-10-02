@@ -72,7 +72,7 @@ public class ReferenceLabelsExampleProcessor extends DocumentProcessor {
   protected void process(
       @NotNull Document document,
       @NotNull JsonObject params,
-      @NotNull JsonObjectBuilder result) {
+      @NotNull JsonObjectBuilder<?, ?> result) {
     List<GenericLabel> referenced = Arrays.asList(
         GenericLabel.createSpan(0, 1),
         GenericLabel.createSpan(1, 2),

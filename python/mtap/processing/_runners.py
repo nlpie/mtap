@@ -123,11 +123,8 @@ class RemoteRunner(ProcessingComponent):
         config = Config()
         if enable_proxy is not None:
             config['grpc.processor_options.gprc.enable_http_proxy'] = enable_proxy
-        if address is None:
-            from mtap.discovery import DiscoveryMechanism
-            discovery = DiscoveryMechanism()
-            address = discovery.discover_processor_service(processor_name,
-                                                           'v1')
+        if address is None or not isinstance(address, str) or len(address) == 0:
+            raise ValueError("address should be a nonnull, nonempty str")
         channel_options = config.get('grpc.processor_options', {})
         self._channel = channel
         if channel is None:

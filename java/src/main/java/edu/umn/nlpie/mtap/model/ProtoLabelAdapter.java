@@ -18,7 +18,6 @@ package edu.umn.nlpie.mtap.model;
 import edu.umn.nlpie.mtap.ExperimentalApi;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 

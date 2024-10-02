@@ -1,6 +1,8 @@
 module github.com/nlpie/mtap/go
 
-go 1.20
+go 1.21
+
+toolchain go1.22.1
 
 require (
 	github.com/golang/glog v1.2.2
@@ -9,7 +11,6 @@ require (
 	github.com/hashicorp/consul/api v1.29.2
 	github.com/spf13/cast v1.7.0
 	github.com/spf13/viper v1.19.0
-	golang.org/x/sync v0.8.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142
 	google.golang.org/grpc v1.65.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1

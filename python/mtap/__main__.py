@@ -30,7 +30,6 @@ def run_events_server(args):
             args.host,
             sid=args.sid,
             port=args.port,
-            register=args.register,
             workers=args.workers,
             write_address=args.write_address
         )
@@ -69,12 +68,6 @@ def main(args=None):
     events_parser.add_argument(
         '--sid',
         help='The unique service identifier for the events service.'
-    )
-    events_parser.add_argument(
-        '--register', '-r',
-        action='store_true',
-        help='whether to register the service with the configured '
-             'service discovery'
     )
     events_parser.add_argument(
         "--mtap-config",

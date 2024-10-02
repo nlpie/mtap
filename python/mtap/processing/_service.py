@@ -112,7 +112,6 @@ def run_processor(proc: EventProcessor,
                                  sid=sid,
                                  host=options.host,
                                  port=options.port,
-                                 register=options.register,
                                  workers=options.workers)
 
         run_server_forever(server)
@@ -250,12 +249,6 @@ def processor_parser() -> argparse.ArgumentParser:
         help='number of worker threads to handle requests'
     )
     processors_parser.add_argument(
-        '--register', '-r',
-        action='store_true',
-        help='whether to register the service with the configured service '
-             'discovery'
-    )
-    processors_parser.add_argument(
         "--mtap-config",
         default=None,
         help="path to MTAP config file"
@@ -263,7 +256,7 @@ def processor_parser() -> argparse.ArgumentParser:
     processors_parser.add_argument(
         '--events-addresses', '--events-address', '--events', '-e',
         default=None,
-        help='address of the events service to use, omit to use discovery'
+        help='address of the events service to use'
     )
     processors_parser.add_argument(
         '--name', '-n',
@@ -389,7 +382,6 @@ class ProcessorServer:
     Args:
         runner: A processing component runner to host.
         port: The port to host the server on, or 0 to use a random port.
-        register: Whether to register the processor with service discovery.
         workers: The number of workers that should handle requests. Defaults
             to 10.
 
@@ -410,13 +402,11 @@ class ProcessorServer:
                  port: int = 0,
                  *,
                  sid: Optional[str] = None,
-                 register: bool = False,
                  workers: Optional[int] = None,
                  write_address: bool = False):
         self.host = host
         self.processor_name = runner.processor_name
         self.sid = sid or str(uuid.uuid4())
-        self.register = register
         if write_address:
             logger.warning("The write_address option is deprecated and does not do anything")
 
@@ -442,7 +432,6 @@ class ProcessorServer:
             raise ValueError(f"Unable to bind on port {port}, likely in use.")
         self._stopped_event = threading.Event()
         self._address_file = None
-        self._deregister = None
 
     @property
     def port(self) -> int:
@@ -454,24 +443,13 @@ class ProcessorServer:
         """Starts the service.
         """
         self._server.start()
-        if self.register:
-            from mtap.discovery import DiscoveryMechanism
-            d = DiscoveryMechanism()
-            self._deregister = d.register_processor_service(
-                self.processor_name,
-                self.sid,
-                self.host,
-                self.port,
-                'v1'
-            )
         logger.info(
             'Started processor server with name: "%s"  on address: "%s:%d"',
             self.processor_name, self.host, self.port)
 
     def stop(self, *, grace: Optional[float] = None) -> threading.Event:
-        """De-registers (if registered with service discovery) the service and
-        immediately stops accepting requests, completely stopping the service
-        after a specified `grace` time.
+        """Stops accepting new requests and completely shuts down after a specified
+        grace time.
 
         During the grace period the server will continue to process existing
         requests, but it will not accept any new requests. This function is
@@ -492,7 +470,5 @@ class ProcessorServer:
         )
         if self._address_file is not None:
             self._address_file.unlink()
-        if self.register:
-            self._deregister()
         self._thread_pool.shutdown()
         return self._server.stop(grace)

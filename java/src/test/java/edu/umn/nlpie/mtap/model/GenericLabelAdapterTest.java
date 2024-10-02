@@ -20,7 +20,6 @@ import edu.umn.nlpie.mtap.api.v1.EventsOuterClass;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.AddLabelsRequest;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.GenericLabels;
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.GetLabelsResponse;
-import edu.umn.nlpie.mtap.common.JsonObjectImpl;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -18,8 +18,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -31,11 +38,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/encoding/protojson"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"time"
 )
 
 func run() error {
@@ -45,16 +47,9 @@ func run() error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	consulPort := viper.GetInt("consul.port")
-	consulHost := viper.GetString("consul.host")
-	consulAddr := consulHost + ":" + strconv.Itoa(consulPort)
-
 	m := mux.NewRouter()
 
 	config := processors.Config{
-		ConsulAddress:       consulHost,
-		ConsulPort:          consulPort,
-		RefreshInterval:     viper.GetDuration("gateway.refresh_interval"),
 		GrpcEnableHttpProxy: viper.GetBool("grpc.enable_proxy"),
 	}
 
@@ -63,7 +58,7 @@ func run() error {
 	if err != nil {
 		err = nil
 	} else {
-		config.ManualProcessors = manualProcessors
+		config.Processors = manualProcessors
 	}
 
 	var manualPipelines []processors.ServiceEndpoint
@@ -71,7 +66,7 @@ func run() error {
 	if err != nil {
 		err = nil
 	} else {
-		config.ManualPipelines = manualPipelines
+		config.Pipelines = manualPipelines
 	}
 
 	server, err := processors.NewProcessorsServer(ctx, &config)
@@ -89,8 +84,7 @@ func run() error {
 		eventsAddr = cast.ToString(eventsLookup)
 		glog.Infof("Using events address: %s", eventsAddr)
 	} else {
-		eventsAddr = fmt.Sprintf("consul://%s/mtap-events/v1", consulAddr)
-		glog.Info("Using consul service discovery for events: ", eventsAddr)
+		return errors.New("missing events address")
 	}
 	err = ApiV1.RegisterEventsHandlerFromEndpoint(
 		ctx,
@@ -139,8 +133,6 @@ func main() {
 		"The path to the mtap configuration file")
 	flag.IntVar(&port, "port", -1, "The port to use")
 	flag.Parse()
-	viper.SetDefault("consul.host", "localhost")
-	viper.SetDefault("consul.port", 8500)
 	viper.SetDefault("gateway.port", 8080)
 	viper.SetDefault("gateway.refresh_interval", 10)
 	viper.SetDefault("gateway.events", nil)

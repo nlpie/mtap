@@ -15,7 +15,6 @@
  */
 package edu.umn.nlpie.mtap.common;
 
-import com.google.rpc.Help;
 import edu.umn.nlpie.mtap.utilities.Helpers;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

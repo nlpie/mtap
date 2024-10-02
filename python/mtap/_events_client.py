@@ -48,28 +48,11 @@ def events_client(addresses: Iterable[str]) -> 'EventsClient':
     ...
 
 
-@overload
-def events_client() -> 'EventsClient':
-    """Creates a client object for interacting with the events service.
-
-    Uses service discovery to retrieve the address(es).
-    """
-    ...
-
-
-def events_client(address: EventsAddressLike = None) -> 'EventsClient':
+def events_client(address: EventsAddressLike) -> 'EventsClient':
     logger.debug(f"Creating events client with address: {address}")
     from mtap._events_client_grpc import GrpcEventsClient
     if address is None or not isinstance(address, str) and len(address) == 0:
-        from mtap.discovery import DiscoveryMechanism
-        discovery = DiscoveryMechanism()
-        address = discovery.discover_events_service('v1')
-        if len(address) == 1:
-            address = address[0]
-        elif len(address) == 0:
-            raise ValueError(
-                "Did not discover any addresses for the events service."
-            )
+        raise ValueError("Address should be a nonnull, nonempty string")
 
     if isinstance(address, str):
         return GrpcEventsClient(address)

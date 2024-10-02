@@ -6,8 +6,6 @@ global:
   mtap_config: null
   # Optional override to set the python log-level for all services
   log_level: INFO
-  # Boolean yes to register with the configured service discovery.
-  register: no
 # Configuration for an optional event service co-deployed with processors.
 events_service:
   # Whether to deploy the events service.

@@ -50,6 +50,7 @@ class EventsClientTest {
   private EventsGrpc.EventsImplBase eventsService;
 
   private EventsClient tested;
+  @SuppressWarnings("rawtypes")
   private ProtoLabelAdapter adapter;
   private ManagedChannel channel;
 
@@ -319,7 +320,7 @@ class EventsClientTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   void getLabelsWithAdapter() {
     doAnswer((Answer<Void>) invocation -> {
       StreamObserver<GetLabelsResponse> observer = invocation.getArgument(1);

@@ -26,9 +26,6 @@ import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.GetLabelIndicesInfoResponse.La
 import edu.umn.nlpie.mtap.api.v1.EventsOuterClass.GetLabelsResponse;
 import edu.umn.nlpie.mtap.common.Config;
 import edu.umn.nlpie.mtap.common.ConfigImpl;
-import edu.umn.nlpie.mtap.discovery.Discovery;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import edu.umn.nlpie.mtap.discovery.ServiceInfo;
 import edu.umn.nlpie.mtap.processing.HSMHealthService;
 import edu.umn.nlpie.mtap.processing.HealthService;
 import io.grpc.Server;
@@ -68,26 +65,22 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
   private final @NotNull String host;
   private final @NotNull String sid;
   private final @NotNull HealthService healthService;
-  private final @Nullable DiscoveryMechanism discoveryMechanism;
 
   private boolean running = false;
   private int port = -1;
   private @Nullable Path addressFile = null;
-  private @Nullable ServiceInfo serviceInfo;
 
   EventsServer(
       @NotNull Server grpcServer,
       @NotNull String host,
       @NotNull String sid,
       boolean writeAddress,
-      @NotNull HealthService healthService,
-      @Nullable DiscoveryMechanism discoveryMechanism
+      @NotNull HealthService healthService
   ) {
     this.grpcServer = grpcServer;
     this.host = host;
     this.sid = sid;
     this.healthService = healthService;
-    this.discoveryMechanism = discoveryMechanism;
     if (writeAddress) {
       LOGGER.warn("The writeAddress option is deprecated and does not do anything.");
     }
@@ -104,17 +97,6 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
 
     healthService.startedServing("");
     healthService.startedServing(MTAP.EVENTS_SERVICE_NAME);
-    if (discoveryMechanism != null) {
-      UUID uuid = UUID.randomUUID();
-      serviceInfo = new ServiceInfo(
-          MTAP.EVENTS_SERVICE_NAME,
-          uuid.toString(),
-          host,
-          port,
-          Collections.singletonList("v1")
-      );
-      discoveryMechanism.register(serviceInfo);
-    }
     Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
     LOGGER.info("Started events service on port: {}", port);
   }
@@ -126,10 +108,6 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
     }
     healthService.stoppedServing(MTAP.PROCESSOR_SERVICE_TAG);
     healthService.stoppedServing("");
-    if (discoveryMechanism != null) {
-      assert serviceInfo != null;
-      discoveryMechanism.deregister(serviceInfo);
-    }
     grpcServer.shutdown();
     running = false;
     if (addressFile != null) {
@@ -506,6 +484,8 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
         case CUSTOM_LABELS:
           response.getCustomLabelsBuilder().mergeFrom(indexStore.labelsObject).build();
           break;
+        case LABELS_NOT_SET:
+          responseObserver.onError(Status.FAILED_PRECONDITION.withDescription("Labels not set.").asException());
       }
       responseObserver.onNext(response.build());
       responseObserver.onCompleted();
@@ -699,10 +679,6 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
         usage = "Port to host the processor service on or 0 if it should bind to a random port.")
     private int port = 0;
 
-    @Option(name = "-r", aliases = {"--register"},
-        usage = "Whether to register with service discovery.")
-    private boolean register = false;
-
     @Nullable
     @Option(name = "--mtap-config", handler = PathOptionHandler.class, metaVar = "CONFIG_PATH",
         usage = "A path to a config file to load.")
@@ -747,20 +723,7 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
       this.port = port;
       return this;
     }
-
-    public boolean isRegister() {
-      return register;
-    }
-
-    public void setRegister(boolean register) {
-      this.register = register;
-    }
-
-    public @NotNull Builder register() {
-      this.register = true;
-      return this;
-    }
-
+    
     public @Nullable Path getConfigFile() {
       return configFile;
     }
@@ -815,10 +778,6 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
 
     public EventsServer build() {
       Config config = ConfigImpl.loadConfigFromLocationOrDefaults(configFile);
-      DiscoveryMechanism discoveryMechanism = null;
-      if (register) {
-        discoveryMechanism = Discovery.getDiscoveryMechanism(config);
-      }
       HealthService healthService = new HSMHealthService();
       String sid = this.sid;
       if (sid == null) {
@@ -852,7 +811,7 @@ public class EventsServer implements edu.umn.nlpie.mtap.common.Server, Closeable
       if (writeAddress) {
         LOGGER.warn("The --write-address option is deprecated and does not do anything.");
       }
-      return new EventsServer(grpcServer, hostname, sid, false, healthService, discoveryMechanism);
+      return new EventsServer(grpcServer, hostname, sid, false, healthService);
     }
   }
 

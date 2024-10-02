@@ -96,9 +96,6 @@ class GlobalSettings:
     log_level: Optional[str] = None
     """A python logging level to pass to all services."""
 
-    register: Optional[bool] = None
-    """Whether services should register with service discovery."""
-
     @staticmethod
     def from_dict(conf: Optional[Dict[str, Any]]) -> 'GlobalSettings':
         """Creates a global settings object from a configuration dictionary.
@@ -166,7 +163,6 @@ class SharedProcessorConfig:
 @dataclass
 class _ServiceDeployment:
     workers: Optional[int] = None
-    register: Optional[bool] = None
     mtap_config: Optional[str] = None
     log_level: Optional[str] = None
 
@@ -175,7 +171,6 @@ class _ServiceDeployment:
             host: Optional[str] = None,
             port: Optional[int] = None,
             sid: Optional[List[str]] = None,
-            register_default: Optional[bool] = None,
             global_host: Optional[str] = None,
             workers_default: Optional[int] = None,
             mtap_config_default: Optional[str] = None,
@@ -189,9 +184,6 @@ class _ServiceDeployment:
 
         if port is not None:
             call.extend(['--port', str(port)])
-
-        if self.register or register_default:
-            call.append('--register')
 
         sid = sid or str(uuid.uuid4())
         call.extend(["--sid", sid])
@@ -228,9 +220,6 @@ class EventsDeployment:
     workers: Optional[int] = None
     """The number of worker threads the events service should use."""
 
-    register: Optional[bool] = None
-    """Whether to register the events service with discovery."""
-
     mtap_config: Optional[str] = None
     """Path to an mtap configuration file."""
 
@@ -266,7 +255,6 @@ def _create_events_calls(
 
     service_deployment = _ServiceDeployment(
         workers=events.workers,
-        register=events.register,
         mtap_config=events.mtap_config,
         log_level=events.log_level
     )
@@ -291,7 +279,6 @@ def _create_events_calls(
         service_args, port = service_deployment.service_args(
             host=host,
             port=port,
-            register_default=global_settings.register,
             global_host=global_settings.host,
             mtap_config_default=global_settings.mtap_config,
             log_level_default=global_settings.log_level
@@ -330,11 +317,6 @@ class ProcessorDeployment:
 
     workers: Optional[int] = None
     """The number of worker threads per instance."""
-
-    register: Optional[bool] = None
-    """Whether the processor should register with the discovery service
-    specified in the MTAP config file.
-    """
 
     mtap_config: Optional[str] = None
     """Path to the MTAP configuration file."""
@@ -393,7 +375,6 @@ def _create_processor_calls(
 ) -> Iterable[Tuple[List[str], str]]:
     service_deployment = _ServiceDeployment(
         workers=depl.workers,
-        register=depl.register,
         mtap_config=depl.mtap_config,
         log_level=depl.log_level
     )
@@ -418,7 +399,6 @@ def _create_processor_call(depl, global_settings, port, service_deployment,
         host=depl.host,
         port=port,
         sid=depl.sid,
-        register_default=global_settings.register,
         global_host=global_settings.host,
         mtap_config_default=global_settings.mtap_config,
         log_level_default=global_settings.log_level,
@@ -586,12 +566,7 @@ class Deployment:
                 )
                 events_addresses.append(events_address)
 
-        # attach deployed events service addresses if it's not already
-        # specified or will be picked up by service disc.
-        if (not self.global_settings.register
-                and not self.events_deployment.register
-                and self.shared_processor_config.events_addresses is None):
-            self.shared_processor_config.events_addresses = events_addresses
+        self.shared_processor_config.events_addresses = events_addresses
 
         # deploy processors
         all_processor_addresses = []

@@ -18,8 +18,6 @@ package edu.umn.nlpie.mtap.processing;
 
 import edu.umn.nlpie.mtap.common.Config;
 import edu.umn.nlpie.mtap.common.ConfigImpl;
-import edu.umn.nlpie.mtap.discovery.Discovery;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
 import edu.umn.nlpie.mtap.model.ChannelFactory;
 import edu.umn.nlpie.mtap.model.EventsClientPool;
 import io.grpc.Server;
@@ -55,23 +53,16 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
   private final Server grpcServer;
   private final ProcessorService processorService;
-  private final String host;
-
-  private final String sid;
   private boolean running = false;
   private Path addressFile = null;
 
   ProcessorServer(
       ProcessorService processorService,
       Server grpcServer,
-      String host,
-      String sid,
       boolean writeAddress
   ) {
     this.processorService = processorService;
-    this.host = host;
     this.grpcServer = grpcServer;
-    this.sid = sid;
     if (writeAddress) {
       logger.warn("The writeAddress option is deprecated and does not do anything.");
     }
@@ -145,10 +136,6 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
         usage = "Port to host the processor service on or 0 if it should bind to a random " +
             "available port.")
     private int port = 0;
-
-    @Option(name = "-r", aliases = {"--register"},
-        usage = "Whether to register with service discovery.")
-    private boolean register = false;
 
     @Nullable
     @Option(name = "-e", aliases = {"--events", "--events-address"}, metaVar = "EVENTS_TARGET",
@@ -251,29 +238,6 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
      */
     public @NotNull Builder port(int port) {
       this.port = port;
-      return this;
-    }
-
-    /**
-     * @return Whether the server should register with service discovery.
-     */
-    public boolean getRegister() {
-      return register;
-    }
-
-    /**
-     * @param register Whether the server should register with service discovery.
-     */
-    public void setRegister(boolean register) {
-      this.register = register;
-    }
-
-    /**
-     * @param register Whether the server should register with service discovery.
-     * @return this builder.
-     */
-    public @NotNull Builder register(boolean register) {
-      this.register = register;
       return this;
     }
 
@@ -479,15 +443,10 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
 
       EventsClientPool clientPool = EventsClientPool.fromAddresses(addresses, channelFactory);
       ProcessorRunner runner = new LocalProcessorRunner(clientPool, processor);
-      DiscoveryMechanism discoveryMechanism = null;
-      if (register) {
-        discoveryMechanism = Discovery.getDiscoveryMechanism(config);
-      }
       HealthService healthService = new HSMHealthService();
       ProcessorService processorService = new DefaultProcessorService(
           runner,
           new DefaultTimingService(),
-          discoveryMechanism,
           healthService,
           name,
           sid,
@@ -521,7 +480,7 @@ public final class ProcessorServer implements edu.umn.nlpie.mtap.common.Server {
       if (writeAddress) {
         logger.warn("The --write-address option is deprecated and does not do anything.");
       }
-      return new ProcessorServer(processorService, grpcServer, host, sid, false);
+      return new ProcessorServer(processorService, grpcServer, false);
     }
 
     /**

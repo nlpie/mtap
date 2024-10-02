@@ -34,8 +34,9 @@ class DocumentTest {
   private Event event;
 
   private Document tested;
-  private ProtoLabelAdapter labelAdapter;
-  private LabelIndex labelIndex;
+  private ProtoLabelAdapter<Label> labelAdapter;
+  private LabelIndex<Label> labelIndex;
+  private LabelIndex<GenericLabel> genericLabelIndex;
 
   @BeforeEach
   @SuppressWarnings("unchecked")
@@ -47,7 +48,9 @@ class DocumentTest {
 
     labelAdapter = mock(ProtoLabelAdapter.class);
     labelIndex = mock(LabelIndex.class);
+    genericLabelIndex = mock(LabelIndex.class);
     when(labelIndex.iterator()).thenReturn(Collections.emptyIterator());
+    when(genericLabelIndex.iterator()).thenReturn(Collections.emptyIterator());
 
     tested = new Document("plaintext");
     tested.setEvent(event);
@@ -142,7 +145,6 @@ class DocumentTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void getGenericLabelIndexCaches() {
     when(eventsClient.getLabelIndicesInfos(eq(event.getEventID()), eq("plaintext")))
         .thenReturn(
@@ -150,7 +152,7 @@ class DocumentTest {
                 new LabelIndexInfo("index", LabelIndexInfo.LabelIndexType.GENERIC)
             )
         );
-    when(eventsClient.getLabels(eq(tested), anyString(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER))).thenReturn(labelIndex);
+    when(eventsClient.getLabels(eq(tested), anyString(), same(GenericLabelAdapter.NOT_DISTINCT_ADAPTER))).thenReturn(genericLabelIndex);
     tested.getLabelIndex("index");
     verify(eventsClient).getLabelIndicesInfos("1", "plaintext");
     verify(eventsClient).getLabels(tested, "index", GenericLabelAdapter.NOT_DISTINCT_ADAPTER);
@@ -159,7 +161,7 @@ class DocumentTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   void getLabeler() {
     when(labelAdapter.createLabelIndex(anyList())).thenReturn(labelIndex);
     tested.getDefaultAdapters().put("index", labelAdapter);
@@ -179,7 +181,7 @@ class DocumentTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   void genericDistinct() {
     try (Labeler<GenericLabel> labeler = tested.getLabeler("index", true)) {
       labeler.add(GenericLabel.withSpan(10, 20));
@@ -199,7 +201,7 @@ class DocumentTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({ "unchecked", "rawtypes" })
   void addLabels() {
     List<GenericLabel> labels = Arrays.asList(
         GenericLabel.createSpan(10, 20),

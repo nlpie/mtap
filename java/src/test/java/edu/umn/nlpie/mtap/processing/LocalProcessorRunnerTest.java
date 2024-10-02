@@ -48,6 +48,7 @@ class LocalProcessorRunnerTest {
     );
   }
 
+  @SuppressWarnings("rawtypes")
   @Test
   void process() {
     JsonObject params = JsonObjectImpl.newBuilder().build();

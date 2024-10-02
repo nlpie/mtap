@@ -74,6 +74,7 @@ public class EventProcessorTest {
   private class WithStartedStopwatch extends EventProcessor {
     Duration duration;
 
+    @SuppressWarnings("rawtypes")
     @Override
     public void process(
         @NotNull Event event,
@@ -94,6 +95,7 @@ public class EventProcessorTest {
   private class WithUnstartedStopwatch extends EventProcessor {
     private Duration duration;
 
+    @SuppressWarnings("rawtypes")
     @Override
     public void process(
         @NotNull Event event,

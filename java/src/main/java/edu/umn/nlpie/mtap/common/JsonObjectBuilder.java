@@ -1,108 +1,97 @@
-/*
- * Copyright 2019 Regents of the University of Minnesota.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package edu.umn.nlpie.mtap.common;
 
-import com.google.protobuf.Struct;
-import edu.umn.nlpie.mtap.model.Builder;
+import java.util.AbstractMap;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.Map;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 
-public interface JsonObjectBuilder<T extends JsonObjectBuilder, R extends JsonObject>
-    extends Map<@NotNull String, @Nullable Object>, Builder<R> {
-  /**
-   * Copies the contents of a protobuf struct to this builder.
-   *
-   * @param struct The protobuf struct message.
-   *
-   * @return A new json object containing all of the information from the struct.
-   */
-  T copyStruct(Struct struct);
+import edu.umn.nlpie.mtap.model.Builder;
 
-  /**
-   * Returns the property cast as a {@link String} object.
+/**
+   * An abstract builder for json objects which can used by subclasses to provide builders.
    *
-   * @param propertyName The property name.
-   *
-   * @return Value stored under the property name given cast as a String.
+   * @param <T> The newBuilder type to be returned by newBuilder methods.
    */
-  String getStringValue(@NotNull String propertyName);
+  public abstract class JsonObjectBuilder<T extends JsonObjectBuilder<?, ?>, R extends JsonObject>
+      extends AbstractMap<@NotNull String, @Nullable Object> implements Builder<R> {
 
-  /**
-   * Returns the property cast as a {@link Double} object.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a Double.
-   */
-  Double getNumberValue(@NotNull String propertyName);
+    protected Map<@NotNull String, @Nullable Object> backingMap = new HashMap<>();
 
-  /**
-   * Returns the property cast as a {@link Boolean} object.
-   *
-   * @param propertyName The name of the property.
-   *
-   * @return Value stored under the property name cast as a JsonObject.
-   */
-  Boolean getBooleanValue(@NotNull String propertyName);
+    @SuppressWarnings("unchecked")
+    @NotNull
+    public T copyStruct(Struct struct) {
+      if (struct == null) {
+        return (T) this;
+      }
+      Map<String, Value> fieldsMap = struct.getFieldsMap();
+      for (Entry<String, Value> entry : fieldsMap.entrySet()) {
+        setProperty(entry.getKey(), JsonObject.getValue(entry.getValue()));
+      }
+      return (T) this;
+    }
 
-  /**
-   * Returns the property cast as a {@link AbstractJsonObject}.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a JsonObject.
-   */
-  AbstractJsonObject getJsonObjectValue(@NotNull String propertyName);
+    public String getStringValue(@NotNull String propertyName) {
+      return (String) backingMap.get(propertyName);
+    }
 
-  /**
-   * Returns the property cast as a {@link List}.
-   *
-   * @param propertyName The name the property is stored under.
-   *
-   * @return Value stored under the property name cast as a {@link List}.
-   */
-  List getListValue(@NotNull String propertyName);
+    public Double getNumberValue(@NotNull String propertyName) {
+      return (Double) backingMap.get(propertyName);
+    }
 
-  /**
-   * Builder method which sets a property keyed by {@code propertyName} to the {@code value}.
-   *
-   * @param propertyName The name the property should be stored under.
-   * @param value        The value of the property.
-   *
-   * @return This builder.
-   */
-  T setProperty(@NotNull String propertyName, @Nullable Object value);
+    public Boolean getBooleanValue(@NotNull String propertyName) {
+      return (Boolean) backingMap.get(propertyName);
+    }
 
-  /**
-   * Builder method which sets all of the properties in {@code map}.
-   *
-   * @param map The map of string property names to property values.
-   *
-   * @return This builder.
-   */
-  T setProperties(Map<@NotNull String, @Nullable Object> map);
+    public JsonObject getJsonObjectValue(@NotNull String propertyName) {
+      return (JsonObject) backingMap.get(propertyName);
+    }
 
-  /**
-   * Creates the concrete json object type.
-   *
-   * @return The json object implementation type.
-   */
-  R build();
-}
+    public List<?> getListValue(@NotNull String propertyName) {
+      return (List<?>) backingMap.get(propertyName);
+    }
+
+    @SuppressWarnings("unchecked")
+    @NotNull
+    public final T setProperty(@NotNull String propertyName, @Nullable Object value) {
+      put(propertyName, value);
+      return (T) this;
+    }
+
+    @Override
+    public Object put(@NotNull String key, @Nullable Object value) {
+      Deque<Object> parents = new LinkedList<>();
+      parents.push(this);
+      return backingMap.put(key, JsonObject.jsonify(value, parents));
+    }
+
+    @SuppressWarnings("unchecked")
+    public final T setProperties(Map<@NotNull String, @Nullable Object> map) {
+      putAll(map);
+      return (T) this;
+    }
+
+    @Override
+    public boolean containsKey(Object key) {
+      return backingMap.containsKey(key);
+    }
+
+    @Override
+    public Object get(Object key) {
+      return backingMap.get(key);
+    }
+
+    @Override
+    public Set<Map.Entry<@NotNull String, @Nullable Object>> entrySet() {
+      return Collections.unmodifiableMap(backingMap).entrySet();
+    }
+  }

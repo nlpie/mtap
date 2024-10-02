@@ -7,8 +7,6 @@ import edu.umn.nlpie.mtap.api.v1.Processing;
 import edu.umn.nlpie.mtap.api.v1.ProcessorGrpc;
 import edu.umn.nlpie.mtap.common.JsonObject;
 import edu.umn.nlpie.mtap.common.JsonObjectImpl;
-import edu.umn.nlpie.mtap.discovery.DiscoveryMechanism;
-import edu.umn.nlpie.mtap.discovery.ServiceInfo;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
@@ -24,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
-import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -50,9 +47,6 @@ class DefaultProcessorServiceTest {
   TimingService mockTimingService;
 
   @Mock
-  DiscoveryMechanism mockDiscoveryMechanism;
-
-  @Mock
   HealthService mockHealthService;
 
   String processorId = "processorId";
@@ -71,27 +65,8 @@ class DefaultProcessorServiceTest {
   }
 
   @Test
-  void testLifecycleWithRegistration() throws UnknownHostException, InterruptedException {
-    DefaultProcessorService sut = createProcessorService(true);
-
-    sut.started(8888);
-    ArgumentCaptor<ServiceInfo> captor = ArgumentCaptor.forClass(ServiceInfo.class);
-    verify(mockDiscoveryMechanism).register(captor.capture());
-    ServiceInfo value = captor.getValue();
-    assertEquals("processorId", value.getName());
-    assertEquals("uniqueServiceId", value.getIdentifier());
-
-    sut.close();
-
-    ArgumentCaptor<ServiceInfo> deCaptor = ArgumentCaptor.forClass(ServiceInfo.class);
-    verify(mockDiscoveryMechanism).deregister(deCaptor.capture());
-    ServiceInfo deInfo = deCaptor.getValue();
-    assertEquals("uniqueServiceId", deInfo.getIdentifier());
-  }
-
-  @Test
   void testProcess() throws IOException, InterruptedException {
-    DefaultProcessorService processorService = createProcessorService(false);
+    DefaultProcessorService processorService = createProcessorService();
     createServer(processorService).start();
     ProcessorGrpc.ProcessorBlockingStub stub = createStub();
 
@@ -127,7 +102,7 @@ class DefaultProcessorServiceTest {
 
   @Test
   void processFailure() throws IOException, InterruptedException {
-    DefaultProcessorService processorService = createProcessorService(false);
+    DefaultProcessorService processorService = createProcessorService();
     createServer(processorService).start();
     ProcessorGrpc.ProcessorBlockingStub stub = createStub();
 
@@ -146,7 +121,7 @@ class DefaultProcessorServiceTest {
 
   @Test
   void getInfo() throws IOException {
-    DefaultProcessorService processorService = createProcessorService(false);
+    DefaultProcessorService processorService = createProcessorService();
     createServer(processorService).start();
     ProcessorGrpc.ProcessorBlockingStub stub = createStub();
 
@@ -169,7 +144,7 @@ class DefaultProcessorServiceTest {
 
   @Test
   void getStats() throws IOException, InterruptedException, ExecutionException {
-    DefaultProcessorService processorService = createProcessorService(false);
+    DefaultProcessorService processorService = createProcessorService();
     createServer(processorService).start();
     ProcessorGrpc.ProcessorBlockingStub stub = createStub();
 
@@ -200,11 +175,10 @@ class DefaultProcessorServiceTest {
     assertEquals(30, stats.getTimingStatsOrThrow("processorId:process_method").getMax().getNanos());
   }
 
-  private DefaultProcessorService createProcessorService(boolean register) {
+  private DefaultProcessorService createProcessorService() {
     return new DefaultProcessorService(
         mockRunner,
         mockTimingService,
-        register ? mockDiscoveryMechanism : null,
         mockHealthService,
         processorId,
         uniqueServiceId,

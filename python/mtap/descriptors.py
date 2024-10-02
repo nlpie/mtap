@@ -85,9 +85,8 @@ class ProcessorDescriptor:
     """Identifying service name both for launching via command line and
     for service registration.
 
-    Should be a mix of alphanumeric characters and dashes so that it
-    plays nice with the DNS name requirements of service discovery
-    tools like Consul.
+    Should be a mix of alphanumeric characters and dashes to comply with DNS
+    name requirements.
     """
 
     human_name: Optional[str] = None

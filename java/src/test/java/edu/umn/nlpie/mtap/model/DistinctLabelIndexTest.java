@@ -376,6 +376,7 @@ class DistinctLabelIndexTest {
     assertFalse(tested.contains(null));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void containsNotLabel() {
     assertFalse(tested.contains("blub"));
@@ -386,6 +387,7 @@ class DistinctLabelIndexTest {
     assertFalse(tested.contains(Span.of(null, 7, 10)));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void containsDifferentLabel() {
     GenericLabel genericLabel = GenericLabel.withSpan(11, 15).setProperty("blah", 1)
@@ -541,6 +543,7 @@ class DistinctLabelIndexTest {
     assertEquals(-1, asList.indexOf(Span.of(null, 6, 11)));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void asListIndexOfNotLabel() {
     List<Span> asList = tested.asList();
@@ -580,6 +583,7 @@ class DistinctLabelIndexTest {
     assertFalse(tested.asList().contains(null));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void asListContainsNotLabel() {
     assertFalse(tested.asList().contains("blub"));
@@ -590,6 +594,7 @@ class DistinctLabelIndexTest {
     assertFalse(tested.asList().contains(Span.of(null, 7, 10)));
   }
 
+  @SuppressWarnings("unlikely-arg-type")
   @Test
   void asListContainsDifferentLabel() {
     GenericLabel genericLabel = GenericLabel.withSpan(11, 15).setProperty("blah", 1)
