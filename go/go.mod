@@ -6,6 +6,7 @@ toolchain go1.22.1
 
 require (
 	github.com/golang/glog v1.2.2
+	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0
 	github.com/spf13/cast v1.7.0
