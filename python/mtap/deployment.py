@@ -108,6 +108,9 @@ class GlobalSettings:
 
         """
         conf = conf or {}
+        if "register" in conf:
+            del conf["register"]
+            print("The register setting has been deprecated from global deployment configuration, and currently does nothing.")
         return GlobalSettings(**conf)
 
 
@@ -241,6 +244,9 @@ class EventsDeployment:
             EventsDeployment or None from the configuration dictionary.
         """
         conf = conf or {}
+        if "register" in conf:
+            del conf["register"]
+            print("The register setting has been deprecated from events service deployment configuration, and currently does nothing.")
         return EventsDeployment(**conf)
 
 
@@ -365,6 +371,9 @@ class ProcessorDeployment:
             ProcessorDeployment object that can be used to construct the call
             for the processor.
         """
+        if "register" in conf:
+            del conf["register"]
+            print("The register setting has been deprecated from processor deployment configuration, and currently does nothing.")
         return ProcessorDeployment(**conf)
 
 
