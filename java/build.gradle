@@ -135,7 +135,7 @@ dependencies {
     testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.11.1'
 
     withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-slf4j2-impl', version: '2.24.1'
-    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.24.0'
+    withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.24.1'
 }
 
 protobuf {
