@@ -4,7 +4,7 @@ requires = [
     "setuptools-scm[toml]>=6.2",
     "wheel>=0.38.0",
     "importlib_resources>=1.3",
-    "grpcio-tools==1.66.2",
+    "grpcio-tools==1.68.0",
     "googleapis-common-protos>=1.3.1",
 ]
 build-backend = "setuptools.build_meta"
@@ -41,9 +41,9 @@ classifiers = [
     "Topic :: Text Processing :: Linguistic",
 ]
 dependencies = [
-    "grpcio==1.66.2",
-    "grpcio-health-checking==1.66.2",
-    "grpcio-status==1.66.2",
+    "grpcio==1.68.0",
+    "grpcio-health-checking==1.68.0",
+    "grpcio-status==1.68.0",
     "pyyaml>=6.0.0",
     "tqdm>=4.0.0",
     "googleapis-common-protos>=1.3.1",
@@ -69,7 +69,7 @@ write_to = "python/mtap/version.py"
 test = [
     "pytest==8.3.3",
     "pytest-mock==3.14.0",
-    "grpcio-testing==1.66.2",
+    "grpcio-testing==1.68.0",
     "requests==2.32.3",
 ]
 docs = [
