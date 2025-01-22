@@ -8,6 +8,7 @@ updates:
       grpc-deps:
         patterns:
           - "grpcio*"
+          - "protobuf*"
   - package-ecosystem: gradle
     directory: /java/
     schedule:
