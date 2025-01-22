@@ -20,12 +20,16 @@ updates:
       grpc-deps:
         patterns:
           - "io.grpc*"
+          - "com.google.api.grpc*"
       protobuf:
         patterns:
           - "com.google.protobuf*"
       slf4j:
         patterns:
           - "org.slf4j*"
+      junit:
+        patterns:
+          - "org.junit*"
   - package-ecosystem: gomod
     directory: /go/
     schedule:

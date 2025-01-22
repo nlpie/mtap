@@ -106,8 +106,8 @@ configurations {
 }
 
 dependencies {
-    api group: 'org.jetbrains', name:'annotations', version: '26.0.0'
-    api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '2.46.0'
+    api group: 'org.jetbrains', name:'annotations', version: '26.0.1'
+    api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '2.50.1'
     api group: 'args4j', name: 'args4j', version: '2.37'
 
     implementation group: 'com.google.guava', name: 'guava', version: '33.3.1-jre'
@@ -127,12 +127,12 @@ dependencies {
     compileOnly group:'org.apache.tomcat', name: 'annotations-api', version:'6.0.53'
     // end needed for grpc
 
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.14.1'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.15.2'
     testImplementation group: 'io.grpc', name: 'grpc-testing', version: '1.68.0'
     testImplementation group: 'io.grpc', name: 'grpc-inprocess', version: '1.68.0'
-    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.11.2'
+    testImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.11.4'
     testRuntimeOnly group: 'org.slf4j', name: 'slf4j-simple', version: '2.0.16'
-    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.11.2'
+    testRuntimeOnly group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.11.4'
 
     withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-slf4j2-impl', version: '2.24.1'
     withLogBindingRuntimeOnly group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.24.1'
