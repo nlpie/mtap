@@ -4,6 +4,7 @@ requires = [
     "setuptools-scm[toml]>=6.2",
     "wheel>=0.38.0",
     "importlib_resources>=1.3",
+    # When this gets updated check "python -m grpc_tools.protoc --version" and update the protobuf dependency below
     "grpcio-tools==1.67.1",
     "googleapis-common-protos>=1.3.1",
 ]
@@ -14,11 +15,11 @@ name = "mtap"
 description = "A framework for distributed text analysis using gRPC and microservices-based architecture."
 readme = "README.md"
 requires-python = ">=3.9"
-license = {file = "LICENSE.txt"}
+license = { file = "LICENSE.txt" }
 keywords = ["nlp", "grpc"]
 authors = [
-    {name = "University of Minnesota NLP/IE Group", email = "nlp-ie@umn.edu"},
-    {name = "Ben Knoll", email = "benknoll@umn.edu"}
+    { name = "University of Minnesota NLP/IE Group", email = "nlp-ie@umn.edu" },
+    { name = "Ben Knoll", email = "benknoll@umn.edu" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -43,7 +44,7 @@ dependencies = [
     "grpcio==1.67.1",
     "grpcio-health-checking==1.67.1",
     "grpcio-status==1.67.1",
-    "protobuf>=5.27.2",
+    "protobuf>=5.27.2",                # This is determined by the grpcio-tools build tool above.
     "pyyaml>=6.0.0",
     "tqdm>=4.0.0",
     "googleapis-common-protos>=1.3.1",
@@ -55,7 +56,7 @@ dynamic = ["version"]
 filterwarnings = [
     "ignore:Deprecated call to `pkg_resources\\.declare_namespace\\('.*'\\):DeprecationWarning",
     "ignore::DeprecationWarning:google.rpc",
-    "ignore::DeprecationWarning:pkg_resources"
+    "ignore::DeprecationWarning:pkg_resources",
 ]
 
 [tool.setuptools.packages.find]
@@ -72,10 +73,7 @@ test = [
     "grpcio-testing==1.67.1",
     "requests==2.32.3",
 ]
-docs = [
-    "sphinx==8.1.3",
-    "sphinx-rtd-theme==3.0.2"
-]
+docs = ["sphinx==8.1.3", "sphinx-rtd-theme==3.0.2"]
 
 [project.urls]
 homepage = "https://nlpie.github.io/mtap"
