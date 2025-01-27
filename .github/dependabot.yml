@@ -31,6 +31,9 @@ updates:
       junit:
         patterns:
           - "org.junit*"
+      log4j:
+        patterns:
+          - "org.apache.logging*"
   - package-ecosystem: gomod
     directory: /go/
     schedule:
