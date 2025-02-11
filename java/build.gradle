@@ -107,7 +107,7 @@ configurations {
 
 dependencies {
     api group: 'org.jetbrains', name:'annotations', version: '26.0.2'
-    api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '2.51.0'
+    api group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: '2.52.0'
     api group: 'args4j', name: 'args4j', version: '2.37'
 
     implementation group: 'com.google.guava', name: 'guava', version: '33.4.0-jre'
