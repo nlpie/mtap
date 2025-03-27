@@ -2,8 +2,6 @@ module github.com/nlpie/mtap/go
 
 go 1.22
 
-toolchain go1.22.1
-
 require (
 	github.com/golang/glog v1.2.4
 	github.com/golang/protobuf v1.5.4
@@ -14,7 +12,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f
 	google.golang.org/grpc v1.70.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
