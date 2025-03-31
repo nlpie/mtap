@@ -140,14 +140,12 @@ def _mp_initialize(proc: EventProcessor,
 
 
 def _mp_call_process(event_id, event_service_instance_id, params):
-    global _mp_processor
-    global _mp_client
     with Processor.enter_context() as c, \
             Event(
                 event_id=event_id,
                 event_service_instance_id=event_service_instance_id,
                 client=_mp_client
-            ) as event:
+    ) as event:
         with Processor.started_stopwatch('process_method'):
             result = _mp_processor.process(event, params)
         return result, c.times, event.created_indices
