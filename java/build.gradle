@@ -127,7 +127,7 @@ dependencies {
     compileOnly group:'org.apache.tomcat', name: 'annotations-api', version:'6.0.53'
     // end needed for grpc
 
-    testImplementation(platform('org.junit:junit-bom:5.12.1'))
+    testImplementation(platform('org.junit:junit-bom:5.12.2'))
     testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.16.1'
     testImplementation group: 'io.grpc', name: 'grpc-testing', version: '1.71.0'
     testImplementation group: 'io.grpc', name: 'grpc-inprocess', version: '1.71.0'
