@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/viper v1.20.1
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb
-	google.golang.org/grpc v1.72.0
+	google.golang.org/grpc v1.72.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.36.6
 )
