@@ -128,7 +128,7 @@ dependencies {
     // end needed for grpc
 
     testImplementation(platform('org.junit:junit-bom:5.12.2'))
-    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.16.1'
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.18.0'
     testImplementation group: 'io.grpc', name: 'grpc-testing', version: '1.71.0'
     testImplementation group: 'io.grpc', name: 'grpc-inprocess', version: '1.71.0'
     testImplementation('org.junit.jupiter:junit-jupiter')
