@@ -121,8 +121,8 @@ dependencies {
     implementation group: 'io.grpc', name: 'grpc-services', version: '1.71.0'
     implementation group: 'io.grpc', name: 'grpc-netty-shaded', version: '1.71.0'
 
-    implementation group: 'com.google.protobuf', name: 'protobuf-java', version: '3.25.7'
-    implementation group: 'com.google.protobuf', name: 'protobuf-java-util', version: '3.25.7'
+    implementation group: 'com.google.protobuf', name: 'protobuf-java', version: '3.25.8'
+    implementation group: 'com.google.protobuf', name: 'protobuf-java-util', version: '3.25.8'
 
     compileOnly group:'org.apache.tomcat', name: 'annotations-api', version:'6.0.53'
     // end needed for grpc
@@ -140,7 +140,7 @@ dependencies {
 }
 
 protobuf {
-    protoc { artifact = "com.google.protobuf:protoc:3.25.7" }
+    protoc { artifact = "com.google.protobuf:protoc:3.25.8" }
     plugins {
         grpc { artifact = "io.grpc:protoc-gen-grpc-java:1.71.0" }
     }
