@@ -32,6 +32,14 @@ from mtap.processing._processor import Processor, EventProcessor
 logger = logging.getLogger('mtap.processing')
 
 
+def _group_created_indices(created_indices):
+    grouped = {}
+    for created_index in created_indices:
+        grouped.setdefault(created_index.document_name, []).append(
+            created_index.index_name)
+    return grouped
+
+
 class LocalRunner(ProcessingComponent):
     def __init__(self,
                  processor: EventProcessor,
@@ -140,6 +148,46 @@ class RemoteRunner(ProcessingComponent):
     def component_id(self) -> str:
         return self._component_id
 
+    def _rpc_error_message(self, rpc_error):
+        code = rpc_error.code()
+        if code == grpc.StatusCode.DEADLINE_EXCEEDED:
+            return (f'Deadline exceeded waiting for '
+                    f'"{self.processor_name}" to process an event.')
+        if code == grpc.StatusCode.UNAVAILABLE:
+            return (f'Failed to connect to "{self.processor_name}", check '
+                    f'that the service is running and the address is '
+                    f'correctly configured.')
+        return None
+
+    def _handle_rpc_error(self, rpc_error, exc_info):
+        try:
+            raise ProcessingException.from_rpc_error(
+                rpc_error, self.component_id, self._address
+            )
+        except NotStatusException:
+            raise ProcessingException.from_local_exception(
+                *exc_info, self.component_id, self._address,
+                self._rpc_error_message(rpc_error)
+            )
+
+    def _process_remotely(self, request):
+        with Processor.started_stopwatch('remote_call'):
+            try:
+                return self._stub.Process(
+                    request,
+                    timeout=self._call_timeout,
+                    metadata=[('service-name', self.processor_name)])
+            except grpc.RpcError as rpc_error:
+                self._handle_rpc_error(rpc_error, sys.exc_info())
+            except Exception as e:
+                msg = None
+                if (isinstance(e, ValueError)
+                        and str(e) == 'Cannot invoke RPC on closed channel!'):
+                    msg = "Channel was closed when trying to process."
+                raise ProcessingException.from_local_exception(
+                    *sys.exc_info(), self.component_id, self._address, msg
+                )
+
     def call_process(self, event_id, event_instance_id, params):
         logger.debug('calling process (%s, %s) on event: (%s, %s)',
                      self.processor_name, self._address, event_id,
@@ -155,55 +203,15 @@ class RemoteRunner(ProcessingComponent):
                 event_service_instance_id=event_instance_id
             )
             copy_dict_to_struct(p, request.params, [p])
-            with Processor.started_stopwatch('remote_call'):
-                try:
-                    response = self._stub.Process(
-                        request,
-                        timeout=self._call_timeout,
-                        metadata=[('service-name', self.processor_name)])
-                except grpc.RpcError as rpc_error:
-                    exc_info = sys.exc_info()
-                    try:
-                        raise ProcessingException.from_rpc_error(
-                            rpc_error, self.component_id, self._address
-                        )
-                    except NotStatusException:
-                        msg = None
-                        if rpc_error.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
-                            msg = f'Deadline exceeded waiting for "{self.processor_name}" to process an event.'
-                        if rpc_error.code() == grpc.StatusCode.UNAVAILABLE:
-                            msg = f'Failed to connect to "{self.processor_name}", check '
-                            "that the service is running and the address is "
-                            "correctly configured."
-                        raise ProcessingException.from_local_exception(
-                            *exc_info, self.component_id, self._address, msg
-                        )
-                except Exception as e:
-                    msg = None
-                    if e == ValueError('Cannot invoke RPC on closed channel!'):
-                        msg = "Channel was closed when trying to process."
-                    raise ProcessingException.from_local_exception(
-                        *sys.exc_info(), self.component_id, self._address, msg
-                    )
+            response = self._process_remotely(request)
 
             r = {}
             copy_struct_to_dict(response.result, r)
 
-            timing_info = response.timing_info
-            for k, v in timing_info.items():
+            for k, v in response.timing_info.items():
                 context.add_time(k, v.ToTimedelta())
 
-            created_indices = {}
-            for created_index in response.created_indices:
-                try:
-                    doc_created_indices = created_indices[
-                        created_index.document_name]
-                except KeyError:
-                    doc_created_indices = []
-                    created_indices[
-                        created_index.document_name] = doc_created_indices
-                doc_created_indices.append(created_index.index_name)
-
+            created_indices = _group_created_indices(response.created_indices)
             return r, context.times, created_indices
 
     def close(self):
